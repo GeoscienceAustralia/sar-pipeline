@@ -1,2 +1,3 @@
 *.so.*
 credentials
+__pycache__
