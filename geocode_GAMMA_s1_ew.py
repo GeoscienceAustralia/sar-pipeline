@@ -1,6 +1,6 @@
 import asf_search as asf
 import os
-import yaml
+import tomli
 from pyroSAR import identify
 from pyroSAR.gamma import geocode
 from pyroSAR.gamma.api import diff
@@ -20,6 +20,10 @@ if __name__ == "__main__":
     log.setLevel(logging.INFO)
 
     REPO_DIR = Path(__file__).resolve().parent
+
+    with open(REPO_DIR.joinpath("config.toml"), "rb") as f:
+        config_dict = tomli.load(f)
+        
     PROJ_DIR = REPO_DIR.parent
     DATA_DIR = PROJ_DIR.joinpath("data")
     SCENE_DIR = DATA_DIR.joinpath("scenes")
@@ -30,8 +34,8 @@ if __name__ == "__main__":
     ORBIT_DIR = DATA_DIR.joinpath("orbits")
 
     # Set up GAMMA and lib
-    GAMMA_HOME_PATH = "/g/data/dg9/GAMMA/GAMMA_SOFTWARE-20230712"
-    REQUIRED_LIBS_PATH = "/g/data/yp75/projects/pyrosar_processing/s1-rtc-pyrosar-notebook:/apps/fftw3/3.3.10/lib:/apps/gdal/3.6.4/lib64"
+    GAMMA_HOME_PATH = config_dict["gamma"]["path"]
+    REQUIRED_LIBS_PATH = config_dict["gamma"]["required_libs"]
 
     gamma_env_value = os.environ.get("GAMMA_HOME", None)
     ld_lib_env_value = os.environ.get("LD_LIBRARY_PATH", None)
@@ -46,9 +50,7 @@ if __name__ == "__main__":
         ld_lib_env_value = os.environ["LD_LIBRARY_PATH"]
 
     # Set scene variables
-    SCENE_ID = "S1A_EW_GRDM_1SDH_20220117T122010_20220117T122115_041500_04EF6B_6437"
-    MODE = "EW"
-    PRODUCT = "GRD_MD"
+    SCENE_ID = config_dict["scene"]
 
     scene_zip = SCENE_DIR.joinpath(f"{SCENE_ID}.zip")
     dem = DEM_DIR.joinpath(f"{SCENE_ID}_dem")
