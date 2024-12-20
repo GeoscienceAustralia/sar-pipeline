@@ -20,18 +20,26 @@ if __name__ == "__main__":
     log.setLevel(logging.INFO)
 
     REPO_DIR = Path(__file__).resolve().parent
+    CONFIG_DIR = REPO_DIR.parent.joinpath("configuration_files")
 
-    with open(REPO_DIR.joinpath("config.toml"), "rb") as f:
+    config_file = CONFIG_DIR.joinpath("S1A_EW_GRDM_1SDH_20191129T171536_20191129T171618_030128_03713E_7A5A_config.toml")
+
+    with open(config_file, "rb") as f:
         config_dict = tomli.load(f)
-        
-    PROJ_DIR = REPO_DIR.parent
-    DATA_DIR = PROJ_DIR.joinpath("data")
-    SCENE_DIR = DATA_DIR.joinpath("scenes")
+
+    # Set up paths
+    DATA_DIR = Path(config_dict["paths"]["data"])
     RESULTS_DIR = DATA_DIR.joinpath("results/gamma")
-    DEM_DIR = DATA_DIR.joinpath("dem")
     TEMP_DIR = DATA_DIR.joinpath("scratch")
     LOG_DIR = TEMP_DIR.joinpath("logs")
     ORBIT_DIR = DATA_DIR.joinpath("orbits")
+
+    # Set up files
+    scene_zip = Path(config_dict["scene"])
+    orbit_eof = Path(config_dict["orbit"])
+    dem_tif = Path(config_dict["dem"])
+    dem_gamma = TEMP_DIR.joinpath(f"dem/{dem_tif.stem}")
+    dem_gamma_par = dem_gamma.with_suffix('.par')
 
     # Set up GAMMA and lib
     GAMMA_HOME_PATH = config_dict["gamma"]["path"]
@@ -48,14 +56,6 @@ if __name__ == "__main__":
     if ld_lib_env_value is None:
         os.environ["LD_LIBRARY_PATH"] = REQUIRED_LIBS_PATH
         ld_lib_env_value = os.environ["LD_LIBRARY_PATH"]
-
-    # Set scene variables
-    SCENE_ID = config_dict["scene"]
-
-    scene_zip = SCENE_DIR.joinpath(f"{SCENE_ID}.zip")
-    dem = DEM_DIR.joinpath(f"{SCENE_ID}_dem")
-    dem_src = DEM_DIR.joinpath(f"{SCENE_ID}_dem.tif")
-    dem_gamma = DEM_DIR.joinpath(f"{SCENE_ID}_dem.par")
 
     # get scene metadata
     if scene_zip.exists():
@@ -75,13 +75,13 @@ if __name__ == "__main__":
         # Function
         log.info("running DEM")
         diff.dem_import(
-            input_DEM=str(dem_src), 
-            DEM=str(dem),
-            DEM_par=str(dem_gamma),
+            input_DEM=str(dem_tif), 
+            DEM=str(dem_gamma),
+            DEM_par=str(dem_gamma_par),
             no_data=-9999,
             geoid="-", 
             logpath=str(LOG_DIR), 
-            outdir=str(DEM_DIR)
+            outdir=str(dem_tif.parent)
         )
         log.info("finished DEM")
 
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     log.info("running geocode")
     geocode(
         scene=pyrosar_scene_id, 
-        dem=str(dem), 
+        dem=str(dem_gamma), 
         tmpdir=str(TEMP_DIR),
         outdir=str(RESULTS_DIR), 
         spacing=spacing, 
@@ -102,7 +102,7 @@ if __name__ == "__main__":
         func_geoback=1,
         nodata=(0, -99), 
         update_osv=True, 
-        osvdir=ORBIT_DIR, 
+        osvdir=str(ORBIT_DIR), 
         allow_RES_OSV=False,
         cleanup=False, 
         export_extra=['inc_geo','dem_seg_geo','ls_map_geo','pix_area_gamma0_geo','pix_ratio_geo'], 

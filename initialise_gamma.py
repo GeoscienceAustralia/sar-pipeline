@@ -1,7 +1,17 @@
 import os
+import logging
+import sys
+
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)s : %(message)s",
+    level=logging.INFO,
+    stream=sys.stdout,
+)
+log = logging.getLogger("__file__")
+log.setLevel(logging.INFO)
 
 GAMMA_HOME_PATH = "/g/data/dg9/GAMMA/GAMMA_SOFTWARE-20230712"
-REQUIRED_LIBS_PATH = "/g/data/yp75/projects/pyrosar_processing/s1-rtc-pyrosar-notebook:/apps/fftw3/3.3.10/lib:/apps/gdal/3.6.4/lib64"
+REQUIRED_LIBS_PATH = "/g/data/yp75/projects/pyrosar_processing/sar-pyrosar-nci:/apps/fftw3/3.3.10/lib:/apps/gdal/3.6.4/lib64"
 
 if os.environ.get("GAMMA_HOME", None) is None:
     
