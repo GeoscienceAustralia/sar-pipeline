@@ -1,4 +1,4 @@
-from antarctica_sar.nci.preparation.dem import (
+from sar_antarctica.nci.preparation.dem import (
     check_bounds_cross_antimeridian,
     split_bounds_at_am_crossing
 ) 
