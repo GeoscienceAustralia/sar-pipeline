@@ -262,4 +262,4 @@ dependencies:
       - shapely==2.0.4
       - tenacity==8.2.2
       - tzlocal==5.2
-prefix: /g/data/yp75/projects/pyrosar_processing/micromamba/envs/pyrosar_rtc
+      

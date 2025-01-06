@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "antarctica-sar"
+requires-python = ">=3.8"
+authors = [
+    {name="Geoscience Australia", email="DigitalEarthAntarctica@ga.gov.au"},
+]
+description = "Antarctic SAR Backscatter Processing Pipeline"
+classifiers=[
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+version = "0.1" # TODO base this on files in proje t
+
+[project.urls]
+Homepage = "https://github.com/GeoscienceAustralia/sar-pyrosar-nci.git"
+# Documentation = "XXX"
+
+[tool.pytest.ini_options]
+testpaths = ["tests/*"]
+
+[tool.setuptools.packages.find]
+where = ["."]
