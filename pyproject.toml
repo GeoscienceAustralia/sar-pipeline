@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "antarctica-sar"
+name = "sar-antarctica"
 requires-python = ">=3.8"
 authors = [
     {name="Geoscience Australia", email="DigitalEarthAntarctica@ga.gov.au"},
@@ -18,7 +18,7 @@ classifiers=[
 version = "0.1" # TODO base this on files in proje t
 
 [project.urls]
-Homepage = "https://github.com/GeoscienceAustralia/sar-pyrosar-nci.git"
+Homepage = "https://github.com/GeoscienceAustralia/sar-antarctica.git"
 # Documentation = "XXX"
 
 [tool.pytest.ini_options]

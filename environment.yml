@@ -1,4 +1,4 @@
-name: pyrosar_rtc
+name: sar-antarctica
 channels:
   - conda-forge
   - defaults
