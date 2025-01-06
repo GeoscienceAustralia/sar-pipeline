@@ -2,31 +2,14 @@ from datetime import datetime
 from pathlib import Path
 import re
 
+from scenes import parse_scene_file_dates
+
 # Constants for NCI
 S1_DIR = Path("/g/data/fj7/Copernicus/Sentinel-1/")
 POE_DIR = "POEORB"
 RES_DIR = "RESORB"
 ORBIT_DIRS = [POE_DIR, RES_DIR]
 SENSORS = ["S1A", "S1B"]
-
-def parse_scene_file_dates(scene_id: str) -> tuple[datetime, datetime]:
-    """
-    Extracts start_date and end_date from the given scene ID.
-    """
-    # Regex pattern to match the dates
-    pattern = (r"(?P<start_date>\d{8}T\d{6})_"
-               r"(?P<stop_date>\d{8}T\d{6})_")
-    
-    match = re.search(pattern, scene_id)
-
-    if not match:
-        raise ValueError("The input string does not match the expected format.")
-    
-    start_date = datetime.strptime(match.group('start_date'), "%Y%m%dT%H%M%S")
-    stop_date = datetime.strptime(match.group('stop_date'), "%Y%m%dT%H%M%S")
-
-    return (start_date, stop_date)
-
 
 def parse_orbit_file_dates(orbit_file_name: str) -> tuple[datetime, datetime, datetime]:
     """
@@ -60,7 +43,7 @@ def parse_orbit_file_dates(orbit_file_name: str) -> tuple[datetime, datetime, da
 
     return (published_date, start_date, stop_date)
 
-def find_latest_orbit_for_scene(scene_id: str, poe_only: bool = True):
+def find_latest_orbit_for_scene(scene_id: str, poe_only: bool = True) -> Path:
     """
     Identifies the most recent orbit file available for a given scene, based 
     on the scene's start and end date.
@@ -93,6 +76,8 @@ def find_latest_orbit_for_scene(scene_id: str, poe_only: bool = True):
 
     if latest_orbit is None:
         raise ValueError("No valid orbit was found.")
+    else:
+        latest_orbit_file = latest_orbit[0]
     
-    return latest_orbit
+    return latest_orbit_file
 
