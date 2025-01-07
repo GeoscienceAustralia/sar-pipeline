@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 import re
 
-from scenes import parse_scene_file_dates
+from sar_antarctica.nci.preparation.scenes import parse_scene_file_dates
 
 # Constants for NCI
 S1_DIR = Path("/g/data/fj7/Copernicus/Sentinel-1/")
