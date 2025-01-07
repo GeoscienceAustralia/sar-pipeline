@@ -7,6 +7,8 @@ def set_gamma_env_variables(gamma_home_path: str, ld_libraries_path: str):
     gamma_env = os.environ.get(GAMMA_HOME_ENV, None)
     ld_lib_env = os.environ.get(LD_LIBRARY_ENV, None)
 
+    print(os.environ[GAMMA_HOME_ENV], os.environ[LD_LIBRARY_ENV])
+
     if gamma_env is None:
         os.environ[GAMMA_HOME_ENV] = gamma_home_path
 
@@ -14,3 +16,5 @@ def set_gamma_env_variables(gamma_home_path: str, ld_libraries_path: str):
         os.environ[LD_LIBRARY_ENV] = ld_libraries_path
     else:
         os.environ[LD_LIBRARY_ENV] = os.path.join(ld_libraries_path, ":", ld_lib_env)
+
+    print(os.environ[GAMMA_HOME_ENV], os.environ[LD_LIBRARY_ENV])
