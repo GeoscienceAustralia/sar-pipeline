@@ -4,9 +4,55 @@ import re
 
 SCENE_DIR = Path("/g/data/fj7/Copernicus/Sentinel-1/C-SAR/GRD/")
 
-def parse_scene_file_dates(scene_id: str) -> tuple[datetime, datetime]:
+def parse_scene_file_sensor(scene_id: str) -> str:
+    """Extract Sentinel-1 sensor string (SA1,S1B,S1C,S1D) from scene ID
+
+    Parameters
+    ----------
+    scene_id : str
+        Sentinel-1 scene ID
+        e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
+
+    Returns
+    -------
+    str
+        Sensor string. Should be one of S1A, S1B, S1C, or S1D
+
+    Raises 
+    ------
+    ValueError
+        Did not find any of S1A, S1B, S1C, or S1D in the scene ID
     """
-    Extracts start_date and end_date from the given scene ID.
+    # Expect files to be prefaced with any of S1A, S1B, S1C, or S1D, followed by underscore
+    pattern=r"^(S1[A|B|C|D])_"
+
+    match = re.match(pattern, scene_id)
+
+    if not match:
+        raise ValueError("No valid sensor was found in the scene ID. Valid sensors are S1A, S1B, S1C, or S1D")
+
+    return match.group(1)
+
+
+def parse_scene_file_dates(scene_id: str) -> tuple[datetime, datetime]:
+    """Extracts start_date and end_date from the given scene ID.
+
+    Parameters
+    ----------
+    scene_id : str
+        Sentinel-1 scene ID
+        e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
+
+    Returns
+    -------
+    tuple[datetime, datetime]
+        A tuple containing the start and stop date for the scene as datetimes
+        e.g. (datetime(2022,06,12,12,3,48), datetime(2022,06,12,12,4,52))
+
+    Raises
+    ------
+    ValueError
+        Did not find a match to the expected date pattern of start_date followed by end_date in the scene ID
     """
     # Regex pattern to match the dates
     pattern = (r"(?P<start_date>\d{8}T\d{6})_"
@@ -23,8 +69,25 @@ def parse_scene_file_dates(scene_id: str) -> tuple[datetime, datetime]:
     return (start_date, stop_date)
 
 def find_scene_file_from_id(scene_id: str) -> Path:
-    """
-    Finds the path to the scene on GADI based on the scene ID
+    """Finds the path to the scene on GADI based on the scene ID
+
+    Parameters
+    ----------
+    scene_id : str
+        Sentinel-1 scene ID
+        e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
+
+    Returns
+    -------
+    Path
+        Location of scene on NCI GADI
+
+    Raises
+    ------
+    RuntimeError
+        Found more than one file -- expects one
+    RuntimeError
+        Found no files -- expects one. Or another Error
     """
 
     # Parse the scene dates -- only start date is needed for search
