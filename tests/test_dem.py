@@ -48,4 +48,4 @@ if __name__ == "__main__":
 
     #dem_paths = find_required_dem_tile_paths(bounds)
     #print(f'{len(dem_paths)} tiles found')
-    # get_cop30_dem_for_bounds(bounds, ellipsoid_heights=True, save_path='dem_tmp.tif')
+    get_cop30_dem_for_bounds(bounds, ellipsoid_heights=True, save_path='dem_tmp.tif')
