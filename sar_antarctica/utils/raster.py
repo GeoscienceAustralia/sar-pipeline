@@ -70,7 +70,8 @@ def expand_raster_to_bounds(
         (expanded_array, expanded_profile) of data.
     """
 
-    assert src_path or (src_profile and src_array), "Either src_path must exist, or both src_profile and src_array must be provided."
+    assert src_path or (src_profile and src_array) or src_profile, \
+        "Either src_path, src_profile and src_array, or src_profile must be provided."
 
     if src_path:
         with rasterio.open(src_path) as src:
@@ -102,14 +103,19 @@ def expand_raster_to_bounds(
         'transform': transform
     })
     fill_array = np.full((new_height, new_width), fill_value=fill_value, dtype=src_profile['dtype'])
-    trg_array, trg_profile = merge_arrays_with_geometadata(
-        arrays = [src_array, fill_array],
-        profiles = [src_profile, fill_profile],
-        resampling='bilinear',
-        nodata = src_profile['nodata'],
-        dtype = src_profile['dtype'],
-        method='first',
-    ) 
+    if src_array is not None:
+        # if a src array e.g. dem is provided to expand
+        trg_array, trg_profile = merge_arrays_with_geometadata(
+            arrays = [src_array, fill_array],
+            profiles = [src_profile, fill_profile],
+            resampling='bilinear',
+            nodata = src_profile['nodata'],
+            dtype = src_profile['dtype'],
+            method='first',
+        ) 
+    else:
+        # return the fill array that has been constructed based on the src_profile
+        trg_array, trg_profile = fill_array[np.newaxis, :, :], fill_profile
     if save_path:
         with rasterio.open(save_path, 'w', **trg_profile) as dst:
             dst.write(trg_array)

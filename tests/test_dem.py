@@ -41,8 +41,10 @@ if __name__ == "__main__":
     
     # bounds = (163.121597, -78.632782, 172.382263, -76.383263) # full s1 scene
     # bounds = (165, -76.632782, 170, -75) # smaller area
-    #bounds = (-177.884048, -78.176201, 178.838364, -75.697151) # full AM scene bounds
-    bounds = (-179, -78, 179, -77) # smaller AM bounds
+    # bounds = (-177.884048, -78.176201, 178.838364, -75.697151) # full AM scene bounds
+    # bounds = (-179, -78, 179, -77) # smaller AM bounds
+    bounds = (140, -66, 141, -65) # smaller area over water
+
 
     #dem_paths = find_required_dem_tile_paths(bounds)
     #print(f'{len(dem_paths)} tiles found')

@@ -3,7 +3,9 @@ from shapely.geometry import box
 import numpy as np
 import os
 import logging
+from affine import Affine
 import rasterio
+from rasterio.crs import CRS
 
 from ...utils.raster import (
     expand_raster_to_bounds, 
@@ -16,6 +18,7 @@ COP30_FOLDER_PATH = '/g/data/v10/eoancillarydata-2/elevation/copernicus_30m_worl
 GEOID_PATH = '/home/547/ab7271/sar-antarctica/data/us_nga_egm2008_1_4326__agisoft.tif'
 
 def get_cop30_dem_for_bounds(bounds: tuple, save_path: str, ellipsoid_heights: bool = True): 
+    
     logging.info(f'Getting cop30m dem for bounds: {bounds}')
     # check if scene crosses the AM
     antimeridian_crossing = check_s1_bounds_cross_antimeridian(bounds, max_scene_width=8)
@@ -50,13 +53,13 @@ def get_cop30_dem_for_bounds(bounds: tuple, save_path: str, ellipsoid_heights: b
         logging.info(f'Dem tiles found: {len(dem_paths)}')
         if len(dem_paths) == 0:
             logging.warning('No DEM files found, scene is over water or paths cannot be found')
-            # generate raster of zeros covering area
-            # merged_dem = tif_from_bounds()
+            logging.info('Creating an empty profile for cop30m DEM')
+            dem_profile = make_empty_cop30m_profile(bounds)
+            logging.info('Filling dem with zero values based on profile')
+            expand_raster_to_bounds(bounds, src_profile=dem_profile, save_path=save_path, fill_value=0)
         else:
             logging.info(f'Merging dem tiles and saving to: {save_path}')
             merge_raster_files(dem_paths, save_path, nodata_value=np.nan)
-            # if not, fill the raster to the desired bounds
-            # https://github.com/ACCESS-Cloud-Based-InSAR/dem-stitcher/commit/6f1ce30b3b3b5e5fd95d1a5f4a15ac67652bfb45
         logging.info(f'Check the dem covers the required bounds')
         with rasterio.open(save_path) as dem:
             dem_bounds = tuple(dem.bounds)
@@ -85,6 +88,7 @@ def get_cop30_dem_for_bounds(bounds: tuple, save_path: str, ellipsoid_heights: b
                 res_buffer = 2,
                 save_path=save_path,
             )
+        logging.info(dem_profile)
         return dem_arr, dem_profile
             
 
@@ -157,3 +161,41 @@ def split_s1_bounds_at_am_crossing(bounds: tuple, lat_buff : float = 0) -> list[
     bounds_left = (-180, min_y, max_negative_x, max_y)
     bounds_right = (min_positive_x, min_y, 180, max_y)
     return [tuple(bounds_left), tuple(bounds_right)]
+
+def make_empty_cop30m_profile(bounds):
+
+    # the pixel spacing changes based on lattitude
+    # https://copernicus-dem-30m.s3.amazonaws.com/readme.html
+    lon_res = -0.0002777777777777778
+    mean_lat = abs((bounds[1] + bounds[3])/2)
+    if mean_lat < 50:
+        lat_res = lon_res
+    elif mean_lat < 60:
+        lat_res = lon_res*1.5
+    elif mean_lat < 70:
+        lat_res = lon_res*2
+    elif mean_lat < 80:
+        lat_res = lon_res*3
+    elif mean_lat < 85:
+        lat_res = lon_res*5
+    elif mean_lat < 90:
+        lat_res = lon_res*10
+    else:
+        raise ValueError('cannot resolve cop30m lattitude')
+
+    min_x, min_y, max_x, max_y = bounds
+    transform = Affine.translation(min_x, max_y) * Affine.scale(lon_res, -lat_res)
+
+    return {
+        'driver': 'GTiff', 
+        'dtype': 'float32', 
+        'nodata': np.nan, 
+        'height': int((bounds[3] - bounds[1]) / lat_res), 
+        'width': int((bounds[2] - bounds[0]) / lon_res), 
+        'count': 1, 
+        'crs': CRS.from_epsg(4326), 
+        'transform': transform, 
+        'blockysize': 1, 
+        'tiled': False, 
+        'interleave': 'band'
+       }
