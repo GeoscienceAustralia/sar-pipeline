@@ -71,7 +71,7 @@ def expand_raster_to_bounds(
     """
 
     assert src_path or (src_profile and src_array) or src_profile, \
-        "Either src_path, src_profile and src_array, or src_profile must be provided."
+        "Either src_path, src_array and src_profile, or src_profile must be provided."
 
     if src_path:
         with rasterio.open(src_path) as src:
@@ -104,7 +104,7 @@ def expand_raster_to_bounds(
     })
     fill_array = np.full((new_height, new_width), fill_value=fill_value, dtype=src_profile['dtype'])
     if src_array is not None:
-        # if a src array e.g. dem is provided to expand
+        # if an existing src array (e.g. dem) is provided to expand
         trg_array, trg_profile = merge_arrays_with_geometadata(
             arrays = [src_array, fill_array],
             profiles = [src_profile, fill_profile],
@@ -114,6 +114,7 @@ def expand_raster_to_bounds(
             method='first',
         ) 
     else:
+        # we are not expanding an existing array
         # return the fill array that has been constructed based on the src_profile
         trg_array, trg_profile = fill_array[np.newaxis, :, :], fill_profile
     if save_path:

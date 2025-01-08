@@ -15,7 +15,7 @@ from ...utils.raster import (
 from .geoid import remove_geoid
 
 COP30_FOLDER_PATH = '/g/data/v10/eoancillarydata-2/elevation/copernicus_30m_world/'
-GEOID_PATH = '/home/547/ab7271/sar-antarctica/data/us_nga_egm2008_1_4326__agisoft.tif'
+GEOID_PATH = '/g/data/yp75/projects/ancillary/geoid/us_nga_egm2008_1_4326__agisoft.tif'
 
 def get_cop30_dem_for_bounds(bounds: tuple, save_path: str, ellipsoid_heights: bool = True): 
     
@@ -65,7 +65,7 @@ def get_cop30_dem_for_bounds(bounds: tuple, save_path: str, ellipsoid_heights: b
             dem_bounds = tuple(dem.bounds)
         logging.info(f'Dem bounds: {dem_bounds}')
         logging.info(f'Target bounds: {bounds}')
-        bounds_filled_by_dem = box(*dem_bounds).contains(box(*bounds)) # TODO double check, write test
+        bounds_filled_by_dem = box(*dem_bounds).contains(box(*bounds)) # TODO write test
         logging.info(f'Dem covers target: {bounds_filled_by_dem}')
         if not bounds_filled_by_dem:
             fill_value = 0
@@ -88,11 +88,8 @@ def get_cop30_dem_for_bounds(bounds: tuple, save_path: str, ellipsoid_heights: b
                 res_buffer = 2,
                 save_path=save_path,
             )
-        logging.info(dem_profile)
         return dem_arr, dem_profile
             
-
-
 def find_required_dem_tile_paths(bounds: tuple, check_exists : bool = True)->list[str]:
     """ generate a list of the required dem paths based on the bounding coords
     """
