@@ -1,0 +1,21 @@
+name: Run Tests with Pytest
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  create-environment:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: mamba-org/setup-micromamba@v2.0.3
+      with:
+        generate-run-shell: true
+        environment-name: test-env
+        create-args: >-
+          python=3.10
+          pytest
+    - shell: micromamba-shell {0}
+    - run: |
+        pytest --version
