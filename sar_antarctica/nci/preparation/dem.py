@@ -10,16 +10,17 @@ from ...utils.raster import (
     reproject_raster,
     merge_raster_files
 )
+from .geoid import remove_geoid
 
 COP30_FOLDER_PATH = '/g/data/v10/eoancillarydata-2/elevation/copernicus_30m_world/'
-GEOID_PATH = '/path/to/geoid'
+GEOID_PATH = '/home/547/ab7271/sar-antarctica/data/us_nga_egm2008_1_4326__agisoft.tif'
 
 def get_cop30_dem_for_bounds(bounds: tuple, save_path: str, ellipsoid_heights: bool = True): 
     logging.info(f'Getting cop30m dem for bounds: {bounds}')
     # check if scene crosses the AM
     antimeridian_crossing = check_s1_bounds_cross_antimeridian(bounds, max_scene_width=8)
     if antimeridian_crossing:
-        logging.warning('Scene crosses the antimeridian/dateline')
+        logging.warning('Scene crosses the dateline/antimeridian')
         # TODO assumes only antarctic data (3031). Elsewhere the local UTM zone should be used
         logging.warning('Data will be returned in 3031 projection') 
         # split the scene into left and right
@@ -34,8 +35,8 @@ def get_cop30_dem_for_bounds(bounds: tuple, save_path: str, ellipsoid_heights: b
         right_save_path = '.'.join(save_path.split('.')[0:-1]) + "_right." + save_path.split('.')[-1]
         logging.info(f'Getting tiles for right bounds')
         get_cop30_dem_for_bounds(bounds_right, right_save_path, ellipsoid_heights)
-        # reproject to 3031 and merge 
-        logging.info(f'Reprojecting left and right side to polar stereographic EPGS:3031')
+        # reproject to 3031 and merge
+        logging.info(f'Reprojecting left and right side of antimeridian to polar stereographic EPGS:3031')
         reproject_raster(left_save_path, left_save_path, 3031)
         reproject_raster(right_save_path, right_save_path, 3031)
         logging.info(f'Merging across antimeridian')
@@ -61,7 +62,7 @@ def get_cop30_dem_for_bounds(bounds: tuple, save_path: str, ellipsoid_heights: b
             dem_bounds = tuple(dem.bounds)
         logging.info(f'Dem bounds: {dem_bounds}')
         logging.info(f'Target bounds: {bounds}')
-        bounds_filled_by_dem = box(*bounds).contains(box(*dem_bounds))
+        bounds_filled_by_dem = box(*dem_bounds).contains(box(*bounds)) # TODO double check, write test
         logging.info(f'Dem covers target: {bounds_filled_by_dem}')
         if not bounds_filled_by_dem:
             fill_value = 0
@@ -70,9 +71,22 @@ def get_cop30_dem_for_bounds(bounds: tuple, save_path: str, ellipsoid_heights: b
             with rasterio.open(save_path) as dem:
                 dem_bounds = tuple(dem.bounds)
             logging.info(f'Expanded dem bounds: {dem_bounds}')
+        with rasterio.open(save_path) as dem:
+                dem_profile = dem.profile
+                dem_arr = dem.read()
         if ellipsoid_heights:
             logging.info(f'Subtracting the geoid from the DEM to return ellipsoid heights')
-            ...
+            logging.info(f'Using geoid file: {GEOID_PATH}')
+            dem_arr = remove_geoid(
+                dem_arr = dem_arr,
+                dem_profile=dem_profile,
+                geoid_path = GEOID_PATH,
+                dem_area_or_point = 'Point',
+                res_buffer = 2,
+                save_path=save_path,
+            )
+        return dem_arr, dem_profile
+            
 
 
 def find_required_dem_tile_paths(bounds: tuple, check_exists : bool = True)->list[str]:

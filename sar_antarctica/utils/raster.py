@@ -4,12 +4,17 @@ import os
 import numpy as np
 import pyproj
 from osgeo import gdal
+from shapely.geometry import box
 import rasterio
+from pyproj import Transformer
 from rasterio.transform import from_origin, array_bounds
 from rasterio.warp import calculate_default_transform, reproject
 from rasterio.enums import Resampling
 from rasterio.io import MemoryFile
 from rasterio.merge import merge
+from rasterio.windows import Window
+from rasterio.crs import CRS
+from rasterio.windows import from_bounds
 
 def reproject_raster(src_path: str, out_path: str, crs: int):
     """Reproject a raster to the desired crs
@@ -169,3 +174,52 @@ def merge_arrays_with_geometadata(
     [mfile.close() for mfile in memfiles]
 
     return merged_arr, prof_merged
+
+def read_raster_with_bounds(file_path, bounds, buffer_pixels=0):
+    """
+    Reads a specific region of a raster file defined by bounds and returns the data array and profile.
+
+    Parameters:
+        file_path (str): Path to the raster file.
+        bounds (tuple): Bounding box (min_x, min_y, max_x, max_y) specifying the region to read.
+
+    Returns:
+        tuple: A NumPy array of the raster data in the window and the corresponding profile.
+    """
+    with rasterio.open(file_path) as src:
+        # Get pixel size from the transform
+        transform = src.transform
+        pixel_size_x = abs(transform.a)  # Pixel size in x-direction
+        pixel_size_y = abs(transform.e)  # Pixel size in y-direction
+
+        # Convert buffer in pixels to geographic units
+        buffer_x = buffer_pixels * pixel_size_x
+        buffer_y = buffer_pixels * pixel_size_y
+
+        # Expand bounds by the buffer
+        min_x, min_y, max_x, max_y = bounds
+        buffered_bounds = (
+            min_x - buffer_x,
+            min_y - buffer_y,
+            max_x + buffer_x,
+            max_y + buffer_y
+        )
+
+        # Create a window from the buffered bounds
+        window = from_bounds(*buffered_bounds, transform=src.transform)
+
+        # Clip the window to the raster's extent to avoid out-of-bounds errors
+        window = window.intersection(src.window(*src.bounds))
+
+        # Read the data within the window
+        data = src.read(window=window)
+
+        # Adjust the profile for the window
+        profile = src.profile.copy()
+        profile.update({
+            "height": window.height,
+            "width": window.width,
+            "transform": src.window_transform(window)
+        })
+
+    return data, profile
