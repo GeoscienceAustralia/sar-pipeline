@@ -46,6 +46,10 @@ def get_cop30_dem_for_bounds(bounds: tuple, save_path: str, ellipsoid_heights: b
         merge_raster_files([left_save_path, right_save_path], output_path=save_path, nodata_value=np.nan)
         os.remove(left_save_path)
         os.remove(right_save_path)
+        with rasterio.open(save_path) as dem:
+                dem_profile = dem.profile
+                dem_arr = dem.read()
+        return dem_arr, dem_profile
     else:
         # get a list of the required dem paths
         logging.info(f'Searching folder for dem tiles covering scene: {COP30_FOLDER_PATH}')
