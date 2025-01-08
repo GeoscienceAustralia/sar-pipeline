@@ -18,8 +18,8 @@ def test_check_s1_bounds_cross_antimeridian(bounds, expected):
     assert check_s1_bounds_cross_antimeridian(bounds) == expected
 
 @pytest.mark.parametrize("bounds, lat_buff, expected_left, expected_right", [
-    ((-177.884048, -78.176201, 178.838364, -75.697151), 0, (-180, -78.176201, -177.884048, -75.697151), (-177.884048, -78.176201, 180, -75.697151)), 
-    ((-177.884048, -78.176201, 178.838364, -75.697151), 0.1, (-180, -78.276201, -177.884048, -75.597151), (-177.884048, -78.276201, 180, -75.597151)),  
+    ((-177.884048, -78.176201, 178.838364, -75.697151), 0, (-180, -78.176201, -177.884048, -75.697151), (178.838364, -78.176201, 180, -75.697151)), 
+    ((-177.884048, -78.176201, 178.838364, -75.697151), 0.1, (-180, -78.276201, -177.884048, -75.597151), (178.838364, -78.276201, 180, -75.597151)),  
 ])
 def test_split_bounds_at_am_crossing(bounds, lat_buff, expected_left, expected_right):
     left, right = split_s1_bounds_at_am_crossing(bounds, lat_buff)
@@ -48,4 +48,4 @@ if __name__ == "__main__":
 
     #dem_paths = find_required_dem_tile_paths(bounds)
     #print(f'{len(dem_paths)} tiles found')
-    get_cop30_dem_for_bounds(bounds, ellipsoid_heights=True, save_path='dem_tmp.tif')
+    # get_cop30_dem_for_bounds(bounds, ellipsoid_heights=True, save_path='dem_tmp.tif')
