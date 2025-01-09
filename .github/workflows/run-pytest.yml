@@ -15,8 +15,8 @@ jobs:
         generate-run-shell: true
         environment-file: test_environment.yml
         condarc: |
-        channels:
-          - conda-forge
+          channels:
+            - conda-forge
     - name: Check packages
       shell: micromamba-shell {0}
       run: |
