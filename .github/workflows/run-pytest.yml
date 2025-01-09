@@ -13,7 +13,7 @@ jobs:
       uses: mamba-org/setup-micromamba@v2.0.3
       with:
         generate-run-shell: true
-        environment-file: test_environment.yml
+        environment-file: environment.yml
         condarc: |
           channels:
             - conda-forge
