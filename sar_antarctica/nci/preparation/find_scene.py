@@ -1,8 +1,8 @@
 import click
 from pathlib import Path
 
-from scenes import find_scene_file_from_id
-from orbits import find_latest_orbit_for_scene
+from sar_antarctica.nci.preparation.scenes import find_scene_file_from_id
+from sar_antarctica.nci.preparation.orbits import find_latest_orbit_for_scene
 
 @click.command()
 @click.argument("scene_id")
