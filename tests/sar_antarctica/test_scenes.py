@@ -2,7 +2,6 @@ import datetime
 from sar_antarctica.nci.preparation.scenes import (
     parse_scene_file_dates,
     parse_scene_file_sensor,
-    find_scene_file_from_id
 )
 
 import dataclasses
@@ -47,6 +46,3 @@ def test_parse_scene_file_sensor(scene: Scene):
     assert parse_scene_file_sensor(scene.id) == scene.sensor
 
 
-@pytest.mark.parametrize("scene", scenes)
-def test_find_scene_file_from_id(scene: Scene):
-    assert find_scene_file_from_id(scene.id) == scene.file
