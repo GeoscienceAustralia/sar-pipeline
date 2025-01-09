@@ -1,0 +1,10 @@
+name: test-env
+dependencies:
+  - python=3.10.16=he725a3c_1_cpython
+  - gdal=3.10.0=py310h79127d3_13
+  - shapely=2.0.6=py310had3dfd6_2
+  - pip=24.3.1=pyh8b19718_2
+  - pip:
+    - click==8.1.8
+    - pytest==8.3.4
+    - .
