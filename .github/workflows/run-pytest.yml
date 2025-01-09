@@ -17,5 +17,5 @@ jobs:
           python=3.10
           pytest
     - shell: micromamba-shell {0}
-    - run: |
+      run: |
         pytest --version
