@@ -25,4 +25,4 @@ jobs:
     - name: Run tests
       shell: micromamba-shell {0}
       run: |
-        pytest
+        pytest pytest tests/sar_antarctica/
