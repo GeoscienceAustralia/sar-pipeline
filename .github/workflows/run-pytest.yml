@@ -1,0 +1,28 @@
+name: Run Tests with Pytest
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up micromamba environment
+      uses: mamba-org/setup-micromamba@v2.0.3
+      with:
+        generate-run-shell: true
+        environment-file: environment.yml
+        condarc: |
+          channels:
+            - conda-forge
+    - name: Check packages
+      shell: micromamba-shell {0}
+      run: |
+        python --version
+        pytest --version
+    - name: Run tests
+      shell: micromamba-shell {0}
+      run: |
+        pytest tests/sar_antarctica/
