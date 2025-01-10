@@ -7,7 +7,7 @@ from pyroSAR.gamma.api import diff
 import sys
 import tomli
 
-from GAMMA_utils import set_gamma_env_variables
+from sar_antarctica.nci.processing.GAMMA.GAMMA_utils import set_gamma_env_variables
 
 @click.command()
 @click.argument("config_toml")
