@@ -14,14 +14,15 @@ jobs:
       with:
         generate-run-shell: true
         environment-file: environment.yml
-        condarc: |
-          channels:
-            - conda-forge
+        condarc-file: .condarc
     - name: Check packages
       shell: micromamba-shell {0}
       run: |
-        python --version
         pytest --version
+    - name: Install sar-antarctica package
+      shell: micromamba-shell {0}
+      run: |
+        pip install .
     - name: Run tests
       shell: micromamba-shell {0}
       run: |
