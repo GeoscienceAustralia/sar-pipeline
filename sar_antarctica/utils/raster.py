@@ -16,6 +16,9 @@ from rasterio.windows import Window
 from rasterio.crs import CRS
 from rasterio.windows import from_bounds
 
+def bounds_from_profile(profile):
+    return array_bounds(profile['height'], profile['width'], profile['transform'])
+
 def reproject_raster(src_path: str, out_path: str, crs: int):
     """Reproject a raster to the desired crs
 
@@ -70,7 +73,7 @@ def expand_raster_to_bounds(
         (expanded_array, expanded_profile) of data.
     """
 
-    assert src_path or (src_profile and src_array) or src_profile, \
+    assert src_path or (src_profile and src_array is not None) or src_profile, \
         "Either src_path, src_array and src_profile, or src_profile must be provided."
 
     if src_path:
@@ -81,20 +84,37 @@ def expand_raster_to_bounds(
     else:
         src_bounds = array_bounds(src_profile['height'], src_profile['width'], src_profile['transform'])
         src_left, src_bottom, src_right, src_top = src_bounds
+    
     # Define the new bounds
     trg_left, trg_bottom, trg_right, trg_top = trg_bounds
+    lon_res = abs(src_profile['transform'].a)  # Pixel width
+    lat_res = abs(src_profile['transform'].e)  # Pixel height 
+
+    # determine the number of new pixels in each direction
+    new_left_pixels = int(abs(trg_left-src_left)/lon_res)
+    new_right_pixels = int(abs(trg_right-src_right)/lon_res)
+    new_bottom_pixels = int(abs(trg_bottom-src_bottom)/lat_res)
+    new_top_pixels = int(abs(trg_top-src_top)/lat_res)
+    
     # adjust the new bounds with even pixel multiples of existing
-    # this will stop small offsets
-    lon_res, lat_res = abs(list(src_profile['transform'])[0]), abs(list(src_profile['transform'])[4])
-    trg_left = src_left - int(abs(trg_left-src_left)/lon_res)*lon_res
-    trg_right = src_right + int(abs(trg_right-src_right)/lon_res)*lon_res
-    trg_bottom = src_bottom - int(abs(trg_bottom-src_bottom)/lat_res)*lat_res
-    trg_top = src_top + int(abs(trg_top-src_top)/lat_res)*lat_res
+    new_trg_left = src_left - new_left_pixels*lon_res
+    new_trg_right = src_right + new_right_pixels*lon_res
+    new_trg_bottom = src_bottom - new_bottom_pixels*lat_res
+    new_trg_top = src_top + new_top_pixels*lat_res
+
+    # keep source if they are already greater than the desired bounds
+    new_trg_left = src_left if src_left < trg_left else new_trg_left
+    new_trg_right = src_right if src_right > trg_right else new_trg_right
+    new_trg_bottom = src_bottom if src_bottom < trg_bottom else new_trg_bottom
+    new_trg_top = src_top if src_top < trg_top else new_trg_top
+
     # Calculate the new width and height, should be integer values
-    new_width = int((trg_right - trg_left) / lon_res)
-    new_height = int((trg_top - trg_bottom) / lat_res)
+    new_width = int((new_trg_right - new_trg_left) / lon_res)
+    new_height = int((new_trg_top - new_trg_bottom) / lat_res)
+
     # Define the new transformation matrix
-    transform = from_origin(trg_left, trg_top, lon_res, lat_res)
+    transform = from_origin(new_trg_left, new_trg_top, lon_res, lat_res)
+    
     # Create a new raster dataset with expanded bounds
     fill_profile = src_profile.copy()
     fill_profile.update({
@@ -102,7 +122,8 @@ def expand_raster_to_bounds(
         'height': new_height,
         'transform': transform
     })
-    fill_array = np.full((new_height, new_width), fill_value=fill_value, dtype=src_profile['dtype'])
+    fill_array = np.full((1, new_height, new_width), fill_value=fill_value, dtype=src_profile['dtype'])
+    
     if src_array is not None:
         # if an existing src array (e.g. dem) is provided to expand
         trg_array, trg_profile = merge_arrays_with_geometadata(
@@ -116,14 +137,14 @@ def expand_raster_to_bounds(
     else:
         # we are not expanding an existing array
         # return the fill array that has been constructed based on the src_profile
-        trg_array, trg_profile = fill_array[np.newaxis, :, :], fill_profile
+        trg_array, trg_profile = fill_array, fill_profile
     if save_path:
         with rasterio.open(save_path, 'w', **trg_profile) as dst:
             dst.write(trg_array)
 
     return trg_array, trg_profile
 
-def merge_raster_files(paths, output_path, nodata_value=0):
+def merge_raster_files(paths, output_path, nodata_value=0, return_data=True):
     # Create a virtual raster (in-memory description of the merged DEMs)
     vrt_options = gdal.BuildVRTOptions(srcNodata=nodata_value)
     vrt_path = output_path.replace(".tif", ".vrt")  # Temporary VRT file path
@@ -135,6 +156,14 @@ def merge_raster_files(paths, output_path, nodata_value=0):
 
     # Optionally, clean up the temporary VRT file
     os.remove(vrt_path)
+
+    # return the array and profile
+    if return_data:
+        with rasterio.open(output_path) as src:
+                arr_profile = src.profile
+                arr = src.read()
+        return arr, arr_profile
+
 
 def merge_arrays_with_geometadata(
     arrays: list[np.ndarray],
