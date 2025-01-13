@@ -86,7 +86,6 @@ dependencies:
   - sqlite=3.47.2
   - svt-av1=2.3.0
   - tk=8.6.13
-  - tzdata=2024b
   - uriparser=0.9.8
   - wheel=0.45.1
   - x265=3.5
@@ -95,10 +94,17 @@ dependencies:
   - zstd=1.5.6
   - pip:
       - exceptiongroup==1.2.2
+      - geopandas==1.0.1
       - iniconfig==2.0.0
       - packaging==24.2
+      - pandas==2.2.3
       - pluggy==1.5.0
+      - pyogrio==0.10.0
       - pyproj==3.7.0
       - pytest==8.3.4
+      - python-dateutil==2.9.0.post0
+      - pytz==2024.2
+      - sar-antarctica==0.1
+      - six==1.17.0
       - tomli==2.2.1
-      - .
+      - tzdata==2024.2
