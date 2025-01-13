@@ -17,18 +17,24 @@ from rasterio.crs import CRS
 from rasterio.windows import from_bounds
 
 def bounds_from_profile(profile):
+    # returns the bounds from a rasterio profile dict
     return array_bounds(profile['height'], profile['width'], profile['transform'])
 
 def reproject_raster(src_path: str, out_path: str, crs: int):
-    """Reproject a raster to the desired crs
+    """Reproject raster to desired crs
 
-    Args:
-        src_path (str): path to src raster
-        out_path (str): save path of reproj raster
-        crs (int): crs e.g. 3031
+    Parameters
+    ----------
+    src_path : str
+        source rastewr
+    out_path : str
+        where to write reprj raster
+    crs : int
+        desired crs
 
-    Returns:
-        str: save path of reproj raster
+    Returns
+    -------
+    None
     """
     # reproject raster to project crs
     with rasterio.open(src_path) as src:
@@ -56,21 +62,37 @@ def reproject_raster(src_path: str, out_path: str, crs: int):
                     dst_transform=transform,
                     dst_crs=crs,
                     resampling=Resampling.nearest)
-    return out_path
 
 def expand_raster_to_bounds(
     trg_bounds : tuple, 
     src_path : str = '',
-    src_profile = None,
-    src_array = None,
+    src_profile : dict = None,
+    src_array : np.ndarray = None,
     fill_value : float = 0,
-    save_path : str = ''):
+    save_path : str = '') -> tuple[np.ndarray, dict]:
     """Expand the extent of the input array to the target bounds specified
-    by the user.
-    Parameters
+    by the user. Either a src_path to expand, src_profile to construct a new raster,
+    or src_profile and src_array o expand must be provided/
 
-    Tuple[np.ndarray, dict]:
-        (expanded_array, expanded_profile) of data.
+    Parameters
+    ----------
+    trg_bounds : tuple
+        target bounds for the new raster
+    src_path : str, optional
+        str, path to a source raster ''
+    src_profile : dict, optional
+        raster profile corresponding to src_array, or a transform to create a new raster
+    src_array : np.ndarray, optional
+        source array with values to expand, by default None
+    fill_value : float, optional
+        The fille value when expanding, by default 0
+    save_path : str, optional
+        where to save new raster, by default ''
+
+    Returns
+    -------
+    -> tuple[np.ndarray, dict]
+        new array and rasterio profile
     """
 
     assert src_path or (src_profile and src_array is not None) or src_profile, \
@@ -145,7 +167,27 @@ def expand_raster_to_bounds(
     return trg_array, trg_profile
 
 
-def read_vrt_in_bounds(vrt_path, output_path, bounds, return_data=True, buffer_pixels=0):
+def read_vrt_in_bounds(vrt_path: str, output_path: str, bounds: tuple, return_data: bool =True, buffer_pixels: int=0):
+    """Read in data from a vrt file in the specified bounds
+
+    Parameters
+    ----------
+    vrt_path : str
+        path to vrt describing rasters
+    output_path : str
+        where to save new raster
+    bounds : tuple
+        desired bounds. If non full vrt extent returned
+    return_data : bool, optional
+        return array and profile, else None, by default True
+    buffer_pixels : int, optional
+        number of pixels to buffer boynds by, by default 0
+
+    Returns
+    -------
+    tuple[np.ndarray, dict]
+        new array and rasterio profile
+    """
     
     if bounds is None:
         # get all data in tiles
@@ -207,7 +249,8 @@ def read_vrt_in_bounds(vrt_path, output_path, bounds, return_data=True, buffer_p
         return arr, arr_profile
 
 
-def merge_raster_files(paths, output_path, bounds=None, return_data=True):
+def merge_raster_files(paths, output_path, bounds=None, return_data=True, buffer_pixels=0, delete_vrt=True):
+
     # Create a virtual raster (in-memory description of the merged DEMs)
     vrt_path = output_path.replace(".tif", ".vrt")  # Temporary VRT file path
     gdal.BuildVRT(vrt_path, paths)
@@ -223,6 +266,22 @@ def merge_raster_files(paths, output_path, bounds=None, return_data=True):
             # Extract the spatial resolution, CRS, and transform of the source dataset
             src_crs = src.crs
             src_transform = src.transform
+
+            pixel_size_x = abs(src_transform.a)  # Pixel size in x-direction
+            pixel_size_y = abs(src_transform.e)  # Pixel size in y-direction
+
+            # Convert buffer in pixels to geographic units
+            buffer_x = buffer_pixels * pixel_size_x
+            buffer_y = buffer_pixels * pixel_size_y
+
+            # Expand bounds by the buffer
+            min_x, min_y, max_x, max_y = bounds
+            buffered_bounds = (
+                min_x - buffer_x,
+                min_y - buffer_y,
+                max_x + buffer_x,
+                max_y + buffer_y
+            )
 
             # Create a window for the bounding box
             xmin, ymin, xmax, ymax = buffered_bounds
@@ -250,7 +309,8 @@ def merge_raster_files(paths, output_path, bounds=None, return_data=True):
                 dst.write(data, 1)
 
     # Optionally, clean up the temporary VRT file
-    os.remove(vrt_path)
+    if delete_vrt:
+        os.remove(vrt_path)
 
     # return the array and profile
     if return_data:

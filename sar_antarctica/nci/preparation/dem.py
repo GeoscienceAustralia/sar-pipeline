@@ -5,10 +5,7 @@ import os
 from pathlib import Path
 import logging
 from affine import Affine
-import rasterio
 from rasterio.crs import CRS
-from rasterio.transform import array_bounds
-import geopandas as gpd
 
 from .geoid import remove_geoid
 from ...utils.raster import (
@@ -148,26 +145,6 @@ def expand_bounds(bounds: tuple, buffer: float) -> tuple:
     exp_bounds[0] = bounds[0] if exp_bounds[0] < -180 else exp_bounds[0] # keep original
     exp_bounds[2] = bounds[2] if exp_bounds[2] > 180 else exp_bounds[2] # keep original
     return tuple(exp_bounds)
-
-def find_required_dem_paths_from_geopackage(
-        bounds: tuple, 
-        GPKG_PATH = GPKG_PATH,
-) -> list[str]: 
-    
-    gdf = gpd.read_file(GPKG_PATH)
-    bounding_box = box(*bounds)
-    
-    if gdf.crs is not None:
-        # ensure same crs
-        bounding_box = gpd.GeoSeries([bounding_box], crs="EPSG:4326").to_crs(gdf.crs).iloc[0]
-
-    # Find rows that intersect with the bounding box
-    intersecting_tiles = gdf[gdf.intersects(bounding_box)]
-    if len(intersecting_tiles) > 0:
-        return intersecting_tiles.location.tolist()
-    else:
-        return []
-
 
 def find_required_dem_tile_paths_by_filename(
         bounds: tuple, 
