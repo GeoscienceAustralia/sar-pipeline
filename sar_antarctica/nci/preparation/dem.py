@@ -15,7 +15,8 @@ from ...utils.raster import (
     expand_raster_to_bounds, 
     reproject_raster,
     merge_raster_files,
-    bounds_from_profile
+    bounds_from_profile,
+    read_vrt_in_bounds
 )
 from ...utils.spatial import (
     adjust_bounds, 
@@ -23,6 +24,7 @@ from ...utils.spatial import (
 )
 
 COP30_FOLDER_PATH = Path('/g/data/v10/eoancillarydata-2/elevation/copernicus_30m_world/')
+COP30_VRT_PATH = Path('/g/data/yp75/projects/ancillary/dem/copdem_south.vrt')
 GEOID_PATH = Path('/g/data/yp75/projects/ancillary/geoid/us_nga_egm2008_1_4326__agisoft.tif')
 GPKG_PATH = Path('/g/data/yp75/projects/ancillary/dem/copdem_tindex.gpkg')
 
@@ -64,7 +66,7 @@ def get_cop30_dem_for_bounds(
         logging.info(f'Bounds left: {bounds_left}')
         logging.info(f'Bounds right: {bounds_right}')
         # use recursion to create dems for the left and right side of AM
-        # when passed back into the top function, this section will be skipped creating
+        # when passed back into the top function, this section will be skipped, creating
         # A valid dem for each side which we can then merge at the desired CRS
         left_save_path = '.'.join(save_path.split('.')[0:-1]) + "_left." + save_path.split('.')[-1]
         logging.info(f'Getting tiles for left bounds')
@@ -77,7 +79,7 @@ def get_cop30_dem_for_bounds(
         reproject_raster(left_save_path, left_save_path, target_crs)
         reproject_raster(right_save_path, right_save_path, target_crs)
         logging.info(f'Merging across antimeridian')
-        dem_arr, dem_profile = merge_raster_files([left_save_path, right_save_path], output_path=save_path, nodata_value=np.nan)
+        dem_arr, dem_profile = merge_raster_files([left_save_path, right_save_path], output_path=save_path)
         os.remove(left_save_path)
         os.remove(right_save_path)
         return dem_arr, dem_profile
@@ -85,19 +87,8 @@ def get_cop30_dem_for_bounds(
         # logging.info(f'Expanding bounds') # TODO this should sit outside of this function
         # bounds = expand_bounds(bounds, buffer=0.1)
         logging.info(f'Getting cop30m dem for bounds: {bounds}')
-        logging.info(f'Searching folder for dem tiles covering scene: {COP30_FOLDER_PATH}')
-        #dem_paths = find_required_dem_tile_paths_by_filename(bounds)
-        dem_paths = find_required_dem_paths_from_geopackage(bounds)
-        logging.info(f'Dem tiles found: {len(dem_paths)}')
-        if len(dem_paths) == 0:
-            logging.warning('No DEM files found, scene is over water or paths cannot be found')
-            logging.info('Creating an empty profile for cop30m DEM')
-            dem_profile = make_empty_cop30m_profile(bounds)
-            logging.info('Filling dem with zero values based on profile')
-            dem_arr, dem_profile = expand_raster_to_bounds(bounds, src_profile=dem_profile, save_path=save_path, fill_value=0)
-        else:
-            logging.info(f'Merging dem tiles and saving to: {save_path}')
-            dem_arr, dem_profile = merge_raster_files(dem_paths, save_path, nodata_value=np.nan)
+        logging.info(f'Reading tiles from the tile vrt: {COP30_VRT_PATH}')
+        dem_arr, dem_profile = read_vrt_in_bounds(COP30_VRT_PATH, save_path, bounds=bounds,buffer_pixels=1)
         logging.info(f'Check the dem covers the required bounds')
         dem_bounds = bounds_from_profile(dem_profile)
         logging.info(f'Dem bounds: {dem_bounds}')
