@@ -9,19 +9,31 @@ import tomli
 
 from sar_antarctica.nci.processing.GAMMA.GAMMA_utils import set_gamma_env_variables
 
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)s : %(message)s",
+    level=logging.INFO,
+    stream=sys.stdout,
+)
+log = logging.getLogger("gammapy")
+log.setLevel(logging.INFO)
+
 @click.command()
-@click.argument("config_toml")
-def cli(config_toml: str):
+@click.argument("workflow_config", nargs=1)
+@click.argument("scene_config", nargs=1)
+def cli(workflow_config: str, scene_config: str):
     
     # Read in config file
-    with open(config_toml, "rb") as f:
-        config_dict = tomli.load(f)    
+    with open(workflow_config, "rb") as f:
+        workflow_config_dict = tomli.load(f)   
+
+    with open(scene_config, "rb") as f:
+        scene_config_dict = tomli.load(f)    
 
     # Split config dicts up to ease readability
-    config_gamma = config_dict["gamma"]
-    config_paths = config_dict["paths"]
-    config_files = config_dict["files"]
-    config_geocode = config_dict["geocode"]
+    config_inputs = scene_config_dict["inputs"]
+    config_outputs = scene_config_dict["outputs"]
+    config_gamma = workflow_config_dict["gamma"]
+    config_geocode = workflow_config_dict["geocode"]
 
     # Environment variables for GAMMA must be set
     set_gamma_env_variables(
@@ -30,14 +42,27 @@ def cli(config_toml: str):
     )
 
     # Identify scene
-    scene_zip = Path(config_paths["scene"]) / config_files["scene"]
+    scene_zip = Path(config_inputs["scene"])
+    scene_id = scene_zip.stem
     print(scene_zip)
     if scene_zip.exists():
         pyrosar_scene_id = identify(scene_zip)
 
+    # Construct output scenes
+    data_dir = Path(config_outputs["data"])
+    processed_scene_dir = data_dir / config_outputs["processed"] / scene_id
+    ancillary_dir = data_dir / scene_id / config_outputs["ancillary"]
+    pyrosar_temp_dir = ancillary_dir / "temp"
+    pyrosar_logs_dir = ancillary_dir / "logs"
+    pyrosar_orbit_dir = ancillary_dir / "orbit"
+    pyrosar_dem_dir = ancillary_dir / "dem"
+
+    for dir in [processed_scene_dir, ancillary_dir, pyrosar_temp_dir, pyrosar_logs_dir, pyrosar_orbit_dir]:
+        dir.mkdir(parents=True, exist_ok=True)
+
     # Create DEM in GAMMA format
-    dem_tif = Path(config_paths["dem"]) / config_files["dem"]
-    dem_gamma = Path(config_paths["temp"]) / dem_tif.stem
+    dem_tif = Path(config_inputs["dem"])
+    dem_gamma = pyrosar_dem_dir / dem_tif.stem
     dem_gamma_par = dem_gamma.with_suffix('.par')
 
     if dem_gamma.exists():
@@ -52,7 +77,7 @@ def cli(config_toml: str):
             DEM_par=str(dem_gamma_par),
             no_data=-9999,
             geoid="-", 
-            logpath=config_paths["log"], 
+            logpath=str(pyrosar_logs_dir), 
             outdir=str(dem_tif.parent)
         )
 
@@ -65,14 +90,14 @@ def cli(config_toml: str):
     geocode(
         scene=pyrosar_scene_id, 
         dem=str(dem_gamma), 
-        tmpdir=config_paths["temp"],
-        outdir=config_paths["results"], 
+        tmpdir=pyrosar_temp_dir,
+        outdir=processed_scene_dir, 
         spacing=config_geocode["spacing"], 
         scaling=config_geocode["scaling"], 
         func_geoback=1,
         nodata=(0, -99), 
         update_osv=False, 
-        osvdir=config_paths["orbit"], 
+        osvdir=pyrosar_orbit_dir, 
         allow_RES_OSV=False,
         cleanup=False, 
         export_extra=['inc_geo','dem_seg_geo','ls_map_geo','pix_area_gamma0_geo','pix_ratio_geo'], 
@@ -87,13 +112,5 @@ def cli(config_toml: str):
     log.info("finished geocode")
 
 if __name__ == "__main__":
-
-    logging.basicConfig(
-        format="%(asctime)s | %(levelname)s : %(message)s",
-        level=logging.INFO,
-        stream=sys.stdout,
-    )
-    log = logging.getLogger("gammapy")
-    log.setLevel(logging.INFO)
 
     cli()
