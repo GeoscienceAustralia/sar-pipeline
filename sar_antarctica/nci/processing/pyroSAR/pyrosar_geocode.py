@@ -4,6 +4,7 @@ from pathlib import Path
 from pyroSAR import identify
 from pyroSAR.gamma import geocode
 from pyroSAR.gamma.api import diff
+import shutil
 import sys
 import tomli
 
@@ -44,7 +45,7 @@ def cli(workflow_config: str, scene_config: str):
     # Identify scene
     scene_zip = Path(config_inputs["scene"])
     scene_id = scene_zip.stem
-    print(scene_zip)
+    log.info(f"Scene ID: {scene_id} has the following metadata:\n{scene_zip}")
     if scene_zip.exists():
         pyrosar_scene_id = identify(scene_zip)
 
@@ -57,8 +58,15 @@ def cli(workflow_config: str, scene_config: str):
     pyrosar_orbit_dir = ancillary_dir / "orbit"
     pyrosar_dem_dir = ancillary_dir / "dem"
 
-    for dir in [processed_scene_dir, ancillary_dir, pyrosar_temp_dir, pyrosar_logs_dir, pyrosar_orbit_dir]:
+    log.info("creating directories:")
+    for dir in [processed_scene_dir, ancillary_dir, pyrosar_temp_dir, pyrosar_logs_dir, pyrosar_orbit_dir, pyrosar_dem_dir]:
         dir.mkdir(parents=True, exist_ok=True)
+        log.info(f"    {dir}")
+
+    # Copy over orbit file
+    orbit_file = Path(config_inputs["orbit"])
+    orbit_filename = orbit_file.name
+    shutil.copy(orbit_file, pyrosar_orbit_dir / orbit_filename)
 
     # Create DEM in GAMMA format
     dem_tif = Path(config_inputs["dem"])
@@ -90,14 +98,14 @@ def cli(workflow_config: str, scene_config: str):
     geocode(
         scene=pyrosar_scene_id, 
         dem=str(dem_gamma), 
-        tmpdir=pyrosar_temp_dir,
-        outdir=processed_scene_dir, 
+        tmpdir=str(pyrosar_temp_dir),
+        outdir=str(processed_scene_dir), 
         spacing=config_geocode["spacing"], 
         scaling=config_geocode["scaling"], 
         func_geoback=1,
         nodata=(0, -99), 
         update_osv=False, 
-        osvdir=pyrosar_orbit_dir, 
+        osvdir=str(pyrosar_orbit_dir), 
         allow_RES_OSV=False,
         cleanup=False, 
         export_extra=['inc_geo','dem_seg_geo','ls_map_geo','pix_area_gamma0_geo','pix_ratio_geo'], 

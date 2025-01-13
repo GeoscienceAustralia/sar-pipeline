@@ -43,9 +43,13 @@ def main(scene_id: str, scene_config: str):
     # Identify location of relevant orbit file on GADI
     latest_poe_file = find_latest_orbit_for_scene(scene_id, orbit_type="POE")
 
-    # Identify location of DEM/process DEM
-    dem_path = f"{scene_id}.tif"
 
+
+    # Identify location of DEM/process DEM
+    dem_file = f"{scene_id}_dem.tif"
+    dem_path = Path("/g/data/yp75/projects/pyrosar_processing/data/dem") / dem_file
+
+    # Set the data path for outputs
     data_path = Path("/g/data/yp75/projects/sar-antractica-processing/data")
 
     # Write to config file
