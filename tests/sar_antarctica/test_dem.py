@@ -60,7 +60,6 @@ if __name__ == "__main__":
     from sar_antarctica.nci.preparation.dem import (
         get_cop30_dem_for_bounds,
         find_required_dem_tile_paths_by_filename,
-        find_required_dem_paths_from_geopackage
     )
 
     import logging
@@ -69,21 +68,17 @@ if __name__ == "__main__":
     from shapely.geometry import box
     import geopandas as gpd
     
-    # bounds = (163.121597, -78.632782, 172.382263, -76.383263) # full s1 scene
-    #bounds = (165, -76.632782, 170, -75) # smaller area
+    bounds = (163.121597, -78.632782, 172.382263, -76.383263) # full s1 scene
+    # bounds = (165, -76.632782, 170, -75) # smaller area
     # bounds = (-177.884048, -78.176201, 178.838364, -75.697151) # full AM scene bounds
     # bounds = (-177.2, -79.2, 178.1, -77.1) # smaller AM bounds
-    bounds = (140, -66, 141, -65) # smaller area over water
+    # bounds = (140, -66, 141, -65) # smaller area over water
     # bounds = (20.1, -75.2, 22.2, -73.1) 
     # bounds = (-22.2, -75.2, -20.1, -73.1) 
 
-
-    dem_paths = find_required_dem_paths_from_geopackage(bounds)
-    print(f'{len(dem_paths)} tiles found')
-    print(dem_paths)
-    dem_paths = find_required_dem_tile_paths_by_filename(bounds)
-    print(f'{len(dem_paths)} tiles found')
-    print(dem_paths)
+    # dem_paths = find_required_dem_tile_paths_by_filename(bounds)
+    # print(f'{len(dem_paths)} tiles found')
+    # print(dem_paths)
     get_cop30_dem_for_bounds(bounds, ellipsoid_heights=True, save_path='dem_tmp.tif')
     #profile = make_empty_cop30m_profile((0, -90, 1, -86))
 
