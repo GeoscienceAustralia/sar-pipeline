@@ -4,3 +4,7 @@ __pycache__
 
 build
 *.egg-info
+.*cache
+*.tif
+*.vrt
+data
