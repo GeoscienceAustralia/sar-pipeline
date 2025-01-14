@@ -167,7 +167,7 @@ def expand_raster_to_bounds(
     return trg_array, trg_profile
 
 
-def read_vrt_in_bounds(vrt_path: str, output_path: str, bounds: tuple, return_data: bool =True, buffer_pixels: int=0):
+def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', return_data: bool =True, buffer_pixels: int=0):
     """Read in data from a vrt file in the specified bounds
 
     Parameters
@@ -191,7 +191,17 @@ def read_vrt_in_bounds(vrt_path: str, output_path: str, bounds: tuple, return_da
     
     if bounds is None:
         # get all data in tiles
-        gdal.Translate(output_path, vrt_path)
+        if output_path:
+            gdal.Translate(output_path, vrt_path)
+        if return_data:
+            # Open the VRT file
+            with rasterio.open(vrt_path) as src:
+                # Define the profile for the GeoTIFF
+                arr_profile = src.profile
+                arr_profile.update(driver="GTiff")  # Ensure the driver is set to GeoTIFF
+                arr = src.read()
+
+            return arr, arr_profile
 
     else:
         # Open the VRT file
@@ -222,31 +232,25 @@ def read_vrt_in_bounds(vrt_path: str, output_path: str, bounds: tuple, return_da
 
             # Read data for the specified window
             data = src.read(1, window=window)  # Read the first band; adjust if you need multiple bands
-            data[~np.isfinite(data)] = 0
+            # data[~np.isfinite(data)] = 0
 
             # Adjust the transform for the window
             window_transform = src.window_transform(window)
 
-            # Save the extracted data to a new GeoTIFF  
-            with rasterio.open(
-                output_path,
-                "w",
-                driver="GTiff",
-                height=data.shape[0],
-                width=data.shape[1],
-                count=1,
-                dtype=data.dtype,
-                crs=src_crs,
-                transform=window_transform,
-            ) as dst:
-                dst.write(data, 1)
+            arr_profile = src.profile.copy()
+            arr_profile['transform'] = window_transform
+            arr_profile['driver'] = 'GTiff'
+            arr_profile['count'] = 1
+            arr_profile['height'] = data.shape[0]
+            arr_profile['width'] = data.shape[1]
 
-    # return the array and profile
-    if return_data:
-        with rasterio.open(output_path) as src:
-                arr_profile = src.profile
-                arr = src.read()
-        return arr, arr_profile
+            # Save the extracted data to a new GeoTIFF  
+            if output_path:
+                with rasterio.open(output_path, 'w', **arr_profile) as dst:
+                    dst.write(data,1)
+
+            if return_data:
+                return data[np.newaxis, :, :], arr_profile
 
 
 def merge_raster_files(paths, output_path, bounds=None, return_data=True, buffer_pixels=0, delete_vrt=True):
@@ -254,71 +258,17 @@ def merge_raster_files(paths, output_path, bounds=None, return_data=True, buffer
     # Create a virtual raster (in-memory description of the merged DEMs)
     vrt_path = output_path.replace(".tif", ".vrt")  # Temporary VRT file path
     gdal.BuildVRT(vrt_path, paths)
-
-    # Convert the virtual raster to GeoTIFF
-    if bounds is None:
-        # get all data in tiles
-        gdal.Translate(output_path, vrt_path)
-
-    else:
-        # Open the VRT file
-        with rasterio.open(vrt_path) as src:
-            # Extract the spatial resolution, CRS, and transform of the source dataset
-            src_crs = src.crs
-            src_transform = src.transform
-
-            pixel_size_x = abs(src_transform.a)  # Pixel size in x-direction
-            pixel_size_y = abs(src_transform.e)  # Pixel size in y-direction
-
-            # Convert buffer in pixels to geographic units
-            buffer_x = buffer_pixels * pixel_size_x
-            buffer_y = buffer_pixels * pixel_size_y
-
-            # Expand bounds by the buffer
-            min_x, min_y, max_x, max_y = bounds
-            buffered_bounds = (
-                min_x - buffer_x,
-                min_y - buffer_y,
-                max_x + buffer_x,
-                max_y + buffer_y
-            )
-
-            # Create a window for the bounding box
-            xmin, ymin, xmax, ymax = buffered_bounds
-            window = from_bounds(xmin, ymin, xmax, ymax, transform=src_transform).round()
-
-            # Read data for the specified window
-            data = src.read(1, window=window)  # Read the first band; adjust if you need multiple bands
-            #data[~np.isfinite(data)] = 0
-
-            # Adjust the transform for the window
-            window_transform = src.window_transform(window)
-
-            # Save the extracted data to a new GeoTIFF  
-            with rasterio.open(
-                output_path,
-                "w",
-                driver="GTiff",
-                height=data.shape[0],
-                width=data.shape[1],
-                count=1,
-                dtype=data.dtype,
-                crs=src_crs,
-                transform=window_transform,
-            ) as dst:
-                dst.write(data, 1)
-
-    # Optionally, clean up the temporary VRT file
+    res = read_vrt_in_bounds(
+        vrt_path=vrt_path,
+        bounds=bounds,
+        output_path=output_path,
+        buffer_pixels=buffer_pixels,
+        return_data=return_data)
     if delete_vrt:
         os.remove(vrt_path)
-
-    # return the array and profile
     if return_data:
-        with rasterio.open(output_path) as src:
-                arr_profile = src.profile
-                arr = src.read()
+        arr, arr_profile = res
         return arr, arr_profile
-
 
 def merge_arrays_with_geometadata(
     arrays: list[np.ndarray],

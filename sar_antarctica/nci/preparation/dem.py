@@ -28,7 +28,9 @@ GPKG_PATH = Path('/g/data/yp75/projects/ancillary/dem/copdem_tindex.gpkg')
 def get_cop30_dem_for_bounds(
         bounds: tuple, 
         save_path: Path, 
-        ellipsoid_heights: bool = True
+        ellipsoid_heights: bool = True,
+        buffer_pixels : int = 1,
+        adjust_for_high_lat_and_buffer = True,
         ) -> tuple[np.ndarray, dict]:
     """Logic for acquiting the cop30m DEM for a given set of bounds on the NCI. The returned
     dem will fully encompass the specified bounds. There may be additional data outside of
@@ -42,6 +44,11 @@ def get_cop30_dem_for_bounds(
         Path where the DEM.tif should be saved
     ellipsoid_heights : bool, optional
         Return ellipsoid referenced heights by subtracting the geoid, by default True
+    buffer_pixels : int
+        Add a pixel buffer to ensure bounds are fully enclosed. by default 1.
+    adjust_for_high_lat_and_buffer: bool.
+        adjust for high latitudes to ensure bounds are completely enclosed. Buffer
+        scene after conversion. Default buffer is 0.1 degrees.
 
     Returns
     -------
@@ -65,27 +72,32 @@ def get_cop30_dem_for_bounds(
         # use recursion to create dems for the left and right side of AM
         # when passed back into the top function, this section will be skipped, creating
         # A valid dem for each side which we can then merge at the desired CRS
+        # Add an additional buffer to ensure full coverage over dateline
         left_save_path = '.'.join(save_path.split('.')[0:-1]) + "_left." + save_path.split('.')[-1]
         logging.info(f'Getting tiles for left bounds')
-        get_cop30_dem_for_bounds(bounds_left, left_save_path, ellipsoid_heights)
+        get_cop30_dem_for_bounds(bounds_left, left_save_path, ellipsoid_heights, buffer_pixels=10)
         right_save_path = '.'.join(save_path.split('.')[0:-1]) + "_right." + save_path.split('.')[-1]
         logging.info(f'Getting tiles for right bounds')
-        get_cop30_dem_for_bounds(bounds_right, right_save_path, ellipsoid_heights)
+        get_cop30_dem_for_bounds(bounds_right, right_save_path, ellipsoid_heights, buffer_pixels=10)
         # reproject to 3031 and merge
         logging.info(f'Reprojecting left and right side of antimeridian to EPGS:{target_crs}')
         reproject_raster(left_save_path, left_save_path, target_crs)
         reproject_raster(right_save_path, right_save_path, target_crs)
         logging.info(f'Merging across antimeridian')
         dem_arr, dem_profile = merge_raster_files([left_save_path, right_save_path], output_path=save_path)
-        os.remove(left_save_path)
-        os.remove(right_save_path)
+        #os.remove(left_save_path)
+        #os.remove(right_save_path)
         return dem_arr, dem_profile
     else:
-        # logging.info(f'Expanding bounds') # TODO this should sit outside of this function
-        # bounds = expand_bounds(bounds, buffer=0.1)
         logging.info(f'Getting cop30m dem for bounds: {bounds}')
+        if adjust_for_high_lat_and_buffer:
+            logging.info(f'Expanding bounds by buffer and for high latitude warping')
+            bounds = expand_bounds(bounds, buffer=0.1)
+            logging.info(f'Getting cop30m dem for expanded bounds: {bounds}')
+        #dem_paths = find_required_dem_tile_paths_by_filename(bounds)
         logging.info(f'Reading tiles from the tile vrt: {COP30_VRT_PATH}')
-        dem_arr, dem_profile = read_vrt_in_bounds(COP30_VRT_PATH, save_path, bounds=bounds,buffer_pixels=1)
+        dem_arr, dem_profile = read_vrt_in_bounds(
+            COP30_VRT_PATH, bounds=bounds, output_path=save_path, buffer_pixels=buffer_pixels)
         logging.info(f'Check the dem covers the required bounds')
         dem_bounds = bounds_from_profile(dem_profile)
         logging.info(f'Dem bounds: {dem_bounds}')
@@ -108,7 +120,7 @@ def get_cop30_dem_for_bounds(
             logging.info(f'Using geoid file: {GEOID_PATH}')
             dem_arr = remove_geoid(
                 dem_arr = dem_arr,
-                dem_profile=dem_profile,
+                dem_profile = dem_profile,
                 geoid_path = GEOID_PATH,
                 dem_area_or_point = 'Point',
                 buffer_pixels = 2,
@@ -194,7 +206,7 @@ def find_required_dem_tile_paths_by_filename(
                     dem_folders.append(dem_foldername)
             else:
                 dem_paths.append(dem_path)
-    for p in set(dem_folders):
+    for p in set(dem_paths):
         logging.info(p)
     return list(set(dem_paths))
 
