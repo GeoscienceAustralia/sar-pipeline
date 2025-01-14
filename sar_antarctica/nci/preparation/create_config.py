@@ -1,17 +1,20 @@
 import click
 from pathlib import Path
+from pyroSAR import identify
+import rasterio
 
 from sar_antarctica.nci.preparation.scenes import find_scene_file_from_id
 from sar_antarctica.nci.preparation.orbits import find_latest_orbit_for_scene
+from sar_antarctica.nci.preparation.dem import get_cop30_dem_for_bounds
 
-def write_file_paths(config_file: Path, scene_path, orbit_path, dem_path, data_path, ancillary_dir="ancillary", processed_dir="processed_scene"):
+def write_file_paths(config_file: Path, scene_file: Path, orbit_file: Path, dem_file: Path, data_dir: Path, ancillary_dir="ancillary", processed_dir="processed_scene"):
     inputs_header = "[inputs]\n"
-    scene_setting = f"scene = '{str(scene_path)}'\n"
-    orbit_setting = f"orbit = '{str(orbit_path)}'\n"
-    dem_setting = f"dem = '{str(dem_path)}'\n"
+    scene_setting = f"scene = '{str(scene_file)}'\n"
+    orbit_setting = f"orbit = '{str(orbit_file)}'\n"
+    dem_setting = f"dem = '{str(dem_file)}'\n"
 
     outputs_header = "[outputs]\n"
-    data_path_setting = f"data = '{str(data_path)}'\n"
+    data_path_setting = f"data = '{str(data_dir)}'\n"
     ancillary_setting = f"ancillary = '{ancillary_dir}'\n"
     processed_setting = f"processed = '{processed_dir}'\n"
 
@@ -34,31 +37,39 @@ def write_file_paths(config_file: Path, scene_path, orbit_path, dem_path, data_p
 def main(scene_id: str, scene_config: str):
     print(f"Processing scene: {scene_id} \n")
 
-    # config_path = Path("/g/data/yp75/projects/sar-antractica-processing/config/scene_config")
+    # Set the data path for outputs
+    data_dir = Path("/g/data/yp75/projects/sar-antractica-processing/data")
+
+    # Path to configuration file for scene
     config_file = Path(scene_config)
 
     # Identify location of scene on GADI
-    scene_path = find_scene_file_from_id(scene_id)
+    scene_file = find_scene_file_from_id(scene_id)
 
-    # Identify location of relevant orbit file on GADI
+    # Identify location of latest orbit file on GADI
     latest_poe_file = find_latest_orbit_for_scene(scene_id, orbit_type="POE")
 
+    # Identify bounds of scene and use bounding box to build DEM
+    scene = identify(str(scene_file))
+    scene_bbox = scene.bbox().extent
+    scene_bounds = (scene_bbox["xmin"], scene_bbox["ymin"], scene_bbox["xmax"], scene_bbox["ymax"])
 
+    # Set path for dem and create
+    dem_dir = data_dir / "dem"
+    dem_file = dem_dir / f"{scene_id}_dem.tif"
+    dem_array, dem_profile = get_cop30_dem_for_bounds(bounds=scene_bounds, save_path=dem_dir, ellipsoid_heights=True)
 
-    # Identify location of DEM/process DEM
-    dem_file = f"{scene_id}_dem.tif"
-    dem_path = Path("/g/data/yp75/projects/pyrosar_processing/data/dem") / dem_file
-
-    # Set the data path for outputs
-    data_path = Path("/g/data/yp75/projects/sar-antractica-processing/data")
+    with rasterio.Env():
+        with rasterio.open('dem_file', 'w', **dem_profile) as dst:
+            dst.write(dem_array.astype(dem_profile["dtype"]), 1)
 
     # Write to config file
     write_file_paths(
         config_file, 
-        scene_path, 
+        scene_file, 
         latest_poe_file, 
-        dem_path, 
-        data_path
+        dem_file, 
+        data_dir
     )
 
 if __name__ == "__main__":
