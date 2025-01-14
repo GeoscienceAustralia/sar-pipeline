@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 from pyroSAR import identify
 from pyroSAR.gamma import geocode
-from pyroSAR.gamma.api import diff
+from pyroSAR.gamma.dem import dem_import
 import shutil
 import sys
 import tomli
@@ -51,27 +51,23 @@ def cli(workflow_config: str, scene_config: str):
 
     # Construct output scenes
     data_dir = Path(config_outputs["data"])
-    processed_scene_dir = data_dir / config_outputs["processed"] / scene_id
-    ancillary_dir = data_dir / scene_id / config_outputs["ancillary"]
-    pyrosar_temp_dir = ancillary_dir / "temp"
-    pyrosar_logs_dir = ancillary_dir / "logs"
-    pyrosar_orbit_dir = ancillary_dir / "orbit"
-    pyrosar_dem_dir = ancillary_dir / "dem"
+    processed_scene_dir = data_dir / config_outputs["processed"] / pyrosar_scene_id.outname_base(extensions=None)
+    pyrosar_temp_dir = data_dir / "temp" / pyrosar_scene_id.outname_base(extensions=None)
+    pyrosar_temp_log_dir = pyrosar_temp_dir / "logfiles"
 
     log.info("creating directories:")
-    for dir in [processed_scene_dir, ancillary_dir, pyrosar_temp_dir, pyrosar_logs_dir, pyrosar_orbit_dir, pyrosar_dem_dir]:
+    for dir in [processed_scene_dir, pyrosar_temp_dir, pyrosar_temp_log_dir]:
         dir.mkdir(parents=True, exist_ok=True)
         log.info(f"    {dir}")
 
     # Copy over orbit file
     orbit_file = Path(config_inputs["orbit"])
     orbit_filename = orbit_file.name
-    shutil.copy(orbit_file, pyrosar_orbit_dir / orbit_filename)
+    shutil.copy(orbit_file, pyrosar_temp_dir / orbit_filename)
 
     # Create DEM in GAMMA format
     dem_tif = Path(config_inputs["dem"])
-    dem_gamma = pyrosar_dem_dir / dem_tif.stem
-    dem_gamma_par = dem_gamma.with_suffix('.par')
+    dem_gamma = pyrosar_temp_dir / dem_tif.stem
 
     if dem_gamma.exists():
         log.info("DEM exists")
@@ -79,13 +75,11 @@ def cli(workflow_config: str, scene_config: str):
     else:
         log.info("running DEM")
 
-        diff.dem_import(
-            input_DEM=str(dem_tif), 
-            DEM=str(dem_gamma),
-            DEM_par=str(dem_gamma_par),
-            no_data=-9999,
-            geoid="-", 
-            logpath=str(pyrosar_logs_dir), 
+        dem_import(
+            src=str(dem_tif), 
+            dst=str(dem_gamma), 
+            geoid=None, 
+            logpath=str(pyrosar_temp_log_dir), 
             outdir=str(dem_tif.parent)
         )
 
@@ -105,7 +99,7 @@ def cli(workflow_config: str, scene_config: str):
         func_geoback=1,
         nodata=(0, -99), 
         update_osv=False, 
-        osvdir=str(pyrosar_orbit_dir), 
+        osvdir=str(pyrosar_temp_dir), 
         allow_RES_OSV=False,
         cleanup=False, 
         export_extra=['inc_geo','dem_seg_geo','ls_map_geo','pix_area_gamma0_geo','pix_ratio_geo'], 
