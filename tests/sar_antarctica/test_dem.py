@@ -2,14 +2,28 @@ from sar_antarctica.nci.preparation.dem import (
     check_s1_bounds_cross_antimeridian,
     split_s1_bounds_at_am_crossing,
     get_target_antimeridian_projection,
-    make_empty_cop30m_profile
-
+    make_empty_cop30m_profile,
+    expand_bounds
 ) 
+
+from sar_antarctica.nci.preparation.geoid import remove_geoid
+
+from sar_antarctica.utils.raster import (
+    read_vrt_in_bounds,
+    bounds_from_profile
+)
+
 import shapely
+from shapely.geometry import box
 import pytest
 import math
+import numpy as np
+import os
 
 from data.cop30m_profile import TEST_COP30_PROFILE_1, TEST_COP30_PROFILE_2
+
+TEST_COP30_VRT_PATH = 'data/copernicus_30m_world/copdem_test.vrt'
+TEST_GEOID_PATH = '/g/data/yp75/projects/ancillary/geoid/us_nga_egm2008_1_4326__agisoft.tif'
 
 def test_pytest():
     assert True
@@ -50,16 +64,75 @@ def test_make_empty_cop30m_profile(bounds_to_profile):
     bounds, target_profile = bounds_to_profile
     profile = make_empty_cop30m_profile(bounds)
     for key in profile.keys():
-        if isinstance(profile[key], float) and math.isnan(profile[key]) and isinstance(target_profile[key], float) and math.isnan(target_profile[key]):
+        if (
+            isinstance(profile[key], float) and 
+            math.isnan(profile[key]) and 
+            isinstance(target_profile[key], float) 
+            and math.isnan(target_profile[key])
+            ):
             # Handle NaN comparison
             continue
         assert profile[key] == target_profile[key]
 
+@pytest.mark.parametrize("bounds, buffer, expanded_bounds", [
+    ((179.1, -79.2, 179.9, -79.1), 0, (179.09161, -79.201308, 179.900922, -79.09867)),
+    ((179.1, -79.2, 179.9, -79.1), 0.01, (179.08161, -79.21130, 179.91092, -79.08867)),
+    ((10, -65.2, 20, -60), 0, (8.23494, -66.27035, 23.91474, -58.78356)),
+    ((10, -65.2, 20, -60), 0, (8.23494, -66.27035, 23.91474, -58.78356)),
+    ((-90, -85, -80, -80), 0, (-90, -85.07587, -70.54166, -79.85109))
+])
+def test_expand_bounds(bounds, buffer, expanded_bounds):
+    new_bounds = expand_bounds(bounds, buffer=buffer)
+    assert pytest.approx(new_bounds[0],rel=1e-5) == pytest.approx(expanded_bounds[0],rel=1e-5)
+    assert pytest.approx(new_bounds[1],rel=1e-5) == pytest.approx(expanded_bounds[1],rel=1e-5)
+    assert pytest.approx(new_bounds[2],rel=1e-5) == pytest.approx(expanded_bounds[2],rel=1e-5)
+    assert pytest.approx(new_bounds[3],rel=1e-5) == pytest.approx(expanded_bounds[3],rel=1e-5)
+
+@pytest.mark.parametrize("bounds, trg_shape, buffer_pixels", [
+    ((-179.9, -79.2, -179.1, -79.1), (1,362,962), 0), 
+    ((-179.9, -79.2, -179.1, -79.1), (1,370,970), 4), 
+    ((-179.6, -79.9, -179.4, -79.5), (1, 1442, 242), 0),
+    ((179.1, -79.2, 179.9, -79.1), (1,362,962), 0),
+    ((179.5, -79.2, 179.6, -79.01), (1,690,126), 2),
+    ((179.5, -79.2, 179.6, -79.01), (1,688,124), 1),
+    ((178.1, -79.2, 179.95, -79.1), (1, 362, 2222), 0),
+    ((178.1, -79.2, 179.95, -79.1), (1, 366, 2226), 2),
+    ])
+def test_vrt_dem_read_for_bounds(bounds, trg_shape, buffer_pixels):
+    dem_arr, dem_profile = read_vrt_in_bounds(
+        vrt_path=TEST_COP30_VRT_PATH, bounds=bounds, buffer_pixels=buffer_pixels)
+    dem_bounds = bounds_from_profile(dem_profile)
+    assert box(*bounds).within(box(*dem_bounds))
+    assert dem_arr.shape == trg_shape
+
+@pytest.mark.parametrize("bounds, trg_shape, geoid_ref_mean, ellipsoid_ref_mean", [
+    ((-179.9, -79.2, -179.1, -79.1), (1,362,962), 44.088665, -9.82583), 
+    ((178.1, -79.2, 179.95, -79.1), (1, 362, 2222), 38.270348, -15.334288),
+    ])
+def test_remove_geoid(bounds, trg_shape, geoid_ref_mean, ellipsoid_ref_mean):
+    dem_arr, dem_profile = read_vrt_in_bounds(
+        vrt_path=TEST_COP30_VRT_PATH, bounds=bounds, buffer_pixels=0)
+    dem_arr_ellipsoid = remove_geoid(
+        dem_arr = dem_arr,
+        dem_profile = dem_profile,
+        geoid_path = TEST_GEOID_PATH,
+        dem_area_or_point = 'Point',
+        buffer_pixels = 2,
+        save_path='',
+    )
+    assert dem_arr.shape == dem_arr_ellipsoid.shape
+    assert dem_arr.shape == trg_shape
+    assert np.mean(dem_arr) == geoid_ref_mean
+    assert np.mean(dem_arr_ellipsoid) == ellipsoid_ref_mean
+
+
+    
 if __name__ == "__main__":
 
     from sar_antarctica.nci.preparation.dem import (
         get_cop30_dem_for_bounds,
         find_required_dem_tile_paths_by_filename,
+        expand_bounds
     )
 
     import logging
@@ -68,18 +141,19 @@ if __name__ == "__main__":
     from shapely.geometry import box
     import geopandas as gpd
     
-    bounds = (163.121597, -78.632782, 172.382263, -76.383263) # full s1 scene
+    # bounds = (163.121597, -78.632782, 172.382263, -76.383263) # full s1 scene
     # bounds = (165, -76.632782, 170, -75) # smaller area
     # bounds = (-177.884048, -78.176201, 178.838364, -75.697151) # full AM scene bounds
-    # bounds = (-177.2, -79.2, 178.1, -77.1) # smaller AM bounds
+    # bounds = (-179.2, -79.2, 179.1, -79.1) # smaller AM bounds
     # bounds = (140, -66, 141, -65) # smaller area over water
     # bounds = (20.1, -75.2, 22.2, -73.1) 
     # bounds = (-22.2, -75.2, -20.1, -73.1) 
+    bounds = (-90, -85, -80, -80)
 
-    # dem_paths = find_required_dem_tile_paths_by_filename(bounds)
-    # print(f'{len(dem_paths)} tiles found')
-    # print(dem_paths)
-    get_cop30_dem_for_bounds(bounds, ellipsoid_heights=True, save_path='dem_tmp.tif')
+    dem_paths = find_required_dem_tile_paths_by_filename(bounds)
+    print(f'{len(dem_paths)} tiles found')
+    print(dem_paths)
+    # get_cop30_dem_for_bounds(bounds, ellipsoid_heights=False, save_path='dem_tmp.tif', buffer_pixels=0)
     #profile = make_empty_cop30m_profile((0, -90, 1, -86))
 
     # save bounds for exploration
