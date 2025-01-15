@@ -189,6 +189,10 @@ def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', ret
         new array and rasterio profile
     """
     
+    # make upper end of the requested integer
+    # ensures the bounds are covered with requested pixel buffer
+    buffer_pixels+=0.9 
+
     if bounds is None:
         # get all data in tiles
         if output_path:
@@ -228,7 +232,7 @@ def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', ret
 
             # Create a window for the bounding box
             xmin, ymin, xmax, ymax = buffered_bounds
-            window = from_bounds(xmin, ymin, xmax, ymax, transform=src_transform).round()
+            window = from_bounds(xmin, ymin, xmax, ymax, transform=src_transform) #.round()
 
             # Read data for the specified window
             data = src.read(1, window=window)  # Read the first band; adjust if you need multiple bands
