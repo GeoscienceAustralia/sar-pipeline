@@ -131,7 +131,10 @@ def get_cop30_dem_for_bounds(
 def expand_bounds(bounds: tuple, buffer: float) -> tuple:
     """Expand the bounds for high lattitudes, and add a buffer. The
     provided bounds sometimes do not contain the full scene due to
-    warping at high latitudes.
+    warping at high latitudes. Solve this by converting bounds to polar
+    steriographic, getting bounds, converting back to 4326. At high
+    latitudes this will increase the longitude range. A buffer is also
+    added where specified.
 
     Parameters
     ----------
@@ -150,7 +153,7 @@ def expand_bounds(bounds: tuple, buffer: float) -> tuple:
     if min_lat < -50:
         # adjust the bounds at high southern latitudes
         bounds = adjust_bounds(bounds, src_crs=4326, ref_crs=3031)
-    if min_lat > -50:
+    if min_lat > 50:
         # adjust the bounds at high norther latitudes
         bounds = adjust_bounds(bounds, src_crs=4326, ref_crs=3995)
     exp_bounds = list(box(*bounds).buffer(buffer).bounds)
