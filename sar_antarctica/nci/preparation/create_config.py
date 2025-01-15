@@ -57,11 +57,7 @@ def main(scene_id: str, scene_config: str):
     # Set path for dem and create
     dem_dir = data_dir / "dem"
     dem_file = dem_dir / f"{scene_id}_dem.tif"
-    dem_array, dem_profile = get_cop30_dem_for_bounds(bounds=scene_bounds, save_path=dem_file, ellipsoid_heights=True)
-
-    with rasterio.Env():
-        with rasterio.open(dem_file, 'w', **dem_profile) as dst:
-            dst.write(dem_array.astype(dem_profile["dtype"]))
+    _, _ = get_cop30_dem_for_bounds(bounds=scene_bounds, save_path=dem_file, ellipsoid_heights=True)
 
     # Write to config file
     write_file_paths(
