@@ -104,7 +104,6 @@ dependencies:
       - pytest==8.3.4
       - python-dateutil==2.9.0.post0
       - pytz==2024.2
-      - sar-antarctica==0.1
       - six==1.17.0
       - tomli==2.2.1
       - tzdata==2024.2
