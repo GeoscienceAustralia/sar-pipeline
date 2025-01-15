@@ -97,7 +97,7 @@ def get_cop30_dem_for_bounds(
         #dem_paths = find_required_dem_tile_paths_by_filename(bounds)
         logging.info(f'Reading tiles from the tile vrt: {COP30_VRT_PATH}')
         dem_arr, dem_profile = read_vrt_in_bounds(
-            COP30_VRT_PATH, bounds=bounds, output_path=save_path, buffer_pixels=buffer_pixels)
+            COP30_VRT_PATH, bounds=bounds, output_path=save_path, buffer_pixels=buffer_pixels, set_nodata=np.nan)
         logging.info(f'Check the dem covers the required bounds')
         dem_bounds = bounds_from_profile(dem_profile)
         logging.info(f'Dem bounds: {dem_bounds}')

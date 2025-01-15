@@ -167,7 +167,13 @@ def expand_raster_to_bounds(
     return trg_array, trg_profile
 
 
-def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', return_data: bool =True, buffer_pixels: int=0):
+def read_vrt_in_bounds(
+        vrt_path: str,  
+        bounds: tuple, 
+        output_path: str = '', 
+        return_data: bool =True, 
+        buffer_pixels: int=0,
+        set_nodata : float = None):
     """Read in data from a vrt file in the specified bounds
 
     Parameters
@@ -182,6 +188,10 @@ def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', ret
         return array and profile, else None, by default True
     buffer_pixels : int, optional
         number of pixels to buffer boynds by, by default 0
+    set_nodata : float, optional
+        set the nodata value in the metadata. Note this does
+        not change the value, just the metadata. None will keep
+        The original. Default to None.
 
     Returns
     -------
@@ -196,7 +206,10 @@ def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', ret
     if bounds is None:
         # get all data in tiles
         if output_path:
-            gdal.Translate(output_path, vrt_path)
+            if set_nodata is not None:
+                gdal.Translate(output_path, vrt_path, noData=set_nodata)
+            else:
+                gdal.Translate(output_path, vrt_path)
         if return_data:
             # Open the VRT file
             with rasterio.open(vrt_path) as src:
@@ -204,7 +217,8 @@ def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', ret
                 arr_profile = src.profile
                 arr_profile.update(driver="GTiff")  # Ensure the driver is set to GeoTIFF
                 arr = src.read()
-
+                if set_nodata is not None:
+                    arr_profile['nodata'] = set_nodata
             return arr, arr_profile
 
     else:
@@ -247,6 +261,8 @@ def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', ret
             arr_profile['count'] = 1
             arr_profile['height'] = data.shape[0]
             arr_profile['width'] = data.shape[1]
+            if set_nodata is not None:
+                arr_profile['nodata'] = set_nodata
 
             # Save the extracted data to a new GeoTIFF  
             if output_path:
