@@ -41,9 +41,10 @@ def build_vrt(tiles: Generator[Path, None, None], vrt_path: str | os.PathLike, r
     with open("vrt_temp.txt", "w") as f:
         f.writelines(f"{tile}\n" for tile in tiles)
 
-    os.system(f'gdalbuildvrt -input_file_list vrt_temp.txt {vrt_path}')
+    if run:
+        os.system(f'gdalbuildvrt -input_file_list vrt_temp.txt {vrt_path}')
 
-    os.remove("vrt_temp.txt")
+        os.remove("vrt_temp.txt")
 
 def create_glo30_dem_south_vrt():
     """Create a VRT for the Copernicus Global 30m DEM on NCI
