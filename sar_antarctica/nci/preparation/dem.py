@@ -110,16 +110,11 @@ def get_cop30_dem_for_bounds(
         bounds_filled_by_dem = box(*bounds).within(box(*dem_bounds))
         logging.info(f'Dem covers target: {bounds_filled_by_dem}')
         if not bounds_filled_by_dem:
-            fill_value = 0
-            logging.info(f'Expanding bounds with fill value: {fill_value}')
-            dem_arr, dem_profile = expand_raster_to_bounds(
-                bounds, 
-                src_profile=dem_profile, 
-                src_array=dem_arr, 
-                save_path=save_path, 
-                fill_value=0)
-            dem_bounds = bounds_from_profile(dem_profile)
-            logging.info(f'Expanded dem bounds: {dem_bounds}')
+            warn_msg = "The Cop30 DEM bounds do not fully cover the requested bounds. " \
+                "Try increasing the 'buffer_pixels' value. Note at the antimeridian " \
+                "This is expected, with bounds being slighly smaller on +ve side. " \
+                "e.g. max_lon is 179.9999 < 180."
+            logging.warning(warn_msg)
         if ellipsoid_heights:
             logging.info(f'Subtracting the geoid from the DEM to return ellipsoid heights')
             logging.info(f'Using geoid file: {GEOID_TIF_PATH}')
