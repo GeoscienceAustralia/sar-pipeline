@@ -22,8 +22,7 @@ from ...utils.spatial import (
 
 COP30_FOLDER_PATH = Path('/g/data/v10/eoancillarydata-2/elevation/copernicus_30m_world/')
 COP30_VRT_PATH = Path('/g/data/yp75/projects/ancillary/dem/copdem_south.vrt')
-GEOID_PATH = Path('/g/data/yp75/projects/ancillary/geoid/us_nga_egm2008_1_4326__agisoft.tif')
-GPKG_PATH = Path('/g/data/yp75/projects/ancillary/dem/copdem_tindex.gpkg')
+GEOID_TIF_PATH = Path('/g/data/yp75/projects/ancillary/geoid/us_nga_egm2008_1_4326__agisoft.tif')
 
 def get_cop30_dem_for_bounds(
         bounds: tuple, 
@@ -31,6 +30,8 @@ def get_cop30_dem_for_bounds(
         ellipsoid_heights: bool = True,
         buffer_pixels : int = 1,
         adjust_for_high_lat_and_buffer = True,
+        COP30_VRT_PATH : Path = COP30_VRT_PATH,
+        GEOID_TIF_PATH : Path = GEOID_TIF_PATH,
         ) -> tuple[np.ndarray, dict]:
     """Logic for acquiting the cop30m DEM for a given set of bounds on the NCI. The returned
     dem will fully encompass the specified bounds. There may be additional data outside of
@@ -49,6 +50,10 @@ def get_cop30_dem_for_bounds(
     adjust_for_high_lat_and_buffer: bool.
         adjust for high latitudes to ensure bounds are completely enclosed. Buffer
         scene after conversion. Default buffer is 0.1 degrees.
+    COP30_VRT_PATH : Path
+        Path to the .vrt for the COP30 DEM
+    COP30_VRT_PATH : Path
+        Path to the .vrt for the COP30 DEM
 
     Returns
     -------
@@ -73,10 +78,10 @@ def get_cop30_dem_for_bounds(
         # when passed back into the top function, this section will be skipped, creating
         # A valid dem for each side which we can then merge at the desired CRS
         # Add an additional buffer to ensure full coverage over dateline
-        left_save_path = '.'.join(save_path.split('.')[0:-1]) + "_left." + save_path.split('.')[-1]
+        left_save_path = '.'.join(str(save_path).split('.')[0:-1]) + "_left." + str(save_path).split('.')[-1]
         logging.info(f'Getting tiles for left bounds')
         get_cop30_dem_for_bounds(bounds_left, left_save_path, ellipsoid_heights, buffer_pixels=10)
-        right_save_path = '.'.join(save_path.split('.')[0:-1]) + "_right." + save_path.split('.')[-1]
+        right_save_path = '.'.join(str(save_path).split('.')[0:-1]) + "_right." + str(save_path).split('.')[-1]
         logging.info(f'Getting tiles for right bounds')
         get_cop30_dem_for_bounds(bounds_right, right_save_path, ellipsoid_heights, buffer_pixels=10)
         # reproject to 3031 and merge
@@ -117,11 +122,11 @@ def get_cop30_dem_for_bounds(
             logging.info(f'Expanded dem bounds: {dem_bounds}')
         if ellipsoid_heights:
             logging.info(f'Subtracting the geoid from the DEM to return ellipsoid heights')
-            logging.info(f'Using geoid file: {GEOID_PATH}')
+            logging.info(f'Using geoid file: {GEOID_TIF_PATH}')
             dem_arr = remove_geoid(
                 dem_arr = dem_arr,
                 dem_profile = dem_profile,
-                geoid_path = GEOID_PATH,
+                geoid_path = GEOID_TIF_PATH,
                 dem_area_or_point = 'Point',
                 buffer_pixels = 2,
                 save_path=save_path,

@@ -276,7 +276,7 @@ def read_vrt_in_bounds(
 def merge_raster_files(paths, output_path, bounds=None, return_data=True, buffer_pixels=0, delete_vrt=True):
 
     # Create a virtual raster (in-memory description of the merged DEMs)
-    vrt_path = output_path.replace(".tif", ".vrt")  # Temporary VRT file path
+    vrt_path = str(output_path).replace(".tif", ".vrt")  # Temporary VRT file path
     gdal.BuildVRT(vrt_path, paths)
     res = read_vrt_in_bounds(
         vrt_path=vrt_path,
