@@ -30,8 +30,8 @@ def get_cop30_dem_for_bounds(
         ellipsoid_heights: bool = True,
         buffer_pixels : int = 1,
         adjust_for_high_lat_and_buffer = True,
-        COP30_VRT_PATH : Path = COP30_VRT_PATH,
-        GEOID_TIF_PATH : Path = GEOID_TIF_PATH,
+        cop30_vrt_path : Path = COP30_VRT_PATH,
+        geoid_tif_path : Path = GEOID_TIF_PATH,
         ) -> tuple[np.ndarray, dict]:
     """Logic for acquiting the cop30m DEM for a given set of bounds on the NCI. The returned
     dem will fully encompass the specified bounds. There may be additional data outside of
@@ -50,10 +50,10 @@ def get_cop30_dem_for_bounds(
     adjust_for_high_lat_and_buffer: bool.
         adjust for high latitudes to ensure bounds are completely enclosed. Buffer
         scene after conversion. Default buffer is 0.1 degrees.
-    COP30_VRT_PATH : Path
+    cop30_vrt_path : Path
         Path to the .vrt for the COP30 DEM
-    COP30_VRT_PATH : Path
-        Path to the .vrt for the COP30 DEM
+    geoid_tif_path : Path
+        Path to the .tif file for the geoid
 
     Returns
     -------
@@ -100,9 +100,9 @@ def get_cop30_dem_for_bounds(
             bounds = expand_bounds(bounds, buffer=0.1)
             logging.info(f'Getting cop30m dem for expanded bounds: {bounds}')
         #dem_paths = find_required_dem_tile_paths_by_filename(bounds)
-        logging.info(f'Reading tiles from the tile vrt: {COP30_VRT_PATH}')
+        logging.info(f'Reading tiles from the tile vrt: {cop30_vrt_path}')
         dem_arr, dem_profile = read_vrt_in_bounds(
-            COP30_VRT_PATH, bounds=bounds, output_path=save_path, buffer_pixels=buffer_pixels, set_nodata=np.nan)
+            cop30_vrt_path, bounds=bounds, output_path=save_path, buffer_pixels=buffer_pixels, set_nodata=np.nan)
         logging.info(f'Check the dem covers the required bounds')
         dem_bounds = bounds_from_profile(dem_profile)
         logging.info(f'Dem bounds: {dem_bounds}')
@@ -117,11 +117,11 @@ def get_cop30_dem_for_bounds(
             logging.warning(warn_msg)
         if ellipsoid_heights:
             logging.info(f'Subtracting the geoid from the DEM to return ellipsoid heights')
-            logging.info(f'Using geoid file: {GEOID_TIF_PATH}')
+            logging.info(f'Using geoid file: {geoid_tif_path}')
             dem_arr = remove_geoid(
                 dem_arr = dem_arr,
                 dem_profile = dem_profile,
-                geoid_path = GEOID_TIF_PATH,
+                geoid_path = geoid_tif_path,
                 dem_area_or_point = 'Point',
                 buffer_pixels = 2,
                 save_path=save_path,

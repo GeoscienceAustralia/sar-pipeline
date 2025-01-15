@@ -143,8 +143,8 @@ def test_get_cop30_dem_for_bounds(bounds, ellipsoid_heights, trg_shape, trg_crs)
         save_path= CURRENT_DIR / Path('TMP') / Path('TMP.tif'), 
         ellipsoid_heights=ellipsoid_heights, 
         buffer_pixels=2,
-        COP30_VRT_PATH=TEST_COP30_VRT_PATH,
-        GEOID_TIF_PATH=TEST_GEOID_PATH,
+        cop30_vrt_path=TEST_COP30_VRT_PATH,
+        geoid_tif_path=TEST_GEOID_PATH,
         adjust_for_high_lat_and_buffer=False
     )
     assert dem_arr.shape == trg_shape
