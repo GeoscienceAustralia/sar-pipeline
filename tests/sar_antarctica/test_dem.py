@@ -3,7 +3,8 @@ from sar_antarctica.nci.preparation.dem import (
     split_s1_bounds_at_am_crossing,
     get_target_antimeridian_projection,
     make_empty_cop30m_profile,
-    expand_bounds
+    expand_bounds,
+    get_cop30_dem_for_bounds
 ) 
 
 from sar_antarctica.nci.preparation.geoid import remove_geoid
@@ -19,11 +20,14 @@ import pytest
 import math
 import numpy as np
 import os
+import shutil
+from pathlib import Path
 
 from data.cop30m_profile import TEST_COP30_PROFILE_1, TEST_COP30_PROFILE_2
 
-TEST_COP30_VRT_PATH = 'data/copernicus_30m_world/copdem_test.vrt'
-TEST_GEOID_PATH = '/g/data/yp75/projects/ancillary/geoid/us_nga_egm2008_1_4326__agisoft.tif'
+CURRENT_DIR = Path(os.path.abspath(__file__)).parent.resolve()
+TEST_COP30_VRT_PATH = CURRENT_DIR / Path('data/copernicus_30m_world/copdem_test.vrt')
+TEST_GEOID_PATH = CURRENT_DIR / Path('data/geoid/us_nga_egm2008_1_4326__agisoft_clipped.tif')
 
 def test_pytest():
     assert True
@@ -106,8 +110,8 @@ def test_vrt_dem_read_for_bounds(bounds, trg_shape, buffer_pixels):
     assert dem_arr.shape == trg_shape
 
 @pytest.mark.parametrize("bounds, trg_shape, geoid_ref_mean, ellipsoid_ref_mean", [
-    ((-179.9, -79.2, -179.1, -79.1), (1,362,962), 44.088665, -9.82583), 
-    ((178.1, -79.2, 179.95, -79.1), (1, 362, 2222), 38.270348, -15.334288),
+    ((-179.9, -79.2, -179.1, -79.1), (1,362,962), 44.088665, -9.830775), 
+    ((178.1, -79.2, 179.95, -79.1), (1, 362, 2222), 38.270348, -15.338912),
     ])
 def test_remove_geoid(bounds, trg_shape, geoid_ref_mean, ellipsoid_ref_mean):
     dem_arr, dem_profile = read_vrt_in_bounds(
@@ -126,6 +130,25 @@ def test_remove_geoid(bounds, trg_shape, geoid_ref_mean, ellipsoid_ref_mean):
     assert np.mean(dem_arr_ellipsoid) == ellipsoid_ref_mean
 
 
+@pytest.mark.parametrize("bounds, trg_shape, trg_crs", [
+    ((-179.9, -79.2, -179.1, -79.1), (1, 366, 966), 4326),
+    ((178.1, -79.2, 179.95, -79.1), (1, 366, 2226), 4326), 
+    ((-179.2, -79.2, 179.1, -79.1), (1, 1275, 1501), 3031) # across antimeridian
+    ])
+def test_get_cop30_dem_for_bounds(bounds, trg_shape, trg_crs):
+    os.makedirs(CURRENT_DIR / Path('TMP'), exist_ok=True)
+    dem_arr, dem_profile = get_cop30_dem_for_bounds(
+        bounds, 
+        save_path= CURRENT_DIR / Path('TMP') / Path('TMP.tif'), 
+        ellipsoid_heights=False, 
+        buffer_pixels=2,
+        COP30_VRT_PATH=TEST_COP30_VRT_PATH,
+        GEOID_TIF_PATH=TEST_GEOID_PATH,
+        adjust_for_high_lat_and_buffer=False
+    )
+    assert dem_arr.shape == trg_shape
+    assert dem_profile['crs'].to_epsg() == trg_crs
+
     
 if __name__ == "__main__":
 
@@ -140,7 +163,7 @@ if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
     from shapely.geometry import box
     import geopandas as gpd
-    
+
     # bounds = (163.121597, -78.632782, 172.382263, -76.383263) # full s1 scene
     # bounds = (165, -76.632782, 170, -75) # smaller area
     # bounds = (-177.884048, -78.176201, 178.838364, -75.697151) # full AM scene bounds
@@ -148,15 +171,14 @@ if __name__ == "__main__":
     # bounds = (140, -66, 141, -65) # smaller area over water
     # bounds = (20.1, -75.2, 22.2, -73.1) 
     # bounds = (-22.2, -75.2, -20.1, -73.1) 
-    bounds = (-90, -85, -80, -80)
+    bounds = ((-179.2, -79.2, 179.1, -79.1))
 
-    dem_paths = find_required_dem_tile_paths_by_filename(bounds)
-    print(f'{len(dem_paths)} tiles found')
-    print(dem_paths)
-    # get_cop30_dem_for_bounds(bounds, ellipsoid_heights=False, save_path='dem_tmp.tif', buffer_pixels=0)
-    #profile = make_empty_cop30m_profile((0, -90, 1, -86))
+    # dem_paths = find_required_dem_tile_paths_by_filename(bounds)
+    # print(f'{len(dem_paths)} tiles found')
+    # print(dem_paths)
+    dem_arr, dem_profile = get_cop30_dem_for_bounds(bounds, save_path='dem_tmp.tif', ellipsoid_heights=False, buffer_pixels=2)
 
     # save bounds for exploration
-    gdf = gpd.GeoDataFrame([{"geometry": box(*bounds)}], crs="EPSG:4326")
-    # Write the GeoDataFrame to a GeoJSON file
-    gdf.to_file("bounding_box.geojson", driver="GeoJSON")
+    # gdf = gpd.GeoDataFrame([{"geometry": box(*bounds)}], crs="EPSG:4326")
+    # # Write the GeoDataFrame to a GeoJSON file
+    # gdf.to_file("bounding_box.geojson", driver="GeoJSON")
