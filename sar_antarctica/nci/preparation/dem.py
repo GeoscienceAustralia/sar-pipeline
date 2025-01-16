@@ -80,10 +80,22 @@ def get_cop30_dem_for_bounds(
         # Add an additional buffer to ensure full coverage over dateline
         left_save_path = '.'.join(str(save_path).split('.')[0:-1]) + "_left." + str(save_path).split('.')[-1]
         logging.info(f'Getting tiles for left bounds')
-        get_cop30_dem_for_bounds(bounds_left, left_save_path, ellipsoid_heights, buffer_pixels=10)
+        get_cop30_dem_for_bounds(
+            bounds_left, 
+            left_save_path, 
+            ellipsoid_heights, 
+            buffer_pixels=10,
+            geoid_tif_path=geoid_tif_path,
+            cop30_vrt_path=cop30_vrt_path)
         right_save_path = '.'.join(str(save_path).split('.')[0:-1]) + "_right." + str(save_path).split('.')[-1]
         logging.info(f'Getting tiles for right bounds')
-        get_cop30_dem_for_bounds(bounds_right, right_save_path, ellipsoid_heights, buffer_pixels=10)
+        get_cop30_dem_for_bounds(
+            bounds_right, 
+            right_save_path, 
+            ellipsoid_heights, 
+            buffer_pixels=10,
+            geoid_tif_path=geoid_tif_path,
+            cop30_vrt_path=cop30_vrt_path)
         # reproject to 3031 and merge
         logging.info(f'Reprojecting left and right side of antimeridian to EPGS:{target_crs}')
         reproject_raster(left_save_path, left_save_path, target_crs)
