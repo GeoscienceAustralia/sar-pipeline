@@ -46,13 +46,13 @@ def build_vrt(tiles: Generator[Path, None, None] | list[Path], vrt_path: str | o
 
         os.remove("temp.txt")
 
-def build_tileindex(tiles: Generator[Path, None, None], tindex_path: str | os.PathLike, run: bool = True):
+def build_tileindex(tiles: Generator[Path, None, None] | list[Path], tindex_path: str | os.PathLike, run: bool = True):
     """Generic function for building a tile index from a generator of tile paths
 
     Parameters
     ----------
     tiles : Generator[Path, None, None]
-        A generator that yeilds `Path` objects for tiles
+        A generator (or list) that provides `Path` objects for tiles
         e.g. /path/to/DEM_folder/DEM_file.tif
     vrt_path : str | os.PathLike
         Where to write the tile index to, ending in .gpkg
