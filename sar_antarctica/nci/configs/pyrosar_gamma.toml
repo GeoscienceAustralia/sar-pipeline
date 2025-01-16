@@ -1,0 +1,25 @@
+[sources]
+scenes = "/g/data/fj7/Copernicus/Sentinel-1/C-SAR/GRD"
+dem = "/g/data/v10/eoancillarydata-2/elevation/copernicus_30m_world"
+ancillary = "/g/data/yp75/projects/ancillary"
+
+[job]
+root = "/g/data/yp75/projects/sar-antractica-processing"
+
+[job.submission]
+root = "submission"
+logs = "logs"
+
+[job.configuration]
+root = "config"
+workflow = "workflow_config"
+scene = "scene_config"
+
+[job.settings]
+ncpu = 4
+mem = 32
+queue = "normal"
+project = "u46"
+walltime = "02:00:00"
+storage = "gdata/yp75+gdata/dg9+gdata/fj7+gdata/v10"
+workflow_config = "pyrosar_gamma"
