@@ -69,7 +69,9 @@ def expand_raster_to_bounds(
     src_profile : dict = None,
     src_array : np.ndarray = None,
     fill_value : float = 0,
-    save_path : str = '') -> tuple[np.ndarray, dict]:
+    buffer_pixels : int = 0,
+    save_path : str = ''
+    ) -> tuple[np.ndarray, dict]:
     """Expand the extent of the input array to the target bounds specified
     by the user. Either a src_path to expand, src_profile to construct a new raster,
     or src_profile and src_array o expand must be provided/
@@ -86,6 +88,8 @@ def expand_raster_to_bounds(
         source array with values to expand, by default None
     fill_value : float, optional
         The fille value when expanding, by default 0
+    buffer_pixels : int, optional
+        Additional buffer pixels around bounds
     save_path : str, optional
         where to save new raster, by default ''
 
@@ -113,10 +117,10 @@ def expand_raster_to_bounds(
     lat_res = abs(src_profile['transform'].e)  # Pixel height 
 
     # determine the number of new pixels in each direction
-    new_left_pixels = int(abs(trg_left-src_left)/lon_res)
-    new_right_pixels = int(abs(trg_right-src_right)/lon_res)
-    new_bottom_pixels = int(abs(trg_bottom-src_bottom)/lat_res)
-    new_top_pixels = int(abs(trg_top-src_top)/lat_res)
+    new_left_pixels = int(abs(trg_left-src_left)/lon_res) + buffer_pixels
+    new_right_pixels = int(abs(trg_right-src_right)/lon_res) + buffer_pixels
+    new_bottom_pixels = int(abs(trg_bottom-src_bottom)/lat_res) + buffer_pixels
+    new_top_pixels = int(abs(trg_top-src_top)/lat_res) + buffer_pixels
     
     # adjust the new bounds with even pixel multiples of existing
     new_trg_left = src_left - new_left_pixels*lon_res
@@ -167,7 +171,13 @@ def expand_raster_to_bounds(
     return trg_array, trg_profile
 
 
-def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', return_data: bool =True, buffer_pixels: int=0):
+def read_vrt_in_bounds(
+        vrt_path: str,  
+        bounds: tuple, 
+        output_path: str = '', 
+        return_data: bool =True, 
+        buffer_pixels: int=0,
+        set_nodata : float = None):
     """Read in data from a vrt file in the specified bounds
 
     Parameters
@@ -182,6 +192,10 @@ def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', ret
         return array and profile, else None, by default True
     buffer_pixels : int, optional
         number of pixels to buffer boynds by, by default 0
+    set_nodata : float, optional
+        set the nodata value in the metadata. Note this does
+        not change the value, just the metadata. None will keep
+        The original. Default to None.
 
     Returns
     -------
@@ -189,10 +203,17 @@ def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', ret
         new array and rasterio profile
     """
     
+    # make upper end of the requested integer
+    # ensures the bounds are covered with requested pixel buffer
+    buffer_pixels+=0.9 
+
     if bounds is None:
         # get all data in tiles
         if output_path:
-            gdal.Translate(output_path, vrt_path)
+            if set_nodata is not None:
+                gdal.Translate(output_path, vrt_path, noData=set_nodata)
+            else:
+                gdal.Translate(output_path, vrt_path)
         if return_data:
             # Open the VRT file
             with rasterio.open(vrt_path) as src:
@@ -200,7 +221,8 @@ def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', ret
                 arr_profile = src.profile
                 arr_profile.update(driver="GTiff")  # Ensure the driver is set to GeoTIFF
                 arr = src.read()
-
+                if set_nodata is not None:
+                    arr_profile['nodata'] = set_nodata
             return arr, arr_profile
 
     else:
@@ -228,7 +250,7 @@ def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', ret
 
             # Create a window for the bounding box
             xmin, ymin, xmax, ymax = buffered_bounds
-            window = from_bounds(xmin, ymin, xmax, ymax, transform=src_transform).round()
+            window = from_bounds(xmin, ymin, xmax, ymax, transform=src_transform) #.round()
 
             # Read data for the specified window
             data = src.read(1, window=window)  # Read the first band; adjust if you need multiple bands
@@ -243,6 +265,8 @@ def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', ret
             arr_profile['count'] = 1
             arr_profile['height'] = data.shape[0]
             arr_profile['width'] = data.shape[1]
+            if set_nodata is not None:
+                arr_profile['nodata'] = set_nodata
 
             # Save the extracted data to a new GeoTIFF  
             if output_path:
@@ -256,8 +280,9 @@ def read_vrt_in_bounds(vrt_path: str,  bounds: tuple, output_path: str = '', ret
 def merge_raster_files(paths, output_path, bounds=None, return_data=True, buffer_pixels=0, delete_vrt=True):
 
     # Create a virtual raster (in-memory description of the merged DEMs)
-    vrt_path = output_path.replace(".tif", ".vrt")  # Temporary VRT file path
-    gdal.BuildVRT(vrt_path, paths)
+    vrt_path = str(output_path).replace(".tif", ".vrt")  # Temporary VRT file path
+    gdal.BuildVRT(vrt_path, paths, resolution='highest')
+
     res = read_vrt_in_bounds(
         vrt_path=vrt_path,
         bounds=bounds,

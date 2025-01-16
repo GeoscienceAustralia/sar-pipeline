@@ -8,3 +8,7 @@ build
 *.tif
 *.vrt
 data
+
+# include test data files
+!tests/sar_antarctica/data/**/*.tif
+!tests/sar_antarctica/data/**/*.vrt
