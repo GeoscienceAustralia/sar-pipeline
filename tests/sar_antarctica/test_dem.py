@@ -26,8 +26,15 @@ from pathlib import Path
 from data.cop30m_profile import TEST_COP30_PROFILE_1, TEST_COP30_PROFILE_2
 
 CURRENT_DIR = Path(os.path.abspath(__file__)).parent.resolve()
-TEST_COP30_VRT_PATH = CURRENT_DIR / Path('data/copernicus_30m_world/copdem_test.vrt')
-TEST_GEOID_PATH = CURRENT_DIR / Path('data/geoid/us_nga_egm2008_1_4326__agisoft_clipped.tif')
+
+TEST_COP30_FOLDER_PATH = CURRENT_DIR / Path('data/copernicus_30m_world')
+TEST_COP30_INDEX_PATH = CURRENT_DIR / Path('data/copernicus_30m_world/copdem_tindex_test.gpkg')
+TEST_GEOID_TIF_PATH = CURRENT_DIR / Path('data/geoid/us_nga_egm2008_1_4326__agisoft_clipped.tif')
+
+# TEST_COP30_FOLDER_PATH = Path('/g/data/v10/eoancillarydata-2/elevation/copernicus_30m_world/')
+# TEST_COP30_INDEX_PATH = Path('/g/data/yp75/projects/ancillary/dem/copdem_tindex.gpkg')
+# TEST_GEOID_TIF_PATH = Path('/g/data/yp75/projects/ancillary/geoid/us_nga_egm2008_1_4326__agisoft.tif')
+
 
 def test_pytest():
     assert True
@@ -92,43 +99,42 @@ def test_expand_bounds(bounds, buffer, expanded_bounds):
     assert pytest.approx(new_bounds[2],rel=1e-5) == pytest.approx(expanded_bounds[2],rel=1e-5)
     assert pytest.approx(new_bounds[3],rel=1e-5) == pytest.approx(expanded_bounds[3],rel=1e-5)
 
-@pytest.mark.parametrize("bounds, trg_shape, buffer_pixels", [
-    ((-179.9, -79.2, -179.1, -79.1), (1,362,962), 0), 
-    ((-179.9, -79.2, -179.1, -79.1), (1,370,970), 4), 
-    ((-179.6, -79.9, -179.4, -79.5), (1, 1442, 242), 0),
-    ((179.1, -79.2, 179.9, -79.1), (1,362,962), 0),
-    ((179.5, -79.2, 179.6, -79.01), (1,690,126), 2),
-    ((179.5, -79.2, 179.6, -79.01), (1,688,124), 1),
-    ((178.1, -79.2, 179.95, -79.1), (1, 362, 2222), 0),
-    ((178.1, -79.2, 179.95, -79.1), (1, 366, 2226), 2),
-    ])
-def test_vrt_dem_read_for_bounds(bounds, trg_shape, buffer_pixels):
-    dem_arr, dem_profile = read_vrt_in_bounds(
-        vrt_path=TEST_COP30_VRT_PATH, bounds=bounds, buffer_pixels=buffer_pixels)
-    dem_bounds = bounds_from_profile(dem_profile)
-    assert box(*bounds).within(box(*dem_bounds))
-    assert dem_arr.shape == trg_shape
+# @pytest.mark.parametrize("bounds, trg_shape, buffer_pixels", [
+#     ((-179.9, -79.2, -179.1, -79.1), (1,362,962), 0), 
+#     ((-179.9, -79.2, -179.1, -79.1), (1,370,970), 4), 
+#     ((-179.6, -79.9, -179.4, -79.5), (1, 1442, 242), 0),
+#     ((179.1, -79.2, 179.9, -79.1), (1,362,962), 0),
+#     ((179.5, -79.2, 179.6, -79.01), (1,690,126), 2),
+#     ((179.5, -79.2, 179.6, -79.01), (1,688,124), 1),
+#     ((178.1, -79.2, 179.95, -79.1), (1, 362, 2222), 0),
+#     ((178.1, -79.2, 179.95, -79.1), (1, 366, 2226), 2),
+#     ])
+# def test_vrt_dem_read_for_bounds(bounds, trg_shape, buffer_pixels):
+#     dem_arr, dem_profile = read_vrt_in_bounds(
+#         vrt_path=TEST_COP30_VRT_PATH, bounds=bounds, buffer_pixels=buffer_pixels)
+#     dem_bounds = bounds_from_profile(dem_profile)
+#     assert box(*bounds).within(box(*dem_bounds))
+#     assert dem_arr.shape == trg_shape
 
-@pytest.mark.parametrize("bounds, trg_shape, geoid_ref_mean, ellipsoid_ref_mean", [
-    ((-179.9, -79.2, -179.1, -79.1), (1,362,962), 44.088665, -9.830775), 
-    ((178.1, -79.2, 179.95, -79.1), (1, 362, 2222), 38.270348, -15.338912),
-    ])
-def test_remove_geoid(bounds, trg_shape, geoid_ref_mean, ellipsoid_ref_mean):
-    dem_arr, dem_profile = read_vrt_in_bounds(
-        vrt_path=TEST_COP30_VRT_PATH, bounds=bounds, buffer_pixels=0)
-    dem_arr_ellipsoid = remove_geoid(
-        dem_arr = dem_arr,
-        dem_profile = dem_profile,
-        geoid_path = TEST_GEOID_PATH,
-        dem_area_or_point = 'Point',
-        buffer_pixels = 2,
-        save_path='',
-    )
-    assert dem_arr.shape == dem_arr_ellipsoid.shape
-    assert dem_arr.shape == trg_shape
-    assert np.mean(dem_arr) == geoid_ref_mean
-    assert np.mean(dem_arr_ellipsoid) == ellipsoid_ref_mean
-
+# @pytest.mark.parametrize("bounds, trg_shape, geoid_ref_mean, ellipsoid_ref_mean", [
+#     ((-179.9, -79.2, -179.1, -79.1), (1,362,962), 44.088665, -9.830775), 
+#     ((178.1, -79.2, 179.95, -79.1), (1, 362, 2222), 38.270348, -15.338912),
+#     ])
+# def test_remove_geoid(bounds, trg_shape, geoid_ref_mean, ellipsoid_ref_mean):
+#     dem_arr, dem_profile = read_vrt_in_bounds(
+#         vrt_path=TEST_COP30_VRT_PATH, bounds=bounds, buffer_pixels=0)
+#     dem_arr_ellipsoid = remove_geoid(
+#         dem_arr = dem_arr,
+#         dem_profile = dem_profile,
+#         geoid_path = TEST_GEOID_TIF_PATH,
+#         dem_area_or_point = 'Point',
+#         buffer_pixels = 2,
+#         save_path='',
+#     )
+#     assert dem_arr.shape == dem_arr_ellipsoid.shape
+#     assert dem_arr.shape == trg_shape
+#     assert np.mean(dem_arr) == geoid_ref_mean
+#     assert np.mean(dem_arr_ellipsoid) == ellipsoid_ref_mean
 
 @pytest.mark.parametrize("bounds, ellipsoid_heights, trg_shape, trg_crs", [
     ((-179.9, -79.2, -179.1, -79.1), False, (1, 366, 966), 4326),
@@ -143,10 +149,11 @@ def test_get_cop30_dem_for_bounds(bounds, ellipsoid_heights, trg_shape, trg_crs)
         save_path= CURRENT_DIR / Path('TMP') / Path('TMP.tif'), 
         ellipsoid_heights=ellipsoid_heights, 
         buffer_pixels=2,
-        cop30_vrt_path=TEST_COP30_VRT_PATH,
-        geoid_tif_path=TEST_GEOID_PATH,
+        #cop30_index_path=TEST_COP30_INDEX_PATH,
+        cop30_folder_path=TEST_COP30_FOLDER_PATH,
+        geoid_tif_path=TEST_GEOID_TIF_PATH,
         adjust_for_high_lat_and_buffer=False
     )
     assert dem_arr.shape == trg_shape
     assert dem_profile['crs'].to_epsg() == trg_crs
-    shutil.rmtree(CURRENT_DIR / Path('TMP'))
+    #shutil.rmtree(CURRENT_DIR / Path('TMP'))

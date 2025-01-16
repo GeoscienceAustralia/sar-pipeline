@@ -6,6 +6,7 @@ from pathlib import Path
 import logging
 from affine import Affine
 from rasterio.crs import CRS
+import geopandas as gpd
 
 from .geoid import remove_geoid
 from ...utils.raster import (
@@ -21,8 +22,8 @@ from ...utils.spatial import (
 )
 
 COP30_FOLDER_PATH = Path('/g/data/v10/eoancillarydata-2/elevation/copernicus_30m_world/')
-COP30_VRT_PATH = Path('/g/data/yp75/projects/ancillary/dem/copdem_south.vrt')
 GEOID_TIF_PATH = Path('/g/data/yp75/projects/ancillary/geoid/us_nga_egm2008_1_4326__agisoft.tif')
+COP30_GPKG_PATH = Path('/g/data/yp75/projects/ancillary/dem/copdem_tindex.gpkg')
 
 def get_cop30_dem_for_bounds(
         bounds: tuple, 
@@ -30,7 +31,8 @@ def get_cop30_dem_for_bounds(
         ellipsoid_heights: bool = True,
         buffer_pixels : int = 1,
         adjust_for_high_lat_and_buffer = True,
-        cop30_vrt_path : Path = COP30_VRT_PATH,
+        cop30_index_path : Path = COP30_GPKG_PATH,
+        cop30_folder_path : Path = COP30_FOLDER_PATH,
         geoid_tif_path : Path = GEOID_TIF_PATH,
         ) -> tuple[np.ndarray, dict]:
     """Logic for acquiting the cop30m DEM for a given set of bounds on the NCI. The returned
@@ -60,7 +62,13 @@ def get_cop30_dem_for_bounds(
     tuple [np.darray, dict]
         dem array and dem rasterio profile
     """
-    
+
+    assert cop30_index_path or cop30_folder_path, \
+        'Either a `cop30_index_path` or `cop30_folder_path` must be provided'
+
+    if cop30_index_path and cop30_folder_path:
+        logging.info(f'both `cop30_index_path` and `cop30_folder_path` provided. `cop30_index_path` used by default')
+
     logging.info(f'Getting cop30m dem that covers bounds: {bounds}')
     # check if scene crosses the AM
     antimeridian_crossing = check_s1_bounds_cross_antimeridian(bounds, max_scene_width=8)
@@ -85,8 +93,9 @@ def get_cop30_dem_for_bounds(
             left_save_path, 
             ellipsoid_heights, 
             buffer_pixels=10,
-            geoid_tif_path=geoid_tif_path,
-            cop30_vrt_path=cop30_vrt_path)
+            cop30_index_path=cop30_index_path,
+            cop30_folder_path=cop30_folder_path,
+            geoid_tif_path=geoid_tif_path)
         right_save_path = '.'.join(str(save_path).split('.')[0:-1]) + "_right." + str(save_path).split('.')[-1]
         logging.info(f'Getting tiles for right bounds')
         get_cop30_dem_for_bounds(
@@ -94,16 +103,17 @@ def get_cop30_dem_for_bounds(
             right_save_path, 
             ellipsoid_heights, 
             buffer_pixels=10,
-            geoid_tif_path=geoid_tif_path,
-            cop30_vrt_path=cop30_vrt_path)
+            cop30_index_path=cop30_index_path,
+            cop30_folder_path=cop30_folder_path,
+            geoid_tif_path=geoid_tif_path)
         # reproject to 3031 and merge
         logging.info(f'Reprojecting left and right side of antimeridian to EPGS:{target_crs}')
         reproject_raster(left_save_path, left_save_path, target_crs)
         reproject_raster(right_save_path, right_save_path, target_crs)
         logging.info(f'Merging across antimeridian')
         dem_arr, dem_profile = merge_raster_files([left_save_path, right_save_path], output_path=save_path)
-        #os.remove(left_save_path)
-        #os.remove(right_save_path)
+        os.remove(left_save_path)
+        os.remove(right_save_path)
         return dem_arr, dem_profile
     else:
         logging.info(f'Getting cop30m dem for bounds: {bounds}')
@@ -111,12 +121,32 @@ def get_cop30_dem_for_bounds(
             logging.info(f'Expanding bounds by buffer and for high latitude warping')
             bounds = expand_bounds(bounds, buffer=0.1)
             logging.info(f'Getting cop30m dem for expanded bounds: {bounds}')
-        #dem_paths = find_required_dem_tile_paths_by_filename(bounds)
-        logging.info(f'Reading tiles from the tile vrt: {cop30_vrt_path}')
-        dem_arr, dem_profile = read_vrt_in_bounds(
-            cop30_vrt_path, bounds=bounds, output_path=save_path, buffer_pixels=buffer_pixels, set_nodata=np.nan)
-        logging.info(f'Check the dem covers the required bounds')
-        dem_bounds = bounds_from_profile(dem_profile)
+        if cop30_index_path:
+            logging.info(f'Finding intersecting DEM files from: {cop30_index_path}')
+            dem_paths = find_required_dem_paths_from_index(bounds, cop30_index_path=cop30_index_path)
+        else:
+            logging.info(f'Searching for DEM in folder: {cop30_folder_path}')
+            dem_paths = find_required_dem_tile_paths_by_filename(bounds,COP30_FOLDER_PATH=cop30_folder_path)
+        logging.info(f'{len(dem_paths)} tiles found in bounds')
+        if len(dem_paths) == 0:
+            logging.warning('No DEM tiles found, assuming over water and creating zero dem for bounds')
+            fill_value = 0
+            dem_profile = make_empty_cop30m_profile(bounds)
+            dem_arr, dem_profile = expand_raster_to_bounds(
+                bounds, 
+                src_profile=dem_profile, 
+                save_path=save_path,
+                fill_value=fill_value)
+        else:
+            logging.info(f'Merging tiles and reading data')
+            dem_arr, dem_profile = merge_raster_files(
+                dem_paths, 
+                output_path=save_path, 
+                bounds=bounds, 
+                buffer_pixels=buffer_pixels
+            )
+            logging.info(f'Check the dem covers the required bounds')
+            dem_bounds = bounds_from_profile(dem_profile)
         logging.info(f'Dem bounds: {dem_bounds}')
         logging.info(f'Target bounds: {bounds}')
         bounds_filled_by_dem = box(*bounds).within(box(*dem_bounds))
@@ -176,7 +206,8 @@ def expand_bounds(bounds: tuple, buffer: float) -> tuple:
 def find_required_dem_tile_paths_by_filename(
         bounds: tuple, 
         check_exists : bool = True, 
-        COP30_FOLDER_PATH: Path = COP30_FOLDER_PATH
+        COP30_FOLDER_PATH: Path = COP30_FOLDER_PATH,
+        search_buffer = 0.5,
         )->list[str]:
     """generate a list of the required dem paths based on the bounding coords. The 
     function searches the specified folder.
@@ -195,6 +226,10 @@ def find_required_dem_tile_paths_by_filename(
     list[str]
         list of paths for required dem tiles in bounds
     """
+
+    # add a buffer to the search
+    bounds = box(*bounds).buffer(search_buffer).bounds
+
     # logic to find the correct files based on data being stored in each tile folder
     min_lat = np.floor(bounds[1]) if bounds[1] < 0 else np.ceil(bounds[1])
     max_lat = np.ceil(bounds[3]) if bounds[3] < 0 else np.floor(bounds[3])+1
@@ -224,6 +259,25 @@ def find_required_dem_tile_paths_by_filename(
     for p in set(dem_paths):
         logging.info(p)
     return list(set(dem_paths))
+
+def find_required_dem_paths_from_index(
+        bounds: tuple, 
+        cop30_index_path = COP30_GPKG_PATH,
+        search_buffer=0.5,
+    ) -> list[str]: 
+    
+    gdf = gpd.read_file(cop30_index_path)
+    bounding_box = box(*bounds).buffer(search_buffer)
+    
+    if gdf.crs is not None:
+        # ensure same crs
+        bounding_box = gpd.GeoSeries([bounding_box], crs="EPSG:4326").to_crs(gdf.crs).iloc[0]
+    # Find rows that intersect with the bounding box
+    intersecting_tiles = gdf[gdf.intersects(bounding_box)]
+    if len(intersecting_tiles) > 0:
+        return intersecting_tiles.location.tolist()
+    else:
+        return []
 
 def check_s1_bounds_cross_antimeridian(bounds : tuple, max_scene_width : int =20) -> bool:
     """Check if the s1 scene bounds cross the antimeridian. The bounds of a sentinel-1 
