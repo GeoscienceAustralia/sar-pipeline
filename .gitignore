@@ -4,3 +4,11 @@ __pycache__
 
 build
 *.egg-info
+.*cache
+*.tif
+*.vrt
+data
+
+# include test data files
+!tests/sar_antarctica/data/**/*.tif
+!tests/sar_antarctica/data/**/*.vrt
