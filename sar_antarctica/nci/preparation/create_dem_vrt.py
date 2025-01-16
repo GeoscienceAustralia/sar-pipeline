@@ -25,7 +25,7 @@ def find_tiles_for_vrt(source_dir: Path, pattern: str) -> Generator[Path, None, 
     return tiles
 
 def build_vrt(tiles: Generator[Path, None, None], vrt_path: str | os.PathLike, run: bool = True):
-    """Generic function for building a VRT from files matching a given pattern in a source directory
+    """Generic function for building a VRT from a generator of tile paths
 
     Parameters
     ----------
@@ -33,7 +33,7 @@ def build_vrt(tiles: Generator[Path, None, None], vrt_path: str | os.PathLike, r
         A generator that yeilds `Path` objects for tiles
         e.g. /path/to/DEM_folder/DEM_file.tif
     vrt_path : str | os.PathLike
-        Where to write the VRT to
+        Where to write the VRT to, ending in .vrt
     run : bool, optional
         Whether to run the step to create the VRT, by default True
         Can use False to generate the temporary file and check
@@ -45,6 +45,28 @@ def build_vrt(tiles: Generator[Path, None, None], vrt_path: str | os.PathLike, r
         os.system(f'gdalbuildvrt -input_file_list vrt_temp.txt {vrt_path}')
 
         os.remove("vrt_temp.txt")
+
+def build_tileindex(tiles: Generator[Path, None, None], tindex_path: str | os.PathLike, run: bool = True):
+    """Generic function for building a tile index from a generator of tile paths
+
+    Parameters
+    ----------
+    tiles : Generator[Path, None, None]
+        A generator that yeilds `Path` objects for tiles
+        e.g. /path/to/DEM_folder/DEM_file.tif
+    vrt_path : str | os.PathLike
+        Where to write the tile index to, ending in .gpkg
+    run : bool, optional
+        Whether to run the step to create the tile index, by default True
+        Can use False to generate the temporary file and check
+    """
+    with open("tindex_temp.txt", "w") as f:
+        f.writelines(f"{tile}\n" for tile in tiles)
+
+    if run:
+        os.system(f'gdaltindex {tindex_path} --optfile tindex_temp.txt')
+
+        os.remove("tindex_temp.txt")
 
 def create_glo30_dem_south_vrt():
     """Create a VRT for the Copernicus Global 30m DEM on NCI
