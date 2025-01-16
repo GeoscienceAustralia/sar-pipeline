@@ -69,7 +69,9 @@ def expand_raster_to_bounds(
     src_profile : dict = None,
     src_array : np.ndarray = None,
     fill_value : float = 0,
-    save_path : str = '') -> tuple[np.ndarray, dict]:
+    buffer_pixels : int = 0,
+    save_path : str = ''
+    ) -> tuple[np.ndarray, dict]:
     """Expand the extent of the input array to the target bounds specified
     by the user. Either a src_path to expand, src_profile to construct a new raster,
     or src_profile and src_array o expand must be provided/
@@ -86,6 +88,8 @@ def expand_raster_to_bounds(
         source array with values to expand, by default None
     fill_value : float, optional
         The fille value when expanding, by default 0
+    buffer_pixels : int, optional
+        Additional buffer pixels around bounds
     save_path : str, optional
         where to save new raster, by default ''
 
@@ -113,10 +117,10 @@ def expand_raster_to_bounds(
     lat_res = abs(src_profile['transform'].e)  # Pixel height 
 
     # determine the number of new pixels in each direction
-    new_left_pixels = int(abs(trg_left-src_left)/lon_res)
-    new_right_pixels = int(abs(trg_right-src_right)/lon_res)
-    new_bottom_pixels = int(abs(trg_bottom-src_bottom)/lat_res)
-    new_top_pixels = int(abs(trg_top-src_top)/lat_res)
+    new_left_pixels = int(abs(trg_left-src_left)/lon_res) + buffer_pixels
+    new_right_pixels = int(abs(trg_right-src_right)/lon_res) + buffer_pixels
+    new_bottom_pixels = int(abs(trg_bottom-src_bottom)/lat_res) + buffer_pixels
+    new_top_pixels = int(abs(trg_top-src_top)/lat_res) + buffer_pixels
     
     # adjust the new bounds with even pixel multiples of existing
     new_trg_left = src_left - new_left_pixels*lon_res

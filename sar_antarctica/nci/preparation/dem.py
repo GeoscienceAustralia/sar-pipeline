@@ -126,7 +126,7 @@ def get_cop30_dem_for_bounds(
             dem_paths = find_required_dem_paths_from_index(bounds, cop30_index_path=cop30_index_path)
         else:
             logging.info(f'Searching for DEM in folder: {cop30_folder_path}')
-            dem_paths = find_required_dem_tile_paths_by_filename(bounds,COP30_FOLDER_PATH=cop30_folder_path)
+            dem_paths = find_required_dem_tile_paths_by_filename(bounds,cop30_folder_path=cop30_folder_path)
         logging.info(f'{len(dem_paths)} tiles found in bounds')
         if len(dem_paths) == 0:
             logging.warning('No DEM tiles found, assuming over water and creating zero dem for bounds')
@@ -136,7 +136,8 @@ def get_cop30_dem_for_bounds(
                 bounds, 
                 src_profile=dem_profile, 
                 save_path=save_path,
-                fill_value=fill_value)
+                fill_value=fill_value,
+                buffer_pixels=buffer_pixels)
         else:
             logging.info(f'Merging tiles and reading data')
             dem_arr, dem_profile = merge_raster_files(
@@ -206,8 +207,9 @@ def expand_bounds(bounds: tuple, buffer: float) -> tuple:
 def find_required_dem_tile_paths_by_filename(
         bounds: tuple, 
         check_exists : bool = True, 
-        COP30_FOLDER_PATH: Path = COP30_FOLDER_PATH,
+        cop30_folder_path: Path = COP30_FOLDER_PATH,
         search_buffer = 0.5,
+        tifs_in_subfolder = True,
         )->list[str]:
     """generate a list of the required dem paths based on the bounding coords. The 
     function searches the specified folder.
@@ -218,7 +220,7 @@ def find_required_dem_tile_paths_by_filename(
         the set of bounds (min_lon, min_lat, max_lon, max_lat)
     check_exists : bool, optional
         Check if the file exists, by default True
-    COP30_FOLDER_PATH : str, optional
+    cop30_folder_path : str, optional
         path to the tile folders, by default COP30_FOLDER_PATH
 
     Returns
@@ -247,8 +249,12 @@ def find_required_dem_tile_paths_by_filename(
             lat_dir = "N" if lat >= 0 else "S"
             lon_dir = "E" if lon >= 0 else "W"
             dem_foldername = f"Copernicus_DSM_COG_10_{lat_dir}{int(abs(lat)):02d}_00_{lon_dir}{int(abs(lon)):03d}_00_DEM"
-            dem_subpath = f"{dem_foldername}/{dem_foldername}.tif"
-            dem_path = os.path.join(COP30_FOLDER_PATH, dem_subpath)
+            if tifs_in_subfolder:
+                dem_subpath = f"{dem_foldername}/{dem_foldername}.tif"
+            else:
+                dem_subpath = f"{dem_foldername}.tif"
+            dem_path = os.path.join(cop30_folder_path, dem_subpath)
+            logging.info(dem_path)
             if check_exists:
                 # check the file exists, e.g. over water will not be a file
                 if os.path.exists(dem_path):
@@ -258,7 +264,7 @@ def find_required_dem_tile_paths_by_filename(
                 dem_paths.append(dem_path)
     for p in set(dem_paths):
         logging.info(p)
-    return list(set(dem_paths))
+    return sorted(list(set(dem_paths)))
 
 def find_required_dem_paths_from_index(
         bounds: tuple, 
@@ -275,7 +281,7 @@ def find_required_dem_paths_from_index(
     # Find rows that intersect with the bounding box
     intersecting_tiles = gdf[gdf.intersects(bounding_box)]
     if len(intersecting_tiles) > 0:
-        return intersecting_tiles.location.tolist()
+        return sorted(intersecting_tiles.location.tolist())
     else:
         return []
 
@@ -373,20 +379,20 @@ def make_empty_cop30m_profile(bounds: tuple) -> dict:
         associated with a target pixel size
     """
 
-    lon_res = -0.0002777777777777778
+    lat_res = 0.0002777777777777778
     mean_lat = abs((bounds[1] + bounds[3])/2)
     if mean_lat < 50:
-        lat_res = lon_res
+        lon_res = lat_res
     elif mean_lat < 60:
-        lat_res = lon_res*1.5
+        lon_res = lat_res*1.5
     elif mean_lat < 70:
-        lat_res = lon_res*2
+        lon_res = lat_res*2
     elif mean_lat < 80:
-        lat_res = lon_res*3
+        lon_res = lat_res*3
     elif mean_lat < 85:
-        lat_res = lon_res*5
+        lon_res = lat_res*5
     elif mean_lat < 90:
-        lat_res = lon_res*10
+        lon_res = lat_res*10
     else:
         raise ValueError('cannot resolve cop30m lattitude')
 
@@ -397,8 +403,8 @@ def make_empty_cop30m_profile(bounds: tuple) -> dict:
         'driver': 'GTiff', 
         'dtype': 'float32', 
         'nodata': np.nan, 
-        'height': abs(int((bounds[3] - bounds[1]) / lat_res)), 
         'width': abs(int((bounds[2] - bounds[0]) / lon_res)), 
+        'height': abs(int((bounds[3] - bounds[1]) / lat_res)), 
         'count': 1, 
         'crs': CRS.from_epsg(4326), 
         'transform': transform, 
