@@ -7,6 +7,7 @@ from typing import Any
 WORKFLOW = "pyrosar_gamma"
 PROCESSING_DIR = "/g/data/yp75/projects/sar-antractica-processing"
 
+
 def get_list_of_scenes(scene_source: str) -> list[str]:
     """Convert script input to list.
     If a .zip file, produce a list with that.
@@ -28,17 +29,22 @@ def get_list_of_scenes(scene_source: str) -> list[str]:
         scene_list = [scene_source]
     # Process a .txt file containing .zip files
     elif scene_source.endswith(".txt"):
-        with open(scene_source, 'r') as f:
-            scene_list = [line.strip() for line in f if line.strip().endswith('.zip')]
+        with open(scene_source, "r") as f:
+            scene_list = [line.strip() for line in f if line.strip().endswith(".zip")]
     else:
         scene_list = []
 
     if scene_list is not None:
         return scene_list
     else:
-        raise RuntimeError("No valid scenes were found for processing. Expected single .zip file or .txt file containing at least one .zip file.")
+        raise RuntimeError(
+            "No valid scenes were found for processing. Expected single .zip file or .txt file containing at least one .zip file."
+        )
 
-def update_pbs_template(pbs_template: str, scene_id: str, job_config: dict[str, str | dict[str, Any]]) -> str:
+
+def update_pbs_template(
+    pbs_template: str, scene_id: str, job_config: dict[str, str | dict[str, Any]]
+) -> str:
     """_summary_
 
     Parameters
@@ -73,7 +79,11 @@ def update_pbs_template(pbs_template: str, scene_id: str, job_config: dict[str, 
     """
 
     processing_path = Path(job_config["root"])
-    log_path = processing_path / job_config["submission"]["root"] / job_config["submission"]["logs"]
+    log_path = (
+        processing_path
+        / job_config["submission"]["root"]
+        / job_config["submission"]["logs"]
+    )
     config_path = processing_path / job_config["configuration"]["root"]
 
     job_configuration = job_config["configuration"]
@@ -90,12 +100,16 @@ def update_pbs_template(pbs_template: str, scene_id: str, job_config: dict[str, 
         "<WALLTIME>": job_settings["walltime"],
         "<STORAGE>": job_settings["storage"],
         "<LOG_DIR>": log_path,
-        "<WORKFLOW_CONFIG>": config_path / job_configuration["workflow"] / f"{workflow_config}.toml",
-        "<SCENE_CONFIG>": config_path / job_configuration["scene"] / f"{scene_id}.toml"
+        "<WORKFLOW_CONFIG>": config_path
+        / job_configuration["workflow"]
+        / f"{workflow_config}.toml",
+        "<SCENE_CONFIG>": config_path / job_configuration["scene"] / f"{scene_id}.toml",
     }
 
     for key, value in replace_dict.items():
-        pbs_template = pbs_template.replace(key, value if isinstance(value, str) else str(value))
+        pbs_template = pbs_template.replace(
+            key, value if isinstance(value, str) else str(value)
+        )
 
     return pbs_template
 
@@ -103,7 +117,9 @@ def update_pbs_template(pbs_template: str, scene_id: str, job_config: dict[str, 
 @click.command()
 @click.argument("config_file", nargs=1)
 @click.argument("scene_source", nargs=1)
-def pyrosar_gamma_workflow(config_file: str | os.PathLike, scene_source: str | os.PathLike) -> None:
+def pyrosar_gamma_workflow(
+    config_file: str | os.PathLike, scene_source: str | os.PathLike
+) -> None:
     """Take an input of a single scene or file with multiple scenes and submit pyroSAR+GAMMA jobs
 
     Parameters
@@ -117,7 +133,7 @@ def pyrosar_gamma_workflow(config_file: str | os.PathLike, scene_source: str | o
     current_file_directory = Path(__file__).resolve().parent
 
     with open(config_file, "rb") as f:
-        config = tomli.load(f)   
+        config = tomli.load(f)
 
     # Extract specific configuration dictionaries
     job_config = config["job"]
@@ -139,15 +155,11 @@ def pyrosar_gamma_workflow(config_file: str | os.PathLike, scene_source: str | o
         scene_script.parent.mkdir(exist_ok=True, parents=True)
 
         # Read the workflow template and replace values
-        workflow_name = settings_config['workflow_config']
+        workflow_name = settings_config["workflow_config"]
         template_file = current_file_directory / f"{workflow_name}.txt"
         print(template_file)
         pbs_template = template_file.read_text()
-        pbs_template = update_pbs_template(
-            pbs_template, 
-            scene_id, 
-            job_config
-        )
+        pbs_template = update_pbs_template(pbs_template, scene_id, job_config)
 
         # Write updated text to pbs script
         scene_script.write_text(pbs_template)
