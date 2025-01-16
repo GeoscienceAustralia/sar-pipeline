@@ -2,13 +2,13 @@
 
 #PBS -l ncpus=<NCPU>
 #PBS -l mem=<MEM>GB
-#PBS -q normal
-#PBS -P u46
-#PBS -l walltime=02:00:00
-#PBS -l storage=gdata/yp75+gdata/dg9+gdata/fj7+gdata/v10
+#PBS -q <QUEUE>
+#PBS -P <PROJECT>
+#PBS -l walltime=<WALLTIME>
+#PBS -l storage=<STORAGE>
 #PBS -l wd
-#PBS -o <PROCESSING_DIR>/submission/logs/<SCENE_ID>
-#PBS -e <PROCESSING_DIR>/submission/logs/<SCENE_ID>
+#PBS -o <LOG_DIR>/<SCENE_ID>
+#PBS -e <LOG_DIR>/<SCENE_ID>
 #PBS -N <SCENE_ID>
 
 # Load the module
