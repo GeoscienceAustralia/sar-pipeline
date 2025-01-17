@@ -19,9 +19,9 @@ module load sar-antarctica/v0.1
 micromamba activate sar-antarctica
 
 # Run preparation script
-cd /g/data/yp75/ca6983/repositories/sar-antarctica/sar_antarctica/nci/preparation/
+cd /g/data/yp75/modules/sar-antarctica/v0.1/sar-antarctica/sar_antarctica/nci/preparation/
 python create_config.py <SCENE_ID> <SCENE_CONFIG>
 
 # Run preocessing script
-cd /g/data/yp75/ca6983/repositories/sar-antarctica/sar_antarctica/nci/processing/pyroSAR/
+cd /g/data/yp75/modules/sar-antarctica/v0.1/sar-antarctica/sar_antarctica/nci/processing/pyroSAR/
 python pyrosar_geocode.py <WORKFLOW_CONFIG> <SCENE_CONFIG>
