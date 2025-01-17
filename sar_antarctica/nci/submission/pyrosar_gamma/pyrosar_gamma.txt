@@ -13,7 +13,7 @@
 
 # Load the module
 module use /g/data/yp75/modules/modulefiles
-module load sar-antarctica/test-20250108
+module load sar-antarctica/v0.1
 
 # Activate micromamba environment
 micromamba activate sar-antarctica
