@@ -3,12 +3,16 @@ from pathlib import Path
 import re
 from typing import Optional
 
-from sar_antarctica.nci.preparation.scenes import parse_scene_file_dates, parse_scene_file_sensor
+from sar_antarctica.nci.preparation.scenes import (
+    parse_scene_file_dates,
+    parse_scene_file_sensor,
+)
 
 # Constants for NCI
 S1_DIR = Path("/g/data/fj7/Copernicus/Sentinel-1/")
 POE_DIR = "POEORB"
 RES_DIR = "RESORB"
+
 
 def parse_orbit_file_dates(orbit_file_name: str) -> tuple[datetime, datetime, datetime]:
     """Extracts published_date, start_date, and end_date from the given orbit file.
@@ -33,9 +37,11 @@ def parse_orbit_file_dates(orbit_file_name: str) -> tuple[datetime, datetime, da
         Did not find a match to the expected date pattern of published_date followed by start_date and end_date
     """
     # Regex pattern to match the dates
-    pattern = (r"(?P<published_date>\d{8}T\d{6})_V"
-               r"(?P<start_date>\d{8}T\d{6})_"
-               r"(?P<stop_date>\d{8}T\d{6})\.EOF")
+    pattern = (
+        r"(?P<published_date>\d{8}T\d{6})_V"
+        r"(?P<start_date>\d{8}T\d{6})_"
+        r"(?P<stop_date>\d{8}T\d{6})\.EOF"
+    )
 
     # Search for matches in the file name
     match = re.search(pattern, str(orbit_file_name))
@@ -44,14 +50,17 @@ def parse_orbit_file_dates(orbit_file_name: str) -> tuple[datetime, datetime, da
         raise ValueError("The input string does not match the expected format.")
 
     # Extract and parse the dates into datetime objects
-    published_date = datetime.strptime(match.group('published_date'), "%Y%m%dT%H%M%S")
-    start_date = datetime.strptime(match.group('start_date'), "%Y%m%dT%H%M%S")
-    stop_date = datetime.strptime(match.group('stop_date'), "%Y%m%dT%H%M%S")
+    published_date = datetime.strptime(match.group("published_date"), "%Y%m%dT%H%M%S")
+    start_date = datetime.strptime(match.group("start_date"), "%Y%m%dT%H%M%S")
+    stop_date = datetime.strptime(match.group("stop_date"), "%Y%m%dT%H%M%S")
 
     return (published_date, start_date, stop_date)
 
-def find_latest_orbit_for_scene(scene_id: str, orbit_type: Optional[str] = None) -> Path:
-    """Identifies the most recent orbit file available for a given scene, based 
+
+def find_latest_orbit_for_scene(
+    scene_id: str, orbit_type: Optional[str] = None
+) -> Path:
+    """Identifies the most recent orbit file available for a given scene, based
     on the scene's start and end date.
 
     Parameters
@@ -97,9 +106,11 @@ def find_latest_orbit_for_scene(scene_id: str, orbit_type: Optional[str] = None)
 
         for orbit_file in orbit_files:
 
-            orbit_published, orbit_start, orbit_stop = parse_orbit_file_dates(orbit_file)
-            
-            # Check if scene falls within orbit 
+            orbit_published, orbit_start, orbit_stop = parse_orbit_file_dates(
+                orbit_file
+            )
+
+            # Check if scene falls within orbit
             if scene_start >= orbit_start and scene_stop <= orbit_stop:
                 orbit_metadata = (orbit_file, orbit_dir, orbit_published)
                 relevant_orbits.append(orbit_metadata)
@@ -111,6 +122,5 @@ def find_latest_orbit_for_scene(scene_id: str, orbit_type: Optional[str] = None)
         raise ValueError("No valid orbit was found.")
     else:
         latest_orbit_file = latest_orbit[0]
-    
-    return latest_orbit_file
 
+    return latest_orbit_file

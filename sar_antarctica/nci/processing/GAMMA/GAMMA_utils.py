@@ -3,6 +3,7 @@ import os
 GAMMA_HOME_ENV = "GAMMA_HOME"
 LD_LIBRARY_ENV = "LD_LIBRARY_PATH"
 
+
 def set_gamma_env_variables(gamma_home_path: str, ld_libraries_path: str):
     gamma_env = os.environ.get(GAMMA_HOME_ENV, None)
     ld_lib_env = os.environ.get(LD_LIBRARY_ENV, None)

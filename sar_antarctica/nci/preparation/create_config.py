@@ -7,7 +7,16 @@ from sar_antarctica.nci.preparation.scenes import find_scene_file_from_id
 from sar_antarctica.nci.preparation.orbits import find_latest_orbit_for_scene
 from sar_antarctica.nci.preparation.dem import get_cop30_dem_for_bounds
 
-def write_file_paths(config_file: Path, scene_file: Path, orbit_file: Path, dem_file: Path, data_dir: Path, ancillary_dir="ancillary", processed_dir="processed_scene"):
+
+def write_file_paths(
+    config_file: Path,
+    scene_file: Path,
+    orbit_file: Path,
+    dem_file: Path,
+    data_dir: Path,
+    ancillary_dir="ancillary",
+    processed_dir="processed_scene",
+):
     inputs_header = "[inputs]\n"
     scene_setting = f"scene = '{str(scene_file)}'\n"
     orbit_setting = f"orbit = '{str(orbit_file)}'\n"
@@ -19,21 +28,24 @@ def write_file_paths(config_file: Path, scene_file: Path, orbit_file: Path, dem_
     processed_setting = f"processed = '{processed_dir}'\n"
 
     with open(config_file, "w") as cf:
-        cf.writelines([
-            inputs_header, 
-            scene_setting, 
-            orbit_setting,
-            dem_setting, 
-            "\n", 
-            outputs_header, 
-            data_path_setting,
-            ancillary_setting,
-            processed_setting
-        ])
-        
+        cf.writelines(
+            [
+                inputs_header,
+                scene_setting,
+                orbit_setting,
+                dem_setting,
+                "\n",
+                outputs_header,
+                data_path_setting,
+                ancillary_setting,
+                processed_setting,
+            ]
+        )
+
+
 @click.command()
 @click.argument("scene_id", nargs=1)
-@click.argument('scene_config', nargs=1)
+@click.argument("scene_config", nargs=1)
 def main(scene_id: str, scene_config: str):
     print(f"Processing scene: {scene_id} \n")
 
@@ -52,21 +64,23 @@ def main(scene_id: str, scene_config: str):
     # Identify bounds of scene and use bounding box to build DEM
     scene = identify(str(scene_file))
     scene_bbox = scene.bbox().extent
-    scene_bounds = (scene_bbox["xmin"], scene_bbox["ymin"], scene_bbox["xmax"], scene_bbox["ymax"])
+    scene_bounds = (
+        scene_bbox["xmin"],
+        scene_bbox["ymin"],
+        scene_bbox["xmax"],
+        scene_bbox["ymax"],
+    )
 
     # Set path for dem and create
     dem_dir = data_dir / "dem"
     dem_file = dem_dir / f"{scene_id}_dem.tif"
-    _, _ = get_cop30_dem_for_bounds(bounds=scene_bounds, save_path=dem_file, ellipsoid_heights=True)
+    _, _ = get_cop30_dem_for_bounds(
+        bounds=scene_bounds, save_path=dem_file, ellipsoid_heights=True
+    )
 
     # Write to config file
-    write_file_paths(
-        config_file, 
-        scene_file, 
-        latest_poe_file, 
-        dem_file, 
-        data_dir
-    )
+    write_file_paths(config_file, scene_file, latest_poe_file, dem_file, data_dir)
+
 
 if __name__ == "__main__":
 
