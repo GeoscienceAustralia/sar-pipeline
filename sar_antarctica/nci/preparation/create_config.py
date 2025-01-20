@@ -3,7 +3,12 @@ from pathlib import Path
 from pyroSAR import identify
 import rasterio
 
-from sar_antarctica.nci.preparation.scenes import find_scene_file_from_id
+from sar_antarctica.nci.filesystem import get_orbits_nci
+
+from sar_antarctica.nci.preparation.scenes import (
+    find_scene_file_from_id,
+    parse_scene_file_sensor,
+)
 from sar_antarctica.nci.preparation.orbits import find_latest_orbit_for_scene
 from sar_antarctica.nci.preparation.dem import get_cop30_dem_for_bounds
 
@@ -47,6 +52,15 @@ def write_file_paths(
 @click.argument("scene_id", nargs=1)
 @click.argument("scene_config", nargs=1)
 def main(scene_id: str, scene_config: str):
+    """Generate a configuration file for a scene ID
+
+    Parameters
+    ----------
+    scene_id : str
+        ID of scene to process
+    scene_config : str
+        where to store the output configuration file
+    """
     print(f"Processing scene: {scene_id} \n")
 
     # Set the data path for outputs
@@ -59,7 +73,9 @@ def main(scene_id: str, scene_config: str):
     scene_file = find_scene_file_from_id(scene_id)
 
     # Identify location of latest orbit file on GADI
-    latest_poe_file = find_latest_orbit_for_scene(scene_id, orbit_type="POE")
+    scene_sensor = parse_scene_file_sensor(scene_id)
+    poe_orbits = get_orbits_nci("POE", scene_sensor)
+    latest_poe_file = find_latest_orbit_for_scene(scene_id, poe_orbits)
 
     # Identify bounds of scene and use bounding box to build DEM
     scene = identify(str(scene_file))
