@@ -21,6 +21,9 @@ version = "0.1" # TODO base this on files in proje t
 Homepage = "https://github.com/GeoscienceAustralia/sar-antarctica.git"
 # Documentation = "XXX"
 
+[project.scripts]
+find-orbits = "sar_antarctica.nci.cli:find_orbits_for_scene"
+
 [tool.pytest.ini_options]
 testpaths = ["tests/*"]
 
