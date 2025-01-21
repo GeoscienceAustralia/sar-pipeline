@@ -2,7 +2,7 @@ import click
 from pathlib import Path
 
 from sar_antarctica.nci.filesystem import get_orbits_nci
-from sar_antarctica.nci.preparation.create_config import (
+from sar_antarctica.nci.submission.pyrosar_gamma.prepare_input import (
     prepare_inputs_for_pyrosar_gamma,
 )
 from sar_antarctica.nci.preparation.orbits import (
