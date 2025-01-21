@@ -15,10 +15,36 @@ from sar_antarctica.nci.preparation.scenes import (
 from sar_antarctica.nci.processing.pyroSAR.pyrosar_geocode import (
     run_pyrosar_gamma_geocode,
 )
+from sar_antarctica.nci.submission.pyrosar_gamma.submit_job import submit_job
 
 GAMMA_LIBRARY = Path("/g/data/dg9/GAMMA/GAMMA_SOFTWARE-20230712")
 GAMMA_ENV = "/g/data/yp75/projects/pyrosar_processing/sar-pyrosar-nci:/apps/fftw3/3.3.10/lib:/apps/gdal/3.6.4/lib64"
 OUTPUT_DIR = Path("/g/data/yp75/projects/sar-antractica-processing")
+
+
+@click.command()
+@click.argument("scene_name", type=str)
+@click.argument("spacing", type=int)
+@click.argument("scaling", type=str)
+@click.argument("ncpu", type=str)
+@click.argument("mem", type=str)
+@click.argument("queue", type=str)
+@click.argument("project", type=str)
+@click.argument("walltime", type=str)
+def submit_pyrosar_gamma_workflow(
+    scene_name, spacing, scaling, ncpu, mem, queue, project, walltime
+):
+
+    print("processing")
+    pbs_parameters = {
+        "ncpu": ncpu,
+        "mem": mem,
+        "queue": queue,
+        "project": project,
+        "walltime": walltime,
+    }
+
+    submit_job(scene_name, spacing, scaling, pbs_parameters)
 
 
 @click.command()
