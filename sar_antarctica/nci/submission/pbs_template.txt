@@ -1,12 +1,11 @@
 #!/bin/bash
-
-# PBS -l ncpus=<NCPU>
-# PBS -l mem=<MEM>GB
-# PBS -q <QUEUE>
-# PBS -P <PROJECT>
-# PBS -l walltime=<WALLTIME>
-# PBS -l storage=<STORAGE>
-# PBS -l wd
-# PBS -o <LOGDIR>/<JOBNAME>
-# PBS -e <LOGDIR>/<JOBNAME>
-# PBS -N <JOBNAME>
+#PBS -l ncpus=<NCPU>
+#PBS -l mem=<MEM>GB
+#PBS -q <QUEUE>
+#PBS -P <PROJECT>
+#PBS -l walltime=<WALLTIME>
+#PBS -l storage=<STORAGE>
+#PBS -l wd
+#PBS -o <LOGDIR>/<JOBNAME>
+#PBS -e <LOGDIR>/<JOBNAME>
+#PBS -N <JOBNAME>

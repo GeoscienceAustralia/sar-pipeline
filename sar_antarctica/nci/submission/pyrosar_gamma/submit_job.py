@@ -41,7 +41,7 @@ def submit_job(
         scene,
     )
 
-    job_command = f"pyrosar-gamma-workflow {scene} {spacing} {scaling}"
+    job_command = f"run-pyrosar-gamma-workflow {scene} {spacing} {scaling}"
 
     job_script = pbs_script + ENVIRONMENT_COMMAND + job_command
     print(job_script)
