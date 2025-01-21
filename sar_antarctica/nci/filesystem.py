@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from sar_antarctica.nci.preparation.orbits import find_orbits
+from sar_antarctica.nci.preparation.dem import get_cop30_dem_for_bounds
 
 
 def get_orbits_nci(orbit_type: str | None, sensor: str) -> list[Path]:
@@ -45,3 +46,13 @@ def get_orbits_nci(orbit_type: str | None, sensor: str) -> list[Path]:
     orbits = find_orbits(nci_orbit_directories)
 
     return orbits
+
+
+def get_dem_nci(scene_name, scene_bounds):
+    OUTPUT_DEM_PATH = Path("/g/data/yp75/projects/sar-antractica-processing/data/dem")
+    DEM_FILE = OUTPUT_DEM_PATH / f"{scene_name}.tif"
+
+    if not DEM_FILE.exists():
+        _, _ = get_cop30_dem_for_bounds(scene_bounds, DEM_FILE, ellipsoid_heights=True)
+
+    return DEM_FILE

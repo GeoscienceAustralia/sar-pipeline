@@ -23,6 +23,7 @@ Homepage = "https://github.com/GeoscienceAustralia/sar-antarctica.git"
 
 [project.scripts]
 find-orbits = "sar_antarctica.nci.cli:find_orbits_for_scene"
+run-pyrosar-gamma-workflow = "sar_antarctica.nci.cli:run_pyrosar_gamma_workflow"
 
 [tool.pytest.ini_options]
 testpaths = ["tests/*"]
