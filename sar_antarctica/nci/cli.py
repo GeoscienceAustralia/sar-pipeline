@@ -3,7 +3,7 @@ from pathlib import Path
 
 from sar_antarctica.nci.filesystem import get_orbits_nci
 from sar_antarctica.nci.submission.pyrosar_gamma.prepare_input import (
-    prepare_inputs_for_pyrosar_gamma,
+    get_orbit_and_dem,
 )
 from sar_antarctica.nci.preparation.orbits import (
     filter_orbits_to_cover_time_window,
@@ -23,7 +23,10 @@ OUTPUT_DIR = Path("/g/data/yp75/projects/sar-antractica-processing")
 
 
 @click.command()
-@click.argument("scene_name", type=str)
+@click.argument(
+    "scene",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
+)
 @click.argument("spacing", type=int)
 @click.argument("scaling", type=str)
 @click.argument("ncpu", type=str)
@@ -32,10 +35,9 @@ OUTPUT_DIR = Path("/g/data/yp75/projects/sar-antractica-processing")
 @click.argument("project", type=str)
 @click.argument("walltime", type=str)
 def submit_pyrosar_gamma_workflow(
-    scene_name, spacing, scaling, ncpu, mem, queue, project, walltime
+    scene, spacing, scaling, ncpu, mem, queue, project, walltime
 ):
 
-    print("processing")
     pbs_parameters = {
         "ncpu": ncpu,
         "mem": mem,
@@ -44,21 +46,24 @@ def submit_pyrosar_gamma_workflow(
         "walltime": walltime,
     }
 
-    submit_job(scene_name, spacing, scaling, pbs_parameters)
+    submit_job(scene, spacing, scaling, pbs_parameters)
 
 
 @click.command()
-@click.argument("scene_name", type=str)
+@click.argument(
+    "scene",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
+)
 @click.argument("spacing", type=int)
 @click.argument("scaling", type=str)
-def run_pyrosar_gamma_workflow(scene_name, spacing, scaling):
+def run_pyrosar_gamma_workflow(scene, spacing, scaling):
 
-    scene_file, orbit_file, dem_file = prepare_inputs_for_pyrosar_gamma(scene_name)
+    orbit, dem = get_orbit_and_dem(scene)
 
     run_pyrosar_gamma_geocode(
-        scene=scene_file,
-        orbit=orbit_file,
-        dem=dem_file,
+        scene=scene,
+        orbit=orbit,
+        dem=dem,
         output=OUTPUT_DIR,
         gamma_library=GAMMA_LIBRARY,
         gamma_env=GAMMA_ENV,

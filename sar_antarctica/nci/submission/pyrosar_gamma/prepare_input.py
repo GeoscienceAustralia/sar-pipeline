@@ -1,26 +1,45 @@
+from datetime import datetime
+from pathlib import Path
 from pyroSAR import identify
 
-from sar_antarctica.nci.filesystem import get_orbits_nci
-
-from sar_antarctica.nci.preparation.scenes import (
-    find_scene_file_from_id,
-    parse_scene_file_sensor,
-)
-from sar_antarctica.nci.preparation.orbits import find_latest_orbit_for_scene
+from sar_antarctica.nci.preparation.orbits import find_latest_orbit_covering_window
 from sar_antarctica.nci.filesystem import get_orbits_nci, get_dem_nci
 
 
-def prepare_inputs_for_pyrosar_gamma(scene_name):
+def get_orbit_and_dem(
+    scene_file: Path, orbit_type: str | None = "POE"
+) -> tuple[Path, Path]:
+    """For a given Sentinel-1 scene, find the relevant orbit path and DEM path.
+    The DEM will be created if no DEM path is found.
 
-    scene_file = find_scene_file_from_id(scene_name)
+    Parameters
+    ----------
+    scene_file : Path
+        Full path to the scene
+        e.g. "path/to/scene/scene_id.zip"
+    orbit_type : str, optional
+        The orbit type to get. Any of "POE", "RES" or None, by default "POE"
+
+    Returns
+    -------
+    tuple[Path, Path]
+        A tuple containing the path to the orbit file and a path to the DEM file.
+        e.g. ("path/to/orbit/orbitfile.EOF", "path/to/dem/demfile.tif")
+    """
+
+    # Extract metadata
+    scene = identify(scene_file)
+
+    # Isolate metadata for finding orbit
+    scene_sensor = scene.sensor
+    scene_start = datetime.strptime(scene.start, "%Y%m%dT%H%M%S")
+    scene_stop = datetime.strptime(scene.stop, "%Y%m%dT%H%M%S")
 
     # Find orbit
-    sensor = parse_scene_file_sensor(scene_name)
-    orbit_files = get_orbits_nci("POE", sensor)
-    orbit_file = find_latest_orbit_for_scene(scene_name, orbit_files)
+    orbit_files = get_orbits_nci(orbit_type, scene_sensor)
+    orbit_file = find_latest_orbit_covering_window(orbit_files, scene_start, scene_stop)
 
-    # Build DEM
-    scene = identify(str(scene_file))
+    # Isolate metadata for creating DEM
     scene_bbox = scene.bbox().extent
     scene_bounds = (
         scene_bbox["xmin"],
@@ -29,6 +48,7 @@ def prepare_inputs_for_pyrosar_gamma(scene_name):
         scene_bbox["ymax"],
     )
 
-    dem_file = get_dem_nci(scene_name, scene_bounds)
+    # Build DEM
+    dem_file = get_dem_nci(scene_file, scene_bounds)
 
-    return (scene_file, orbit_file, dem_file)
+    return (orbit_file, dem_file)

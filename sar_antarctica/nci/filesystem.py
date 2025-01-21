@@ -48,9 +48,9 @@ def get_orbits_nci(orbit_type: str | None, sensor: str) -> list[Path]:
     return orbits
 
 
-def get_dem_nci(scene_name, scene_bounds):
+def get_dem_nci(scene: Path, scene_bounds: tuple[float, float, float, float]):
     OUTPUT_DEM_PATH = Path("/g/data/yp75/projects/sar-antractica-processing/data/dem")
-    DEM_FILE = OUTPUT_DEM_PATH / f"{scene_name}.tif"
+    DEM_FILE = OUTPUT_DEM_PATH / f"{scene.stem}.tif"
 
     if not DEM_FILE.exists():
         _, _ = get_cop30_dem_for_bounds(scene_bounds, DEM_FILE, ellipsoid_heights=True)
