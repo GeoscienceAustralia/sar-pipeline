@@ -99,6 +99,12 @@ def run_pyrosar_gamma_geocode(
 
     log.info("running geocode")
 
+    # Set the border removal step to pyroSAR for GRD products. Ignore otherwise
+    if pyrosar_scene_id.product == "GRD":
+        border_removal_method = "pyroSAR"
+    else:
+        border_removal_method = None
+
     geocode(
         scene=pyrosar_scene_id,
         dem=str(dem_gamma),
@@ -120,7 +126,7 @@ def run_pyrosar_gamma_geocode(
             "pix_ratio_geo",
         ],
         basename_extensions=None,
-        removeS1BorderNoiseMethod="pyroSAR",
+        removeS1BorderNoiseMethod=border_removal_method,
         refine_lut=False,
         rlks=None,
         azlks=None,
