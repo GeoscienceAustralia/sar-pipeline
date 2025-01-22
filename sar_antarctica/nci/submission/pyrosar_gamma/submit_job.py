@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from sar_antarctica.nci.submission.utils import populate_pbs_template
 
-LOG_DIR = Path("/g/data/yp75/projects/sar-antractica-processing/submission/logs")
+
 ENVIRONMENT_COMMAND = """
 
 export MAMBA_EXE=/g/data/yp75/ca6983/micromamba/bin/micromamba
@@ -13,25 +13,14 @@ micromamba activate sar-antarctica
 
 """
 
-DEFAULT_DICT = {
-    "ncpu": "4",
-    "mem": "32",
-    "queue": "normal",
-    "project": "u46",
-    "walltime": "02:00:00",
-}
-
 
 def submit_job(
-    scene: Path,
-    spacing: int,
-    scaling: str,
-    pbs_parameters: dict[str, str] = DEFAULT_DICT,
+    scene: Path, spacing: int, scaling: str, pbs_parameters: dict[str, str], log_dir
 ):
 
     scene_name = scene.stem
 
-    scene_script = LOG_DIR / scene_name / f"{scene_name}.sh"
+    scene_script = log_dir / scene_name / f"{scene_name}.sh"
     scene_script.parent.mkdir(exist_ok=True, parents=True)
 
     pbs_script = populate_pbs_template(

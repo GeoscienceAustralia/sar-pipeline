@@ -1,5 +1,6 @@
 import click
 from pathlib import Path
+import tomli
 
 from sar_antarctica.nci.filesystem import get_orbits_nci
 from sar_antarctica.nci.submission.pyrosar_gamma.prepare_input import (
@@ -18,10 +19,6 @@ from sar_antarctica.nci.processing.pyroSAR.pyrosar_geocode import (
 )
 from sar_antarctica.nci.submission.pyrosar_gamma.submit_job import submit_job
 
-GAMMA_LIBRARY = Path("/g/data/dg9/GAMMA/GAMMA_SOFTWARE-20230712")
-GAMMA_ENV = "/g/data/yp75/projects/pyrosar_processing/sar-pyrosar-nci:/apps/fftw3/3.3.10/lib:/apps/gdal/3.6.4/lib64"
-OUTPUT_DIR = Path("/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/")
-
 
 @click.command()
 @click.argument("scene_name", type=str)
@@ -31,20 +28,45 @@ def find_scene_file(scene_name):
     click.echo(scene_file)
 
 
+DEFAULT_CONFIGURATION = Path(__file__).resolve().parent / "configs/default.toml"
+
+
+def configure(ctx, param, filename):
+    with open(filename, "rb") as f:
+        configuration_dictionary = tomli.load(f)
+    ctx.default_map = configuration_dictionary
+
+
 @click.command()
 @click.argument(
     "scene",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
 )
-@click.argument("spacing", type=int)
-@click.argument("scaling", type=str)
-@click.argument("ncpu", type=str)
-@click.argument("mem", type=str)
-@click.argument("queue", type=str)
-@click.argument("project", type=str)
-@click.argument("walltime", type=str)
+@click.option(
+    "-c",
+    "--config",
+    type=click.Path(dir_okay=False),
+    default=DEFAULT_CONFIGURATION,
+    callback=configure,
+    is_eager=True,
+    expose_value=False,
+    help="Read option defaults from the specified .toml file",
+    show_default=True,
+)
+@click.option("--spacing", type=int)
+@click.option("--scaling", type=click.Choice(["linear", "db"]))
+@click.option("--ncpu", type=str, default="4")
+@click.option("--mem", type=str, default="32")
+@click.option("--queue", type=str, default="normal")
+@click.option("--project", type=str, default="u46")
+@click.option("--walltime", type=str, default="02:00:00")
+@click.option(
+    "--output-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default="/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/",
+)
 def submit_pyrosar_gamma_workflow(
-    scene, spacing, scaling, ncpu, mem, queue, project, walltime
+    scene, spacing, scaling, ncpu, mem, queue, project, walltime, output_dir
 ):
 
     pbs_parameters = {
@@ -55,17 +77,48 @@ def submit_pyrosar_gamma_workflow(
         "walltime": walltime,
     }
 
-    submit_job(scene, spacing, scaling, pbs_parameters)
+    log_dir = output_dir / "submission/logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    submit_job(scene, spacing, scaling, pbs_parameters, log_dir)
 
 
 @click.command()
 @click.argument(
     "scene",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
 )
-@click.argument("spacing", type=int)
-@click.argument("scaling", type=str)
-def run_pyrosar_gamma_workflow(scene, spacing, scaling):
+@click.option(
+    "-c",
+    "--config",
+    type=click.Path(dir_okay=False),
+    default=DEFAULT_CONFIGURATION,
+    callback=configure,
+    is_eager=True,
+    expose_value=False,
+    help="Read option defaults from the specified .toml file",
+    show_default=True,
+)
+@click.option("--spacing", type=int)
+@click.option("--scaling", type=click.Choice(["linear", "db"]))
+@click.option(
+    "--output-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default="/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/",
+)
+@click.option(
+    "--gamma-lib-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default="/g/data/dg9/GAMMA/GAMMA_SOFTWARE-20230712",
+)
+@click.option(
+    "--gamma-env-var",
+    type=str,
+    default="/g/data/yp75/projects/pyrosar_processing/sar-pyrosar-nci:/apps/fftw3/3.3.10/lib:/apps/gdal/3.6.4/lib64",
+)
+def run_pyrosar_gamma_workflow(
+    scene, spacing, scaling, output_dir, gamma_lib_dir, gamma_env_var
+):
 
     click.echo("Preparing orbit and DEM")
     orbit, dem = get_orbit_and_dem(scene)
@@ -74,13 +127,14 @@ def run_pyrosar_gamma_workflow(scene, spacing, scaling):
     click.echo(f"    Identified DEM: {dem}")
 
     click.echo("Running processing")
+    print(scene, spacing, scaling, output_dir, gamma_lib_dir, gamma_env_var)
     run_pyrosar_gamma_geocode(
         scene=scene,
         orbit=orbit,
         dem=dem,
-        output=OUTPUT_DIR,
-        gamma_library=GAMMA_LIBRARY,
-        gamma_env=GAMMA_ENV,
+        output=output_dir,
+        gamma_library=gamma_lib_dir,
+        gamma_env=gamma_env_var,
         geocode_spacing=spacing,
         geocode_scaling=scaling,
     )
