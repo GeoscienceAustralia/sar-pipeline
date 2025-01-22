@@ -11,6 +11,7 @@ from sar_antarctica.nci.preparation.orbits import (
 from sar_antarctica.nci.preparation.scenes import (
     parse_scene_file_sensor,
     parse_scene_file_dates,
+    find_scene_file_from_id,
 )
 from sar_antarctica.nci.processing.pyroSAR.pyrosar_geocode import (
     run_pyrosar_gamma_geocode,
@@ -19,7 +20,15 @@ from sar_antarctica.nci.submission.pyrosar_gamma.submit_job import submit_job
 
 GAMMA_LIBRARY = Path("/g/data/dg9/GAMMA/GAMMA_SOFTWARE-20230712")
 GAMMA_ENV = "/g/data/yp75/projects/pyrosar_processing/sar-pyrosar-nci:/apps/fftw3/3.3.10/lib:/apps/gdal/3.6.4/lib64"
-OUTPUT_DIR = Path("/g/data/yp75/projects/sar-antractica-processing")
+OUTPUT_DIR = Path("/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/")
+
+
+@click.command()
+@click.argument("scene_name", type=str)
+def find_scene_file(scene_name):
+    scene_file = find_scene_file_from_id(scene_name)
+
+    click.echo(scene_file)
 
 
 @click.command()
@@ -58,8 +67,13 @@ def submit_pyrosar_gamma_workflow(
 @click.argument("scaling", type=str)
 def run_pyrosar_gamma_workflow(scene, spacing, scaling):
 
+    click.echo("Preparing orbit and DEM")
     orbit, dem = get_orbit_and_dem(scene)
 
+    click.echo(f"    Identified orbit: {orbit}")
+    click.echo(f"    Identified DEM: {dem}")
+
+    click.echo("Running processing")
     run_pyrosar_gamma_geocode(
         scene=scene,
         orbit=orbit,

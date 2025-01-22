@@ -49,10 +49,14 @@ def get_orbits_nci(orbit_type: str | None, sensor: str) -> list[Path]:
 
 
 def get_dem_nci(scene: Path, scene_bounds: tuple[float, float, float, float]):
-    OUTPUT_DEM_PATH = Path("/g/data/yp75/projects/sar-antractica-processing/data/dem")
-    DEM_FILE = OUTPUT_DEM_PATH / f"{scene.stem}.tif"
+    OUTPUT_DIR = Path(
+        "/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/data/dem"
+    )
+    if not OUTPUT_DIR.exists():
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    dem_file = OUTPUT_DIR / f"{scene.stem}.tif"
 
-    if not DEM_FILE.exists():
-        _, _ = get_cop30_dem_for_bounds(scene_bounds, DEM_FILE, ellipsoid_heights=True)
+    if not dem_file.exists():
+        _, _ = get_cop30_dem_for_bounds(scene_bounds, dem_file, ellipsoid_heights=True)
 
-    return DEM_FILE
+    return dem_file

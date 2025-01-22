@@ -22,6 +22,7 @@ Homepage = "https://github.com/GeoscienceAustralia/sar-antarctica.git"
 # Documentation = "XXX"
 
 [project.scripts]
+find-scene = "sar_antarctica.nci.cli:find_scene_file"
 find-orbits = "sar_antarctica.nci.cli:find_orbits_for_scene"
 run-pyrosar-gamma-workflow = "sar_antarctica.nci.cli:run_pyrosar_gamma_workflow"
 submit-pyrosar-gamma-workflow = "sar_antarctica.nci.cli:submit_pyrosar_gamma_workflow"

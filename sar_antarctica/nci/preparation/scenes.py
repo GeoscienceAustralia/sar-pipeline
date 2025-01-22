@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 import re
 
-SCENE_DIR = Path("/g/data/fj7/Copernicus/Sentinel-1/C-SAR/GRD/")
+SCENE_DIR = Path("/g/data/fj7/Copernicus/Sentinel-1/C-SAR/")
 
 
 def parse_scene_file_sensor(scene_id: str) -> str:
@@ -35,6 +35,55 @@ def parse_scene_file_sensor(scene_id: str) -> str:
         )
 
     return match.group(1)
+
+
+def parse_scene_file_mode(scene_id: str) -> str:
+    raise NotImplementedError
+
+
+def parse_scene_file_product(scene_id: str) -> str:
+    """Extract Sentinel-1 product string (GRDM or SLC_) from scene ID and return
+    shortened version (either GRD or SLC)
+
+    Parameters
+    ----------
+    scene_id : str
+        Sentinel-1 scene ID
+        e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
+
+    Returns
+    -------
+    str
+        Product string, either GRD or SLC
+
+    Raises
+    ------
+    ValueError
+        Could not find expected match of four characters containing letters/underscores.
+    ValueError
+        Identified string did not match either "GRDM" or "SLC_"
+    """
+
+    pattern = r"^S1[A-Z]_[A-Z]{2}_([A-Z_]{4})_"
+
+    match = re.match(pattern, scene_id)
+
+    if not match:
+        raise ValueError(
+            "No product string was found. Looking for S1X_YY_ZZZZ_ where ZZZZ can be letters or underscores."
+        )
+
+    product_string = match.group(1)
+    if product_string == "GRDM":
+        product = "GRD"
+    elif product_string == "SLC_":
+        product = "SLC"
+    else:
+        raise ValueError(
+            f"Expected product string to be either GRDM or SLC_, but got {product_string}."
+        )
+
+    return product
 
 
 def parse_scene_file_dates(scene_id: str) -> tuple[datetime, datetime]:
@@ -93,6 +142,8 @@ def find_scene_file_from_id(scene_id: str) -> Path:
         Found no files -- expects one. Or another Error
     """
 
+    scene_product = parse_scene_file_product(scene_id)
+
     # Parse the scene dates -- only start date is needed for search
     scene_start, _ = parse_scene_file_dates(scene_id)
 
@@ -101,7 +152,7 @@ def find_scene_file_from_id(scene_id: str) -> Path:
     month = scene_start.strftime("%m")
 
     # Set path on GADI and search
-    search_path = SCENE_DIR.joinpath(f"{year}/{year}-{month}/")
+    search_path = SCENE_DIR.joinpath(f"{scene_product}/{year}/{year}-{month}/")
     file_path = list(search_path.rglob(f"{scene_id}.zip"))
 
     # Identify file
