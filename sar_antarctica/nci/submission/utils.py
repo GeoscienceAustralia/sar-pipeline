@@ -3,12 +3,17 @@ from pathlib import Path
 
 SUBMISSION_DIR = Path(__file__).resolve().parent
 SUBMISSION_TEMPLATE = SUBMISSION_DIR / "pbs_template.txt"
-LOG_DIR = "/g/data/yp75/projects/sar-antractica-processing/submission/logs"
 STORAGE = "gdata/yp75+gdata/dg9+gdata/fj7+gdata/v10"
 
 
 def populate_pbs_template(
-    ncpu: int, mem: int, queue: str, project: str, walltime: str, jobname: str
+    ncpu: int,
+    mem: int,
+    queue: str,
+    project: str,
+    walltime: str,
+    jobname: str,
+    log_dir: str,
 ):
     pbs_template = SUBMISSION_TEMPLATE.read_text()
 
@@ -19,7 +24,7 @@ def populate_pbs_template(
         "<PROJECT>": project,
         "<WALLTIME>": walltime,
         "<STORAGE>": STORAGE,
-        "<LOGDIR>": LOG_DIR,
+        "<LOGDIR>": log_dir,
         "<JOBNAME>": jobname,
     }
 

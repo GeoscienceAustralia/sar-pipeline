@@ -15,7 +15,11 @@ micromamba activate sar-antarctica
 
 
 def submit_job(
-    scene: Path, spacing: int, scaling: str, pbs_parameters: dict[str, str], log_dir
+    scene: Path,
+    spacing: int,
+    scaling: str,
+    pbs_parameters: dict[str, str],
+    log_dir: str,
 ):
 
     scene_name = scene.stem
@@ -29,10 +33,13 @@ def submit_job(
         pbs_parameters["queue"],
         pbs_parameters["project"],
         pbs_parameters["walltime"],
-        scene,
+        scene_name,
+        log_dir,
     )
 
-    job_command = f"run-pyrosar-gamma-workflow {scene} {spacing} {scaling}"
+    job_command = (
+        f"run-pyrosar-gamma-workflow {scene} --spacing {spacing} --scaling {scaling}"
+    )
 
     job_script = pbs_script + ENVIRONMENT_COMMAND + job_command
 
@@ -41,4 +48,4 @@ def submit_job(
 
     # Submit script
     qsub_command = f"qsub {scene_script}"
-    # os.system(qsub_command)
+    os.system(qsub_command)

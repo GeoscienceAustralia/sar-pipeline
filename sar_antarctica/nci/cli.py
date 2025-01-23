@@ -102,6 +102,10 @@ def submit_pyrosar_gamma_workflow(
 @click.option("--spacing", type=int)
 @click.option("--scaling", type=click.Choice(["linear", "db"]))
 @click.option(
+    "--orbit-dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
+)
+@click.option("--orbit-type", type=click.Choice(["POE", "RES", "either"]))
+@click.option(
     "--output-dir",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
     default="/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/",
@@ -117,11 +121,20 @@ def submit_pyrosar_gamma_workflow(
     default="/g/data/yp75/projects/pyrosar_processing/sar-pyrosar-nci:/apps/fftw3/3.3.10/lib:/apps/gdal/3.6.4/lib64",
 )
 def run_pyrosar_gamma_workflow(
-    scene, spacing, scaling, output_dir, gamma_lib_dir, gamma_env_var
+    scene,
+    spacing,
+    scaling,
+    orbit_dir,
+    orbit_type,
+    output_dir,
+    gamma_lib_dir,
+    gamma_env_var,
 ):
 
     click.echo("Preparing orbit and DEM")
-    orbit, dem = get_orbit_and_dem(scene)
+    dem_output_dir = output_dir / "data/dem"
+
+    orbit, dem = get_orbit_and_dem(scene, dem_output_dir, orbit_dir, orbit_type)
 
     click.echo(f"    Identified orbit: {orbit}")
     click.echo(f"    Identified DEM: {dem}")

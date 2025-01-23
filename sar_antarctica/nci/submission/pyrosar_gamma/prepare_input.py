@@ -7,7 +7,10 @@ from sar_antarctica.nci.filesystem import get_orbits_nci, get_dem_nci
 
 
 def get_orbit_and_dem(
-    scene_file: Path, orbit_type: str | None = "POE"
+    scene_file: Path,
+    dem_output_dir: Path,
+    orbit_dir: Path = Path("/g/data/fj7/Copernicus/Sentinel-1/"),
+    orbit_type: str | None = "POE",
 ) -> tuple[Path, Path]:
     """For a given Sentinel-1 scene, find the relevant orbit path and DEM path.
     The DEM will be created if no DEM path is found.
@@ -36,7 +39,7 @@ def get_orbit_and_dem(
     scene_stop = datetime.strptime(scene.stop, "%Y%m%dT%H%M%S")
 
     # Find orbit
-    orbit_files = get_orbits_nci(orbit_type, scene_sensor)
+    orbit_files = get_orbits_nci(orbit_type, scene_sensor, orbit_dir)
     orbit_file = find_latest_orbit_covering_window(orbit_files, scene_start, scene_stop)
 
     # Isolate metadata for creating DEM
@@ -49,6 +52,6 @@ def get_orbit_and_dem(
     )
 
     # Build DEM
-    dem_file = get_dem_nci(scene_file, scene_bounds)
+    dem_file = get_dem_nci(scene_file, scene_bounds, dem_output_dir)
 
     return (orbit_file, dem_file)

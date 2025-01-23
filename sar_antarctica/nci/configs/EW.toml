@@ -1,7 +1,7 @@
 spacing = 40
 scaling = "linear"
 ncpu = "4"
-mem = "32"
+mem = "64"
 queue = "normal"
 project = "u46"
 walltime = "02:00:00"

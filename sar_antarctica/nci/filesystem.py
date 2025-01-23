@@ -4,7 +4,11 @@ from sar_antarctica.nci.preparation.orbits import find_orbits
 from sar_antarctica.nci.preparation.dem import get_cop30_dem_for_bounds
 
 
-def get_orbits_nci(orbit_type: str | None, sensor: str) -> list[Path]:
+def get_orbits_nci(
+    orbit_type: str | None,
+    sensor: str,
+    nci_orbit_dir: Path = Path("/g/data/fj7/Copernicus/Sentinel-1/"),
+) -> list[Path]:
     """For a given orbit type and sensor, compile the relevant orbit files
 
     Parameters
@@ -13,7 +17,8 @@ def get_orbits_nci(orbit_type: str | None, sensor: str) -> list[Path]:
         One of 'POE', 'RES', or None. If None, both POE and RES orbits will be included
     sensor : str
         Sensor (e.g. S1A or S1B) to search. Typically extracted from the scene ID
-
+    nci_orbit_dir : Path, optional
+        The path containing orbit files on the NCI, by default Path("/g/data/fj7/Copernicus/Sentinel-1/")
     Returns
     -------
     list[Path]
@@ -26,7 +31,6 @@ def get_orbits_nci(orbit_type: str | None, sensor: str) -> list[Path]:
     """
 
     # Constants for NCI
-    S1_DIR = Path("/g/data/fj7/Copernicus/Sentinel-1/")
     POE_DIR = "POEORB"
     RES_DIR = "RESORB"
 
@@ -40,7 +44,7 @@ def get_orbits_nci(orbit_type: str | None, sensor: str) -> list[Path]:
         raise ValueError("orbit_type must be one of 'POE', 'RES', or None")
 
     nci_orbit_directories = [
-        S1_DIR / orbit_dir / sensor for orbit_dir in orbit_type_directories
+        nci_orbit_dir / orbit_dir / sensor for orbit_dir in orbit_type_directories
     ]
 
     orbits = find_orbits(nci_orbit_directories)
@@ -48,13 +52,12 @@ def get_orbits_nci(orbit_type: str | None, sensor: str) -> list[Path]:
     return orbits
 
 
-def get_dem_nci(scene: Path, scene_bounds: tuple[float, float, float, float]):
-    OUTPUT_DIR = Path(
-        "/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/data/dem"
-    )
-    if not OUTPUT_DIR.exists():
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    dem_file = OUTPUT_DIR / f"{scene.stem}.tif"
+def get_dem_nci(
+    scene: Path, scene_bounds: tuple[float, float, float, float], output_dir: Path
+) -> Path:
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True, exist_ok=True)
+    dem_file = output_dir / f"{scene.stem}.tif"
 
     if not dem_file.exists():
         _, _ = get_cop30_dem_for_bounds(scene_bounds, dem_file, ellipsoid_heights=True)
