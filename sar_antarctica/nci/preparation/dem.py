@@ -177,8 +177,8 @@ def get_cop30_dem_for_bounds(
                 bounds=bounds,
                 buffer_pixels=buffer_pixels,
             )
-            logging.info(f"Check the dem covers the required bounds")
-            dem_bounds = bounds_from_profile(dem_profile)
+        logging.info(f"Check the dem covers the required bounds")
+        dem_bounds = bounds_from_profile(dem_profile)
         logging.info(f"Dem bounds: {dem_bounds}")
         logging.info(f"Target bounds: {bounds}")
         bounds_filled_by_dem = box(*bounds).within(box(*dem_bounds))
