@@ -6,7 +6,6 @@ from pyroSAR.gamma import geocode
 from pyroSAR.gamma.dem import dem_import
 import shutil
 import sys
-import tomli
 
 from sar_antarctica.nci.processing.GAMMA.GAMMA_utils import set_gamma_env_variables
 
@@ -19,65 +18,37 @@ log = logging.getLogger("gammapy")
 log.setLevel(logging.INFO)
 
 
-@click.command()
-@click.argument("workflow_config", nargs=1)
-@click.argument("scene_config", nargs=1)
-def cli(workflow_config: str, scene_config: str):
+def prepare_directories(processing_root: Path, scene_full_name: str, scene_outname):
 
-    # Read in config file
-    with open(workflow_config, "rb") as f:
-        workflow_config_dict = tomli.load(f)
+    # Set directories under the processing root
+    SCENE_DIR = f"data/processed_scene/{scene_full_name}"
+    TEMP_DIR = f"data/temp/{scene_outname}"
+    LOG_DIR = f"data/temp/{scene_outname}/logfiles"
 
-    with open(scene_config, "rb") as f:
-        scene_config_dict = tomli.load(f)
+    # Construct a dictionary for use
+    processing_directories = {
+        "scene": processing_root / SCENE_DIR,
+        "temp": processing_root / TEMP_DIR,
+        "logs": processing_root / LOG_DIR,
+    }
 
-    # Split config dicts up to ease readability
-    config_inputs = scene_config_dict["inputs"]
-    config_outputs = scene_config_dict["outputs"]
-    config_gamma = workflow_config_dict["gamma"]
-    config_geocode = workflow_config_dict["geocode"]
+    # Create directories if not exist
+    log.info("Setting directories:")
+    for dir_name, dir_path in processing_directories.items():
+        log.info(f"    {dir_name}: {dir_path}")
+        dir_path.mkdir(parents=True, exist_ok=True)
 
-    # Environment variables for GAMMA must be set
-    set_gamma_env_variables(
-        config_gamma["software_env_var"], config_gamma["libs_env_var"]
-    )
+    return processing_directories
 
-    # Identify scene
-    scene_zip = Path(config_inputs["scene"])
-    scene_id = scene_zip.stem
-    log.info(f"Scene ID: {scene_id} has the following metadata:\n{scene_zip}")
-    if scene_zip.exists():
-        pyrosar_scene_id = identify(scene_zip)
 
-    # Construct output scenes
-    data_dir = Path(config_outputs["data"])
-    processed_scene_dir = (
-        data_dir
-        / config_outputs["processed"]
-        / pyrosar_scene_id.outname_base(extensions=None)
-    )
-    pyrosar_temp_dir = (
-        data_dir / "temp" / pyrosar_scene_id.outname_base(extensions=None)
-    )
-    pyrosar_temp_log_dir = pyrosar_temp_dir / "logfiles"
+def prepare_dem_for_gamma(dem_tif: Path, temp_dir: Path, log_dir: Path) -> Path:
 
-    log.info("creating directories:")
-    for dir in [processed_scene_dir, pyrosar_temp_dir, pyrosar_temp_log_dir]:
-        dir.mkdir(parents=True, exist_ok=True)
-        log.info(f"    {dir}")
-
-    # Copy over orbit file
-    orbit_file = Path(config_inputs["orbit"])
-    orbit_filename = orbit_file.name
-    shutil.copy(orbit_file, pyrosar_temp_dir / orbit_filename)
-
-    # Create DEM in GAMMA format
-    dem_tif = Path(config_inputs["dem"])
-    dem_gamma = pyrosar_temp_dir / dem_tif.stem
+    dem_dir = dem_tif.parent
+    dem_name = dem_tif.stem
+    dem_gamma = temp_dir / dem_name
 
     if dem_gamma.exists():
         log.info("DEM exists")
-        pass
     else:
         log.info("running DEM")
 
@@ -85,27 +56,66 @@ def cli(workflow_config: str, scene_config: str):
             src=str(dem_tif),
             dst=str(dem_gamma),
             geoid=None,
-            logpath=str(pyrosar_temp_log_dir),
-            outdir=str(dem_tif.parent),
+            logpath=str(log_dir),
+            outdir=str(dem_dir),
         )
 
         log.info("finished DEM")
 
-    # Run geocode process
-    # Note that GAMMA geocode from pyrosar produces gamma_0 RTC backscatter
+    return dem_gamma
+
+
+def run_pyrosar_gamma_geocode(
+    scene: Path,
+    orbit: Path,
+    dem: Path,
+    output: Path,
+    gamma_library: Path,
+    gamma_env: str,
+    geocode_spacing: int,
+    geocode_scaling: str,
+):
+
+    # Set up environment variables for GAMMA
+    set_gamma_env_variables(str(gamma_library), gamma_env)
+
+    # Identify scene
+    scene_name = scene.stem
+    pyrosar_scene_id = identify(scene)
+
+    # Create processing directories if required
+    processing_directories = prepare_directories(
+        output, scene_name, pyrosar_scene_id.outname_base(extensions=None)
+    )
+
+    # Prepare orbit file
+    # Copy to temp dir to prevent pyroSAR modifying in-place
+    orbit_dir = processing_directories["temp"]
+    shutil.copy(orbit, orbit_dir / orbit.name)
+
+    dem_gamma = prepare_dem_for_gamma(
+        dem, processing_directories["temp"], processing_directories["logs"]
+    )
+
     log.info("running geocode")
+
+    # Set the border removal step to pyroSAR for GRD products. Ignore otherwise
+    if pyrosar_scene_id.product == "GRD":
+        border_removal_method = "pyroSAR"
+    else:
+        border_removal_method = None
 
     geocode(
         scene=pyrosar_scene_id,
         dem=str(dem_gamma),
-        tmpdir=str(pyrosar_temp_dir),
-        outdir=str(processed_scene_dir),
-        spacing=config_geocode["spacing"],
-        scaling=config_geocode["scaling"],
+        tmpdir=str(processing_directories["temp"]),
+        outdir=str(processing_directories["scene"]),
+        spacing=geocode_spacing,
+        scaling=geocode_scaling,
         func_geoback=1,
         nodata=(0, -99),
         update_osv=False,
-        osvdir=str(pyrosar_temp_dir),
+        osvdir=str(orbit_dir),
         allow_RES_OSV=False,
         cleanup=False,
         export_extra=[
@@ -116,7 +126,7 @@ def cli(workflow_config: str, scene_config: str):
             "pix_ratio_geo",
         ],
         basename_extensions=None,
-        removeS1BorderNoiseMethod="pyroSAR",
+        removeS1BorderNoiseMethod=border_removal_method,
         refine_lut=False,
         rlks=None,
         azlks=None,
@@ -124,8 +134,3 @@ def cli(workflow_config: str, scene_config: str):
     )
 
     log.info("finished geocode")
-
-
-if __name__ == "__main__":
-
-    cli()
