@@ -8,6 +8,7 @@ def push_files_in_folder_to_s3(
         src_folder : str,
         s3_bucket : str,
         s3_bucket_folder : str,
+        upload_folder : bool = False,
         exclude_extensions : list[str] = [],
         exclude_files : list[str] = [],
         region_name : str = 'ap-southeast-2',
@@ -23,6 +24,11 @@ def push_files_in_folder_to_s3(
         S3 bucket to push to
     s3_bucket_folder : str
         Folder within bucket to push to
+    upload_folder : bool
+        upload the entire folder to the s3_bucket_folder. 
+        If; src_folder = my/local_folder/ & s3_bucket_folder = s3/s3_folder
+        when True, all files uploaded to -> s3/s3_folder/local_folder/...
+        when False, all files uploaded to -> s3/s3_folder/...
     exclude_extensions : list[str], optional
         List of file extensions to exclude, by default []
     exclude_files : list[str], optional
@@ -57,6 +63,10 @@ def push_files_in_folder_to_s3(
                         continue
                 local_path = Path(root) / Path(file)
                 relative_path = Path(os.path.relpath(local_path, src_folder))
-                s3_key = Path(os.path.join(s3_bucket_folder, relative_path).replace("\\", "/"))
+                if not upload_folder:
+                    s3_key = Path(os.path.join(s3_bucket_folder, relative_path).replace("\\", "/"))
+                else:
+                    folder = Path(src_folder).name 
+                    s3_key = Path(os.path.join(s3_bucket_folder, folder, relative_path).replace("\\", "/"))
                 S3_CLIENT.upload_file(str(local_path), str(s3_bucket), str(s3_key))
                 logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")

@@ -181,13 +181,18 @@ def find_orbits_for_scene(scene: str):
 @click.argument('src_folder', type=click.Path(exists=True, file_okay=False))
 @click.argument('s3_bucket')
 @click.argument('s3_bucket_folder')
+@click.option('--upload-folder', 
+              default=False, 
+              is_flag=True, 
+              help="Upload the whole folder to specified s3_bucket_folder.")
 @click.option('--exclude-extensions', '-e', multiple=True, help="File extensions to exclude, e.g., '.txt', '.log'")
 @click.option('--exclude-files', '-f', multiple=True, help="Specific files to exclude, e.g., 'config.json'")
 @click.option('--region-name', default='ap-southeast-2', show_default=True, help="AWS region name")
-def push_folder_to_s3(
+def upload_files_in_folder_to_s3(
         src_folder : str,
         s3_bucket : str,
         s3_bucket_folder : str,
+        upload_folder : bool,
         exclude_extensions : list[str] = [],
         exclude_files : list[str] = [],
         region_name : str = 'ap-southeast-2',
@@ -196,6 +201,7 @@ def push_folder_to_s3(
         src_folder = src_folder,
         s3_bucket = s3_bucket,
         s3_bucket_folder = s3_bucket_folder, 
+        upload_folder = upload_folder,
         exclude_extensions = exclude_extensions,
         exclude_files = exclude_files,
         region_name = region_name,
