@@ -4,13 +4,6 @@ import os
 import click
 import logging
 
-@click.command()
-@click.argument('src_folder', type=click.Path(exists=True, file_okay=False))
-@click.argument('s3_bucket')
-@click.argument('s3_bucket_folder')
-@click.option('--exclude-extensions', '-e', multiple=True, help="File extensions to exclude, e.g., '.txt', '.log'")
-@click.option('--exclude-files', '-f', multiple=True, help="Specific files to exclude, e.g., 'config.json'")
-@click.option('--region-name', default='ap-southeast-2', show_default=True, help="AWS region name")
 def push_files_in_folder_to_s3(
         src_folder : str,
         s3_bucket : str,
@@ -67,10 +60,3 @@ def push_files_in_folder_to_s3(
                 s3_key = Path(os.path.join(s3_bucket_folder, relative_path).replace("\\", "/"))
                 S3_CLIENT.upload_file(str(local_path), str(s3_bucket), str(s3_key))
                 logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
-
-if __name__ == "__main__":
-
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    
-    push_files_in_folder_to_s3()

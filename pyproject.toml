@@ -26,6 +26,7 @@ find-scene = "sar_antarctica.nci.cli:find_scene_file"
 find-orbits = "sar_antarctica.nci.cli:find_orbits_for_scene"
 run-pyrosar-gamma-workflow = "sar_antarctica.nci.cli:run_pyrosar_gamma_workflow"
 submit-pyrosar-gamma-workflow = "sar_antarctica.nci.cli:submit_pyrosar_gamma_workflow"
+push-folder-to-s3 = "sar_antarctica.nci.cli:push_folder_to_s3"
 
 [tool.pytest.ini_options]
 testpaths = ["tests/*"]
