@@ -212,7 +212,7 @@ def read_vrt_in_bounds(
 
     # make upper end of the requested integer
     # ensures the bounds are covered with requested pixel buffer
-    buffer_pixels += 0.9
+    #buffer_pixels += 0.9
 
     if bounds is None:
         # get all data in tiles
@@ -238,42 +238,37 @@ def read_vrt_in_bounds(
         # Open the VRT file
         with rasterio.open(vrt_path) as src:
             # Extract the spatial resolution, CRS, and transform of the source dataset
-            src_crs = src.crs
             src_transform = src.transform
-
-            pixel_size_x = abs(src_transform.a)  # Pixel size in x-direction
-            pixel_size_y = abs(src_transform.e)  # Pixel size in y-direction
-
-            # Convert buffer in pixels to geographic units
-            buffer_x = buffer_pixels * pixel_size_x
-            buffer_y = buffer_pixels * pixel_size_y
 
             # Expand bounds by the buffer
             min_x, min_y, max_x, max_y = bounds
-            buffered_bounds = (
-                min_x - buffer_x,
-                min_y - buffer_y,
-                max_x + buffer_x,
-                max_y + buffer_y,
-            )
+            print(bounds_from_profile(src.profile))
+            print(bounds)
 
-            # Create a window for the bounding box
-            xmin, ymin, xmax, ymax = buffered_bounds
             window = from_bounds(
-                xmin, ymin, xmax, ymax, transform=src_transform
-            )  # .round()
+                min_x, min_y, max_x, max_y, transform=src_transform
+            ).round()
+            # window_transform = src.window_transform(window) # orig transform
+
+            buffered_window = rasterio.windows.Window(
+                window.col_off - buffer_pixels,
+                window.row_off - buffer_pixels,
+                window.width + buffer_pixels*2,
+                window.height + buffer_pixels*2,
+            )
+            buffered_window_transform = src.window_transform(buffered_window)
+
+            print(window)
+            print(buffered_window)
+            print(rasterio.windows.bounds(window, buffered_window_transform))
 
             # Read data for the specified window
             data = src.read(
-                1, window=window
-            )  # Read the first band; adjust if you need multiple bands
-            # data[~np.isfinite(data)] = 0
-
-            # Adjust the transform for the window
-            window_transform = src.window_transform(window)
+                1, window=buffered_window
+            )  # Read the first band;
 
             arr_profile = src.profile.copy()
-            arr_profile["transform"] = window_transform
+            arr_profile["transform"] = buffered_window_transform
             arr_profile["driver"] = "GTiff"
             arr_profile["count"] = 1
             arr_profile["height"] = data.shape[0]

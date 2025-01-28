@@ -156,6 +156,8 @@ def get_cop30_dem_for_bounds(
                 bounds, cop30_folder_path=cop30_folder_path
             )
         logging.info(f"{len(dem_paths)} tiles found in bounds")
+        for p in dem_paths:
+            logging.info(p)
         if len(dem_paths) == 0:
             logging.warning(
                 "No DEM tiles found, assuming over water and creating zero dem for bounds"
@@ -293,7 +295,6 @@ def find_required_dem_tile_paths_by_filename(
             else:
                 dem_subpath = f"{dem_foldername}.tif"
             dem_path = os.path.join(cop30_folder_path, dem_subpath)
-            logging.info(dem_path)
             if check_exists:
                 # check the file exists, e.g. over water will not be a file
                 if os.path.exists(dem_path):

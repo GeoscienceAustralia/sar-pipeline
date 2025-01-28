@@ -338,27 +338,22 @@ def test_get_cop30_dem_for_bounds(bounds, ellipsoid_heights, trg_shape, trg_crs)
 
 if __name__ == "__main__":
 
-    os.makedirs(CURRENT_DIR / Path("TMP"), exist_ok=True)
-    bounds = (-179.9, -79.2, -179.1, -79.1)
-    dem_arr, dem_profile = get_cop30_dem_for_bounds(
+         
+    import logging
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.INFO)
+
+    bounds = (118.957146, -63.515553, 127.730347, -60.205349)
+    bounds = (128.3332996, -67.854697, 130.3332996, -65.854697)
+    os.makedirs("TMP", exist_ok=True)
+    filename = "TMP_all_tile.tif"
+    get_cop30_dem_for_bounds(
         bounds,
-        save_path=CURRENT_DIR / Path("TMP") / Path("TMP.tif"),
-        ellipsoid_heights=True,
-        buffer_pixels=0,
-        cop30_index_path=TEST_COP30_INDEX_PATH,
-        cop30_folder_path=TEST_COP30_FOLDER_PATH,
-        geoid_tif_path=TEST_GEOID_TIF_PATH,
+        save_path=CURRENT_DIR / Path("TMP") / Path(filename),
+        ellipsoid_heights=False,
+        buffer_pixels=3,
+        cop30_index_path='',
+        #cop30_folder_path=TEST_COP30_FOLDER_PATH,
+        #geoid_tif_path=TEST_GEOID_TIF_PATH,
         adjust_for_high_lat_and_buffer=False,
     )
-    print(dem_profile)
-    empty_dem_profile = make_empty_cop30m_profile((0, -90, 1, -86))
-    print(empty_dem_profile)
-    dem_arr, dem_profile = expand_raster_to_bounds(
-        bounds,
-        src_profile=empty_dem_profile,
-        fill_value=0,
-        buffer_pixels=1,
-        save_path=CURRENT_DIR / Path("TMP") / Path("EMPTY.tif"),
-    )
-    dem_bounds = bounds_from_profile(dem_profile)
-    print(dem_profile)
