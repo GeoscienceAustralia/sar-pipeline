@@ -5,6 +5,7 @@ from pyproj.database import query_utm_crs_info
 from pyproj.aoi import AreaOfInterest
 from pyproj import CRS
 import logging
+import json
 
 
 def transform_polygon(
@@ -78,3 +79,48 @@ def get_local_utm(bounds, antimeridian=False):
     crs = CRS.from_epsg(utm_crs_list[0].code)
     crs = str(crs).split(":")[-1]  # get the EPSG integer
     return int(crs)
+
+def bounds_to_geojson(bounds, save_path=''):
+    """
+    Convert a bounding box to a GeoJSON Polygon.
+    
+    Parameters:
+        bounds (tuple): A tuple of (min_lon, min_lat, max_lon, max_lat).
+        save_path (str): path to save the geojson
+        
+    Returns:
+        dict: A GeoJSON FeatureCollection with a single Polygon feature.
+    """
+    min_lon, min_lat, max_lon, max_lat = bounds
+    
+    # Define the polygon coordinates
+    coordinates = [
+        [
+            [min_lon, min_lat],
+            [min_lon, max_lat],
+            [max_lon, max_lat],
+            [max_lon, min_lat],
+            [min_lon, min_lat]  # Closing the polygon
+        ]
+    ]
+    
+    # Create the GeoJSON structure
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": coordinates
+                },
+                "properties": {}
+            }
+        ]
+    }
+
+    if save_path:
+        with open(save_path,'w') as f:
+            f.write(json.dumps(geojson))
+    
+    return geojson
