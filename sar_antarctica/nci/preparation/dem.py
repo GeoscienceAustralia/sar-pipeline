@@ -302,8 +302,6 @@ def find_required_dem_tile_paths_by_filename(
                     dem_folders.append(dem_foldername)
             else:
                 dem_paths.append(dem_path)
-    for p in set(dem_paths):
-        logging.info(p)
     return sorted(list(set(dem_paths)))
 
 

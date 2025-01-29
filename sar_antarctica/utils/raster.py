@@ -242,8 +242,6 @@ def read_vrt_in_bounds(
 
             # Expand bounds by the buffer
             min_x, min_y, max_x, max_y = bounds
-            print(bounds_from_profile(src.profile))
-            print(bounds)
 
             window = from_bounds(
                 min_x, min_y, max_x, max_y, transform=src_transform
@@ -257,10 +255,6 @@ def read_vrt_in_bounds(
                 window.height + buffer_pixels*2,
             )
             buffered_window_transform = src.window_transform(buffered_window)
-
-            print(window)
-            print(buffered_window)
-            print(rasterio.windows.bounds(window, buffered_window_transform))
 
             # Read data for the specified window
             data = src.read(
@@ -291,7 +285,8 @@ def merge_raster_files(
 
     # Create a virtual raster (in-memory description of the merged DEMs)
     vrt_path = str(output_path).replace(".tif", ".vrt")  # Temporary VRT file path
-    gdal.BuildVRT(vrt_path, paths, resolution="highest")
+    VRT_options = gdal.BuildVRTOptions(resolution='highest', outputBounds=(-180,-90,180,90))
+    gdal.BuildVRT(vrt_path, paths, options=VRT_options)
 
     res = read_vrt_in_bounds(
         vrt_path=vrt_path,
@@ -372,6 +367,9 @@ def read_raster_with_bounds(file_path, bounds, buffer_pixels=0):
     Returns:
         tuple: A NumPy array of the raster data in the window and the corresponding profile.
     """
+
+    #TODO allign pixel buffer logic with readvrt function
+
     with rasterio.open(file_path) as src:
         # Get pixel size from the transform
         transform = src.transform
