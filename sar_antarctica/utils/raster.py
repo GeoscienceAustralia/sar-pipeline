@@ -22,7 +22,7 @@ def bounds_from_profile(profile):
     return array_bounds(profile["height"], profile["width"], profile["transform"])
 
 
-def reproject_raster(src_path: str, out_path: str, crs: int):
+def reproject_raster(src_path: str, crs: int, out_path: str = ''):
     """Reproject raster to desired crs
 
     Parameters
@@ -44,26 +44,35 @@ def reproject_raster(src_path: str, out_path: str, crs: int):
         transform, width, height = calculate_default_transform(
             src_crs, crs, src.width, src.height, *src.bounds
         )
-        kwargs = src.meta.copy()
+        profile = src.meta.copy()
 
         # get crs proj
         crs = pyproj.CRS(f"EPSG:{crs}")
 
-        kwargs.update(
+        profile.update(
             {"crs": crs, "transform": transform, "width": width, "height": height}
         )
 
-        with rasterio.open(out_path, "w", **kwargs) as dst:
-            for i in range(1, src.count + 1):
-                reproject(
-                    source=rasterio.band(src, i),
-                    destination=rasterio.band(dst, i),
-                    src_transform=src.transform,
-                    src_crs=src.crs,
-                    dst_transform=transform,
-                    dst_crs=crs,
-                    resampling=Resampling.nearest,
-                )
+        # Create an empty array for the reprojected raster
+        reprojected_array = np.empty((src.count, height, width), dtype=src.dtypes[0])
+
+        for i in range(1, src.count + 1):
+            reproject(
+                source=rasterio.band(src, i),
+                destination=reprojected_array[i - 1],  # Use the in-memory array
+                src_transform=src.transform,
+                src_crs=src.crs,
+                dst_transform=transform,
+                dst_crs=crs,
+                resampling=Resampling.nearest,
+            )
+
+        if out_path:
+            with rasterio.open(out_path, "w", **profile) as dst:
+                for i in range(src.count):
+                    dst.write(reprojected_array[i], i + 1)
+
+        return reprojected_array, profile
 
 
 def expand_raster_to_bounds(
@@ -280,12 +289,12 @@ def read_vrt_in_bounds(
 
 
 def merge_raster_files(
-    paths, output_path, bounds=None, return_data=True, buffer_pixels=0, delete_vrt=True
+    paths, output_path, bounds=None, return_data=True, buffer_pixels=0, vrt_bounds=None, delete_vrt=True
 ):
 
     # Create a virtual raster (in-memory description of the merged DEMs)
     vrt_path = str(output_path).replace(".tif", ".vrt")  # Temporary VRT file path
-    VRT_options = gdal.BuildVRTOptions(resolution='highest', outputBounds=(-180,-90,180,90))
+    VRT_options = gdal.BuildVRTOptions(resolution='highest', outputBounds=vrt_bounds)
     gdal.BuildVRT(vrt_path, paths, options=VRT_options)
 
     res = read_vrt_in_bounds(
@@ -296,7 +305,8 @@ def merge_raster_files(
         return_data=return_data,
     )
     if delete_vrt:
-        os.remove(vrt_path)
+        ...
+        #os.remove(vrt_path)
     if return_data:
         arr, arr_profile = res
         return arr, arr_profile
@@ -309,6 +319,7 @@ def merge_arrays_with_geometadata(
     nodata: Union[float, int] = np.nan,
     dtype: str = None,
     method: str = "first",
+    output_path: str = '',
 ) -> tuple[np.ndarray, dict]:
     # https://github.com/ACCESS-Cloud-Based-InSAR/dem-stitcher/blob/dev/src/dem_stitcher/merge.py
     n_dim = arrays[0].shape
@@ -352,6 +363,10 @@ def merge_arrays_with_geometadata(
 
     [ds.close() for ds in datasets]
     [mfile.close() for mfile in memfiles]
+
+    if output_path:
+        with rasterio.open(output_path, "w", **prof_merged) as dst:
+            dst.write(merged_arr)
 
     return merged_arr, prof_merged
 
