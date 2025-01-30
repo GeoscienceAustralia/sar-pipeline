@@ -305,8 +305,7 @@ def merge_raster_files(
         return_data=return_data,
     )
     if delete_vrt:
-        ...
-        #os.remove(vrt_path)
+        os.remove(vrt_path)
     if return_data:
         arr, arr_profile = res
         return arr, arr_profile
