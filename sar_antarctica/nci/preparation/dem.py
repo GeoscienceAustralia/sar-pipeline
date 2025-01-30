@@ -14,7 +14,7 @@ from ...utils.raster import (
     reproject_raster,
     merge_raster_files,
     bounds_from_profile,
-    read_vrt_in_bounds,
+    merge_arrays_with_geometadata,
 )
 from ...utils.spatial import (
     adjust_bounds,
@@ -130,20 +130,21 @@ def get_cop30_dem_for_bounds(
         logging.info(
             f"Reprojecting left and right side of antimeridian to EPGS:{target_crs}"
         )
-        reproject_raster(left_save_path, left_save_path, target_crs)
-        reproject_raster(right_save_path, right_save_path, target_crs)
+        l_dem_arr, l_dem_profile = reproject_raster(left_save_path, target_crs) # out_path=left_save_path
+        r_dem_arr, r_dem_profile = reproject_raster(right_save_path, target_crs) # out_path=right_save_path
         logging.info(f"Merging across antimeridian")
-        dem_arr, dem_profile = merge_raster_files(
-            [left_save_path, right_save_path], output_path=save_path
+        dem_arr, dem_profile = merge_arrays_with_geometadata(
+            arrays = [l_dem_arr, r_dem_arr],
+            profiles = [l_dem_profile, r_dem_profile],
+            method = "max",
+            output_path=save_path,
         )
-        os.remove(left_save_path)
-        os.remove(right_save_path)
         return dem_arr, dem_profile
     else:
         logging.info(f"Getting cop30m dem for bounds: {bounds}")
         if adjust_for_high_lat_and_buffer:
             logging.info(f"Expanding bounds by buffer and for high latitude warping")
-            bounds = expand_bounds(bounds, buffer=0.1)
+            bounds = expand_bounds_at_high_lat_and_buffer(bounds, buffer=0.1)
             logging.info(f"Getting cop30m dem for expanded bounds: {bounds}")
         if cop30_index_path:
             logging.info(f"Finding intersecting DEM files from: {cop30_index_path}")
@@ -178,6 +179,7 @@ def get_cop30_dem_for_bounds(
                 output_path=save_path,
                 bounds=bounds,
                 buffer_pixels=buffer_pixels,
+                vrt_bounds=buffer_bounds(bounds,0.5)
             )
         logging.info(f"Check the dem covers the required bounds")
         dem_bounds = bounds_from_profile(dem_profile)
@@ -208,8 +210,26 @@ def get_cop30_dem_for_bounds(
             )
         return dem_arr, dem_profile
 
+def buffer_bounds(bounds: tuple, buffer: float) -> tuple:
+    """buffer the tuple bounds by the provided buffer
 
-def expand_bounds(bounds: tuple, buffer: float) -> tuple:
+    Parameters
+    ----------
+    bounds : tuple
+        the set of bounds (min_lon, min_lat, max_lon, max_lat)
+    buffer : float
+        The buffer to add to the bounds
+
+    Returns
+    -------
+    tuple
+        the buffered bounds (min_lon, min_lat, max_lon, max_lat)
+    """
+    return tuple(list(box(*bounds).buffer(buffer).bounds))
+
+
+
+def expand_bounds_at_high_lat_and_buffer(bounds: tuple, buffer: float) -> tuple:
     """Expand the bounds for high lattitudes, and add a buffer. The
     provided bounds sometimes do not contain the full scene due to
     warping at high latitudes. Solve this by converting bounds to polar
