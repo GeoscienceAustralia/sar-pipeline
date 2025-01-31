@@ -1,6 +1,7 @@
 import click
 from pathlib import Path
 import tomli
+import logging
 
 from sar_antarctica.nci.filesystem import get_orbits_nci
 from sar_antarctica.nci.submission.pyrosar_gamma.prepare_input import (
@@ -18,7 +19,9 @@ from sar_antarctica.nci.processing.pyroSAR.pyrosar_geocode import (
     run_pyrosar_gamma_geocode,
 )
 from sar_antarctica.nci.submission.pyrosar_gamma.submit_job import submit_job
+from sar_antarctica.nci.upload.push_folder_to_s3 import push_files_in_folder_to_s3
 
+logging.basicConfig(level=logging.INFO)
 
 @click.command()
 @click.argument("scene_name", type=str)
@@ -172,3 +175,34 @@ def find_orbits_for_scene(scene: str):
     )
     for orbit in relevant_res_paths:
         print(orbit["orbit"])
+
+
+@click.command()
+@click.argument('src_folder', type=click.Path(exists=True, file_okay=False))
+@click.argument('s3_bucket')
+@click.argument('s3_bucket_folder')
+@click.option('--upload-folder', 
+              default=False, 
+              is_flag=True, 
+              help="Upload the whole folder to specified s3_bucket_folder.")
+@click.option('--exclude-extensions', '-e', multiple=True, help="File extensions to exclude, e.g., '.txt', '.log'")
+@click.option('--exclude-files', '-f', multiple=True, help="Specific files to exclude, e.g., 'config.json'")
+@click.option('--region-name', default='ap-southeast-2', show_default=True, help="AWS region name")
+def upload_files_in_folder_to_s3(
+        src_folder : str,
+        s3_bucket : str,
+        s3_bucket_folder : str,
+        upload_folder : bool,
+        exclude_extensions : list[str] = [],
+        exclude_files : list[str] = [],
+        region_name : str = 'ap-southeast-2',
+):
+    push_files_in_folder_to_s3(
+        src_folder = src_folder,
+        s3_bucket = s3_bucket,
+        s3_bucket_folder = s3_bucket_folder, 
+        upload_folder = upload_folder,
+        exclude_extensions = exclude_extensions,
+        exclude_files = exclude_files,
+        region_name = region_name,
+    )
