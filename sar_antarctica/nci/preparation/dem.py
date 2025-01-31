@@ -179,7 +179,8 @@ def get_cop30_dem_for_bounds(
                 output_path=save_path,
                 bounds=bounds,
                 buffer_pixels=buffer_pixels,
-                vrt_bounds=buffer_bounds(bounds,0.5)
+                vrt_bounds=buffer_bounds(bounds,0.5),
+                delete_vrt=True
             )
         logging.info(f"Check the dem covers the required bounds")
         dem_bounds = bounds_from_profile(dem_profile)
@@ -269,7 +270,7 @@ def find_required_dem_tile_paths_by_filename(
     bounds: tuple,
     check_exists: bool = True,
     cop30_folder_path: Path = COP30_FOLDER_PATH,
-    search_buffer=0.5,
+    search_buffer=0.3,
     tifs_in_subfolder=True,
 ) -> list[str]:
     """generate a list of the required dem paths based on the bounding coords. The
@@ -292,7 +293,6 @@ def find_required_dem_tile_paths_by_filename(
 
     # add a buffer to the search
     bounds = box(*bounds).buffer(search_buffer).bounds
-
     # logic to find the correct files based on data being stored in each tile folder
     min_lat = np.floor(bounds[1]) if bounds[1] < 0 else np.ceil(bounds[1])
     max_lat = np.ceil(bounds[3]) if bounds[3] < 0 else np.floor(bounds[3]) + 1
@@ -328,7 +328,7 @@ def find_required_dem_tile_paths_by_filename(
 def find_required_dem_paths_from_index(
     bounds: tuple,
     cop30_index_path=COP30_GPKG_PATH,
-    search_buffer=0.5,
+    search_buffer=0.3,
 ) -> list[str]:
 
     gdf = gpd.read_file(cop30_index_path)
