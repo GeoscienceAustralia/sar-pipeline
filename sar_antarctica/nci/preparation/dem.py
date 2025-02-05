@@ -14,7 +14,7 @@ from ...utils.raster import (
     reproject_raster,
     merge_raster_files,
     bounds_from_profile,
-    read_vrt_in_bounds,
+    merge_arrays_with_geometadata,
 )
 from ...utils.spatial import (
     adjust_bounds,
@@ -130,20 +130,21 @@ def get_cop30_dem_for_bounds(
         logging.info(
             f"Reprojecting left and right side of antimeridian to EPGS:{target_crs}"
         )
-        reproject_raster(left_save_path, left_save_path, target_crs)
-        reproject_raster(right_save_path, right_save_path, target_crs)
+        l_dem_arr, l_dem_profile = reproject_raster(left_save_path, target_crs) # out_path=left_save_path
+        r_dem_arr, r_dem_profile = reproject_raster(right_save_path, target_crs) # out_path=right_save_path
         logging.info(f"Merging across antimeridian")
-        dem_arr, dem_profile = merge_raster_files(
-            [left_save_path, right_save_path], output_path=save_path
+        dem_arr, dem_profile = merge_arrays_with_geometadata(
+            arrays = [l_dem_arr, r_dem_arr],
+            profiles = [l_dem_profile, r_dem_profile],
+            method = "max",
+            output_path=save_path,
         )
-        os.remove(left_save_path)
-        os.remove(right_save_path)
         return dem_arr, dem_profile
     else:
         logging.info(f"Getting cop30m dem for bounds: {bounds}")
         if adjust_for_high_lat_and_buffer:
             logging.info(f"Expanding bounds by buffer and for high latitude warping")
-            bounds = expand_bounds(bounds, buffer=0.1)
+            bounds = expand_bounds_at_high_lat_and_buffer(bounds, buffer=0.1)
             logging.info(f"Getting cop30m dem for expanded bounds: {bounds}")
         if cop30_index_path:
             logging.info(f"Finding intersecting DEM files from: {cop30_index_path}")
@@ -156,6 +157,8 @@ def get_cop30_dem_for_bounds(
                 bounds, cop30_folder_path=cop30_folder_path
             )
         logging.info(f"{len(dem_paths)} tiles found in bounds")
+        for p in dem_paths:
+            logging.info(p)
         if len(dem_paths) == 0:
             logging.warning(
                 "No DEM tiles found, assuming over water and creating zero dem for bounds"
@@ -176,6 +179,8 @@ def get_cop30_dem_for_bounds(
                 output_path=save_path,
                 bounds=bounds,
                 buffer_pixels=buffer_pixels,
+                vrt_bounds=buffer_bounds(bounds,0.5),
+                delete_vrt=True
             )
         logging.info(f"Check the dem covers the required bounds")
         dem_bounds = bounds_from_profile(dem_profile)
@@ -206,8 +211,26 @@ def get_cop30_dem_for_bounds(
             )
         return dem_arr, dem_profile
 
+def buffer_bounds(bounds: tuple, buffer: float) -> tuple:
+    """buffer the tuple bounds by the provided buffer
 
-def expand_bounds(bounds: tuple, buffer: float) -> tuple:
+    Parameters
+    ----------
+    bounds : tuple
+        the set of bounds (min_lon, min_lat, max_lon, max_lat)
+    buffer : float
+        The buffer to add to the bounds
+
+    Returns
+    -------
+    tuple
+        the buffered bounds (min_lon, min_lat, max_lon, max_lat)
+    """
+    return tuple(list(box(*bounds).buffer(buffer).bounds))
+
+
+
+def expand_bounds_at_high_lat_and_buffer(bounds: tuple, buffer: float) -> tuple:
     """Expand the bounds for high lattitudes, and add a buffer. The
     provided bounds sometimes do not contain the full scene due to
     warping at high latitudes. Solve this by converting bounds to polar
@@ -247,7 +270,7 @@ def find_required_dem_tile_paths_by_filename(
     bounds: tuple,
     check_exists: bool = True,
     cop30_folder_path: Path = COP30_FOLDER_PATH,
-    search_buffer=0.5,
+    search_buffer=0.3,
     tifs_in_subfolder=True,
 ) -> list[str]:
     """generate a list of the required dem paths based on the bounding coords. The
@@ -270,7 +293,6 @@ def find_required_dem_tile_paths_by_filename(
 
     # add a buffer to the search
     bounds = box(*bounds).buffer(search_buffer).bounds
-
     # logic to find the correct files based on data being stored in each tile folder
     min_lat = np.floor(bounds[1]) if bounds[1] < 0 else np.ceil(bounds[1])
     max_lat = np.ceil(bounds[3]) if bounds[3] < 0 else np.floor(bounds[3]) + 1
@@ -293,7 +315,6 @@ def find_required_dem_tile_paths_by_filename(
             else:
                 dem_subpath = f"{dem_foldername}.tif"
             dem_path = os.path.join(cop30_folder_path, dem_subpath)
-            logging.info(dem_path)
             if check_exists:
                 # check the file exists, e.g. over water will not be a file
                 if os.path.exists(dem_path):
@@ -301,15 +322,13 @@ def find_required_dem_tile_paths_by_filename(
                     dem_folders.append(dem_foldername)
             else:
                 dem_paths.append(dem_path)
-    for p in set(dem_paths):
-        logging.info(p)
     return sorted(list(set(dem_paths)))
 
 
 def find_required_dem_paths_from_index(
     bounds: tuple,
     cop30_index_path=COP30_GPKG_PATH,
-    search_buffer=0.5,
+    search_buffer=0.3,
 ) -> list[str]:
 
     gdf = gpd.read_file(cop30_index_path)

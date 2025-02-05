@@ -11,7 +11,7 @@ from sar_antarctica.nci.preparation.dem import (
     split_s1_bounds_at_am_crossing,
     get_target_antimeridian_projection,
     make_empty_cop30m_profile,
-    expand_bounds,
+    expand_bounds_at_high_lat_and_buffer,
     get_cop30_dem_for_bounds,
     find_required_dem_paths_from_index,
     find_required_dem_tile_paths_by_filename,
@@ -161,8 +161,8 @@ def test_make_empty_cop30_dem(bounds, trg_shape):
         ((-90, -85, -80, -80), 0, (-90, -85.07587, -70.54166, -79.85109)),
     ],
 )
-def test_expand_bounds(bounds, buffer, expanded_bounds):
-    new_bounds = expand_bounds(bounds, buffer=buffer)
+def expand_bounds_at_high_lat_and_buffer(bounds, buffer, expanded_bounds):
+    new_bounds = expand_bounds_at_high_lat_and_buffer(bounds, buffer=buffer)
     assert pytest.approx(new_bounds[0], rel=1e-5) == pytest.approx(
         expanded_bounds[0], rel=1e-5
     )
@@ -338,27 +338,34 @@ def test_get_cop30_dem_for_bounds(bounds, ellipsoid_heights, trg_shape, trg_crs)
 
 if __name__ == "__main__":
 
-    os.makedirs(CURRENT_DIR / Path("TMP"), exist_ok=True)
-    bounds = (-179.9, -79.2, -179.1, -79.1)
-    dem_arr, dem_profile = get_cop30_dem_for_bounds(
+         
+    import logging
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.INFO)
+
+    bounds = (118.957146, -63.515553, 127.730347, -60.205349)
+    bounds = (165.309671, -73.045504,167.309671, -71.045504,)
+    bounds = (128.3332996, -67.854697, 130.3332996, -65.854697)
+    #bounds = (129.9997222222222319,-67.9998611111111160,130.9997222222222319,-66.9998611111111160)
+    #bounds = (130.4,-67.6,130.6,-67.4) # wants a positive 0.5 shift to the transform
+
+    #bounds = (-179.2, -79.2, 179.1, -79.1)
+    #bounds = (-179.9, -79.2, -179.1, -79.1)
+
+    buffer = 0
+    elipsoid_h = False
+    elstr = 'ellipsoid' if elipsoid_h else 'geoid'
+    extra = 'noshift'
+
+    os.makedirs("TMP", exist_ok=True)
+    filename = f"{'_'.join(str(round(x,1)) for x in bounds)}_bufpix{buffer}_{elstr}_{extra}.tif"
+    get_cop30_dem_for_bounds(
         bounds,
-        save_path=CURRENT_DIR / Path("TMP") / Path("TMP.tif"),
-        ellipsoid_heights=True,
-        buffer_pixels=0,
-        cop30_index_path=TEST_COP30_INDEX_PATH,
-        cop30_folder_path=TEST_COP30_FOLDER_PATH,
-        geoid_tif_path=TEST_GEOID_TIF_PATH,
+        save_path=CURRENT_DIR / Path("TMP") / Path(filename),
+        ellipsoid_heights=False,
+        buffer_pixels=buffer,
+        #cop30_index_path='',
+        #cop30_folder_path='',
+        #geoid_tif_path=TEST_GEOID_TIF_PATH,
         adjust_for_high_lat_and_buffer=False,
     )
-    print(dem_profile)
-    empty_dem_profile = make_empty_cop30m_profile((0, -90, 1, -86))
-    print(empty_dem_profile)
-    dem_arr, dem_profile = expand_raster_to_bounds(
-        bounds,
-        src_profile=empty_dem_profile,
-        fill_value=0,
-        buffer_pixels=1,
-        save_path=CURRENT_DIR / Path("TMP") / Path("EMPTY.tif"),
-    )
-    dem_bounds = bounds_from_profile(dem_profile)
-    print(dem_profile)
