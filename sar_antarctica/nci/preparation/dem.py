@@ -8,8 +8,8 @@ from affine import Affine
 from rasterio.crs import CRS
 import geopandas as gpd
 
-from .geoid import remove_geoid
-from ...utils.raster import (
+from sar_antarctica.nci.preparation.geoid import remove_geoid
+from sar_antarctica.utils.raster import (
     expand_raster_to_bounds,
     reproject_raster,
     merge_raster_files,
@@ -130,13 +130,17 @@ def get_cop30_dem_for_bounds(
         logging.info(
             f"Reprojecting left and right side of antimeridian to EPGS:{target_crs}"
         )
-        l_dem_arr, l_dem_profile = reproject_raster(left_save_path, target_crs) # out_path=left_save_path
-        r_dem_arr, r_dem_profile = reproject_raster(right_save_path, target_crs) # out_path=right_save_path
+        l_dem_arr, l_dem_profile = reproject_raster(
+            left_save_path, target_crs
+        )  # out_path=left_save_path
+        r_dem_arr, r_dem_profile = reproject_raster(
+            right_save_path, target_crs
+        )  # out_path=right_save_path
         logging.info(f"Merging across antimeridian")
         dem_arr, dem_profile = merge_arrays_with_geometadata(
-            arrays = [l_dem_arr, r_dem_arr],
-            profiles = [l_dem_profile, r_dem_profile],
-            method = "max",
+            arrays=[l_dem_arr, r_dem_arr],
+            profiles=[l_dem_profile, r_dem_profile],
+            method="max",
             output_path=save_path,
         )
         return dem_arr, dem_profile
@@ -179,8 +183,8 @@ def get_cop30_dem_for_bounds(
                 output_path=save_path,
                 bounds=bounds,
                 buffer_pixels=buffer_pixels,
-                vrt_bounds=buffer_bounds(bounds,0.5),
-                delete_vrt=True
+                vrt_bounds=buffer_bounds(bounds, 0.5),
+                delete_vrt=True,
             )
         logging.info(f"Check the dem covers the required bounds")
         dem_bounds = bounds_from_profile(dem_profile)
@@ -211,6 +215,7 @@ def get_cop30_dem_for_bounds(
             )
         return dem_arr, dem_profile
 
+
 def buffer_bounds(bounds: tuple, buffer: float) -> tuple:
     """buffer the tuple bounds by the provided buffer
 
@@ -227,7 +232,6 @@ def buffer_bounds(bounds: tuple, buffer: float) -> tuple:
         the buffered bounds (min_lon, min_lat, max_lon, max_lat)
     """
     return tuple(list(box(*bounds).buffer(buffer).bounds))
-
 
 
 def expand_bounds_at_high_lat_and_buffer(bounds: tuple, buffer: float) -> tuple:
