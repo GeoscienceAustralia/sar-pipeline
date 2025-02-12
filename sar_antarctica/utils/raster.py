@@ -50,11 +50,11 @@ def expand_bounding_box_to_pixel_edges(
     expanded_box_tl_px = tuple(math.floor(px) for px in bounding_box_tl_px)
     expanded_box_br_px = tuple(math.ceil(px) for px in bounding_box_br_px)
 
-    # Convert pixel edge box to world space
+    # Convert expanded box to world space
     expanded_box_tl_world = world_affine * expanded_box_tl_px
     expanded_box_br_world = world_affine * expanded_box_br_px
 
-    # Extract bounds of pixel edge box
+    # Extract bounds of expanded box
     expbox_min_x = expanded_box_tl_world[0]
     expbox_max_y = expanded_box_tl_world[1]
     expbox_max_x = expanded_box_br_world[0]
@@ -62,8 +62,12 @@ def expand_bounding_box_to_pixel_edges(
 
     # Construct a the expanded box tuple (minx, miny, maxx, maxy)
     expanded_box_world = (expbox_min_x, expbox_min_y, expbox_max_x, expbox_max_y)
+    # Construct the new transform
+    expanded_box_affine_world = Affine.translation(
+        expbox_min_x, expbox_max_y
+    ) * Affine.scale(world_affine.a, world_affine.e)
 
-    return expanded_box_world
+    return expanded_box_world, expanded_box_affine_world
 
 
 def bounds_from_profile(profile):

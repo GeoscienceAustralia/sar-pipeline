@@ -1,12 +1,13 @@
-import shapely
+import rasterio.windows
 from shapely.geometry import box
 import numpy as np
 import os
 from pathlib import Path
 import logging
 from affine import Affine
-from rasterio.crs import CRS
+import rasterio
 import geopandas as gpd
+from osgeo import gdal
 
 from sar_antarctica.nci.preparation.geoid import remove_geoid
 from sar_antarctica.utils.raster import (
@@ -16,7 +17,11 @@ from sar_antarctica.utils.raster import (
     bounds_from_profile,
     merge_arrays_with_geometadata,
 )
-from ...utils.spatial import (
+from sar_antarctica.nci.preparation.dem_cop_glo30 import (
+    get_extent_of_cop_glo30_tiles_covering_bounds,
+    make_empty_cop_glo30_profile_for_bounds,
+)
+from sar_antarctica.utils.spatial import (
     adjust_bounds,
     get_local_utm,
 )
@@ -28,6 +33,206 @@ GEOID_TIF_PATH = Path(
     "/g/data/yp75/projects/ancillary/geoid/us_nga_egm2008_1_4326__agisoft.tif"
 )
 COP30_GPKG_PATH = Path("/g/data/yp75/projects/ancillary/dem/copdem_tindex.gpkg")
+
+
+def new_get_cop30_dem_for_bounds(
+    bounds: tuple[float, float, float, float],
+    save_path: Path,
+    ellipsoid_heights: bool = True,
+    adjust_for_high_lat_and_buffer=True,
+    cop30_index_path: Path = COP30_GPKG_PATH,
+    cop30_folder_path: Path = COP30_FOLDER_PATH,
+    geoid_tif_path: Path = GEOID_TIF_PATH,
+):
+
+    # Check if bounds crosses the antimeridian
+    antimeridian_crossing = check_s1_bounds_cross_antimeridian(
+        bounds, max_scene_width=8
+    )
+    # If yes
+    if antimeridian_crossing:
+        logging.warning(
+            "DEM crosses the dateline/antimeridian. Bounds will be split and processed."
+        )
+        logging.info("Finding best crs for area")
+        target_crs = get_target_antimeridian_projection(bounds)
+        logging.warning(f"Data will be returned in EPSG:{target_crs} projection")
+        # split the scene into left and right
+        logging.info(f"Splitting bounds into left and right side of antimeridian")
+        bounds_left, bounds_right = split_s1_bounds_at_am_crossing(bounds, lat_buff=0)
+        logging.info(f"Bounds left: {bounds_left}")
+        logging.info(f"Bounds right: {bounds_right}")
+
+        left_save_path = (
+            ".".join(str(save_path).split(".")[0:-1])
+            + "_left."
+            + str(save_path).split(".")[-1]
+        )
+        logging.info(f"Getting tiles for left bounds")
+        get_cop30_dem_for_bounds(
+            bounds_left,
+            left_save_path,
+            ellipsoid_heights,
+            buffer_pixels=10,
+            cop30_index_path=cop30_index_path,
+            cop30_folder_path=cop30_folder_path,
+            geoid_tif_path=geoid_tif_path,
+        )
+        right_save_path = (
+            ".".join(str(save_path).split(".")[0:-1])
+            + "_right."
+            + str(save_path).split(".")[-1]
+        )
+        logging.info(f"Getting tiles for right bounds")
+        get_cop30_dem_for_bounds(
+            bounds_right,
+            right_save_path,
+            ellipsoid_heights,
+            buffer_pixels=10,
+            cop30_index_path=cop30_index_path,
+            cop30_folder_path=cop30_folder_path,
+            geoid_tif_path=geoid_tif_path,
+        )
+        # reproject to 3031 and merge
+        logging.info(
+            f"Reprojecting left and right side of antimeridian to EPGS:{target_crs}"
+        )
+        l_dem_arr, l_dem_profile = reproject_raster(
+            left_save_path, target_crs
+        )  # out_path=left_save_path
+        r_dem_arr, r_dem_profile = reproject_raster(
+            right_save_path, target_crs
+        )  # out_path=right_save_path
+        logging.info(f"Merging across antimeridian")
+        dem_arr, dem_profile = merge_arrays_with_geometadata(
+            arrays=[l_dem_arr, r_dem_arr],
+            profiles=[l_dem_profile, r_dem_profile],
+            method="max",
+            output_path=save_path,
+        )
+        return dem_arr, dem_profile
+        # Split the data along the antimeridian
+        # Process the left-hand side (will use the logic defined below)
+        # Process the right-hand side (will use the logic defined below)
+        # Merge the processed data
+
+    # Otherwise, process the data (will apply to split data as well)
+    else:
+        # Buffer the scene bounds to deal with warping at high latitudes (request_bounds)
+        if adjust_for_high_lat_and_buffer:
+            BUFFER = 0  # buffer is in degrees, as DEM is in EPSG:4326
+            logging.info(
+                f"Expanding bounds to account for high latitude warping, and adding buffer of {BUFFER}"
+            )
+            request_bounds = expand_bounds_at_high_lat_and_buffer(bounds, buffer=BUFFER)
+            logging.info(f"Getting cop30m dem for expanded bounds: {request_bounds}")
+        else:
+            request_bounds = bounds
+
+        # Identify intersecting DEM tiles
+        if cop30_index_path:
+            logging.info(f"Finding intersecting DEM files from: {cop30_index_path}")
+            dem_paths = find_required_dem_paths_from_index(
+                bounds, cop30_index_path=cop30_index_path, search_buffer=0
+            )
+        else:
+            logging.info(f"Searching for DEM in folder: {cop30_folder_path}")
+            dem_paths = find_required_dem_tile_paths_by_filename(
+                bounds, cop30_folder_path=cop30_folder_path
+            )
+
+        # Display number of tiles found and names
+        logging.info(f"{len(dem_paths)} tiles found in bounds")
+        for p in dem_paths:
+            logging.info(p)
+
+        # Irrespective of number of tiles found, create an empty profile for the bounds
+        # This function will expand the requested bounds to produce an integer number of pixels,
+        # aligned with the cop glo30 pixel grid, in area-convention (top-left of pixel) coordinates.
+        expanded_requested_bounds, requested_bounds_profile = (
+            make_empty_cop_glo30_profile_for_bounds(request_bounds)
+        )
+
+        # Set universally used parameters
+        fill_value = 0
+        ncols = requested_bounds_profile["width"]
+        nrows = requested_bounds_profile["height"]
+
+        # If no tiles were found, create a raster containing all zeros covering the requested bounds
+        if len(dem_paths) == 0:
+            logging.warning(
+                "No DEM tiles found, assuming over water and creating zero dem for bounds"
+            )
+            # Requested bounds profile used to construct array of zeros
+            dem_array = fill_value * np.ones((nrows, ncols))
+
+            if save_path:
+                with rasterio.open(save_path, "w", **requested_bounds_profile) as dst:
+                    dst.write(dem_array, 1)
+
+        # Otherwise, create a VRT for the merged data
+        else:
+            logging.info(f"Creating VRT")
+            # Expand the request bounds to match the extent of whole DEM tiles (vrt_bounds)
+            logging.info("    Getting tile-aligned VRT exent for requested bounds")
+            dem_vrt_bounds, dem_vrt_affine = (
+                get_extent_of_cop_glo30_tiles_covering_bounds(request_bounds)
+            )
+
+            vrt_path = str(save_path).replace(".tif", ".vrt")  # Temporary VRT file path
+            VRT_options = gdal.BuildVRTOptions(
+                resolution="highest", outputBounds=dem_vrt_bounds, VRTNodata=fill_value
+            )
+            gdal.BuildVRT(vrt_path, dem_paths, options=VRT_options)
+
+            logging.info(f"Creating window for read")
+            origin_read_px_x, origin_read_px_y = ~dem_vrt_affine * (
+                expanded_requested_bounds[0],
+                expanded_requested_bounds[3],
+            )
+
+            window = rasterio.windows.Window(
+                round(origin_read_px_x), round(origin_read_px_y), ncols, nrows
+            )
+
+            with rasterio.open(vrt_path) as src:
+                dem_array = src.read(1, window=window)
+
+                if save_path:
+                    with rasterio.open(
+                        save_path, "w", **requested_bounds_profile
+                    ) as dst:
+                        dst.write(dem_array, 1)
+
+        logging.info(f"Check the dem covers the required bounds")
+        logging.info(f"Dem bounds: {expanded_requested_bounds}")
+        logging.info(f"Target bounds: {request_bounds}")
+        bounds_filled_by_dem = box(*request_bounds).within(
+            box(*expanded_requested_bounds)
+        )
+        logging.info(f"Dem covers target: {bounds_filled_by_dem}")
+        if not bounds_filled_by_dem:
+            warn_msg = (
+                "The Cop30 DEM bounds do not fully cover the requested bounds. "
+                "Try increasing the 'buffer_pixels' value. Note at the antimeridian "
+                "This is expected, with bounds being slighly smaller on +ve side. "
+                "e.g. max_lon is 179.9999 < 180."
+            )
+            logging.warning(warn_msg)
+        if ellipsoid_heights:
+            logging.info(
+                f"Subtracting the geoid from the DEM to return ellipsoid heights"
+            )
+            logging.info(f"Using geoid file: {geoid_tif_path}")
+            dem_array = remove_geoid(
+                dem_arr=dem_array,
+                dem_profile=requested_bounds_profile,
+                geoid_path=geoid_tif_path,
+                dem_area_or_point="Point",
+                buffer_pixels=2,
+                save_path=save_path,
+            )
+        return dem_array, requested_bounds_profile
 
 
 def get_cop30_dem_for_bounds(
@@ -430,60 +635,3 @@ def get_target_antimeridian_projection(bounds: tuple) -> int:
         else 3995 if min_lat > 50 else get_local_utm(bounds, antimeridian=True)
     )
     return target_crs
-
-
-def make_empty_cop30m_profile(bounds: tuple) -> dict:
-    """make an empty cop30m dem rasterio profile based on a set of bounds.
-    The desired pixel spacing changes based on lattitude
-    see : https://copernicus-dem-30m.s3.amazonaws.com/readme.html
-
-    Parameters
-    ----------
-    bounds : tuple
-        the set of bounds (min_lon, min_lat, max_lon, max_lat)
-
-    Returns
-    -------
-    dict
-        A rasterio profile
-
-    Raises
-    ------
-    ValueError
-        If the latitude of the supplied bounds cannot be
-        associated with a target pixel size
-    """
-
-    lat_res = 0.0002777777777777778
-    mean_lat = abs((bounds[1] + bounds[3]) / 2)
-    if mean_lat < 50:
-        lon_res = lat_res
-    elif mean_lat < 60:
-        lon_res = lat_res * 1.5
-    elif mean_lat < 70:
-        lon_res = lat_res * 2
-    elif mean_lat < 80:
-        lon_res = lat_res * 3
-    elif mean_lat < 85:
-        lon_res = lat_res * 5
-    elif mean_lat < 90:
-        lon_res = lat_res * 10
-    else:
-        raise ValueError("cannot resolve cop30m lattitude")
-
-    min_x, min_y, max_x, max_y = bounds
-    transform = Affine.translation(min_x, max_y) * Affine.scale(lon_res, -lat_res)
-
-    return {
-        "driver": "GTiff",
-        "dtype": "float32",
-        "nodata": np.nan,
-        "width": abs(int((bounds[2] - bounds[0]) / lon_res)),
-        "height": abs(int((bounds[3] - bounds[1]) / lat_res)),
-        "count": 1,
-        "crs": CRS.from_epsg(4326),
-        "transform": transform,
-        "blockysize": 1,
-        "tiled": False,
-        "interleave": "band",
-    }

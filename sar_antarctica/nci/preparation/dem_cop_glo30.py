@@ -1,8 +1,11 @@
 from affine import Affine
 import math
-from sar_antarctica.utils.raster import adjust_pixel_coordinate_from_point_to_area
-from sar_antarctica.nci.preparation.dem import find_required_dem_paths_from_index
-from shapely.geometry import box
+import numpy as np
+from rasterio.crs import CRS
+from sar_antarctica.utils.raster import (
+    adjust_pixel_coordinate_from_point_to_area,
+    expand_bounding_box_to_pixel_edges,
+)
 
 
 def get_cop_glo30_spacing(bounds):
@@ -12,10 +15,10 @@ def get_cop_glo30_spacing(bounds):
 
     minimum_pixel_spacing = 0.0002777777777777778
 
-    # Defined as negative to allow for use of top-down coordinates when working with pixel space
-    latitude_spacing = -minimum_pixel_spacing
+    # Latitude spacing
+    latitude_spacing = minimum_pixel_spacing
 
-    # Defined as positive to allow for use of left-right coordinates when working with pixel space
+    # Longitude spacing
     if mean_latitude < 50:
         longitude_spacing = minimum_pixel_spacing
     elif mean_latitude < 60:
@@ -34,48 +37,111 @@ def get_cop_glo30_spacing(bounds):
     return longitude_spacing, latitude_spacing
 
 
-def identify_extent_of_cop_glo30_tiles_covering_bounds(bounds):
+def get_cop_glo30_tile_transform(origin_lon, origin_lat, spacing_lon, spacing_lat):
 
-    spacing = get_cop_glo30_spacing(bounds)
+    # Find whole degree value containing the origin
+    whole_degree_origin_lon = math.floor(origin_lon)
+    whole_degree_origin_lat = math.ceil(origin_lat)
 
-    min_x, min_y, max_x, max_y = bounds
+    # Create the scaling from spacing
+    scaling = (spacing_lon, -spacing_lat)
 
-    left_most_decimal_degree = math.floor(min_x)
-    right_most_decimal_dregee = math.ceil(max_x)
-    bottom_most_decimal_degree = math.floor(min_y)
-    top_most_decimal_degree = math.ceil(max_y)
-
-    # Adjust the decimal degrees by half the spacing in each direction to account for
-    # Cop GLO30 using point-based coordinates. This converts the extents to area-based
-
-    adjusted_top_left = adjust_pixel_coordinate_from_point_to_area(
-        (left_most_decimal_degree, top_most_decimal_degree), spacing
-    )
-    adjusted_bottom_right = adjust_pixel_coordinate_from_point_to_area(
-        (right_most_decimal_dregee, bottom_most_decimal_degree), spacing
+    # Adjust to the required offset
+    adjusted_origin = adjust_pixel_coordinate_from_point_to_area(
+        (whole_degree_origin_lon, whole_degree_origin_lat), scaling
     )
 
-    extent_min_x, extent_max_y = adjusted_top_left
-    extent_max_x, extent_min_y = adjusted_bottom_right
+    transfrom = Affine.translation(*adjusted_origin) * Affine.scale(*scaling)
 
-    extent_bounds = (extent_min_x, extent_min_y, extent_max_x, extent_max_y)
-    extent_affine = Affine.translation(*adjusted_top_left) * Affine.scale(*spacing)
-
-    return extent_bounds, extent_affine
+    return transfrom
 
 
-# def create_cop_glo30_vrt_from_bounds(bounds, tile_index):
+def get_extent_of_cop_glo30_tiles_covering_bounds(bounds):
 
-#     # Update the bounding box if desired (e.g. with additional buffer to account for warping)
+    min_lon, min_lat, max_lon, max_lat = bounds
+    lon_spacing, lat_spacing = get_cop_glo30_spacing(bounds)
 
-#     # Calculate the expected dem bounds to write to using
-#     # dem_vrt_extent = identify_extent_of_cop_glo30_tiles_covering_bounds
+    # Calculate the transform, which adjusts the origin to be in area-convention coordinates
+    cop_glo30_tile_transform = get_cop_glo30_tile_transform(
+        min_lon, max_lat, lon_spacing, lat_spacing
+    )
 
-#     # Get the DEM tiles that intersect with the bounding box
+    # Extract the adjusted origin and scaling from the transform
+    adjusted_origin_lon = cop_glo30_tile_transform.xoff
+    adjusted_origin_lat = cop_glo30_tile_transform.yoff
+    scaling = (cop_glo30_tile_transform.a, cop_glo30_tile_transform.e)
 
-#     # If no dem tiles are found
-#         # write a raster with the appropriate profile containing all zeros
+    # Extend the far edge to rounded degree, then adjust to area-convention coordinates
+    extended_edge_lon = math.ceil(max_lon)
+    extended_edge_lat = math.floor(min_lat)
+    adjusted_edge_lon, adjusted_edge_lat = adjust_pixel_coordinate_from_point_to_area(
+        (extended_edge_lon, extended_edge_lat), scaling
+    )
 
-#     # If dem tiles are found
-#         # Build VRT using dem_vrt_extent with merge_raster files
-#         # Read the data out of the VRT using read_vrt_in_bounds (noting that this can be updated to use expand_bounding_box_to_pixel_edges)
+    # Construct bounding box for the cop_glo30 tiles that cover the requested bounds
+    adjusted_bounds = (
+        adjusted_origin_lon,
+        adjusted_edge_lat,
+        adjusted_edge_lon,
+        adjusted_origin_lat,
+    )
+
+    return adjusted_bounds, cop_glo30_tile_transform
+
+
+def make_empty_cop_glo30_profile_for_bounds(bounds: tuple) -> dict:
+    """make an empty cop30m dem rasterio profile based on a set of bounds.
+    The desired pixel spacing changes based on lattitude
+    see : https://copernicus-dem-30m.s3.amazonaws.com/readme.html
+
+    Parameters
+    ----------
+    bounds : tuple
+        the set of bounds (min_lon, min_lat, max_lon, max_lat)
+
+    Returns
+    -------
+    dict
+        A rasterio profile
+
+    Raises
+    ------
+    ValueError
+        If the latitude of the supplied bounds cannot be
+        associated with a target pixel size
+    """
+
+    min_lon, min_lat, max_lon, max_lat = bounds
+    spacing_lon, spacing_lat = get_cop_glo30_spacing(bounds)
+
+    glo30_transform = get_cop_glo30_tile_transform(
+        min_lon, max_lat, spacing_lon, spacing_lat
+    )
+
+    # Expand the bounds to the edges of pixels
+    expanded_bounds, expanded_transform = expand_bounding_box_to_pixel_edges(
+        bounds, glo30_transform
+    )
+
+    # Convert bounds from world to pixel to get width and height
+    left_px, top_px = ~expanded_transform * (expanded_bounds[0], expanded_bounds[3])
+    right_px, bottom_px = ~expanded_transform * (expanded_bounds[2], expanded_bounds[1])
+
+    width = abs(round(right_px) - round(left_px))
+    height = abs(round(bottom_px) - round(top_px))
+
+    profile = {
+        "driver": "GTiff",
+        "dtype": "float32",
+        "nodata": np.nan,
+        "width": width,
+        "height": height,
+        "count": 1,
+        "crs": CRS.from_epsg(4326),
+        "transform": expanded_transform,
+        "blockysize": 1,
+        "tiled": False,
+        "interleave": "band",
+    }
+
+    return expanded_bounds, profile
