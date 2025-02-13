@@ -2,10 +2,81 @@ from affine import Affine
 import math
 import numpy as np
 from rasterio.crs import CRS
+import rasterio.features
 from sar_antarctica.utils.raster import (
     adjust_pixel_coordinate_from_point_to_area,
     expand_bounding_box_to_pixel_edges,
 )
+from pathlib import Path
+import shapely.geometry
+import logging
+
+logger = logging.getLogger(__name__)
+
+from sar_antarctica.utils.spatial import BoundingBox
+
+
+def get_cop_glo30_files_covering_bounds(
+    bounds: BoundingBox | tuple[float | int, float | int, float | int, float | int],
+    cop30_folder_path: Path,
+    check_exists: bool = True,
+    search_buffer=0.3,
+    tifs_in_subfolder=True,
+) -> list[str]:
+    """generate a list of the required dem paths based on the bounding coords. The
+    function searches the specified folder.
+
+    Parameters
+    ----------
+    bounds : tuple
+        the set of bounds (min_lon, min_lat, max_lon, max_lat)
+    check_exists : bool, optional
+        Check if the file exists, by default True
+    cop30_folder_path : str, optional
+        path to the tile folders, by default COP30_FOLDER_PATH
+
+    Returns
+    -------
+    list[str]
+        list of paths for required dem tiles in bounds
+    """
+    if bounds.isinstance(tuple):
+        bounds = BoundingBox(*bounds)
+
+    # add a buffer to the search
+    bounds = shapely.geometry.basebox(*bounds).buffer(search_buffer).bounds
+    # logic to find the correct files based on data being stored in each tile folder
+    min_lat = math.floor(bounds.ymin) if bounds.ymin < 0 else math.ceil(bounds.ymin)
+    max_lat = math.ceil(bounds.ymax) if bounds.ymax < 0 else math.floor(bounds.ymax) + 1
+    min_lon = math.floor(bounds.xmin) if bounds.xmin < 0 else math.floor(bounds.xmin)
+    max_lon = math.ceil(bounds.xmax) if bounds.xmax < 0 else math.ceil(bounds.xmax)
+
+    lat_range = list(range(min_lat, max_lat))
+    lon_range = list(range(min_lon, max_lon))
+
+    logger.info(f"lat tile range: {lat_range}")
+    logger.info(f"lon tile range: {lon_range}")
+    dem_paths = []
+    dem_folders = []
+
+    for lat in lat_range:
+        for lon in lon_range:
+            lat_dir = "N" if lat >= 0 else "S"
+            lon_dir = "E" if lon >= 0 else "W"
+            dem_foldername = f"Copernicus_DSM_COG_10_{lat_dir}{abs(lat):02d}_00_{lon_dir}{abs(lon):03d}_00_DEM"
+            if tifs_in_subfolder:
+                dem_subpath = f"{dem_foldername}/{dem_foldername}.tif"
+            else:
+                dem_subpath = f"{dem_foldername}.tif"
+            dem_path = cop30_folder_path.joinpath(dem_subpath)
+            if check_exists:
+                # check the file exists, e.g. over water will not be a file
+                if dem_path.exists:
+                    dem_paths.append(dem_path)
+                    dem_folders.append(dem_foldername)
+            else:
+                dem_paths.append(dem_path)
+    return sorted(list(set(dem_paths)))
 
 
 def get_cop_glo30_spacing(bounds):
