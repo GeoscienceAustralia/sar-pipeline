@@ -8,6 +8,7 @@ from shapely.geometry import box
 import rasterio
 from pyproj import Transformer
 from affine import Affine
+from pathlib import Path
 from rasterio.transform import from_origin, array_bounds
 from rasterio.warp import calculate_default_transform, reproject
 from rasterio.enums import Resampling
@@ -75,7 +76,9 @@ def bounds_from_profile(profile):
     return array_bounds(profile["height"], profile["width"], profile["transform"])
 
 
-def reproject_raster(src_path: str, crs: int, out_path: str = ""):
+def reproject_raster(
+    src_path: str | Path, crs: int, out_path: str | Path | None = None
+):
     """Reproject raster to desired crs
 
     Parameters
@@ -120,7 +123,7 @@ def reproject_raster(src_path: str, crs: int, out_path: str = ""):
                 resampling=Resampling.nearest,
             )
 
-        if out_path:
+        if out_path is not None:
             with rasterio.open(out_path, "w", **profile) as dst:
                 for i in range(src.count):
                     dst.write(reprojected_array[i], i + 1)
