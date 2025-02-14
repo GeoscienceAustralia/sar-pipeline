@@ -33,7 +33,8 @@ def adjust_pixel_coordinate_from_point_to_area(
 
 
 def expand_bounding_box_to_pixel_edges(
-    bounding_box_world: tuple[float, float, float, float], world_affine: Affine
+    bounding_box_world: tuple[float, float, float, float],
+    world_affine: Affine,
 ):
 
     # Unpack bounding box

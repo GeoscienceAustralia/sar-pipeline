@@ -23,6 +23,14 @@ class BoundingBox:
     def bounds(self) -> tuple[float | int, float | int, float | int, float | int]:
         return (self.xmin, self.ymin, self.xmax, self.ymax)
 
+    @property
+    def top_left(self) -> tuple[float | int, float | int]:
+        return (self.xmin, self.ymax)
+
+    @property
+    def bottom_right(self) -> tuple[float | int, float | int]:
+        return (self.xmax, self.ymin)
+
     # Run checks on the bounding box values
     def __post_init__(self):
         if self.ymin >= self.ymax:

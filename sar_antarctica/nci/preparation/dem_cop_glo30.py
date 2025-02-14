@@ -16,6 +16,54 @@ logger = logging.getLogger(__name__)
 from sar_antarctica.utils.spatial import BoundingBox
 
 
+def buffer_bounds_cop_glo30(
+    bounds: BoundingBox | tuple[float | int, float | int, float | int, float | int],
+    pixel_buffer: int | None = None,
+    world_buffer: float | int | None = None,
+) -> BoundingBox:
+    """Buffer a bounding box by a fixed number of pixels or distance in decimal degrees
+
+    Parameters
+    ----------
+    bounds : BoundingBox | tuple[float  |  int, float  |  int, float  |  int, float  |  int]
+        The set of bounds (min_lon, min_lat, max_lon, max_lat)
+    pixel_buffer : int | None, optional
+        Number of pixels to buffer, by default None
+    world_buffer : float | int | None, optional
+        Distance (in decimal degrees) to buffer by, by default None
+
+    Returns
+    -------
+    BoundingBox
+        Buffered bounds
+    """
+
+    if isinstance(bounds, tuple):
+        bounds = BoundingBox(*bounds)
+
+    if not pixel_buffer and not world_buffer:
+        logger.warning("No buffer has been provided.")
+        return bounds
+
+    if world_buffer and pixel_buffer:
+        logger.warning("Both pixel and world were provided. Pixel buffer will be used.")
+        world_buffer = None
+
+    if pixel_buffer:
+        lon_spacing, lat_spacing = get_cop_glo30_spacing(bounds)
+        buffer = (pixel_buffer * lon_spacing, pixel_buffer * lat_spacing)
+
+    if world_buffer:
+        buffer = (world_buffer, world_buffer)
+
+    new_xmin = max(bounds.xmin - buffer[0], -180)
+    new_ymin = max(bounds.ymin - buffer[1], -90)
+    new_xmax = min(bounds.xmax + buffer[0], 180)
+    new_ymax = min(bounds.ymax + buffer[1], 90)
+
+    return BoundingBox(new_xmin, new_ymin, new_xmax, new_ymax)
+
+
 def get_cop_glo30_files_covering_bounds(
     bounds: BoundingBox | tuple[float | int, float | int, float | int, float | int],
     cop30_folder_path: Path,
@@ -23,22 +71,22 @@ def get_cop_glo30_files_covering_bounds(
     search_buffer=0.3,
     tifs_in_subfolder=True,
 ) -> list[str]:
-    """generate a list of the required dem paths based on the bounding coords. The
+    """Generate a list of the required dem paths based on the bounding coords. The
     function searches the specified folder.
 
     Parameters
     ----------
     bounds : tuple
-        the set of bounds (min_lon, min_lat, max_lon, max_lat)
+        The set of bounds (min_lon, min_lat, max_lon, max_lat)
     check_exists : bool, optional
         Check if the file exists, by default True
     cop30_folder_path : str, optional
-        path to the tile folders, by default COP30_FOLDER_PATH
+        Path to the tile folders, by default COP30_FOLDER_PATH
 
     Returns
     -------
     list[str]
-        list of paths for required dem tiles in bounds
+        List of paths for required dem tiles in bounds
     """
     if bounds.isinstance(tuple):
         bounds = BoundingBox(*bounds)
@@ -79,10 +127,31 @@ def get_cop_glo30_files_covering_bounds(
     return sorted(list(set(dem_paths)))
 
 
-def get_cop_glo30_spacing(bounds):
+def get_cop_glo30_spacing(
+    bounds: BoundingBox | tuple[float | int, float | int, float | int, float | int]
+) -> tuple[float, float]:
+    """Get the longitude and latitude spacing for the Copernicus GLO30 DEM at the centre of the bounds
 
-    _, min_latitude, _, max_latitude = bounds
-    mean_latitude = abs((min_latitude + max_latitude) / 2)
+    Parameters
+    ----------
+    bounds : BoundingBox | tuple[float  |  int, float  |  int, float  |  int, float  |  int]
+        The set of bounds (min_lon, min_lat, max_lon, max_lat)
+
+    Returns
+    -------
+    tuple[float, float]
+        A tuple of the longitude and latitude spacing
+
+    Raises
+    ------
+    ValueError
+        If the absolute latitude of bounds does not fall within expected range (<90)
+    """
+
+    if isinstance(bounds, tuple):
+        bounds = BoundingBox(*bounds)
+
+    mean_latitude = abs((bounds.ymin + bounds.ymax) / 2)
 
     minimum_pixel_spacing = 0.0002777777777777778
 
@@ -105,10 +174,31 @@ def get_cop_glo30_spacing(bounds):
     else:
         raise ValueError("cannot resolve cop30m lattitude")
 
-    return longitude_spacing, latitude_spacing
+    return (longitude_spacing, latitude_spacing)
 
 
-def get_cop_glo30_tile_transform(origin_lon, origin_lat, spacing_lon, spacing_lat):
+def get_cop_glo30_tile_transform(
+    origin_lon: float, origin_lat: float, spacing_lon: float, spacing_lat: float
+) -> Affine:
+    """Generates an Affine transform with the origin in the top-left of the Copernicus GLO30 DEM
+    containing the provided origin.
+
+    Parameters
+    ----------
+    origin_lon : float
+        Origin longitude
+    origin_lat : float
+        Origin latitude
+    spacing_lon : float
+        Pixel spacing in longitude
+    spacing_lat : float
+        Pixel spacing in latitude
+
+    Returns
+    -------
+    Affine
+        An Affine transform with the origin at the top-left pixel of the tile containing the supplied origin
+    """
 
     # Find whole degree value containing the origin
     whole_degree_origin_lon = math.floor(origin_lon)
@@ -117,7 +207,7 @@ def get_cop_glo30_tile_transform(origin_lon, origin_lat, spacing_lon, spacing_la
     # Create the scaling from spacing
     scaling = (spacing_lon, -spacing_lat)
 
-    # Adjust to the required offset
+    # Adjust to the required 0.5 pixel offset
     adjusted_origin = adjust_pixel_coordinate_from_point_to_area(
         (whole_degree_origin_lon, whole_degree_origin_lat), scaling
     )
@@ -127,48 +217,19 @@ def get_cop_glo30_tile_transform(origin_lon, origin_lat, spacing_lon, spacing_la
     return transfrom
 
 
-def get_extent_of_cop_glo30_tiles_covering_bounds(bounds):
-
-    min_lon, min_lat, max_lon, max_lat = bounds
-    lon_spacing, lat_spacing = get_cop_glo30_spacing(bounds)
-
-    # Calculate the transform, which adjusts the origin to be in area-convention coordinates
-    cop_glo30_tile_transform = get_cop_glo30_tile_transform(
-        min_lon, max_lat, lon_spacing, lat_spacing
-    )
-
-    # Extract the adjusted origin and scaling from the transform
-    adjusted_origin_lon = cop_glo30_tile_transform.xoff
-    adjusted_origin_lat = cop_glo30_tile_transform.yoff
-    scaling = (cop_glo30_tile_transform.a, cop_glo30_tile_transform.e)
-
-    # Extend the far edge to rounded degree, then adjust to area-convention coordinates
-    extended_edge_lon = math.ceil(max_lon)
-    extended_edge_lat = math.floor(min_lat)
-    adjusted_edge_lon, adjusted_edge_lat = adjust_pixel_coordinate_from_point_to_area(
-        (extended_edge_lon, extended_edge_lat), scaling
-    )
-
-    # Construct bounding box for the cop_glo30 tiles that cover the requested bounds
-    adjusted_bounds = (
-        adjusted_origin_lon,
-        adjusted_edge_lat,
-        adjusted_edge_lon,
-        adjusted_origin_lat,
-    )
-
-    return adjusted_bounds, cop_glo30_tile_transform
-
-
-def make_empty_cop_glo30_profile_for_bounds(bounds: tuple) -> dict:
+def make_empty_cop_glo30_profile_for_bounds(
+    bounds: BoundingBox | tuple[float | int, float | int, float | int, float | int],
+) -> dict:
     """make an empty cop30m dem rasterio profile based on a set of bounds.
     The desired pixel spacing changes based on lattitude
     see : https://copernicus-dem-30m.s3.amazonaws.com/readme.html
 
     Parameters
     ----------
-    bounds : tuple
-        the set of bounds (min_lon, min_lat, max_lon, max_lat)
+    bounds : BoundingBox | tuple[float | int, float | int, float | int, float | int]
+        The set of bounds (min_lon, min_lat, max_lon, max_lat)
+    pixel_buffer | int
+        The number of pixels to add as a buffer to the profile
 
     Returns
     -------
@@ -181,12 +242,13 @@ def make_empty_cop_glo30_profile_for_bounds(bounds: tuple) -> dict:
         If the latitude of the supplied bounds cannot be
         associated with a target pixel size
     """
+    if bounds.isinstance(tuple):
+        bounds = BoundingBox(*bounds)
 
-    min_lon, min_lat, max_lon, max_lat = bounds
     spacing_lon, spacing_lat = get_cop_glo30_spacing(bounds)
 
     glo30_transform = get_cop_glo30_tile_transform(
-        min_lon, max_lat, spacing_lon, spacing_lat
+        bounds.xmin, bounds.ymax, spacing_lon, spacing_lat
     )
 
     # Expand the bounds to the edges of pixels
