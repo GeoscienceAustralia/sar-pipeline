@@ -96,7 +96,7 @@ def adjust_bounds(
     if isinstance(bounds, tuple):
         bounds = BoundingBox(*bounds)
 
-    geometry = box(bounds.bounds)
+    geometry = box(*bounds.bounds)
     segmentized_geometry = segmentize(geometry, max_segment_length=segment_length)
     transformed_geometry = transform_polygon(segmentized_geometry, src_crs, ref_crs)
     transformed_box = box(*transformed_geometry.bounds)

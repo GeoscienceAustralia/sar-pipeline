@@ -219,7 +219,7 @@ def get_cop_glo30_tile_transform(
 
 def make_empty_cop_glo30_profile_for_bounds(
     bounds: BoundingBox | tuple[float | int, float | int, float | int, float | int],
-) -> dict:
+) -> tuple[tuple, dict]:
     """make an empty cop30m dem rasterio profile based on a set of bounds.
     The desired pixel spacing changes based on lattitude
     see : https://copernicus-dem-30m.s3.amazonaws.com/readme.html
@@ -242,7 +242,7 @@ def make_empty_cop_glo30_profile_for_bounds(
         If the latitude of the supplied bounds cannot be
         associated with a target pixel size
     """
-    if bounds.isinstance(tuple):
+    if isinstance(bounds, tuple):
         bounds = BoundingBox(*bounds)
 
     spacing_lon, spacing_lat = get_cop_glo30_spacing(bounds)
@@ -253,12 +253,14 @@ def make_empty_cop_glo30_profile_for_bounds(
 
     # Expand the bounds to the edges of pixels
     expanded_bounds, expanded_transform = expand_bounding_box_to_pixel_edges(
-        bounds, glo30_transform
+        bounds.bounds, glo30_transform
     )
+    if isinstance(expanded_bounds, tuple):
+        expanded_bounds = BoundingBox(*expanded_bounds)
 
     # Convert bounds from world to pixel to get width and height
-    left_px, top_px = ~expanded_transform * (expanded_bounds[0], expanded_bounds[3])
-    right_px, bottom_px = ~expanded_transform * (expanded_bounds[2], expanded_bounds[1])
+    left_px, top_px = ~expanded_transform * expanded_bounds.top_left
+    right_px, bottom_px = ~expanded_transform * expanded_bounds.bottom_right
 
     width = abs(round(right_px) - round(left_px))
     height = abs(round(bottom_px) - round(top_px))
@@ -277,4 +279,4 @@ def make_empty_cop_glo30_profile_for_bounds(
         "interleave": "band",
     }
 
-    return expanded_bounds, profile
+    return (expanded_bounds, profile)
