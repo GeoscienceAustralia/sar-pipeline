@@ -12,9 +12,16 @@ import rasterio
 from pathlib import Path
 from numpy.testing import assert_allclose
 import pytest
+import shutil
 
 
 CURRENT_DIR = Path(__file__).parent.resolve()
+FOLDER_PATH = CURRENT_DIR / "data/copernicus_30m_world"
+GEOID_PATH = (
+    CURRENT_DIR
+    / "data/geoid/tests/sar_antarctica/data/geoid/us_nga_egm2008_1_4326__agisoft_clipped.tif"
+)
+TMP_PATH = CURRENT_DIR / "TMP"
 
 
 @dataclass
@@ -52,21 +59,17 @@ test_dems = [
 ]
 
 
-FOLDER_PATH = CURRENT_DIR / "data/copernicus_30m_world"
-GEOID_PATH = (
-    CURRENT_DIR
-    / "data/geoid/tests/sar_antarctica/data/geoid/us_nga_egm2008_1_4326__agisoft_clipped.tif"
-)
-
-
 @pytest.mark.parametrize("test_input", test_dems)
 def test_get_cop30_dem_for_bounds_ocean_and_land(test_input: TestDem):
 
     bounds = test_input.requested_bounds
     bounds_array_file = test_input.bounds_array_file
 
-    SAVE_PATH = CURRENT_DIR / Path("TMP") / Path("TMP.tif")
-    INDEX_PATH = CURRENT_DIR / Path("TMP") / Path("TMP.gpkg")
+    if not TMP_PATH.exists():
+        TMP_PATH.mkdir(parents=True, exist_ok=True)
+
+    SAVE_PATH = TMP_PATH / Path("TMP.tif")
+    INDEX_PATH = TMP_PATH / Path("TMP.gpkg")
 
     # Find relevant test tiles and build tile index
     TEST_TILES = find_tiles(FOLDER_PATH, "Copernicus_DSM_COG_10_S??_00_E16?_00_DEM")
@@ -91,3 +94,6 @@ def test_get_cop30_dem_for_bounds_ocean_and_land(test_input: TestDem):
         expected_array = src.read(1)
 
     assert_allclose(array, expected_array)
+
+    # Once complete, remove the TMP files and directory
+    shutil.rmtree(TMP_PATH)
