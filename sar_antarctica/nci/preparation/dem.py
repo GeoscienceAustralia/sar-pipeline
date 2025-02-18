@@ -16,7 +16,7 @@ from sar_antarctica.nci.preparation.dem_cop_glo30 import (
     buffer_bounds_cop_glo30,
     make_empty_cop_glo30_profile_for_bounds,
 )
-from sar_antarctica.nci.preparation.geoid import remove_geoid, remove_geoid_new
+from sar_antarctica.nci.preparation.geoid import remove_geoid
 
 # Create a custom type that allows use of BoundingBox or tuple(xmin, ymin, xmax, ymax)
 BBox = BoundingBox | tuple[float | int, float | int, float | int, float | int]
@@ -134,6 +134,7 @@ def get_cop30_dem_for_bounds(
         adjusted_bounds_polygon = shapely.geometry.box(*adjusted_bounds.bounds)
         bounds_polygon = shapely.geometry.box(*bounds.bounds)
         bounds_filled_by_dem = bounds_polygon.within(adjusted_bounds_polygon)
+        print(bounds_polygon.bounds)
         if not bounds_filled_by_dem:
             warn_msg = (
                 "The Cop30 DEM bounds do not fully cover the requested bounds. "
@@ -149,7 +150,7 @@ def get_cop30_dem_for_bounds(
         adjusted_bounds, adjusted_bounds_profile = (
             make_empty_cop_glo30_profile_for_bounds(adjusted_bounds)
         )
-
+        print(adjusted_bounds.bounds)
         # Find cop glo30 paths for bounds
         if cop30_index_path is not None:
             logger.info(f"Finding intersecting DEM files from: {cop30_index_path}")
@@ -199,29 +200,33 @@ def get_cop30_dem_for_bounds(
                     all_touched=True,
                     crop=True,
                 )
+                # Using the masking adds an extra dimension from the read
+                # Remove this by squeezing before writing
+                dem_array = dem_array.squeeze()
                 logger.info(f"Dem array shape = {dem_array.shape}")
 
                 dem_profile = src.profile
                 dem_profile.update(
                     {
                         "driver": "GTiff",
-                        "height": dem_array.shape[1],
-                        "width": dem_array.shape[2],
+                        "height": dem_array.shape[0],
+                        "width": dem_array.shape[1],
                         "transform": dem_transform,
+                        "count": 1,
                         "nodata": np.nan,
                     }
                 )
 
                 if save_path:
                     with rasterio.open(save_path, "w", **dem_profile) as dst:
-                        dst.write(dem_array)
+                        dst.write(dem_array, 1)
 
         if ellipsoid_heights:
             logging.info(
                 f"Subtracting the geoid from the DEM to return ellipsoid heights"
             )
             logging.info(f"Using geoid file: {geoid_tif_path}")
-            dem_array = remove_geoid_new(
+            dem_array = remove_geoid(
                 dem_array=dem_array,
                 dem_profile=dem_profile,
                 geoid_path=geoid_tif_path,

@@ -11,9 +11,12 @@ CURRENT_DIR = Path(__file__).parent.resolve()
 TEST_DATA_PATH = CURRENT_DIR / Path("data/copernicus_30m_world")
 
 EXPECTED_DATA_FILES = [
-    TEST_DATA_PATH / "Copernicus_DSM_COG_10_S80_00_E178_00_DEM.tif",
-    TEST_DATA_PATH / "Copernicus_DSM_COG_10_S80_00_E179_00_DEM.tif",
-    TEST_DATA_PATH / "Copernicus_DSM_COG_10_S80_00_W180_00_DEM.tif",
+    TEST_DATA_PATH
+    / "Copernicus_DSM_COG_10_S80_00_E178_00_DEM/Copernicus_DSM_COG_10_S80_00_E178_00_DEM.tif",
+    TEST_DATA_PATH
+    / "Copernicus_DSM_COG_10_S80_00_E179_00_DEM/Copernicus_DSM_COG_10_S80_00_E179_00_DEM.tif",
+    TEST_DATA_PATH
+    / "Copernicus_DSM_COG_10_S80_00_W180_00_DEM/Copernicus_DSM_COG_10_S80_00_W180_00_DEM.tif",
 ]
 EXPECTED_VRT_FILE = TEST_DATA_PATH / "copdem_test.vrt"
 
@@ -22,7 +25,7 @@ TEST_VRT_PATH = TEST_DATA_PATH / "temp.vrt"
 TEST_TINDEX_PATH = TEST_DATA_PATH / "temp.gpkg"
 
 
-tiles = find_tiles(TEST_DATA_PATH, "Copernicus_DSM_COG_10_???_00_????_00_DEM.tif")
+tiles = find_tiles(TEST_DATA_PATH, "Copernicus_DSM_COG_10_S80_00_????_00_DEM.tif")
 list_tiles = list(tiles)
 
 

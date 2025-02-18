@@ -88,11 +88,13 @@ def get_cop_glo30_files_covering_bounds(
     list[str]
         List of paths for required dem tiles in bounds
     """
-    if bounds.isinstance(tuple):
+    if isinstance(bounds, tuple):
         bounds = BoundingBox(*bounds)
 
     # add a buffer to the search
-    bounds = shapely.geometry.basebox(*bounds).buffer(search_buffer).bounds
+    bounds = BoundingBox(
+        *shapely.geometry.box(*bounds.bounds).buffer(search_buffer).bounds
+    )
     # logic to find the correct files based on data being stored in each tile folder
     min_lat = math.floor(bounds.ymin) if bounds.ymin < 0 else math.ceil(bounds.ymin)
     max_lat = math.ceil(bounds.ymax) if bounds.ymax < 0 else math.floor(bounds.ymax) + 1

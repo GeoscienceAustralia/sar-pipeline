@@ -62,15 +62,8 @@ scenes = [scene_1, scene_2]
 
 @pytest.mark.parametrize("scene", scenes)
 def test_find_latest_orbit_for_scene(scene: Scene):
-    assert find_latest_orbit_for_scene(scene.id) == scene.latest_orbit
-    assert (
-        find_latest_orbit_for_scene(scene.id, orbit_type="RES")
-        == scene.latest_res_orbit
-    )
-    assert (
-        find_latest_orbit_for_scene(scene.id, orbit_type="POE")
-        == scene.latest_poe_orbit
-    )
+    scene_list = [scene.latest_poe_orbit, scene.latest_res_orbit]
+    assert find_latest_orbit_for_scene(scene.id, scene_list) == scene.latest_orbit
 
 
 @pytest.mark.parametrize("scene", scenes)
