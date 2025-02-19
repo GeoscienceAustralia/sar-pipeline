@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 import re
 
-from sar_antarctica.nci.preparation.scenes import (
+from sar_pipeline.nci.preparation.scenes import (
     parse_scene_file_dates,
 )
 

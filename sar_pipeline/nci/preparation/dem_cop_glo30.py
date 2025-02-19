@@ -3,7 +3,7 @@ import math
 import numpy as np
 from rasterio.crs import CRS
 import rasterio.features
-from sar_antarctica.utils.raster import (
+from sar_pipeline.utils.raster import (
     adjust_pixel_coordinate_from_point_to_area,
     expand_bounding_box_to_pixel_edges,
 )
@@ -13,7 +13,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from sar_antarctica.utils.spatial import BoundingBox
+from sar_pipeline.utils.spatial import BoundingBox
 
 
 def buffer_bounds_cop_glo30(

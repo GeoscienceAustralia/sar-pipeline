@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 import pytest
 
-from sar_antarctica.nci.preparation.orbits import (
+from sar_pipeline.nci.preparation.orbits import (
     find_orbits,
     parse_orbit_file_dates,
     filter_orbits_to_cover_time_window,

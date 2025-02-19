@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from sar_antarctica.nci.preparation.orbits import find_orbits
-from sar_antarctica.nci.preparation.dem import get_cop30_dem_for_bounds
+from sar_pipeline.nci.preparation.orbits import find_orbits
+from sar_pipeline.nci.preparation.dem import get_cop30_dem_for_bounds
 
 
 def get_orbits_nci(

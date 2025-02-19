@@ -1,4 +1,4 @@
-name: sar-antarctica
+name: sar-pipeline
 dependencies:
   - _libgcc_mutex=0.1
   - _openmp_mutex=4.5

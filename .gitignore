@@ -10,5 +10,5 @@ build
 data
 
 # include test data files
-!tests/sar_antarctica/data/**/*.tif
-!tests/sar_antarctica/data/**/*.vrt
+!tests/sar_pipeline/data/**/*.tif
+!tests/sar_pipeline/data/**/*.vrt
