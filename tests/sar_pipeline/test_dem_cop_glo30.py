@@ -6,8 +6,12 @@ import pytest
 import rasterio
 from rasterio.crs import CRS
 from pathlib import Path
+import shapely.geometry
+
+from sar_pipeline.utils.spatial import BoundingBox
 
 from sar_pipeline.nci.preparation.dem_cop_glo30 import (
+    buffer_bounds_cop_glo30,
     get_cop_glo30_spacing,
     get_cop_glo30_tile_transform,
     make_empty_cop_glo30_profile_for_bounds,
@@ -48,6 +52,39 @@ class TestCopDem:
         with rasterio.open(self.bounds_array_file) as src:
             profile = src.profile
         return profile
+
+    @property
+    def buffered_by_world_one_tenth_degree(self):
+        buffer = 0.1
+        bounds_poly = shapely.geometry.box(*self.requested_bounds)
+        buffered_poly = bounds_poly.buffer(buffer)
+        buffered_bounds = BoundingBox(*buffered_poly.bounds)
+
+        # Set limits on bounds
+        buffered_bounds.xmin = max(buffered_bounds.xmin, -180.0)
+        buffered_bounds.ymin = max(buffered_bounds.ymin, -90.0)
+        buffered_bounds.xmax = min(buffered_bounds.xmax, 180 - 0.5 * self.spacing[0])
+        buffered_bounds.ymax = min(buffered_bounds.ymax, 90.0)
+
+        return buffered_bounds
+
+    @property
+    def buffered_by_pixel_10(self):
+        buffer_px = 10
+        buffer_world_x = buffer_px * self.spacing[0]
+        buffer_world_y = buffer_px * self.spacing[1]
+
+        buffered_bounds = BoundingBox(*self.requested_bounds)
+
+        # Set limits on bounds
+        buffered_bounds.xmin = max(buffered_bounds.xmin - buffer_world_x, -180.0)
+        buffered_bounds.ymin = max(buffered_bounds.ymin - buffer_world_y, -90.0)
+        buffered_bounds.xmax = min(
+            buffered_bounds.xmax + buffer_world_x, 180 - 0.5 * self.spacing[0]
+        )
+        buffered_bounds.ymax = min(buffered_bounds.ymax + buffer_world_y, 90.0)
+
+        return buffered_bounds
 
 
 CURRENT_DIR = Path(__file__).parent.resolve()
@@ -90,6 +127,19 @@ areas = [
     test_dem_three_tiles_and_ocean,
     test_dem_two_tiles_same_latitude,
 ]
+
+
+@pytest.mark.parametrize("area", areas)
+def test_buffer_bounds_cop_glo30(area: TestCopDem):
+    assert (
+        buffer_bounds_cop_glo30(area.requested_bounds, world_buffer=0.1)
+        == area.buffered_by_world_one_tenth_degree
+    )
+
+    assert (
+        buffer_bounds_cop_glo30(area.requested_bounds, pixel_buffer=10)
+        == area.buffered_by_pixel_10
+    )
 
 
 @pytest.mark.parametrize("area", areas)
