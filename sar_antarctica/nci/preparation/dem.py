@@ -15,6 +15,7 @@ from sar_antarctica.nci.preparation.dem_cop_glo30 import (
     get_cop_glo30_files_covering_bounds,
     buffer_bounds_cop_glo30,
     make_empty_cop_glo30_profile_for_bounds,
+    get_cop_glo30_spacing,
 )
 from sar_antarctica.nci.preparation.geoid import remove_geoid
 
@@ -70,7 +71,7 @@ def get_cop30_dem_for_bounds(
             bounds_eastern,
             eastern_save_path,
             ellipsoid_heights,
-            adjust_at_high_lat=True,
+            adjust_at_high_lat=adjust_at_high_lat,
             buffer_pixels=buffer_pixels,
             cop30_index_path=cop30_index_path,
             cop30_folder_path=cop30_folder_path,
@@ -85,7 +86,7 @@ def get_cop30_dem_for_bounds(
             bounds_western,
             western_save_path,
             ellipsoid_heights,
-            adjust_at_high_lat=True,
+            adjust_at_high_lat=adjust_at_high_lat,
             buffer_pixels=buffer_pixels,
             cop30_index_path=cop30_index_path,
             cop30_folder_path=cop30_folder_path,
@@ -256,6 +257,9 @@ def check_s1_bounds_cross_antimeridian(bounds: BBox, max_scene_width: int = 20) 
         if the bounds cross the antimeridian
     """
 
+    if isinstance(bounds, tuple):
+        bounds = BoundingBox(*bounds)
+
     antimeridian_xmin = -180
     bounding_xmin = antimeridian_xmin + max_scene_width  # -160 by default
 
@@ -268,7 +272,7 @@ def check_s1_bounds_cross_antimeridian(bounds: BBox, max_scene_width: int = 20) 
     return False
 
 
-def get_target_antimeridian_projection(bounds: BoundingBox) -> int:
+def get_target_antimeridian_projection(bounds: BBox) -> int:
     """depending where were are on the earth, the desired
     crs at the antimeridian will change. e.g. polar stereo
     is desired at high and low lats, local utm zone elsewhere
@@ -284,6 +288,9 @@ def get_target_antimeridian_projection(bounds: BoundingBox) -> int:
     int
         The CRS in integer form (e.g. 3031 for Polar Stereographic)
     """
+    if isinstance(bounds, tuple):
+        bounds = BoundingBox(*bounds)
+
     min_lat = min(bounds.ymin, bounds.ymax)
     target_crs = (
         3031
@@ -294,9 +301,7 @@ def get_target_antimeridian_projection(bounds: BoundingBox) -> int:
     return target_crs
 
 
-def split_s1_bounds_at_am_crossing(
-    bounds: BBox, lat_buff: float = 0
-) -> tuple[BoundingBox]:
+def split_s1_bounds_at_am_crossing(bounds: BBox) -> tuple[BoundingBox]:
     """Split the s1 bounds at the antimeridian, producing one set of bounds for the
     Eastern Hemisphere (left of the antimeridian) and one set for the Western
     Hemisphere (right of the antimeridian)
@@ -305,8 +310,6 @@ def split_s1_bounds_at_am_crossing(
     ----------
     bounds : BBox (BoundingBox | tuple[float | int, float | int, float | int, float | int])
         The set of bounds (xmin, ymin, xmax, ymax)
-    lat_buff : float, optional
-        An additional buffer to subract from lat, by default 0.
 
     Returns
     -------
@@ -316,6 +319,8 @@ def split_s1_bounds_at_am_crossing(
     """
     if isinstance(bounds, tuple):
         bounds = BoundingBox(*bounds)
+
+    x_spacing, y_spacing = get_cop_glo30_spacing(bounds)
 
     eastern_hemisphere_x = min([x for x in [bounds.xmin, bounds.xmax] if x > 0])
     if eastern_hemisphere_x > 180:
@@ -329,11 +334,14 @@ def split_s1_bounds_at_am_crossing(
             f"Western Hemisphere coordinate of {western_hemisphere_x} is less than -180 degrees, but should be greater."
         )
 
-    min_y = max(-90, bounds.ymin - lat_buff)
-    max_y = min(90, bounds.ymax + lat_buff)
+    min_y = max(-90, bounds.ymin)
+    max_y = min(90, bounds.ymax)
 
+    # Note that the eastern hemisphere maximum must be adjusted by half a pixel
     bounds_western_hemisphere = BoundingBox(-180, min_y, western_hemisphere_x, max_y)
-    bounds_eastern_hemisphere = BoundingBox(eastern_hemisphere_x, min_y, 180, max_y)
+    bounds_eastern_hemisphere = BoundingBox(
+        eastern_hemisphere_x, min_y, 180 - 0.5 * x_spacing, max_y
+    )
 
     logger.info(f"Eastern Hemisphere bounds: {bounds_eastern_hemisphere.bounds}")
     logger.info(f"Western Hemisphere bounds: {bounds_western_hemisphere.bounds}")
