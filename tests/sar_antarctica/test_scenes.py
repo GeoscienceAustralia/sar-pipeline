@@ -1,5 +1,5 @@
 import datetime
-from sar_antarctica.nci.preparation.scenes import (
+from sar_pipeline.nci.preparation.scenes import (
     parse_scene_file_dates,
     parse_scene_file_sensor,
 )

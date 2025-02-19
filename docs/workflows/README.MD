@@ -23,7 +23,7 @@ $ find-scene S1A_EW_GRDM_1SDH_20240129T091735_20240129T091828_052319_065379_0F1E
 
 ### Submit a workflow
 This will submit a job request to the NCI based on the job parameters and file paths in the supplied config. 
-The [default config](../../sar_antarctica/nci/configs/default.toml) will be used if no other config is provided.
+The [default config](../../sar_pipeline/nci/configs/default.toml) will be used if no other config is provided.
 
 Example usage
 ```

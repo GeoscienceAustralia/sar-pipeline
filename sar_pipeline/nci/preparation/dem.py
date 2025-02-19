@@ -9,14 +9,14 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from sar_antarctica.utils.spatial import BoundingBox, get_local_utm, adjust_bounds
-from sar_antarctica.utils.raster import reproject_raster, merge_arrays_with_geometadata
-from sar_antarctica.nci.preparation.dem_cop_glo30 import (
+from sar_pipeline.utils.spatial import BoundingBox, get_local_utm, adjust_bounds
+from sar_pipeline.utils.raster import reproject_raster, merge_arrays_with_geometadata
+from sar_pipeline.nci.preparation.dem_cop_glo30 import (
     get_cop_glo30_files_covering_bounds,
     buffer_bounds_cop_glo30,
     make_empty_cop_glo30_profile_for_bounds,
 )
-from sar_antarctica.nci.preparation.geoid import remove_geoid
+from sar_pipeline.nci.preparation.geoid import remove_geoid
 
 # Create a custom type that allows use of BoundingBox or tuple(xmin, ymin, xmax, ymax)
 BBox = BoundingBox | tuple[float | int, float | int, float | int, float | int]

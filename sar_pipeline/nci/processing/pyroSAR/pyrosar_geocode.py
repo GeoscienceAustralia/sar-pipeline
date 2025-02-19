@@ -7,7 +7,7 @@ from pyroSAR.gamma.dem import dem_import
 import shutil
 import sys
 
-from sar_antarctica.nci.processing.GAMMA.GAMMA_utils import set_gamma_env_variables
+from sar_pipeline.nci.processing.GAMMA.GAMMA_utils import set_gamma_env_variables
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s : %(message)s",

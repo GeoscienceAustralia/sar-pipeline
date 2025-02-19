@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from sar_antarctica.nci.submission.utils import populate_pbs_template
+from sar_pipeline.nci.submission.utils import populate_pbs_template
 
 
 ENVIRONMENT_COMMAND = """

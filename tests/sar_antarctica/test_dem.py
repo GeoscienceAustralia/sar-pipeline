@@ -1,4 +1,4 @@
-from sar_antarctica.nci.preparation.dem import (
+from sar_pipeline.nci.preparation.dem import (
     get_cop30_dem_for_bounds,
     check_s1_bounds_cross_antimeridian,
     get_target_antimeridian_projection,
@@ -6,7 +6,7 @@ from sar_antarctica.nci.preparation.dem import (
     adjust_bounds_at_high_lat,
     find_required_dem_paths_from_index,
 )
-from sar_antarctica.nci.preparation.create_dem_vrt import find_tiles, build_tileindex
+from sar_pipeline.nci.preparation.create_dem_vrt import find_tiles, build_tileindex
 from dataclasses import dataclass
 import rasterio
 from pathlib import Path
@@ -19,7 +19,7 @@ CURRENT_DIR = Path(__file__).parent.resolve()
 FOLDER_PATH = CURRENT_DIR / "data/copernicus_30m_world"
 GEOID_PATH = (
     CURRENT_DIR
-    / "data/geoid/tests/sar_antarctica/data/geoid/us_nga_egm2008_1_4326__agisoft_clipped.tif"
+    / "data/geoid/tests/sar_pipeline/data/geoid/us_nga_egm2008_1_4326__agisoft_clipped.tif"
 )
 TMP_PATH = CURRENT_DIR / "TMP"
 

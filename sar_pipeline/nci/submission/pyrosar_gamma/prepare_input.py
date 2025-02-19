@@ -2,8 +2,8 @@ from datetime import datetime
 from pathlib import Path
 from pyroSAR import identify
 
-from sar_antarctica.nci.preparation.orbits import find_latest_orbit_covering_window
-from sar_antarctica.nci.filesystem import get_orbits_nci, get_dem_nci
+from sar_pipeline.nci.preparation.orbits import find_latest_orbit_covering_window
+from sar_pipeline.nci.filesystem import get_orbits_nci, get_dem_nci
 
 
 def get_orbit_and_dem(
