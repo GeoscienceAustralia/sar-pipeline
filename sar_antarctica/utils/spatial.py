@@ -1,10 +1,46 @@
+from dataclasses import dataclass
 import pyproj
 from shapely import segmentize
 from shapely.geometry import Polygon, box
 from pyproj.database import query_utm_crs_info
 from pyproj.aoi import AreaOfInterest
 from pyproj import CRS
+import json
 import logging
+
+logger = logging.getLogger(__name__)
+
+
+# Construct a dataclass for bounding boxes
+@dataclass
+class BoundingBox:
+    xmin: float | int
+    ymin: float | int
+    xmax: float | int
+    ymax: float | int
+
+    @property
+    def bounds(self) -> tuple[float | int, float | int, float | int, float | int]:
+        return (self.xmin, self.ymin, self.xmax, self.ymax)
+
+    @property
+    def top_left(self) -> tuple[float | int, float | int]:
+        return (self.xmin, self.ymax)
+
+    @property
+    def bottom_right(self) -> tuple[float | int, float | int]:
+        return (self.xmax, self.ymin)
+
+    # Run checks on the bounding box values
+    def __post_init__(self):
+        if self.ymin >= self.ymax:
+            raise ValueError(
+                "The bounding box's ymin value is greater than or equal to ymax value. Check ordering"
+            )
+        if self.xmin >= self.xmax:
+            raise ValueError(
+                "The bounding box's x_min value is greater than or equal to x_max value. Check ordering"
+            )
 
 
 def transform_polygon(
@@ -32,36 +68,66 @@ def transform_polygon(
 
 
 def adjust_bounds(
-    bounds: tuple, src_crs: int, ref_crs: int, segment_length: float = 0.1
+    bounds: BoundingBox | tuple[float | int, float | int, float | int, float | int],
+    src_crs: int,
+    ref_crs: int,
+    segment_length: float = 0.1,
 ) -> tuple:
+    """_summary_
+
+    Parameters
+    ----------
+    bounds : BoundingBox | tuple[float | int, float | int, float | int, float | int],
+        Bounds to adjust.
+    src_crs : int
+        Source EPSG. e.g. 4326
+    ref_crs : int
+        Reference crs to create the true bbox. i.e. 3031 in southern
+        hemisphere and 3995 in northern (polar stereographic)
+    segment_length : float, optional
+        distance between generation points along the bounding box sides in
+        src_crs. e.g. 0.1 degrees in lat/lon, by default 0.1
+
+    Returns
+    -------
+    BoundingBox
+        A polygon bounding box expanded to the true min max
     """
-    Adjust the bounding box around a scene in src_crs (4326) due to warping at high
-    Latitudes. For example, the min and max boudning values for an antarctic scene in
-    4326 may not actually be the true min and max due to distortions at high latitudes.
+    if isinstance(bounds, tuple):
+        bounds = BoundingBox(*bounds)
 
-    Parameters:
-    - bounds: bounds to adjust.
-    - src_crs: Source EPSG. e.g. 4326
-    - ref_crs: reference crs to create the true bbox. i.e. 3031 in southern
-                hemisphere and 3995 in northern (polar stereographic)
-    - segment_length: distance between generation points along the bounding box sides in
-            src_crs. e.g. 0.1 degrees in lat/lon
-
-    Returns:
-    - A polygon bounding box expanded to the true min max
-    """
-
-    geometry = box(*bounds)
+    geometry = box(*bounds.bounds)
     segmentized_geometry = segmentize(geometry, max_segment_length=segment_length)
     transformed_geometry = transform_polygon(segmentized_geometry, src_crs, ref_crs)
     transformed_box = box(*transformed_geometry.bounds)
     corrected_geometry = transform_polygon(transformed_box, ref_crs, src_crs)
-    return tuple(corrected_geometry.bounds)
+    return BoundingBox(*corrected_geometry.bounds)
 
 
-def get_local_utm(bounds, antimeridian=False):
-    centre_lat = (bounds[1] + bounds[3]) / 2
-    centre_lon = (bounds[0] + bounds[2]) / 2
+def get_local_utm(
+    bounds: BoundingBox | tuple[float | int, float | int, float | int, float | int],
+    antimeridian: bool = False,
+) -> int:
+    """_summary_
+
+    Parameters
+    ----------
+    bounds : BoundingBox | tuple[float  |  int, float  |  int, float  |  int, float  |  int]
+        The set of bounds (min_lon, min_lat, max_lon, max_lat)
+    antimeridian : bool, optional
+        Whether the bounds cross the antimerdian, by default False
+
+    Returns
+    -------
+    int
+        The CRS in integer form (e.g. 32749 for WGS 84 / UTM zone 49S)
+    """
+    if bounds.isinstance(tuple):
+        bounds = BoundingBox(*bounds)
+
+    logger.info("Finding best crs for area")
+    centre_lat = (bounds.ymin + bounds.ymax) / 2
+    centre_lon = (bounds.xmin + bounds.xmax) / 2
     if antimeridian:
         # force the lon to be next to antimeridian on the side with the scene centre.
         # e.g. (-177 + 178)/2 = 1, this is > 0 more data on -'ve side
@@ -78,3 +144,46 @@ def get_local_utm(bounds, antimeridian=False):
     crs = CRS.from_epsg(utm_crs_list[0].code)
     crs = str(crs).split(":")[-1]  # get the EPSG integer
     return int(crs)
+
+
+def bounds_to_geojson(bounds, save_path=""):
+    """
+    Convert a bounding box to a GeoJSON Polygon.
+
+    Parameters:
+        bounds (tuple): A tuple of (min_lon, min_lat, max_lon, max_lat).
+        save_path (str): path to save the geojson
+
+    Returns:
+        dict: A GeoJSON FeatureCollection with a single Polygon feature.
+    """
+    min_lon, min_lat, max_lon, max_lat = bounds
+
+    # Define the polygon coordinates
+    coordinates = [
+        [
+            [min_lon, min_lat],
+            [min_lon, max_lat],
+            [max_lon, max_lat],
+            [max_lon, min_lat],
+            [min_lon, min_lat],  # Closing the polygon
+        ]
+    ]
+
+    # Create the GeoJSON structure
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {"type": "Polygon", "coordinates": coordinates},
+                "properties": {},
+            }
+        ],
+    }
+
+    if save_path:
+        with open(save_path, "w") as f:
+            f.write(json.dumps(geojson))
+
+    return geojson

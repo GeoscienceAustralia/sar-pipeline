@@ -9,7 +9,8 @@ import logging
 
 import numpy as np
 import rasterio
-from rasterio.transform import array_bounds
+import rasterio.transform
+import shapely.geometry
 from rasterio.crs import CRS
 from ...utils.raster import read_raster_with_bounds
 from ...utils.rio_tools import translate_profile, reproject_arr_to_match_profile
@@ -54,55 +55,43 @@ def read_geoid(
 
 
 def remove_geoid(
-    dem_arr: np.ndarray,
+    dem_array: np.ndarray,
     dem_profile: dict,
-    geoid_path: Union[str, Path],
-    dem_area_or_point: str = "Point",
+    geoid_path=str | Path,
     buffer_pixels: int = 2,
-    save_path: Union[str, Path] = "",
-) -> np.ndarray:
-    """Subtract the Geoid from a dem file. Result will be
-    ellipsoid referenced heights for the cop30m dem.
+    save_path: str | Path = "",
+):
 
-    Parameters
-    ----------
-    dem_arr : np.ndarray
-        dem array values
-    dem_profile : dict
-        rasterio profile for dem
-    geoid_path : Union[str, Path]
-        path to the geoid file
-    dem_area_or_point : str, optional
-        Can be 'Area' or 'Point'. The former means each pixel is referenced with respect to the upper
-        left corner. The latter means the pixel is center at its own center. By default 'Point' for cop30.
-    buffer_pixels : int, optional
-        Additional pixels to buffer with, by default 2
-    save_path : Union[str, Path], optional
-        Path to save the resulting dem, by default '' (not saved)
-
-    Returns
-    -------
-    np.ndarray
-        original array with the geoid subtracted
-    """
-
-    assert dem_area_or_point in ["Point", "Area"]
-
-    bounds = array_bounds(
-        dem_profile["height"], dem_profile["width"], dem_profile["transform"]
+    dem_transform = dem_profile["transform"]
+    dem_res = max(dem_transform.a, abs(dem_transform.e))
+    dem_bounds = rasterio.transform.array_bounds(
+        dem_profile["height"], dem_profile["width"], dem_transform
     )
 
-    geoid_arr, geoid_profile = read_geoid(
-        geoid_path, bounds=tuple(bounds), buffer_pixels=buffer_pixels
-    )
+    with rasterio.open(geoid_path, "r") as src:
 
-    t_dem = dem_profile["transform"]
-    t_geoid = geoid_profile["transform"]
-    res_dem = max(t_dem.a, abs(t_dem.e))
-    res_geoid = max(t_geoid.a, abs(t_geoid.e))
+        geoid_array, geoid_transform = rasterio.mask.mask(
+            src,
+            [shapely.geometry.box(*dem_bounds)],
+            all_touched=True,
+            crop=True,
+            pad=True,
+            pad_width=buffer_pixels,
+        )
 
-    if res_geoid * buffer_pixels <= res_dem:
-        buffer_recommendation = int(np.ceil(res_dem / res_geoid))
+        geoid_profile = src.profile
+        geoid_profile.update(
+            {
+                "height": geoid_array.shape[1],
+                "width": geoid_array.shape[2],
+                "transform": geoid_transform,
+            }
+        )
+
+    geoid_res = max(geoid_transform.a, abs(geoid_transform.e))
+
+    if geoid_res * buffer_pixels <= dem_res:
+        buffer_recommendation = int(np.ceil(dem_res / geoid_res))
         warning = (
             "The dem resolution is larger than the geoid resolution and its buffer; "
             "Edges resampled with bilinear interpolation will be inconsistent so select larger buffer."
@@ -110,16 +99,11 @@ def remove_geoid(
         )
         logging.warning(warning)
 
-    # Translate geoid if necessary as all geoids have Area tag
-    if dem_area_or_point == "Point":
-        shift = -0.5
-        geoid_profile = translate_profile(geoid_profile, shift, shift)
-
-    geoid_offset, _ = reproject_arr_to_match_profile(
-        geoid_arr, geoid_profile, dem_profile, resampling="bilinear"
+    geoid_reprojected, _ = reproject_arr_to_match_profile(
+        geoid_array, geoid_profile, dem_profile, resampling="bilinear"
     )
 
-    dem_arr_offset = dem_arr + geoid_offset
+    dem_arr_offset = dem_array + geoid_reprojected
 
     if save_path:
         with rasterio.open(save_path, "w", **dem_profile) as dst:

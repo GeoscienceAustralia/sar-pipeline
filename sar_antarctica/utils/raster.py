@@ -7,6 +7,8 @@ from osgeo import gdal
 from shapely.geometry import box
 import rasterio
 from pyproj import Transformer
+from affine import Affine
+from pathlib import Path
 from rasterio.transform import from_origin, array_bounds
 from rasterio.warp import calculate_default_transform, reproject
 from rasterio.enums import Resampling
@@ -15,6 +17,59 @@ from rasterio.merge import merge
 from rasterio.windows import Window
 from rasterio.crs import CRS
 from rasterio.windows import from_bounds
+import math
+
+
+def adjust_pixel_coordinate_from_point_to_area(
+    point_coordinate: tuple[float, float], scaling: tuple[float, float]
+) -> tuple:
+
+    point_affine = Affine.translation(*point_coordinate) * Affine.scale(*scaling)
+    area_affine = point_affine * Affine.translation(-0.5, -0.5)
+
+    area_coordinate = (area_affine.xoff, area_affine.yoff)
+
+    return area_coordinate
+
+
+def expand_bounding_box_to_pixel_edges(
+    bounding_box_world: tuple[float, float, float, float],
+    world_affine: Affine,
+):
+
+    # Unpack bounding box
+    bbox_min_x, bbox_min_y, bbox_max_x, bbox_max_y = bounding_box_world
+
+    # Create coordinates for top-left and bottom-right of bounding box in world space
+    bounding_box_tl_world = (bbox_min_x, bbox_max_y)
+    bounding_box_br_world = (bbox_max_x, bbox_min_y)
+
+    # Convert to pixel space
+    bounding_box_tl_px = ~world_affine * bounding_box_tl_world
+    bounding_box_br_px = ~world_affine * bounding_box_br_world
+
+    # Round bounding box coordinates to pixel edges to produce expanded box
+    expanded_box_tl_px = tuple(math.floor(px) for px in bounding_box_tl_px)
+    expanded_box_br_px = tuple(math.ceil(px) for px in bounding_box_br_px)
+
+    # Convert expanded box to world space
+    expanded_box_tl_world = world_affine * expanded_box_tl_px
+    expanded_box_br_world = world_affine * expanded_box_br_px
+
+    # Extract bounds of expanded box
+    expbox_min_x = expanded_box_tl_world[0]
+    expbox_max_y = expanded_box_tl_world[1]
+    expbox_max_x = expanded_box_br_world[0]
+    expbox_min_y = expanded_box_br_world[1]
+
+    # Construct a the expanded box tuple (minx, miny, maxx, maxy)
+    expanded_box_world = (expbox_min_x, expbox_min_y, expbox_max_x, expbox_max_y)
+    # Construct the new transform
+    expanded_box_affine_world = Affine.translation(
+        expbox_min_x, expbox_max_y
+    ) * Affine.scale(world_affine.a, world_affine.e)
+
+    return expanded_box_world, expanded_box_affine_world
 
 
 def bounds_from_profile(profile):
@@ -22,7 +77,9 @@ def bounds_from_profile(profile):
     return array_bounds(profile["height"], profile["width"], profile["transform"])
 
 
-def reproject_raster(src_path: str, out_path: str, crs: int):
+def reproject_raster(
+    src_path: str | Path, crs: int, out_path: str | Path | None = None
+):
     """Reproject raster to desired crs
 
     Parameters
@@ -44,26 +101,35 @@ def reproject_raster(src_path: str, out_path: str, crs: int):
         transform, width, height = calculate_default_transform(
             src_crs, crs, src.width, src.height, *src.bounds
         )
-        kwargs = src.meta.copy()
+        profile = src.meta.copy()
 
         # get crs proj
         crs = pyproj.CRS(f"EPSG:{crs}")
 
-        kwargs.update(
+        profile.update(
             {"crs": crs, "transform": transform, "width": width, "height": height}
         )
 
-        with rasterio.open(out_path, "w", **kwargs) as dst:
-            for i in range(1, src.count + 1):
-                reproject(
-                    source=rasterio.band(src, i),
-                    destination=rasterio.band(dst, i),
-                    src_transform=src.transform,
-                    src_crs=src.crs,
-                    dst_transform=transform,
-                    dst_crs=crs,
-                    resampling=Resampling.nearest,
-                )
+        # Create an empty array for the reprojected raster
+        reprojected_array = np.empty((src.count, height, width), dtype=src.dtypes[0])
+
+        for i in range(1, src.count + 1):
+            reproject(
+                source=rasterio.band(src, i),
+                destination=reprojected_array[i - 1],  # Use the in-memory array
+                src_transform=src.transform,
+                src_crs=src.crs,
+                dst_transform=transform,
+                dst_crs=crs,
+                resampling=Resampling.nearest,
+            )
+
+        if out_path is not None:
+            with rasterio.open(out_path, "w", **profile) as dst:
+                for i in range(src.count):
+                    dst.write(reprojected_array[i], i + 1)
+
+        return reprojected_array, profile
 
 
 def expand_raster_to_bounds(
@@ -212,7 +278,7 @@ def read_vrt_in_bounds(
 
     # make upper end of the requested integer
     # ensures the bounds are covered with requested pixel buffer
-    buffer_pixels += 0.9
+    # buffer_pixels += 0.9
 
     if bounds is None:
         # get all data in tiles
@@ -238,42 +304,29 @@ def read_vrt_in_bounds(
         # Open the VRT file
         with rasterio.open(vrt_path) as src:
             # Extract the spatial resolution, CRS, and transform of the source dataset
-            src_crs = src.crs
             src_transform = src.transform
-
-            pixel_size_x = abs(src_transform.a)  # Pixel size in x-direction
-            pixel_size_y = abs(src_transform.e)  # Pixel size in y-direction
-
-            # Convert buffer in pixels to geographic units
-            buffer_x = buffer_pixels * pixel_size_x
-            buffer_y = buffer_pixels * pixel_size_y
 
             # Expand bounds by the buffer
             min_x, min_y, max_x, max_y = bounds
-            buffered_bounds = (
-                min_x - buffer_x,
-                min_y - buffer_y,
-                max_x + buffer_x,
-                max_y + buffer_y,
-            )
 
-            # Create a window for the bounding box
-            xmin, ymin, xmax, ymax = buffered_bounds
             window = from_bounds(
-                xmin, ymin, xmax, ymax, transform=src_transform
-            )  # .round()
+                min_x, min_y, max_x, max_y, transform=src_transform
+            ).round()
+            # window_transform = src.window_transform(window) # orig transform
+
+            buffered_window = rasterio.windows.Window(
+                window.col_off - buffer_pixels,
+                window.row_off - buffer_pixels,
+                window.width + buffer_pixels * 2,
+                window.height + buffer_pixels * 2,
+            )
+            buffered_window_transform = src.window_transform(buffered_window)
 
             # Read data for the specified window
-            data = src.read(
-                1, window=window
-            )  # Read the first band; adjust if you need multiple bands
-            # data[~np.isfinite(data)] = 0
-
-            # Adjust the transform for the window
-            window_transform = src.window_transform(window)
+            data = src.read(1, window=buffered_window)  # Read the first band;
 
             arr_profile = src.profile.copy()
-            arr_profile["transform"] = window_transform
+            arr_profile["transform"] = buffered_window_transform
             arr_profile["driver"] = "GTiff"
             arr_profile["count"] = 1
             arr_profile["height"] = data.shape[0]
@@ -291,12 +344,19 @@ def read_vrt_in_bounds(
 
 
 def merge_raster_files(
-    paths, output_path, bounds=None, return_data=True, buffer_pixels=0, delete_vrt=True
+    paths,
+    output_path,
+    bounds=None,
+    return_data=True,
+    buffer_pixels=0,
+    vrt_bounds=None,
+    delete_vrt=True,
 ):
 
     # Create a virtual raster (in-memory description of the merged DEMs)
     vrt_path = str(output_path).replace(".tif", ".vrt")  # Temporary VRT file path
-    gdal.BuildVRT(vrt_path, paths, resolution="highest")
+    VRT_options = gdal.BuildVRTOptions(resolution="highest", outputBounds=vrt_bounds)
+    gdal.BuildVRT(vrt_path, paths, options=VRT_options)
 
     res = read_vrt_in_bounds(
         vrt_path=vrt_path,
@@ -319,6 +379,7 @@ def merge_arrays_with_geometadata(
     nodata: Union[float, int] = np.nan,
     dtype: str = None,
     method: str = "first",
+    output_path: str = "",
 ) -> tuple[np.ndarray, dict]:
     # https://github.com/ACCESS-Cloud-Based-InSAR/dem-stitcher/blob/dev/src/dem_stitcher/merge.py
     n_dim = arrays[0].shape
@@ -363,6 +424,10 @@ def merge_arrays_with_geometadata(
     [ds.close() for ds in datasets]
     [mfile.close() for mfile in memfiles]
 
+    if output_path:
+        with rasterio.open(output_path, "w", **prof_merged) as dst:
+            dst.write(merged_arr)
+
     return merged_arr, prof_merged
 
 
@@ -377,6 +442,9 @@ def read_raster_with_bounds(file_path, bounds, buffer_pixels=0):
     Returns:
         tuple: A NumPy array of the raster data in the window and the corresponding profile.
     """
+
+    # TODO allign pixel buffer logic with readvrt function
+
     with rasterio.open(file_path) as src:
         # Get pixel size from the transform
         transform = src.transform
