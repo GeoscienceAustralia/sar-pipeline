@@ -9,7 +9,7 @@ export MAMBA_EXE=/g/data/yp75/ca6983/micromamba/bin/micromamba
 export MAMBA_ROOT_PREFIX=/g/data/yp75/ca6983/micromamba
 source $MAMBA_ROOT_PREFIX/etc/profile.d/mamba.sh
 
-micromamba activate sar-antarctica
+micromamba activate sar-pipeline
 
 """
 
