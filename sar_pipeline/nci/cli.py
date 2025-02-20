@@ -2,6 +2,7 @@ import click
 from pathlib import Path
 import tomli
 import logging
+import subprocess
 
 from sar_pipeline.nci.filesystem import get_orbits_nci
 from sar_pipeline.nci.submission.pyrosar_gamma.prepare_input import (
@@ -105,6 +106,7 @@ def submit_pyrosar_gamma_workflow(
 )
 @click.option("--spacing", type=int)
 @click.option("--scaling", type=click.Choice(["linear", "db"]))
+@click.option("--target-crs", type=click.Choice(["EPSG:4326", "EPSG:3031"]))
 @click.option(
     "--orbit-dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
 )
@@ -128,6 +130,7 @@ def run_pyrosar_gamma_workflow(
     scene,
     spacing,
     scaling,
+    target_crs,
     orbit_dir,
     orbit_type,
     output_dir,
@@ -144,8 +147,13 @@ def run_pyrosar_gamma_workflow(
     click.echo(f"    Identified DEM: {dem}")
 
     click.echo("Running processing")
-    print(scene, spacing, scaling, output_dir, gamma_lib_dir, gamma_env_var)
-    run_pyrosar_gamma_geocode(
+    click.echo(f"    Scene: {scene}")
+    click.echo(f"    Spacing: {spacing}")
+    click.echo(f"    Scaling: {scaling}")
+    click.echo(f"    Output directory: {output_dir}")
+    click.echo(f"    GAMMA directory: {gamma_lib_dir}")
+    click.echo(f"    LD_LIBRARY_PATH (used by GAMMA): {gamma_env_var}")
+    processed_scene_directory = run_pyrosar_gamma_geocode(
         scene=scene,
         orbit=orbit,
         dem=dem,
@@ -155,6 +163,33 @@ def run_pyrosar_gamma_workflow(
         geocode_spacing=spacing,
         geocode_scaling=scaling,
     )
+
+    if target_crs == "EPSG:3031":
+        click.echo("Performing reprojection to EPSG:3031")
+        # Identify all files containing gamma0-rtc_geo
+        files_to_reproject = list(
+            processed_scene_directory.glob("*gamma0-rtc_geo*.tif")
+        )
+
+        for file in files_to_reproject:
+            click.echo(f"    Processing {file.stem}")
+            output_file = file.parent / (file.stem + "_3031" + file.suffix)
+            cmd = [
+                "gdalwarp",
+                "-t-srs",
+                {target_crs},
+                "-tr",
+                str(spacing),
+                str(spacing),  # Set output resolution to target spacing
+                "-r",
+                "bilinear",  # Use bilinear resampling
+                "-dstnodata",
+                "nan",
+                str(file),
+                str(output_file),
+            ]
+
+            subprocess.run(cmd, check=True)
 
 
 @click.command()
