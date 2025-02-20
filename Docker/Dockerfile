@@ -34,9 +34,6 @@ RUN  curl -sSL https://github.com/opera-adt/RTC/archive/refs/tags/v1.0.2.tar.gz 
 tar -xvf RTC-1.0.2.tar.gz -C OPERA &&\
 rm RTC-1.0.2.tar.gz
 
-# copy RTC source code and set rtc_user as owner
-#COPY --chown=rtc_user:rtc_user . /home/rtc_user/OPERA/RTC
-
 # create CONDA environment
 RUN conda create --name "RTC" --file /home/rtc_user/OPERA/RTC-1.0.2/Docker/lockfile.lock &&  conda clean -afy
 
@@ -52,17 +49,24 @@ rm s1_reader_src.tar.gz &&\
 python -m pip install ./s1-reader
 
 # installing OPERA RTC
-RUN python -m pip install ./RTC-1.0.2 &&\
-echo "conda activate RTC" >> /home/rtc_user/.bashrc
+RUN python -m pip install ./RTC-1.0.2 
 
+# Create a second CONDA envrionment for the sar-pipeline
 WORKDIR /home/rtc_user/sar-pipeline
-# Install the GA pipeline code - copy and set rtc_user as owner
+# copy the environment file alone
+COPY --chown=rtc_user:rtc_user ./environment.yml /home/rtc_user/sar-pipeline
+RUN conda env create -f /home/rtc_user/sar-pipeline/environment.yml
+
+# Copy the full project and install the sar-pipeline code
 COPY --chown=rtc_user:rtc_user . /home/rtc_user/sar-pipeline
 # Update the RTC pipeline with dependancies for the sar-pipeline
-#RUN conda env update --name RTC --file /home/rtc_user/sar-pipeline/environment.yml
+SHELL ["conda", "run", "-n", "sar-pipeline", "/bin/bash", "-c"]
 RUN python -m pip install .
+RUN python -m pip install ruamel.yaml
 
-WORKDIR /home/rtc_user/scratch
+WORKDIR /home/rtc_user/working
+COPY --chown=rtc_user:rtc_user ./scripts/run_aws_pipeline.sh /home/rtc_user/working
+RUN chmod +x /home/rtc_user/working/run_aws_pipeline.sh 
 
-ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "RTC"]
-# conda run --no-capture-output -n RTC
+# ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "sar-pipeline"]
+ENTRYPOINT ["/home/rtc_user/working/run_aws_pipeline.sh"]
