@@ -75,6 +75,14 @@ def submit_pyrosar_gamma_workflow(
     scene, spacing, scaling, target_crs, ncpu, mem, queue, project, walltime, output_dir
 ):
 
+    scene_file = Path(scene)
+
+    if not scene_file.is_file():
+        click.echo("An ID was passed -- locating scene on NCI")
+        scene_file = find_scene_file_from_id(scene)
+
+    click.echo(f"Submitting job for scene ID: {scene_file.stem}")
+
     pbs_parameters = {
         "ncpu": ncpu,
         "mem": mem,
@@ -177,15 +185,13 @@ def run_pyrosar_gamma_workflow(
             output_file = file.parent / (file.stem + "_3031" + file.suffix)
             cmd = [
                 "gdalwarp",
-                "-t-srs",
-                {target_crs},
+                "-t_srs",
+                target_crs,
                 "-tr",
                 str(spacing),
                 str(spacing),  # Set output resolution to target spacing
                 "-r",
                 "bilinear",  # Use bilinear resampling
-                "-dstnodata",
-                "nan",
                 str(file),
                 str(output_file),
             ]
