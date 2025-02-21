@@ -61,7 +61,7 @@ get-data-for-scene-and-make-run-config "$scene" "$base_rtc_config" "$download_fo
 # push the outputs to S3
 # upload-folder-to-s3 "$3"
 
-# send message to sns-queue
+# send message to sns-queue - NOTE handled by batch, check how 
 
 
 

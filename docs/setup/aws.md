@@ -9,14 +9,13 @@ docker build -t sar-pipeline -f Docker/Dockerfile .
 Test image interactively
 
 ```bash
-docker run -it sar-pipeline /bin/bash
+ docker run -it --entrypoint /bin/bash sar-pipeline
 ...
 conda run --no-capture-output -n RTC
 ```
 ```bash
-docker run -it --entrypoint /bin/bash -v $(pwd)/scripts:/home/rtc_user/scratch/scripts sar-pipeline -c 'source scripts/run_aws_pipeline.sh hello'
 
-docker run -it sar-pipeline --scene test_scene --rtc_config IW_20m_antarctica.yaml
+docker run --env-file env.secret -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --base_rtc_config IW_20m_antarctica.yaml
 
 ```
 

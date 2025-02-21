@@ -2,6 +2,10 @@ import asf_search
 import os
 from pathlib import Path
 import logging
+import zipfile
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class MissingCredentialsError(Exception):
     """Exception raised when no credentials are supplied."""
@@ -23,8 +27,8 @@ def download_slc_from_asf(
 
     # ansure only one slc found
     assert len(search_results) == 1, f'Expected 1 SLC, found {len(search_results)} for scene : {scene}'
-    search_result = search_results[0] 
-    scene_name = search_result.properties['sceneName']
+    asf_scene_metadata = search_results[0] 
+    scene_name = asf_scene_metadata.properties['sceneName']
 
     # Authenticate. If credentials not supplied search the envrionment variables
     if asf_login is None and asf_pass is None:
@@ -41,11 +45,18 @@ def download_slc_from_asf(
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
 
-    logging.info(f'Downloading : {scene_name}')
-    search_result.download(path=download_folder, session=session)
-    scene_path = os.path.join(download_folder, scene_name)
+    logger.info(f'Downloading : {scene_name}')
+    asf_scene_metadata.download(path=download_folder, session=session)
+    scene_zip_path = os.path.join(download_folder, f'{scene_name}.zip')
 
-    return scene_path
+    scene_safe_path = scene_zip_path.replace(".zip",".SAFE")
+    if unzip and not os.path.exists(scene_safe_path): 
+        logger.info(f'unzipping scene to {scene_safe_path}')     
+        with zipfile.ZipFile(scene_zip_path, 'r') as zip_ref:
+            zip_ref.extractall(download_folder)
+        return scene_safe_path, asf_scene_metadata
+    else:
+        return scene_zip_path, asf_scene_metadata
     
 
     

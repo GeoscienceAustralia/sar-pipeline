@@ -1,2 +1,2 @@
-def download_dem():
+def download_dem(bounds, download_folder):
     ...
