@@ -43,10 +43,7 @@ def configure(ctx, param, filename):
 
 
 @click.command()
-@click.argument(
-    "scene",
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-)
+@click.argument("scene", type=str)
 @click.option(
     "-c",
     "--config",
@@ -68,12 +65,16 @@ def configure(ctx, param, filename):
 @click.option("--walltime", type=str, default="02:00:00")
 @click.option(
     "--output-dir",
-    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    type=click.Path(file_okay=False, path_type=Path),
     default="/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/",
 )
 def submit_pyrosar_gamma_workflow(
     scene, spacing, scaling, target_crs, ncpu, mem, queue, project, walltime, output_dir
 ):
+
+    if not output_dir.exists():
+        click.echo(f"Creating output directory: {output_dir}")
+        output_dir.mkdir(parents=True)
 
     scene_file = Path(scene)
 
@@ -94,7 +95,9 @@ def submit_pyrosar_gamma_workflow(
     log_dir = output_dir / "submission/logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    submit_job(scene, spacing, scaling, target_crs, pbs_parameters, log_dir)
+    submit_job(
+        scene_file, spacing, scaling, target_crs, pbs_parameters, output_dir, log_dir
+    )
 
 
 @click.command()
