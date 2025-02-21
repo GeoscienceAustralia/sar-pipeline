@@ -60,6 +60,7 @@ def configure(ctx, param, filename):
 )
 @click.option("--spacing", type=int)
 @click.option("--scaling", type=click.Choice(["linear", "db"]))
+@click.option("--target-crs", type=click.Choice(["EPSG:4326", "EPSG:3031"]))
 @click.option("--ncpu", type=str, default="4")
 @click.option("--mem", type=str, default="32")
 @click.option("--queue", type=str, default="normal")
@@ -71,7 +72,7 @@ def configure(ctx, param, filename):
     default="/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/",
 )
 def submit_pyrosar_gamma_workflow(
-    scene, spacing, scaling, ncpu, mem, queue, project, walltime, output_dir
+    scene, spacing, scaling, target_crs, ncpu, mem, queue, project, walltime, output_dir
 ):
 
     pbs_parameters = {
@@ -85,7 +86,7 @@ def submit_pyrosar_gamma_workflow(
     log_dir = output_dir / "submission/logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    submit_job(scene, spacing, scaling, pbs_parameters, log_dir)
+    submit_job(scene, spacing, scaling, target_crs, pbs_parameters, log_dir)
 
 
 @click.command()
