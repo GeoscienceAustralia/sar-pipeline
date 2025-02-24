@@ -1,4 +1,4 @@
-# sar-antarctica
+# sar-pipleine
 
 This repository contains code for running SAR processing pipelines on the NCI.
 

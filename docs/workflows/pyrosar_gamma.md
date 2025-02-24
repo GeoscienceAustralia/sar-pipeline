@@ -20,7 +20,7 @@ ln -s /apps/fftw3/3.3.10/lib/libfftw3f_GNU.so.3
 
 Activate the python env by running 
 ```
-micromamba activate sar-antarctica
+micromamba activate sar-pipleine
 ```
 
 Run the one-time script to create pyroSAR's python api using 

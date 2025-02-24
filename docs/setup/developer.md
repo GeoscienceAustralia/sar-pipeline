@@ -8,7 +8,7 @@ On the NCI, navigate to the place you want to keep your development. Suggestions
 
 Clone the repository into the chosen directory using
 ```
-git clone https://github.com/GeoscienceAustralia/sar-antarctica.git
+git clone https://github.com/GeoscienceAustralia/sar-pipleine.git
 ```
 
 ## Install micromamba in the current directory:
@@ -38,7 +38,7 @@ micromamba create -f environment.yml
 
 Activate the environment using
 ```
-micromamba activate sar-antarctica
+micromamba activate sar-pipleine
 ```
 
 ## Pip install the repository code
