@@ -32,9 +32,9 @@ class RTCConfigManager:
         """Set a value in the YAML data."""
         self.data[key] = value
 
-    def save(self):
+    def save(self, save_path):
         """Write the updated data back while preserving formatting."""
-        with open(self.file_path, "w") as file:
+        with open(save_path, "w") as file:
             self.yaml.dump(self.data, file)
 
 # # Example Usage

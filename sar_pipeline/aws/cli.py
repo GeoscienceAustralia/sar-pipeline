@@ -42,19 +42,19 @@ def get_data_for_scene_and_make_run_config(
         os.makedirs(download_folder, exist_ok=True)
 
     # # download the SLC and get scene metadata from asf
-    scene_folder = Path(download_folder) / Path('scenes')
-    SCENE_PATH, asf_scene_metadata = download_slc_from_asf(scene, scene_folder)
+    # scene_folder = Path(download_folder) / Path('scenes')
+    # SCENE_PATH, asf_scene_metadata = download_slc_from_asf(scene, scene_folder)
 
-    # # download the orbits
-    orbit_folder = Path(download_folder) / Path('orbits')
-    ORBITS_PATH = download_orbits_from_s3(scene, orbit_folder)
+    # # # download the orbits
+    # orbit_folder = Path(download_folder) / Path('orbits')
+    # ORBITS_PATH = download_orbits_from_s3(scene, orbit_folder)
 
-    # # download the dem
-    dem_folder = Path(download_folder) / Path('dem')
-    scene_polygon = Polygon(asf_scene_metadata.geometry['coordinates'][0])
-    bounds = scene_polygon.bounds
-    #bounds = (163.126465, -78.615303, 172.387283, -76.398262)
-    DEM_PATH = download_dem(bounds=bounds, download_folder=dem_folder)
+    # # # download the dem
+    # dem_folder = Path(download_folder) / Path('dem')
+    # scene_polygon = Polygon(asf_scene_metadata.geometry['coordinates'][0])
+    # bounds = scene_polygon.bounds
+    # #bounds = (163.126465, -78.615303, 172.387283, -76.398262)
+    # DEM_PATH = download_dem(bounds=bounds, download_folder=dem_folder)
 
     # make the base .yaml for RTC processing
     RTC_RUN_CONFIG = RTCConfigManager(base_rtc_config)
