@@ -19,7 +19,7 @@ jobs:
       shell: micromamba-shell {0}
       run: |
         pytest --version
-    - name: Install sar-antarctica package
+    - name: Install sar-pipleine package
       shell: micromamba-shell {0}
       run: |
         pip install .

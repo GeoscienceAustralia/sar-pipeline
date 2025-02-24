@@ -18,7 +18,7 @@ classifiers=[
 version = "0.1" # TODO base this on files in proje t
 
 [project.urls]
-Homepage = "https://github.com/GeoscienceAustralia/sar-antarctica.git"
+Homepage = "https://github.com/GeoscienceAustralia/sar-pipleine.git"
 # Documentation = "XXX"
 
 [project.scripts]
