@@ -35,4 +35,4 @@ testpaths = ["tests/*"]
 where = ["."]
 
 [tool.setuptools.package-data]
-sar_pipeline = ["**/*.yaml", "**/*.yml", "**/*.gpkg""]
+sar_pipeline = ["**/*.yaml", "**/*.yml", "**/*.gpkg"]
