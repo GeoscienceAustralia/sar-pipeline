@@ -1,3 +1,4 @@
+import os
 import geopandas as gpd
 import numpy as np
 from osgeo import gdal
@@ -17,6 +18,10 @@ from sar_pipeline.nci.preparation.dem_cop_glo30 import (
     make_empty_cop_glo30_profile_for_bounds,
 )
 from sar_pipeline.nci.preparation.geoid import remove_geoid
+from sar_pipeline.nci.preparation.download import (
+    download_dem_tile_from_aws, 
+    download_egm_08_geoid_from_aws
+    )
 
 # Create a custom type that allows use of BoundingBox or tuple(xmin, ymin, xmax, ymax)
 BBox = BoundingBox | tuple[float | int, float | int, float | int, float | int]
@@ -28,7 +33,10 @@ COP30_FOLDER_PATH = Path(
 GEOID_TIF_PATH = Path(
     "/g/data/yp75/projects/ancillary/geoid/us_nga_egm2008_1_4326__agisoft.tif"
 )
-COP30_GPKG_PATH = Path("/g/data/yp75/projects/ancillary/dem/copdem_tindex.gpkg")
+
+DATA_DIR = Path(os.path.dirname(os.path.realpath(__file__))).parent.parent / Path('data')
+COP30_GPKG_PATH = DATA_DIR / Path('copdem_tindex_filename.gpkg')
+#COP30_GPKG_PATH = Path("/g/data/yp75/projects/ancillary/dem/copdem_tindex.gpkg")
 
 
 def get_cop30_dem_for_bounds(
@@ -41,6 +49,8 @@ def get_cop30_dem_for_bounds(
     cop30_index_path: Path | None = COP30_GPKG_PATH,
     cop30_folder_path: Path | None = COP30_FOLDER_PATH,
     geoid_tif_path: Path = GEOID_TIF_PATH,
+    download_dem_tiles: bool = False,
+    download_geoid: bool =  False,
 ):
 
     # Convert bounding box to built-in bounding box type
@@ -62,6 +72,9 @@ def get_cop30_dem_for_bounds(
         logger.info(f"Splitting bounds into left and right side of antimeridian")
         bounds_eastern, bounds_western = split_s1_bounds_at_am_crossing(bounds)
 
+        # Use recursion to process each side of the AM. The function is rerun
+        # This time, antimeridian_crossing will be False enabling each side to be
+        # independantly processed
         logger.info("Producing raster for Eastern Hemisphere bounds")
         eastern_save_path = save_path.parent.joinpath(
             save_path.stem + "_eastern" + save_path.suffix
@@ -152,16 +165,14 @@ def get_cop30_dem_for_bounds(
         )
         print(adjusted_bounds.bounds)
         # Find cop glo30 paths for bounds
-        if cop30_index_path is not None:
-            logger.info(f"Finding intersecting DEM files from: {cop30_index_path}")
-            dem_paths = find_required_dem_paths_from_index(
-                adjusted_bounds, dem_index_path=cop30_index_path
-            )
-        else:
-            logger.info(f"Searching for DEM files in folder: {cop30_folder_path}")
-            dem_paths = get_cop_glo30_files_covering_bounds(
-                adjusted_bounds, cop30_folder_path=cop30_folder_path
-            )
+        logger.info(f"Finding intersecting DEM files from: {cop30_index_path}")
+        dem_paths = find_required_dem_paths_from_index(
+            adjusted_bounds, 
+            cop30_folder_path=cop30_folder_path,
+            dem_index_path=cop30_index_path,
+            tifs_in_subfolder=True,
+            download_missing=download_dem_tiles,
+        )
 
         # Display dem tiles to the user
         logger.info(f"{len(dem_paths)} tiles found in bounds")
@@ -225,6 +236,14 @@ def get_cop30_dem_for_bounds(
             logging.info(
                 f"Subtracting the geoid from the DEM to return ellipsoid heights"
             )
+            if not download_geoid and not os.path.exists(geoid_tif_path):
+                raise FileExistsError(f'Geoid file does not exist: {geoid_tif_path}. '\
+                                      'correct path or set download_geoid = True'
+                                      )
+            elif download_geoid and not os.path.exists(geoid_tif_path):
+                logging.info(f'Downloading the egm_08 geoid')
+                download_egm_08_geoid_from_aws(geoid_tif_path, bounds=adjusted_bounds.bounds)
+            
             logging.info(f"Using geoid file: {geoid_tif_path}")
             dem_array = remove_geoid(
                 dem_array=dem_array,
@@ -373,8 +392,11 @@ def adjust_bounds_at_high_lat(bounds: BBox) -> tuple:
 
 def find_required_dem_paths_from_index(
     bounds: BBox,
+    cop30_folder_path: Path | None,
     dem_index_path=COP30_GPKG_PATH,
     search_buffer=0.3,
+    tifs_in_subfolder=True,
+    download_missing=False
 ) -> list[str]:
 
     if isinstance(bounds, tuple):
@@ -390,7 +412,26 @@ def find_required_dem_paths_from_index(
         )
     # Find rows that intersect with the bounding box
     intersecting_tiles = gdf[gdf.intersects(bounding_box)]
-    if len(intersecting_tiles) > 0:
-        return sorted(intersecting_tiles.location.tolist())
-    else:
+    logger.info(f'Number of cop30 files found intersecting bounds : {len(intersecting_tiles)}')
+    if len(intersecting_tiles) == 0:
+        # no intersecting tiles
         return []
+    else:
+        dem_tiles = sorted(intersecting_tiles.location.tolist())
+        local_dem_paths = []
+        missing_dems = []
+        for i,t_filename in enumerate(dem_tiles):
+            t_folder = Path(cop30_folder_path) if not tifs_in_subfolder else Path(cop30_folder_path) / Path(t_filename).stem
+            t_path = t_folder / t_filename
+            t_exists = os.path.exists(t_path)
+            local_dem_paths.append(t_path) if t_exists else missing_dems.append(t_path)
+        logger.info(f'Local cop30m directory: {cop30_folder_path}')
+        logger.info(f'Number of tiles existing locally : {len(local_dem_paths)}')
+        logger.info(f'Number of tiles missing locally : {len(missing_dems)}')
+        if download_missing and len(missing_dems)>0:
+            for t_path in missing_dems:
+                download_dem_tile_from_aws(tile_filename=t_path.name, save_folder=t_path.parent)
+                local_dem_paths.append(t_path)
+        local_dem_paths.append(t_path)
+            
+    return local_dem_paths
