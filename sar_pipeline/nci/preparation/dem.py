@@ -1,4 +1,3 @@
-import os
 import geopandas as gpd
 import numpy as np
 from osgeo import gdal
@@ -34,10 +33,8 @@ GEOID_TIF_PATH = Path(
     "/g/data/yp75/projects/ancillary/geoid/us_nga_egm2008_1_4326__agisoft.tif"
 )
 
-DATA_DIR = Path(os.path.dirname(os.path.realpath(__file__))).parent.parent / Path('data')
+DATA_DIR = Path(__file__).parents[2] / Path('data')
 COP30_GPKG_PATH = DATA_DIR / Path('copdem_tindex_filename.gpkg')
-#COP30_GPKG_PATH = Path("/g/data/yp75/projects/ancillary/dem/copdem_tindex.gpkg")
-
 
 def get_cop30_dem_for_bounds(
     bounds: BBox,
@@ -236,11 +233,11 @@ def get_cop30_dem_for_bounds(
             logging.info(
                 f"Subtracting the geoid from the DEM to return ellipsoid heights"
             )
-            if not download_geoid and not os.path.exists(geoid_tif_path):
+            if not download_geoid and not Path(geoid_tif_path).exists():
                 raise FileExistsError(f'Geoid file does not exist: {geoid_tif_path}. '\
                                       'correct path or set download_geoid = True'
                                       )
-            elif download_geoid and not os.path.exists(geoid_tif_path):
+            elif download_geoid and not Path(geoid_tif_path).exists():
                 logging.info(f'Downloading the egm_08 geoid')
                 download_egm_08_geoid_from_aws(geoid_tif_path, bounds=adjusted_bounds.bounds)
             
@@ -423,8 +420,7 @@ def find_required_dem_paths_from_index(
         for i,t_filename in enumerate(dem_tiles):
             t_folder = Path(cop30_folder_path) if not tifs_in_subfolder else Path(cop30_folder_path) / Path(t_filename).stem
             t_path = t_folder / t_filename
-            t_exists = os.path.exists(t_path)
-            local_dem_paths.append(t_path) if t_exists else missing_dems.append(t_path)
+            local_dem_paths.append(t_path) if t_path.exists() else missing_dems.append(t_path)
         logger.info(f'Local cop30m directory: {cop30_folder_path}')
         logger.info(f'Number of tiles existing locally : {len(local_dem_paths)}')
         logger.info(f'Number of tiles missing locally : {len(missing_dems)}')

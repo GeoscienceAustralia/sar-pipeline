@@ -41,7 +41,7 @@ def read_geoid(
         If ther GEOID file cannot be found
     """
 
-    if not os.path.exists(geoid_path):
+    if not Path(geoid_path).exists():
         raise FileNotFoundError(f"Geoid file does not exist at path: {geoid_path}")
 
     geoid_arr, geoid_profile = read_raster_with_bounds(
