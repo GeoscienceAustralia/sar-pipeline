@@ -86,7 +86,7 @@ def test_get_cop30_dem_for_bounds_ocean_and_land(test_input: TestDem):
         buffer_pixels=None,
         buffer_world=None,
         cop30_index_path=INDEX_PATH,
-        cop30_folder_path=None,
+        cop30_folder_path=FOLDER_PATH,
         geoid_tif_path=GEOID_PATH,
     )
 
