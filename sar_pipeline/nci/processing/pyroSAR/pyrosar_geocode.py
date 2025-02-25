@@ -111,6 +111,10 @@ def run_pyrosar_gamma_geocode(
     else:
         border_removal_method = None
 
+    # If both linear and db scaling requested, construct the appropriate input for geocode
+    if geocode_scaling == "both":
+        geocode_scaling = ["linear", "db"]
+
     geocode(
         scene=pyrosar_scene_id,
         dem=str(dem_gamma),

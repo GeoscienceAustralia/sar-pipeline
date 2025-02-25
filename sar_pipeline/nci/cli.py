@@ -56,7 +56,7 @@ def configure(ctx, param, filename):
     show_default=True,
 )
 @click.option("--spacing", type=int)
-@click.option("--scaling", type=click.Choice(["linear", "db"]))
+@click.option("--scaling", type=click.Choice(["linear", "db", "both"]))
 @click.option("--target-crs", type=click.Choice(["EPSG:4326", "EPSG:3031"]))
 @click.option("--ncpu", type=str, default="4")
 @click.option("--mem", type=str, default="32")
@@ -117,7 +117,7 @@ def submit_pyrosar_gamma_workflow(
     show_default=True,
 )
 @click.option("--spacing", type=int)
-@click.option("--scaling", type=click.Choice(["linear", "db"]))
+@click.option("--scaling", type=click.Choice(["linear", "db", "both"]))
 @click.option("--target-crs", type=click.Choice(["EPSG:4326", "EPSG:3031"]))
 @click.option(
     "--orbit-dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
