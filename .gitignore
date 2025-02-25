@@ -7,7 +7,7 @@ build
 .*cache
 *.tif
 *.vrt
-data
+.data
 
 # include test data files
 !tests/sar_pipeline/data/**/*.tif
