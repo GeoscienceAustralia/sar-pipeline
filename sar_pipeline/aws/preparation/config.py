@@ -24,13 +24,29 @@ class RTCConfigManager:
         with open(self.file_path, "r") as file:
             return self.yaml.load(file)
 
-    def get(self, key):
-        """Get a value from the YAML data."""
-        return self.data.get(key, None)
+    def get(self, key, default=None):
+        """Get a nested value from the YAML data."""
+        keys = key.split(".")  # Support dot notation for nested keys
+        data = self.data  # Start at the root
+
+        for k in keys:
+            if not isinstance(data, dict) or k not in data:
+                return default  # Return default if key is missing
+            data = data[k]  # Move deeper
+
+        return data  # Return the final value
 
     def set(self, key, value):
-        """Set a value in the YAML data."""
-        self.data[key] = value
+        """Set a nested value in the YAML data."""
+        keys = key.split(".")  # Support dot notation for nested keys
+        data = self.data  # Start at the root
+
+        for k in keys[:-1]:  # Traverse to the second-to-last key
+            if k not in data or not isinstance(data[k], dict):
+                data[k] = {}  # Ensure the intermediate key is a dict
+            data = data[k]  # Move deeper
+
+        data[keys[-1]] = value  # Set the final key
 
     def save(self, save_path):
         """Write the updated data back while preserving formatting."""
