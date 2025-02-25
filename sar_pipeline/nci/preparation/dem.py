@@ -47,7 +47,7 @@ def get_cop30_dem_for_bounds(
     buffer_pixels: int | None = 10,
     buffer_world: int | float | None = None,
     cop30_index_path: Path = COP30_GPKG_PATH,
-    cop30_folder_path: Path | None = COP30_FOLDER_PATH,
+    cop30_folder_path: Path = COP30_FOLDER_PATH,
     geoid_tif_path: Path = GEOID_TIF_PATH,
     download_dem_tiles: bool = False,
     download_geoid: bool =  False,
