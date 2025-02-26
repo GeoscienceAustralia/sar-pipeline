@@ -39,10 +39,10 @@ runconfig:
 
             processing_type: NOMINAL
 
-            product_version:
+            product_version: 0.1
 
             # Directory where PGE will place results
-            product_path:
+            product_path: .
             # Directory where SAS writes temporary data
             scratch_path:
 
@@ -263,11 +263,11 @@ runconfig:
                     # - If center_lat >= 75.0: 3413
                     # - If center_lat <= -75.0: 3031
                     # - Otherwise: EPSG code associated with the closest UTM zone
-                    output_epsg:
-                    x_posting: 30
-                    y_posting: 30
-                    x_snap: 30
-                    y_snap: 30
+                    output_epsg: 3031
+                    x_posting: 20
+                    y_posting: 20
+                    x_snap: 20
+                    y_snap: 20
                     top_left:
                         x:
                         y:

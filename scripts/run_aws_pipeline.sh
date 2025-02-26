@@ -5,6 +5,7 @@ scene=""
 base_rtc_config=""
 download_folder="/home/rtc_user/working"
 out_folder="/home/rtc_user/working"
+scratch_folder="/home/rtc_user/scratch"
 s3_bucket="deant-data-dev"
 s3_folder="experimental/s1_rtc_c1"
 
@@ -14,6 +15,7 @@ while [[ "$#" -gt 0 ]]; do
         --scene) scene="$2"; shift ;;  # Shift moves to next argument
         --base_rtc_config) base_rtc_config="$2"; shift ;;
         --download_folder) download_folder="$2"; shift ;;
+        --scratch_folder) scratch_folder="$2"; shift ;;
         --out_folder) out_folder="$2"; shift ;;
         --s3_bucket) s3_bucket="$2"; shift ;;
         --s3_folder) s3_folder="$2"; shift ;;
@@ -32,6 +34,7 @@ echo The input variables are:
 echo scene : "$scene"
 echo base_rtc_config : "$base_rtc_config"
 echo download_folder : "$out_folder"
+echo scratch_folder : "$scratch_folder"
 echo out_folder : "$out_folder"
 echo s3_bucket : "$s3_bucket"
 echo s3_folder : "$s3_folder"
@@ -46,11 +49,19 @@ conda activate sar-pipeline
 # make the rtc config that will be used by the RTC processor
 # set the config path to be in the out_folder so it can be uploaded with products
 RUN_CONFIG_PATH="$out_folder/rtc_run_config.yaml"
-get-data-for-scene-and-make-run-config "$scene" "$base_rtc_config" "$download_folder" "$out_folder" "$RUN_CONFIG_PATH"
+RUN_CONFIG_PATH="/home/rtc_user/scripts/rtc_run_config.yaml"
+
+get-data-for-scene-and-make-run-config \
+"$scene" \
+"$base_rtc_config" \
+"$download_folder" \
+"$scratch_folder" \
+"$out_folder" \
+"$RUN_CONFIG_PATH"
 
 # activate the ISCE3 envrionment and make products
-# conda activate RTC
-# rtc_s1.py $RUN_CONFIG_PATH
+conda activate RTC
+rtc_s1.py $RUN_CONFIG_PATH
 
 # activate the sar-pipeline environment 
 # conda activate sar-pipeline

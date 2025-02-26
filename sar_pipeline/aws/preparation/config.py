@@ -52,18 +52,3 @@ class RTCConfigManager:
         """Write the updated data back while preserving formatting."""
         with open(save_path, "w") as file:
             self.yaml.dump(self.data, file)
-
-# # Example Usage
-# config = RTCConfigManager("config.yaml")
-
-# # Modify values
-# config.set("scene", "new_scene")
-# config.set("config", {"resolution": "1080p", "quality": "high"})
-
-# # Save changes
-# config.save()
-
-# class rtc_config():
-#     def __init__(self, base_config : str):
-#         self.base_config = base_config
-#     ...

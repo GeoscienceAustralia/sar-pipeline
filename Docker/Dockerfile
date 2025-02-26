@@ -68,9 +68,11 @@ RUN python -m pip install .
 RUN python -m pip install -r environment-aws.txt
 
 # Copy the .sh file that will be run on entry to the container
+RUN mkdir -p /home/rtc_user/scripts
+COPY --chown=rtc_user:rtc_user ./scripts/run_aws_pipeline.sh /home/rtc_user/scripts
+RUN chmod +x /home/rtc_user/scripts/run_aws_pipeline.sh 
+
 WORKDIR /home/rtc_user/working
-COPY --chown=rtc_user:rtc_user ./scripts/run_aws_pipeline.sh /home/rtc_user/working
-RUN chmod +x /home/rtc_user/working/run_aws_pipeline.sh 
 
 # ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "sar-pipeline"]
-ENTRYPOINT ["/home/rtc_user/working/run_aws_pipeline.sh"]
+ENTRYPOINT ["/home/rtc_user/scripts/run_aws_pipeline.sh"]

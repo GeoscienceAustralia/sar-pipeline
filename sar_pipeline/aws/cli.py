@@ -6,8 +6,9 @@ from shapely.geometry import Polygon
 
 from sar_pipeline.aws.preparation.scenes import download_slc_from_asf
 from sar_pipeline.aws.preparation.orbits import download_orbits_from_s3
-from sar_pipeline.aws.preparation.dem import download_dem
 from sar_pipeline.aws.preparation.config import RTCConfigManager
+
+from sar_pipeline.nci.preparation.dem import get_cop30_dem_for_bounds
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,12 +18,14 @@ logger = logging.getLogger(__name__)
 @click.argument("scene", type=str)
 @click.argument("base_rtc_config", type=str)
 @click.argument("download_folder", type=str)
+@click.argument("scratch_folder", type=str)
 @click.argument("out_folder", type=str)
 @click.argument("config_path", type=str)
 def get_data_for_scene_and_make_run_config(
         scene : str, 
         base_rtc_config : str,
         download_folder : Path,
+        scratch_folder : Path,
         out_folder : Path,
         config_path : Path,
         make_folders : bool = True,
@@ -37,9 +40,11 @@ def get_data_for_scene_and_make_run_config(
     # - dem : dem for scene 
     # - scratch : scratch folder for processing
 
-    # make the download folder if doesnt exist
     if make_folders:
         os.makedirs(download_folder, exist_ok=True)
+        os.makedirs(out_folder, exist_ok=True)
+        os.makedirs(scratch_folder, exist_ok=True)
+        os.makedirs(Path(config_path).parent, exist_ok=True)
 
     # download the SLC and get scene metadata from asf
     scene_folder = Path(download_folder) / Path('scenes')
@@ -51,25 +56,43 @@ def get_data_for_scene_and_make_run_config(
 
     # # download the dem
     dem_folder = Path(download_folder) / Path('dem')
+    DEM_PATH = dem_folder / f'{scene}_dem.tif'
     scene_polygon = Polygon(asf_scene_metadata.geometry['coordinates'][0])
     bounds = scene_polygon.bounds
     # bounds = (163.126465, -78.615303, 172.387283, -76.398262)
-    # DEM_PATH = download_dem(bounds=bounds, download_folder=dem_folder)
-    DEM_PATH = 'my/temp/dem.tif'
+    get_cop30_dem_for_bounds(
+        bounds = bounds,
+        save_path = DEM_PATH,
+        ellipsoid_heights = True,
+        adjust_at_high_lat= True,
+        buffer_pixels = 10,
+        buffer_world = None,
+        cop30_folder_path = dem_folder,
+        geoid_tif_path = dem_folder / f'{scene}_geoid.tif',
+        download_dem_tiles = True,
+        download_geoid=True,
+    )
 
     # make the base .yaml for RTC processing
     RTC_RUN_CONFIG = RTCConfigManager(base_rtc_config)
     
-    # update the values based on the information provided
+    # Update input and ancillery data
     gk = 'runconfig.groups'
-    RTC_RUN_CONFIG.set(f'{gk}.input_file_group.safe_file_path',SCENE_PATH)
-    RTC_RUN_CONFIG.set(f'{gk}.input_file_group.orbit_file_path',[ORBITS_PATH])
-    RTC_RUN_CONFIG.set(f'{gk}.dynamic_ancillary_file_group.dem_file',DEM_PATH)
+    RTC_RUN_CONFIG.set(f'{gk}.input_file_group.safe_file_path',[str(SCENE_PATH)])
+    RTC_RUN_CONFIG.set(f'{gk}.input_file_group.orbit_file_path',[str(ORBITS_PATH)])
+    RTC_RUN_CONFIG.set(f'{gk}.dynamic_ancillary_file_group.dem_file',str(DEM_PATH))
     RTC_RUN_CONFIG.set(f'{gk}.dynamic_ancillary_file_group.dem_file_description','tmp')
+    #RTC_RUN_CONFIG.set(f'{gk}.static_ancillary_file_group.burst_database_file','')
+
+    # Update Outputs
+    RTC_RUN_CONFIG.set(f'{gk}.product_group.output_dir',str(out_folder))
+    RTC_RUN_CONFIG.set(f'{gk}.product_group.scratch_path',str(scratch_folder))
+
+    # set the polarisation
+    POLARIZATION = asf_scene_metadata.properties['polarization']
+    POLARIZATION_TYPE = 'dual-pol' if len(POLARIZATION) > 2 else 'co-pol' # string for template value
+    RTC_RUN_CONFIG.set(f'{gk}.processing.polarization',POLARIZATION_TYPE)
+
     # save the config
+    click.echo(f'Saving config to : {config_path}')
     RTC_RUN_CONFIG.save(config_path)
-
-
-
-
-
