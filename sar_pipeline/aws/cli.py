@@ -65,8 +65,8 @@ def get_data_for_scene_and_make_run_config(
         save_path = DEM_PATH,
         ellipsoid_heights = True,
         adjust_at_high_lat= True,
-        buffer_pixels = 10,
-        buffer_world = None,
+        buffer_pixels = None,
+        buffer_world = 0.3,
         cop30_folder_path = dem_folder,
         geoid_tif_path = dem_folder / f'{scene}_geoid.tif',
         download_dem_tiles = True,
@@ -96,3 +96,29 @@ def get_data_for_scene_and_make_run_config(
     # save the config
     click.echo(f'Saving config to : {config_path}')
     RTC_RUN_CONFIG.save(config_path)
+
+
+@click.command()
+@click.argument("results_folder", type=str)
+@click.argument("run_config_path", type=str)
+@click.argument("s3_bucket", type=str)
+@click.argument("s3_folder", type=str)
+def make_rtc_opera_stac(results_folder, run_config_path, s3_bucket, s3_folder):
+    """make STAC metadata for opera-rtc. Point at results folder
+    containing the bursts"""
+
+    results_folder = Path(results_folder)
+    run_config_path = Path(run_config_path)
+
+    # iterate through the burst directory and create STAC metadata
+    for x in results_folder.iterdir():
+        if x.is_dir():
+            ...
+           
+
+    #        file_list.append(x)
+    #     else:
+
+    #        file_list.append(searching_all_files(results_folder/x))
+
+    # return file_list

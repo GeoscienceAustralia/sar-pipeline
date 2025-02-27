@@ -3,11 +3,11 @@
 # Default values for the continer
 scene=""
 base_rtc_config=""
-download_folder="/home/rtc_user/working"
-out_folder="/home/rtc_user/working"
-scratch_folder="/home/rtc_user/scratch"
+download_folder="/home/rtc_user/working/downloads"
+out_folder="/home/rtc_user/working/results"
+scratch_folder="/home/rtc_user/working/scratch"
 s3_bucket="deant-data-dev"
-s3_folder="experimental/s1_rtc_c1"
+s3_project_folder="experimental/s1_rtc_c1"
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
@@ -18,7 +18,7 @@ while [[ "$#" -gt 0 ]]; do
         --scratch_folder) scratch_folder="$2"; shift ;;
         --out_folder) out_folder="$2"; shift ;;
         --s3_bucket) s3_bucket="$2"; shift ;;
-        --s3_folder) s3_folder="$2"; shift ;;
+        --s3_project_folder) s3_project_folder="$2"; shift ;;
         *) echo "Unknown parameter: $1"; exit 1 ;;
     esac
     shift
@@ -30,6 +30,10 @@ if [[ -z "$scene" || -z "$base_rtc_config" ]]; then
     exit 1
 fi
 
+# append the scene to the results and scratch folder
+out_folder="$out_folder/$scene"
+scratch_folder="$scratch_folder/$scene"
+
 echo The input variables are:
 echo scene : "$scene"
 echo base_rtc_config : "$base_rtc_config"
@@ -37,7 +41,7 @@ echo download_folder : "$out_folder"
 echo scratch_folder : "$scratch_folder"
 echo out_folder : "$out_folder"
 echo s3_bucket : "$s3_bucket"
-echo s3_folder : "$s3_folder"
+echo s3_project_folder : "$s3_project_folder"
 
 # activate conda 
 source ~/.bashrc
@@ -49,7 +53,7 @@ conda activate sar-pipeline
 # make the rtc config that will be used by the RTC processor
 # set the config path to be in the out_folder so it can be uploaded with products
 RUN_CONFIG_PATH="$out_folder/rtc_run_config.yaml"
-RUN_CONFIG_PATH="/home/rtc_user/scripts/rtc_run_config.yaml"
+#RUN_CONFIG_PATH="/home/rtc_user/scripts/rtc_run_config.yaml"
 
 get-data-for-scene-and-make-run-config \
 "$scene" \
@@ -64,7 +68,7 @@ conda activate RTC
 rtc_s1.py $RUN_CONFIG_PATH
 
 # activate the sar-pipeline environment 
-# conda activate sar-pipeline
+conda activate sar-pipeline
 
 # point at the out product directory and make STAC metdata
 # make-rtc-opera-stac "$3"
