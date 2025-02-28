@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 @click.command()
 @click.argument("scene", type=str)
 @click.argument("base_rtc_config", type=str)
+@click.argument("dem", type=str)
 @click.argument("download_folder", type=str)
 @click.argument("scratch_folder", type=str)
 @click.argument("out_folder", type=str)
@@ -29,15 +30,18 @@ logger = logging.getLogger(__name__)
 def get_data_for_scene_and_make_run_config(
         scene : str, 
         base_rtc_config : str,
+        dem : str,
         download_folder : Path,
         scratch_folder : Path,
         out_folder : Path,
         config_path : Path,
         make_folders : bool = True,
     ):
-    click.echo(f'Getting data for scene : {scene}')
+    click.echo(f'Downloading data for scene : {scene}')
     click.echo(f'Saving files to : {download_folder}')
-    click.echo(f'Setting the product folder to : {out_folder}')
+
+    # make the base .yaml for RTC processing
+    RTC_RUN_CONFIG = RTCConfigManager(base_rtc_config)
     
     #The following subdirectories will be made in download_folder:
     # - scenes : downloaded and unzipped SAFE file for scene
@@ -77,9 +81,6 @@ def get_data_for_scene_and_make_run_config(
         download_dem_tiles = True,
         download_geoid=True,
     )
-
-    # make the base .yaml for RTC processing
-    RTC_RUN_CONFIG = RTCConfigManager(base_rtc_config)
     
     # Update input and ancillery data
     gk = 'runconfig.groups'

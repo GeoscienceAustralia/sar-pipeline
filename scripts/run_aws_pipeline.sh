@@ -3,9 +3,7 @@
 # Default values for the continer
 scene=""
 base_rtc_config=""
-download_folder="/home/rtc_user/working/downloads"
-out_folder="/home/rtc_user/working/results"
-scratch_folder="/home/rtc_user/working/scratch"
+dem="glo_30"
 s3_bucket="deant-data-public-dev"
 s3_project_folder="experimental/s1_rtc_c1"
 
@@ -14,9 +12,7 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
         --scene) scene="$2"; shift ;;  # Shift moves to next argument
         --base_rtc_config) base_rtc_config="$2"; shift ;;
-        --download_folder) download_folder="$2"; shift ;;
-        --scratch_folder) scratch_folder="$2"; shift ;;
-        --out_folder) out_folder="$2"; shift ;;
+        --dem) dem="$2"; shift ;;
         --s3_bucket) s3_bucket="$2"; shift ;;
         --s3_project_folder) s3_project_folder="$2"; shift ;;
         *) echo "Unknown parameter: $1"; exit 1 ;;
@@ -30,18 +26,22 @@ if [[ -z "$scene" || -z "$base_rtc_config" ]]; then
     exit 1
 fi
 
-# append the scene to the results and scratch folder
-out_folder="$out_folder/$scene"
-scratch_folder="$scratch_folder/$scene"
-
 echo The input variables are:
 echo scene : "$scene"
 echo base_rtc_config : "$base_rtc_config"
+echo dem : "$dem"
+echo s3_bucket : "$s3_bucket"
+echo s3_project_folder : "$s3_project_folder"
+
+# set process folders for the container
+download_folder="/home/rtc_user/working/downloads"
+out_folder="/home/rtc_user/working/results/$scene"
+scratch_folder="/home/rtc_user/working/scratch/$scene"
+
+echo The container will use these for processing:
 echo download_folder : "$out_folder"
 echo scratch_folder : "$scratch_folder"
 echo out_folder : "$out_folder"
-echo s3_bucket : "$s3_bucket"
-echo s3_project_folder : "$s3_project_folder"
 
 # activate conda 
 source ~/.bashrc
@@ -57,6 +57,7 @@ RUN_CONFIG_PATH="$out_folder/OPERA-RTC_CONFIG.yaml"
 get-data-for-scene-and-make-run-config \
 "$scene" \
 "$base_rtc_config" \
+"$dem" \
 "$download_folder" \
 "$scratch_folder" \
 "$out_folder" \
