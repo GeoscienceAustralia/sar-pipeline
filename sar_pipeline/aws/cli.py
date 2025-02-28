@@ -2,13 +2,18 @@ import click
 import logging
 import os
 from pathlib import Path
+import shutil
 from shapely.geometry import Polygon
+from datetime import datetime
 
 from sar_pipeline.aws.preparation.scenes import download_slc_from_asf
 from sar_pipeline.aws.preparation.orbits import download_orbits_from_s3
 from sar_pipeline.aws.preparation.config import RTCConfigManager
+from sar_pipeline.aws.metadata.stac import RTCStacManager
+from sar_pipeline.aws.metadata.h5 import RTCH5Manager
 
 from sar_pipeline.nci.preparation.dem import get_cop30_dem_for_bounds
+from sar_pipeline.nci.upload.push_folder_to_s3 import push_files_in_folder_to_s3
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -103,7 +108,7 @@ def get_data_for_scene_and_make_run_config(
 @click.argument("run_config_path", type=str)
 @click.argument("s3_bucket", type=str)
 @click.argument("s3_folder", type=str)
-def make_rtc_opera_stac(results_folder, run_config_path, s3_bucket, s3_folder):
+def make_rtc_opera_stac_and_upload_bursts(results_folder, run_config_path, s3_bucket, s3_folder):
     """make STAC metadata for opera-rtc. Point at results folder
     containing the bursts"""
 
@@ -111,14 +116,24 @@ def make_rtc_opera_stac(results_folder, run_config_path, s3_bucket, s3_folder):
     run_config_path = Path(run_config_path)
 
     # iterate through the burst directory and create STAC metadata
-    for x in results_folder.iterdir():
-        if x.is_dir():
-            ...
-           
-
-    #        file_list.append(x)
-    #     else:
-
-    #        file_list.append(searching_all_files(results_folder/x))
-
-    # return file_list
+    burst_folders = [x for x in results_folder.iterdir() if x.is_dir()]
+    for i,burst_folder in enumerate(burst_folders):
+        logger.info(f'Making STAC metadata for burst {i+1} of {len(burst_folders)} : {burst_folder}')
+        # copy the run config file to the burst folder
+        shutil.copy(run_config_path, burst_folder / run_config_path.name)
+        # load in the base stac for each burst
+        burst_stac = RTCStacManager()
+        # load in the .h5 file containing metadata for each burst
+        burst_h5 = list(burst_folder.glob('*.h5'))
+        assert len(burst_h5) == 1, f'{len(burst_h5)} .h5 files found. Expecting 1 for in {burst_folder}'
+        burst_h5 =  RTCH5Manager(burst_folder / burst_h5[0])
+        start_dt = burst_h5.get_value('metadata/sourceData/zeroDopplerStartTime')
+        start_dt = start_dt.decode("utf-8")
+        start_dt = datetime.fromisoformat(start_dt.rstrip("Z")) # Convert to datetime
+        s3_burst_folder = Path(s3_folder) / f'{start_dt.year}/{start_dt.month}/{start_dt.day}/{burst_folder.name}' 
+        # update the metadata for a given burst
+        ...
+        # save thge stac metadata to the burst folder 
+        burst_stac.save(burst_folder / 'metadata.json')
+        # push folder to S3
+        push_files_in_folder_to_s3(burst_folder, s3_bucket, s3_burst_folder)

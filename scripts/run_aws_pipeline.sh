@@ -6,7 +6,7 @@ base_rtc_config=""
 download_folder="/home/rtc_user/working/downloads"
 out_folder="/home/rtc_user/working/results"
 scratch_folder="/home/rtc_user/working/scratch"
-s3_bucket="deant-data-dev"
+s3_bucket="deant-data-public-dev"
 s3_project_folder="experimental/s1_rtc_c1"
 
 # Parse named arguments
@@ -52,8 +52,7 @@ conda activate sar-pipeline
 # search and download all the required ancillery/src files 
 # make the rtc config that will be used by the RTC processor
 # set the config path to be in the out_folder so it can be uploaded with products
-RUN_CONFIG_PATH="$out_folder/rtc_run_config.yaml"
-#RUN_CONFIG_PATH="/home/rtc_user/scripts/rtc_run_config.yaml"
+RUN_CONFIG_PATH="$out_folder/OPERA-RTC_CONFIG.yaml"
 
 get-data-for-scene-and-make-run-config \
 "$scene" \
@@ -71,12 +70,9 @@ rtc_s1.py $RUN_CONFIG_PATH
 conda activate sar-pipeline
 
 # point at the out product directory and make STAC metdata
-# make-rtc-opera-stac "$3"
+# note storage pattern is assumed to be s3_bucket / s3_project_folder / year / month / day / burstid / *files
+make-rtc-opera-stac-and-upload-bursts "$out_folder" "$RUN_CONFIG_PATH" "$s3_bucket" "$s3_project_folder"
 
-# push the outputs to S3
-# upload-folder-to-s3 "$3"
-
-# send message to sns-queue - NOTE handled by batch, check how 
 
 
 
