@@ -19,7 +19,7 @@ from sar_pipeline.utils.spatial import BoundingBox
 def buffer_bounds_cop_glo30(
     bounds: BoundingBox | tuple[float | int, float | int, float | int, float | int],
     pixel_buffer: int | None = None,
-    world_buffer: float | int | None = None,
+    degree_buffer: float | int | None = None,
 ) -> BoundingBox:
     """Buffer a bounding box by a fixed number of pixels or distance in decimal degrees
 
@@ -29,7 +29,7 @@ def buffer_bounds_cop_glo30(
         The set of bounds (min_lon, min_lat, max_lon, max_lat)
     pixel_buffer : int | None, optional
         Number of pixels to buffer, by default None
-    world_buffer : float | int | None, optional
+    degree_buffer : float | int | None, optional
         Distance (in decimal degrees) to buffer by, by default None
 
     Returns
@@ -41,20 +41,20 @@ def buffer_bounds_cop_glo30(
     if isinstance(bounds, tuple):
         bounds = BoundingBox(*bounds)
 
-    if not pixel_buffer and not world_buffer:
+    if not pixel_buffer and not degree_buffer:
         logger.warning("No buffer has been provided.")
         return bounds
 
-    if world_buffer and pixel_buffer:
-        logger.warning("Both pixel and world were provided. Pixel buffer will be used.")
-        world_buffer = None
+    if degree_buffer and pixel_buffer:
+        logger.warning("Both pixel and degree buffer provided. Degree buffer will be used.")
+        pixel_buffer = None
 
     if pixel_buffer:
         lon_spacing, lat_spacing = get_cop_glo30_spacing(bounds)
         buffer = (pixel_buffer * lon_spacing, pixel_buffer * lat_spacing)
 
-    if world_buffer:
-        buffer = (world_buffer, world_buffer)
+    if degree_buffer:
+        buffer = (degree_buffer, degree_buffer)
 
     new_xmin = max(bounds.xmin - buffer[0], -180)
     new_ymin = max(bounds.ymin - buffer[1], -90)

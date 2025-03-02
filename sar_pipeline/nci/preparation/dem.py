@@ -41,8 +41,8 @@ def get_cop30_dem_for_bounds(
     save_path: Path,
     ellipsoid_heights: bool = True,
     adjust_at_high_lat: bool = True,
-    buffer_pixels: int | None = 10,
-    buffer_world: int | float | None = None,
+    buffer_pixels: int | None = None,
+    buffer_degrees: int | float | None = None,
     cop30_index_path: Path = COP30_GPKG_PATH,
     cop30_folder_path: Path = COP30_FOLDER_PATH,
     geoid_tif_path: Path = GEOID_TIF_PATH,
@@ -132,12 +132,12 @@ def get_cop30_dem_for_bounds(
             adjusted_bounds = bounds
 
         # Buffer bounds if reqeuested
-        if buffer_pixels or buffer_world:
+        if buffer_pixels or buffer_degrees:
             logger.info(f"Buffering bounds by requested value")
             adjusted_bounds = buffer_bounds_cop_glo30(
                 adjusted_bounds,
                 pixel_buffer=buffer_pixels,
-                world_buffer=buffer_world,
+                degree_buffer=buffer_degrees,
             )
 
         # Before continuing, check that the new bounds for the dem cover the original bounds
