@@ -8,7 +8,7 @@ from rasterio.mask import mask
 from shapely.geometry import box
 import numpy as np
 
-from sar_pipeline.utils.spatial import BoundingBox
+from sar_pipeline.dem.utils.spatial import BoundingBox
 
 import logging
 logger = logging.getLogger(__name__)

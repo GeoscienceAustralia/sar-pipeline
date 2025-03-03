@@ -9,9 +9,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from sar_pipeline.utils.spatial import BoundingBox, get_local_utm, adjust_bounds
-from sar_pipeline.utils.raster import reproject_raster, merge_arrays_with_geometadata
-from sar_pipeline.dem.dem_cop_glo30 import (
+from sar_pipeline.dem.utils.spatial import BoundingBox, get_local_utm, adjust_bounds
+from sar_pipeline.dem.utils.raster import reproject_raster, merge_arrays_with_geometadata
+from sar_pipeline.dem.cop_glo30 import (
     get_cop_glo30_files_covering_bounds,
     buffer_bounds_cop_glo30,
     make_empty_cop_glo30_profile_for_bounds,
