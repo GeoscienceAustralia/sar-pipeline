@@ -2,7 +2,7 @@ name: Run Tests with Pytest
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, aws-iw-pipeline]
 
 jobs:
   run-tests:
