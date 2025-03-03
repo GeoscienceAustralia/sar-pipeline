@@ -7,7 +7,7 @@ import rasterio
 from rasterio.crs import CRS
 from pathlib import Path
 
-from sar_pipeline.nci.preparation.dem_cop_glo30 import (
+from sar_pipeline.dem.dem_cop_glo30 import (
     get_cop_glo30_spacing,
     get_cop_glo30_tile_transform,
     make_empty_cop_glo30_profile_for_bounds,

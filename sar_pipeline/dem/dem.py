@@ -11,13 +11,13 @@ logger = logging.getLogger(__name__)
 
 from sar_pipeline.utils.spatial import BoundingBox, get_local_utm, adjust_bounds
 from sar_pipeline.utils.raster import reproject_raster, merge_arrays_with_geometadata
-from sar_pipeline.nci.preparation.dem_cop_glo30 import (
+from sar_pipeline.dem.dem_cop_glo30 import (
     get_cop_glo30_files_covering_bounds,
     buffer_bounds_cop_glo30,
     make_empty_cop_glo30_profile_for_bounds,
 )
-from sar_pipeline.nci.preparation.geoid import remove_geoid
-from sar_pipeline.nci.preparation.download import (
+from sar_pipeline.dem.geoid import remove_geoid
+from sar_pipeline.dem.download import (
     download_dem_tile_from_aws, 
     download_egm_08_geoid_from_aws
     )
@@ -33,7 +33,7 @@ GEOID_TIF_PATH = Path(
     "/g/data/yp75/projects/ancillary/geoid/us_nga_egm2008_1_4326__agisoft.tif"
 )
 
-DATA_DIR = Path(__file__).parents[2] / Path('data')
+DATA_DIR = Path(__file__).parents[1] / Path('data')
 COP30_GPKG_PATH = DATA_DIR / Path('copdem_tindex_filename.gpkg')
 
 def get_cop30_dem_for_bounds(

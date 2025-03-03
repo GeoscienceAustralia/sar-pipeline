@@ -1,4 +1,4 @@
-from sar_pipeline.nci.preparation.create_dem_vrt import (
+from sar_pipeline.dem.create_dem_vrt import (
     find_tiles,
     build_vrt,
     build_tileindex,
