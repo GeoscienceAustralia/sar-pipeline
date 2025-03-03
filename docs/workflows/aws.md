@@ -24,6 +24,8 @@ chmod +x /home/rtc_user/scripts/run_aws_pipeline.sh
 
 /home/rtc_user/scripts/run_aws_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --base_rtc_config IW_20m_antarctica.yaml
 
+docker run --env-file env.secret -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --base_rtc_config IW_20m_antarctica.yaml
+
 
 ```
 

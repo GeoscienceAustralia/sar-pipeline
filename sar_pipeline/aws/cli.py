@@ -75,7 +75,7 @@ def get_data_for_scene_and_make_run_config(
         ellipsoid_heights = True,
         adjust_at_high_lat= True,
         buffer_pixels = None,
-        buffer_world = 0.3,
+        buffer_degrees = 0.3,
         cop30_folder_path = dem_folder,
         geoid_tif_path = dem_folder / f'{scene}_geoid.tif',
         download_dem_tiles = True,
