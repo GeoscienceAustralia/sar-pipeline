@@ -14,7 +14,7 @@ jobs:
       with:
         generate-run-shell: true
         environment-file: environment.yml
-        condarc-file: .condarc
+        # condarc-file: .condarc
     - name: Check packages
       shell: micromamba-shell {0}
       run: |
