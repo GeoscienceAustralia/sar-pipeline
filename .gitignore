@@ -12,3 +12,6 @@ build
 # include test data files
 !tests/sar_pipeline/data/**/*.tif
 !tests/sar_pipeline/data/**/*.vrt
+
+# ignore secret files
+*.secret

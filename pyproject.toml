@@ -27,6 +27,8 @@ find-orbits = "sar_pipeline.nci.cli:find_orbits_for_scene"
 run-pyrosar-gamma-workflow = "sar_pipeline.nci.cli:run_pyrosar_gamma_workflow"
 submit-pyrosar-gamma-workflow = "sar_pipeline.nci.cli:submit_pyrosar_gamma_workflow"
 upload-files-in-folder-to-s3 = "sar_pipeline.nci.cli:upload_files_in_folder_to_s3"
+get-data-for-scene-and-make-run-config = "sar_pipeline.aws.cli:get_data_for_scene_and_make_run_config"
+make-rtc-opera-stac-and-upload-bursts = "sar_pipeline.aws.cli:make_rtc_opera_stac_and_upload_bursts"
 
 [tool.pytest.ini_options]
 testpaths = ["tests/*"]
@@ -35,4 +37,4 @@ testpaths = ["tests/*"]
 where = ["."]
 
 [tool.setuptools.package-data]
-sar_pipeline = ["**/*.yaml", "**/*.yml", "**/*.gpkg"]
+sar_pipeline = ["**/*.yaml", "**/*.yml", "**/*.gpkg", "**/*.json"]
