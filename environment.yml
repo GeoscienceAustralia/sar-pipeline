@@ -1,6 +1,5 @@
 name: sar-pipeline
 channels:
-  - defaults
   - conda-forge
 dependencies:
   - _libgcc_mutex=0.1
