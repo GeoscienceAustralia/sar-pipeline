@@ -10,7 +10,6 @@ import numpy as np
 import rasterio
 import rasterio.transform
 import shapely.geometry
-from rasterio.crs import CRS
 from sar_pipeline.dem.utils.raster import read_raster_with_bounds
 from sar_pipeline.dem.utils.rio_tools import (
     translate_profile,
