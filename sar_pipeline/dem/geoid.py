@@ -3,7 +3,6 @@ inspired by https://github.com/ACCESS-Cloud-Based-InSAR/dem-stitcher/blob/dev/sr
 """
 
 import os
-from typing import Union
 from pathlib import Path
 import logging
 
@@ -13,17 +12,20 @@ import rasterio.transform
 import shapely.geometry
 from rasterio.crs import CRS
 from sar_pipeline.dem.utils.raster import read_raster_with_bounds
-from sar_pipeline.dem.utils.rio_tools import translate_profile, reproject_arr_to_match_profile
+from sar_pipeline.dem.utils.rio_tools import (
+    translate_profile,
+    reproject_arr_to_match_profile,
+)
 
 
 def read_geoid(
-    geoid_path: Union[str, Path], bounds: tuple, buffer_pixels: int = 0
+    geoid_path: str | Path, bounds: tuple, buffer_pixels: int = 0
 ) -> tuple[np.ndarray, dict]:
     """Read in the geoid for the bounds provided with a specified buffer.
 
     Parameters
     ----------
-    geoid_path : Union[str, Path]
+    geoid_path : str | Path
         Path to the GEOID file
     bounds : tuple
         the set of bounds (min_lon, min_lat, max_lon, max_lat)

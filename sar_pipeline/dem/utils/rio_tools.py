@@ -2,7 +2,7 @@
 https://github.com/ACCESS-Cloud-Based-InSAR/dem-stitcher/blob/dev/src/dem_stitcher/rio_tools.py
 """
 
-from typing import Union
+from typing import Optional
 
 import numpy as np
 from affine import Affine
@@ -83,7 +83,7 @@ def reproject_arr_to_match_profile(
     src_array: np.ndarray,
     src_profile: dict,
     ref_profile: dict,
-    nodata: Union[float, int] = None,
+    nodata: Optional[float | int] = None,
     num_threads: int = 1,
     resampling: str = "bilinear",
 ) -> tuple[np.ndarray, dict]:
@@ -100,7 +100,7 @@ def reproject_arr_to_match_profile(
         The source profile of the `src_array`
     ref_profile : dict
         The reference profile whose geo-metadata will be resampled into.
-    nodata : Union[int, float]
+    nodata : Optional[float | int]
         The nodata value to be used in output profile. If None, the nodata from
         src_profile is used in the output profile. Thus, update `src_profile['nodata']= None` to
         ensure None can be used.
@@ -176,7 +176,7 @@ def get_bounds_dict(profile: dict) -> dict:
 
 
 def reproject_profile_to_new_crs(
-    src_profile: dict, dst_crs: CRS, target_resolution: Union[float, int] = None
+    src_profile: dict, dst_crs: CRS, target_resolution: Optional[float | int] = None
 ) -> dict:
     """Create a new profile into a new CRS based on a dst_crs. May specify resolution.
 
@@ -186,8 +186,8 @@ def reproject_profile_to_new_crs(
         Source rasterio profile.
     dst_crs : str
         Destination CRS, as specified by rasterio.
-    target_resolution : Union[float, int]
-        Target resolution
+    target_resolution : Optional[float | int]
+        Target resolution, by default None
 
     Returns
     -------
@@ -276,7 +276,7 @@ def reproject_arr_to_new_crs(
 
 
 def _aligned_target(
-    transform: Affine, width: int, height: int, resolution: Union[float, int, tuple]
+    transform: Affine, width: int, height: int, resolution: float | int | tuple
 ) -> tuple[Affine, int, int]:
     """Align target to specified resolution; ensures same origin.
 
@@ -317,7 +317,7 @@ def _aligned_target(
 
 
 def update_profile_resolution(
-    src_profile: dict, resolution: Union[float, tuple[float]]
+    src_profile: dict, resolution: float | tuple[float]
 ) -> dict:
     transform = src_profile["transform"]
     width = src_profile["width"]
