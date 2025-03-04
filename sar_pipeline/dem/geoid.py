@@ -11,10 +11,7 @@ import rasterio
 import rasterio.transform
 import shapely.geometry
 from sar_pipeline.dem.utils.raster import read_raster_with_bounds
-from sar_pipeline.dem.utils.rio_tools import (
-    translate_profile,
-    reproject_arr_to_match_profile,
-)
+from sar_pipeline.dem.utils.rio_tools import reproject_arr_to_match_profile
 
 
 def read_geoid(
