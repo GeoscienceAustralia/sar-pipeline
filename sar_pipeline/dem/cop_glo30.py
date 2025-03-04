@@ -2,7 +2,6 @@ from affine import Affine
 import math
 import numpy as np
 from rasterio.crs import CRS
-import rasterio.features
 from sar_pipeline.dem.utils.raster import (
     adjust_pixel_coordinate_from_point_to_area,
     expand_bounding_box_to_pixel_edges,
@@ -46,7 +45,9 @@ def buffer_bounds_cop_glo30(
         return bounds
 
     if degree_buffer and pixel_buffer:
-        logger.warning("Both pixel and degree buffer provided. Degree buffer will be used.")
+        logger.warning(
+            "Both pixel and degree buffer provided. Degree buffer will be used."
+        )
         pixel_buffer = None
 
     if pixel_buffer:

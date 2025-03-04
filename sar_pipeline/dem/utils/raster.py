@@ -1,5 +1,5 @@
-from typing import Union
 import os
+from typing import Optional
 
 import numpy as np
 import pyproj
@@ -14,8 +14,6 @@ from rasterio.warp import calculate_default_transform, reproject
 from rasterio.enums import Resampling
 from rasterio.io import MemoryFile
 from rasterio.merge import merge
-from rasterio.windows import Window
-from rasterio.crs import CRS
 from rasterio.windows import from_bounds
 import math
 
@@ -78,15 +76,15 @@ def bounds_from_profile(profile):
 
 
 def reproject_raster(
-    src_path: str | Path, crs: int, out_path: str | Path | None = None
+    src_path: str | Path, crs: int, out_path: Optional[str | Path] = None
 ):
     """Reproject raster to desired crs
 
     Parameters
     ----------
-    src_path : str
-        source rastewr
-    out_path : str
+    src_path : str | Path
+        source raster
+    out_path : Optional[str | Path]
         where to write reprj raster
     crs : int
         desired crs
@@ -135,8 +133,8 @@ def reproject_raster(
 def expand_raster_to_bounds(
     trg_bounds: tuple,
     src_path: str = "",
-    src_profile: dict = None,
-    src_array: np.ndarray = None,
+    src_profile: Optional[dict] = None,
+    src_array: Optional[np.ndarray] = None,
     fill_value: float = 0,
     buffer_pixels: int = 0,
     save_path: str = "",
@@ -249,7 +247,7 @@ def read_vrt_in_bounds(
     output_path: str = "",
     return_data: bool = True,
     buffer_pixels: int = 0,
-    set_nodata: float = None,
+    set_nodata: Optional[float] = None,
 ):
     """Read in data from a vrt file in the specified bounds
 
@@ -264,7 +262,7 @@ def read_vrt_in_bounds(
     return_data : bool, optional
         return array and profile, else None, by default True
     buffer_pixels : int, optional
-        number of pixels to buffer boynds by, by default 0
+        number of pixels to buffer bounds by, by default 0
     set_nodata : float, optional
         set the nodata value in the metadata. Note this does
         not change the value, just the metadata. None will keep
@@ -376,8 +374,8 @@ def merge_arrays_with_geometadata(
     arrays: list[np.ndarray],
     profiles: list[dict],
     resampling: str = "bilinear",
-    nodata: Union[float, int] = np.nan,
-    dtype: str = None,
+    nodata: float | int = np.nan,
+    dtype: Optional[str] = None,
     method: str = "first",
     output_path: str = "",
 ) -> tuple[np.ndarray, dict]:
