@@ -14,8 +14,6 @@ from rasterio.warp import calculate_default_transform, reproject
 from rasterio.enums import Resampling
 from rasterio.io import MemoryFile
 from rasterio.merge import merge
-from rasterio.windows import Window
-from rasterio.crs import CRS
 from rasterio.windows import from_bounds
 import math
 
