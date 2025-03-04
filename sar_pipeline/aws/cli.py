@@ -12,8 +12,8 @@ from sar_pipeline.aws.preparation.config import RTCConfigManager
 from sar_pipeline.aws.metadata.stac import RTCStacManager
 from sar_pipeline.aws.metadata.h5 import RTCH5Manager
 
-from sar_pipeline.nci.preparation.dem import get_cop30_dem_for_bounds
-from sar_pipeline.nci.upload.push_folder_to_s3 import push_files_in_folder_to_s3
+from sar_pipeline.dem.dem import get_cop30_dem_for_bounds
+from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

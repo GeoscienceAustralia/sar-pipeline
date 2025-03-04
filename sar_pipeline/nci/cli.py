@@ -19,7 +19,7 @@ from sar_pipeline.nci.processing.pyroSAR.pyrosar_geocode import (
     run_pyrosar_gamma_geocode,
 )
 from sar_pipeline.nci.submission.pyrosar_gamma.submit_job import submit_job
-from sar_pipeline.nci.upload.push_folder_to_s3 import push_files_in_folder_to_s3
+from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 
 logging.basicConfig(level=logging.INFO)
 
