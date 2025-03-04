@@ -28,14 +28,15 @@ class RTCStacManager:
         with self.file_path.open("r", encoding="utf-8") as file:
             return json.load(file)
 
-    def update_value(self, key_path: str, value):
+    def update_value(self, key_path: str, value, separator='.'):
         """
-        Update a value in the metadata using a dot-separated key path.
+        Update a value in the metadata using a separated key path.
         Example: key_path="properties.title" updates metadata["properties"]["title"]
-        :param key_path: Dot-separated path to the key.
+        :param key_path: path to the key separated by a `separator`.
         :param value: New value to set.
+        :separator: Key string separator
         """
-        keys = key_path.split(".")
+        keys = key_path.split(separator)
         ref = self.metadata
 
         for key in keys[:-1]:
@@ -45,14 +46,15 @@ class RTCStacManager:
         
         ref[keys[-1]] = value
 
-    def get_value(self, key_path: str):
+    def get_value(self, key_path: str, separator='.'):
         """
-        Retrieve a value from the metadata using a dot-separated key path.
-        Example: key_path="properties.title" retrieves metadata["properties"]["title"]
-        :param key_path: Dot-separated path to the key.
-        :return: The value found at the specified key path.
+        Retreive a value in the metadata using a separated key path.
+        Example: key_path="properties.title" updates metadata["properties"]["title"]
+        :param key_path: path to the key separated by a `separator`.
+        :param value: New value to set.
+        :separator: Key string separator
         """
-        keys = key_path.split(".")
+        keys = key_path.split(separator)
         ref = self.metadata
 
         for key in keys:

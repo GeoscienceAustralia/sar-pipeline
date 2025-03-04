@@ -23,10 +23,10 @@ logger = logging.getLogger(__name__)
 @click.argument("scene", type=str)
 @click.argument("base_rtc_config", type=str)
 @click.argument("dem", type=str)
-@click.argument("download_folder", type=str)
-@click.argument("scratch_folder", type=str)
-@click.argument("out_folder", type=str)
-@click.argument("config_path", type=str)
+@click.argument("download_folder", type=click.Path(file_okay=False, path_type=Path))
+@click.argument("scratch_folder", type=click.Path(file_okay=False, path_type=Path))
+@click.argument("out_folder", type=click.Path(file_okay=False, path_type=Path))
+@click.argument("config_path", type=click.Path(dir_okay=False, path_type=Path))
 def get_data_for_scene_and_make_run_config(
         scene : str, 
         base_rtc_config : str,
@@ -37,8 +37,8 @@ def get_data_for_scene_and_make_run_config(
         config_path : Path,
         make_folders : bool = True,
     ):
-    click.echo(f'Downloading data for scene : {scene}')
-    click.echo(f'Saving files to : {download_folder}')
+    logger.info(f'Downloading data for scene : {scene}')
+    logger.info(f'Saving files to : {download_folder}')
 
     # make the base .yaml for RTC processing
     RTC_RUN_CONFIG = RTCConfigManager(base_rtc_config)
@@ -53,22 +53,22 @@ def get_data_for_scene_and_make_run_config(
         os.makedirs(download_folder, exist_ok=True)
         os.makedirs(out_folder, exist_ok=True)
         os.makedirs(scratch_folder, exist_ok=True)
-        os.makedirs(Path(config_path).parent, exist_ok=True)
+        os.makedirs(config_path.parent, exist_ok=True)
 
     # download the SLC and get scene metadata from asf
-    scene_folder = Path(download_folder) / Path('scenes')
+    scene_folder = download_folder / 'scenes'
     SCENE_PATH, asf_scene_metadata = download_slc_from_asf(scene, scene_folder)
 
     # # download the orbits
-    orbit_folder = Path(download_folder) / Path('orbits')
+    orbit_folder = download_folder / 'orbits'
     ORBITS_PATH = download_orbits_from_s3(scene, orbit_folder)
 
     # # download the dem
-    dem_folder = Path(download_folder) / Path('dem')
+    dem_folder = download_folder / 'dem'
     DEM_PATH = dem_folder / f'{scene}_dem.tif'
     scene_polygon = Polygon(asf_scene_metadata.geometry['coordinates'][0])
     bounds = scene_polygon.bounds
-    # bounds = (163.126465, -78.615303, 172.387283, -76.398262)
+    
     get_cop30_dem_for_bounds(
         bounds = bounds,
         save_path = DEM_PATH,
@@ -100,7 +100,7 @@ def get_data_for_scene_and_make_run_config(
     RTC_RUN_CONFIG.set(f'{gk}.processing.polarization',POLARIZATION_TYPE)
 
     # save the config
-    click.echo(f'Saving config to : {config_path}')
+    logger.info(f'Saving config to : {config_path}')
     RTC_RUN_CONFIG.save(config_path)
 
 
