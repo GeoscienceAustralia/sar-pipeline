@@ -1,14 +1,17 @@
 import json
 from pathlib import Path
+import pystac
+from datetime import datetime
 
 import logging
+from sar_pipeline.aws.metadata.h5 import RTCH5Manager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 BASE_STAC_JSON = Path(__file__).parent / 'json-schema/product.json'
 
-class RTCStacManager:
+class RTCStacTemplate:
     def __init__(self, file_path: Path = BASE_STAC_JSON):
         """
         Initialize the manager with a specified JSON metadata file.
@@ -74,8 +77,45 @@ class RTCStacManager:
             json.dump(self.metadata, file, indent=2, ensure_ascii=False)
 
 
+def burst_stac_metadata_from_h5(
+        burst_h5_filepath : Path,
+):
+    # load the .h5 and stac metadata into manager classes
+    burst_h5 = RTCH5Manager(burst_h5_filepath)
+    # load the stac template NOTE this may not be required
+    stac_template = RTCStacTemplate() # read in the template with required fields
 
-def make_opera_rtc_stac():
-    # point at the directory containing the rtc config and outputs from rtc process
-    # and make STAC metadata
-    ...
+    # get key information for defining pystac item
+    id_ = burst_h5_filepath.stem, # get product name from filepath
+    start_dt = burst_h5.search_value('identification/zeroDopplerStartTime').decode("utf-8")
+    start_dt = datetime.fromisoformat(start_dt.rstrip("Z")) # Convert to datetime
+    end_dt = burst_h5.search_value('identification/zeroDopplerEndTime').decode("utf-8")
+    end_dt = datetime.fromisoformat(end_dt.rstrip("Z"))
+
+    # set properties based on metadata in the .h5 file
+    required_properties = {
+        'gsd' : burst_h5.search_value('xCoordinateSpacing'),
+        'card4l:noise_removal_applied' : bool(burst_h5.search_value('noiseCorrectionApplied')),
+        'card4l:speckle_filtering' : None,
+        'card4l:pixel_coordinate_convention' : '',
+        'card4l:measurement_type' : '',
+        'card4l:measurement_convention' : '',
+        'card4l:conversion_eq' : '',
+        'card4l:northern_geometric_accuracy' : '',
+        'card4l:eastern_geometric_accuracy' : '',
+        'card4l:gridding_convention' : ','
+    }
+
+    # define the item
+    item = pystac.Item(
+        id=id_,
+        geometry=None,  # Add proper geometry (e.g., bounding box)
+        bbox=None,      # Define bounding box
+        datetime=start_dt,
+        start_datetime=start_dt,
+        end_datetime=end_dt,
+        properties = required_properties
+    )
+    
+
+    return item

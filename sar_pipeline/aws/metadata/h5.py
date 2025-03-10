@@ -20,6 +20,18 @@ class RTCH5Manager:
             raise FileNotFoundError(f"HDF5 file not found: {self.file_path}")
         
         self.file = h5py.File(self.file_path, mode)
+        self.value_keys = self.list_data(print_name=False)
+
+    def list_data(self, print_name=True):
+        """list the files/data in the h5 file
+        """
+        data = []
+        def visit_func(name, node):
+            if print_name:
+                print(name)
+            data.append(name)
+        self.file.visititems(visit_func)
+        return data
 
     def get_value(self, dataset_path: str):
         """
@@ -33,6 +45,38 @@ class RTCH5Manager:
             raise KeyError(f"Dataset '{dataset_path}' not found in HDF5 file.")
 
         return self.file[dataset_path][()]
+
+    def search_value(self, search_str: str):
+        """Retrieve a value by searching with string. If a unique dataset
+        parameter has this string, it will be returned. 
+
+        Parameters
+        ----------
+        search_str : str
+            string to search the dataset with.
+        """
+
+        keys = [x for x in self.value_keys if search_str in x]
+        if len(keys) == 0:
+            raise KeyError(f"Dataset containing '{search_str}' not found in HDF5 file.")
+        if len(keys) > 1:
+            raise KeyError(f"Multiple dataset containing '{search_str}' found in HDF5 file."
+                           " Use a more specific string to retrieve unique data")
+        else:
+            return self.file[keys[0]][()]
+    
+    def get_array(self, dataset_path: str):
+        """
+        Retrieve a dataset array data from the HDF5 file using a slash-separated key path.
+        Example: dataset_path="group1/dataset1" retrieves /group1/dataset1.
+        :param dataset_path: slash separated path to the dataset.
+        :return: The value from the dataset.
+        """
+
+        if dataset_path not in self.file:
+            raise KeyError(f"Dataset '{dataset_path}' not found in HDF5 file.")
+
+        return self.file[dataset_path][:] 
 
     def save(self, output_path: str):
         """
