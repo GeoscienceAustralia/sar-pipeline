@@ -3,7 +3,7 @@
 # Default values for the continer
 scene=""
 base_rtc_config=""
-dem="glo_30"
+dem="cop_glo30"
 s3_bucket="deant-data-public-dev"
 s3_project_folder="experimental/s1_rtc_c1"
 
