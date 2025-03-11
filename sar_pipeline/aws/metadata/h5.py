@@ -1,5 +1,6 @@
 import h5py
 from pathlib import Path
+import numpy as np
 
 import logging
 
@@ -7,14 +8,24 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class RTCH5Manager:
-    def __init__(self, file_path: str, mode: str = "r"):
+    def __init__(self, file_path: str | Path, mode: str = "r"):
+        """Initialize the manager with a specified HDF5 file.
+
+        Parameters
+        ----------
+        file_path : str
+            Path to the HDF5 file to open.
+        mode : str, optional
+            Mode for opening the file ('r', 'r+', 'w', etc.), by default "r"
+
+        Raises
+        ------
+        FileNotFoundError
         """
-        Initialize the manager with a specified HDF5 file.
-        :param file_path: Path to the HDF5 file to open.
-        :param mode: Mode for opening the file ('r', 'r+', 'w', etc.)
-        """
+
         self.file_path = Path(file_path)
         self.mode = mode
+        self.decode_method = 'utf-8'
 
         if not self.file_path.exists() and mode in ("r", "r+"):
             raise FileNotFoundError(f"HDF5 file not found: {self.file_path}")
@@ -22,8 +33,18 @@ class RTCH5Manager:
         self.file = h5py.File(self.file_path, mode)
         self.value_keys = self.list_data(print_name=False)
 
-    def list_data(self, print_name=True):
+    def list_data(self, print_name=False) -> list:
         """list the files/data in the h5 file
+
+        Parameters
+        ----------
+        print_name : bool, optional
+            Print the keys in the file, by default False
+
+        Returns
+        -------
+        list
+            List of data paths in the .h5 file
         """
         data = []
         def visit_func(name, node):
@@ -33,27 +54,58 @@ class RTCH5Manager:
         self.file.visititems(visit_func)
         return data
 
-    def get_value(self, dataset_path: str):
-        """
-        Retrieve a dataset value from the HDF5 file using a slash-separated key path.
+    def get_value(self, dataset_path: str, decode_bytes=True):
+        """Retrieve a dataset value from the HDF5 file using a slash-separated key path.
         Example: dataset_path="group1/dataset1" retrieves /group1/dataset1.
-        :param dataset_path: slash separated path to the dataset.
-        :return: The value from the dataset.
+
+        Parameters
+        ----------
+        dataset_path : str
+            slash separated path to the dataset.
+        decode_bytes: bool
+            decode values that are of type bytes. Default is True.
+
+        Returns
+        -------
+            The encoded value from the dataset.
+
+        Raises
+        ------
+        KeyError
+            Dataset is not in the .h5 file
         """
 
         if dataset_path not in self.file:
             raise KeyError(f"Dataset '{dataset_path}' not found in HDF5 file.")
+        val = self.file[dataset_path][()]
+        if decode_bytes:
+            if isinstance(val, (bytes, np.bytes_)):
+                val = val.decode(self.decode_method)
+        return val
 
-        return self.file[dataset_path][()]
 
-    def search_value(self, search_str: str):
+    def search_value(self, search_str: str, decode_bytes=True):
         """Retrieve a value by searching with string. If a unique dataset
-        parameter has this string, it will be returned. 
+        parameter has this string, it will be returned. For example,
+        "filteringApplied" will return the value for 
+        "metadata/processingInformation/parameters/filteringApplied"
 
         Parameters
         ----------
         search_str : str
-            string to search the dataset with.
+            string to use to search for keys
+        decode_bytes: bool
+            decode values that are of type bytes. Default is True.
+
+        Returns
+        -------
+        Data corresponding to the key
+
+        Raises
+        ------
+        KeyError
+            Key is not found, or multiple keys match the search string and a
+            more specific string should be used for searching. 
         """
 
         keys = [x for x in self.value_keys if search_str in x]
@@ -63,14 +115,25 @@ class RTCH5Manager:
             raise KeyError(f"Multiple dataset containing '{search_str}' found in HDF5 file."
                            " Use a more specific string to retrieve unique data")
         else:
-            return self.file[keys[0]][()]
+            return self.get_value(keys[0], decode_bytes=decode_bytes)
     
     def get_array(self, dataset_path: str):
-        """
-        Retrieve a dataset array data from the HDF5 file using a slash-separated key path.
+        """Retrieve a dataset array data from the HDF5 file using a slash-separated key path.
         Example: dataset_path="group1/dataset1" retrieves /group1/dataset1.
-        :param dataset_path: slash separated path to the dataset.
-        :return: The value from the dataset.
+
+        Parameters
+        ----------
+        dataset_path : str
+            slash separated path to the dataset.
+
+        Returns
+        -------
+        Encoded array data corresponding to key
+
+        Raises
+        ------
+        KeyError
+            Key not found
         """
 
         if dataset_path not in self.file:
@@ -78,21 +141,32 @@ class RTCH5Manager:
 
         return self.file[dataset_path][:] 
 
-    def save(self, output_path: str):
-        """
-        Save the modified HDF5 file to a new file.
+    def save(self, output_path: str | Path):
+        """Save the modified HDF5 file to a new file.
         (This is essentially a copy operation, as HDF5 files update in-place.)
-        :param output_path: Path to save the new HDF5 file.
+
+        Parameters
+        ----------
+        output_path : str | Path
+            Location to save file
         """
+        
         output_path = Path(output_path)
         with h5py.File(output_path, "w") as output_file:
             self._recursive_copy(self.file, output_file)
 
     def _ensure_group(self, group_path: str):
-        """
-        Ensure that a group exists (creating it if needed).
-        :param group_path: Path to the group (slash-separated).
-        :return: The group object.
+        """Ensure that a group exists (creating it if needed).
+
+        Parameters
+        ----------
+        group_path : str
+            Path to the group (slash-separated).
+
+        Returns
+        -------
+        _type_
+            The group object.
         """
         current_group = self.file
         for part in group_path.split("/"):
@@ -101,8 +175,7 @@ class RTCH5Manager:
         return current_group
 
     def _recursive_copy(self, src, dest):
-        """
-        Recursively copy contents from one HDF5 file/group to another.
+        """Recursively copy contents from one HDF5 file/group to another.
         """
         for name, item in src.items():
             if isinstance(item, h5py.Group):
