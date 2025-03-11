@@ -30,6 +30,17 @@ AWS_SECRET_ACCESS_KEY=
 AWS_DEFAULT_REGION=
 ```
 
+## Write / processing location
+
+The location for where data is downloaded and written for processing in the container is specified in the `scripts/run_aws_pipeline.sh` file. In the case of AWS processing, an EBS block may be mounted. The mount point must align to the paths specified in the run script for the EBS storage to be used. The values are:
+
+```bash
+# set process folders for the container
+download_folder="/home/rtc_user/working/downloads"
+out_folder="/home/rtc_user/working/results/$scene"
+scratch_folder="/home/rtc_user/working/scratch/$scene"
+```
+
 
 ## Build the docker image
 
