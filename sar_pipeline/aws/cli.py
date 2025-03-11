@@ -43,10 +43,10 @@ def get_data_for_scene_and_make_run_config(
 
     if make_folders:
         logger.info(f'Making output folders if not existing')
-        os.makedirs(download_folder, exist_ok=True)
-        os.makedirs(out_folder, exist_ok=True)
-        os.makedirs(scratch_folder, exist_ok=True)
-        os.makedirs(config_path.parent, exist_ok=True)
+        download_folder.mkdir(parents=True, exist_ok=True)
+        out_folder.mkdir(parents=True, exist_ok=True)
+        scratch_folder.mkdir(parents=True, exist_ok=True)
+        config_path.parent.mkdir(parents=True, exist_ok=True)
 
     # download the SLC and get scene metadata from asf
     logger.info(f'Downloading SLC for scene : {scene}')
