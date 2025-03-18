@@ -12,6 +12,7 @@ from sar_pipeline.dem.cop_glo30 import (
     get_cop_glo30_spacing,
     get_cop_glo30_tile_transform,
     make_empty_cop_glo30_profile_for_bounds,
+    buffer_bounds_cop_glo30,
 )
 
 
@@ -129,7 +130,7 @@ areas = [
 @pytest.mark.parametrize("area", areas)
 def test_buffer_bounds_cop_glo30(area: TestCopDem):
     assert (
-        buffer_bounds_cop_glo30(area.requested_bounds, world_buffer=0.1)
+        buffer_bounds_cop_glo30(area.requested_bounds, degree_buffer=0.1)
         == area.buffered_by_world_one_tenth_degree
     )
 

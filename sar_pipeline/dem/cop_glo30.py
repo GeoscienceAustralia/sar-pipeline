@@ -40,6 +40,8 @@ def buffer_bounds_cop_glo30(
     if isinstance(bounds, tuple):
         bounds = BoundingBox(*bounds)
 
+    lon_spacing, lat_spacing = get_cop_glo30_spacing(bounds)
+
     if not pixel_buffer and not degree_buffer:
         logger.warning("No buffer has been provided.")
         return bounds

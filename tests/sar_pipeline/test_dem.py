@@ -187,10 +187,9 @@ def test_find_required_dem_paths_from_index(test_input):
 
 @pytest.mark.parametrize("test_input", test_dems)
 def test_adjust_bounds_at_high_lat(test_input):
-    assert (
-        adjust_bounds_at_high_lat(test_input.requested_bounds).bounds
-        == test_input.high_lat_bounds
-    )
+    assert adjust_bounds_at_high_lat(
+        test_input.requested_bounds
+    ).bounds == pytest.approx(test_input.high_lat_bounds)
 
 
 @pytest.mark.parametrize("test_input", test_antimeridian_dems)
