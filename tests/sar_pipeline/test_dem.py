@@ -1,12 +1,19 @@
-from sar_pipeline.dem.dem import get_cop30_dem_for_bounds
+from sar_pipeline.dem.dem import (
+    get_cop30_dem_for_bounds,
+    get_target_antimeridian_projection,
+    split_s1_bounds_at_am_crossing,
+    check_s1_bounds_cross_antimeridian,
+    adjust_bounds_at_high_lat,
+    find_required_dem_paths_from_index,
+)
 from sar_pipeline.dem.create_dem_vrt import find_tiles, build_tileindex
+from sar_pipeline.dem.utils.spatial import BoundingBox
 from dataclasses import dataclass
 import rasterio
 from pathlib import Path
 from numpy.testing import assert_allclose
 import pytest
 import shutil
-
 
 CURRENT_DIR = Path(__file__).parent.resolve()
 FOLDER_PATH = CURRENT_DIR / "data/copernicus_30m_world"
@@ -22,14 +29,14 @@ class TestDem:
     requested_bounds: tuple[float, float, float, float]
     high_lat_bounds: tuple[float, float, float, float]
     bounds_array_file: str
-    expected_tiles: list[str]
+    expected_tiles: list[Path]
 
     @property
     def expected_tile_paths(self):
         cop_prefix = "Copernicus_DSM_COG_10_"
         cop_suffix = "_DEM"
         return [
-            str(
+            Path(
                 FOLDER_PATH.joinpath(cop_prefix + tile_id + cop_suffix).joinpath(
                     cop_prefix + tile_id + cop_suffix + ".tif"
                 )
@@ -169,7 +176,7 @@ def test_find_required_dem_paths_from_index(test_input):
     )
 
     required_dem_tiles = find_required_dem_paths_from_index(
-        test_input.requested_bounds, INDEX_PATH, search_buffer=0.0
+        test_input.requested_bounds, FOLDER_PATH, search_buffer=0.0
     )
 
     assert set(required_dem_tiles) == set(test_input.expected_tile_paths)
