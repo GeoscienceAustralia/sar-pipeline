@@ -9,7 +9,7 @@ import json
 from sar_pipeline.aws.preparation.scenes import download_slc_from_asf
 from sar_pipeline.aws.preparation.orbits import download_orbits_from_s3
 from sar_pipeline.aws.preparation.config import RTCConfigManager
-from sar_pipeline.aws.metadata.stac import burst_stac_metadata_from_h5
+from sar_pipeline.aws.metadata.stac import BurstH5toStacManager
 
 from sar_pipeline.dem.dem import get_cop30_dem_for_bounds
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
@@ -20,8 +20,9 @@ logger = logging.getLogger(__name__)
 
 @click.command()
 @click.argument("scene", type=str)
-@click.argument("base_rtc_config", type=str)
-@click.argument("dem", type=str)
+@click.argument("base_rtc_config", 
+                type=click.Choice(["IW_20m_antarctica.yaml", "IW_20m_australia.yaml"]))
+@click.argument("dem", type=click.Choice(["cop_glo30"]))
 @click.argument("download_folder", type=click.Path(file_okay=False, path_type=Path))
 @click.argument("scratch_folder", type=click.Path(file_okay=False, path_type=Path))
 @click.argument("out_folder", type=click.Path(file_okay=False, path_type=Path))
@@ -36,6 +37,30 @@ def get_data_for_scene_and_make_run_config(
         config_path : Path,
         make_folders : bool = True,
     ):
+    """Download the required data for the RTC/opera and create a configuration
+    file for the run that points to appropriate files and has the required settings
+
+    Parameters
+    ----------
+    scene : str
+        scene id. E.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD 
+    base_rtc_config : str
+        The base configuration file for a run. These are packaged with the sar-pipeline code.
+        options are ["IW_20m_antarctica.yaml", "IW_20m_australia.yaml"]
+    dem : str
+        The type of dem to used for processing. 
+        options are ["cop_glo30"]
+    download_folder : Path
+        Path to the folder where downloaded files should go
+    scratch_folder : Path
+        Path to the folder where scratch files go
+    out_folder : Path
+        Path to the folder where final products will be written
+    config_path : Path
+        Path to where the RTC/opera config wil be saved
+    make_folders : bool, optional
+        Make folder paths that don't exist, by default True
+    """
     logger.info(f'Downloading data for scene : {scene}')
 
     # make the base .yaml for RTC processing
@@ -82,6 +107,7 @@ def get_data_for_scene_and_make_run_config(
     logger.info(f'Updating the run config for scene. Base config type : {base_rtc_config}')
     gk = 'runconfig.groups'
     RTC_RUN_CONFIG.set(f'{gk}.input_file_group.safe_file_path',[str(SCENE_PATH)])
+    RTC_RUN_CONFIG.set(f'{gk}.input_file_group.source_data_access',asf_scene_metadata.properties['url'])
     RTC_RUN_CONFIG.set(f'{gk}.input_file_group.orbit_file_path',[str(ORBITS_PATH)])
     RTC_RUN_CONFIG.set(f'{gk}.dynamic_ancillary_file_group.dem_file',str(DEM_PATH))
     RTC_RUN_CONFIG.set(f'{gk}.dynamic_ancillary_file_group.dem_file_description','tmp')
@@ -103,15 +129,36 @@ def get_data_for_scene_and_make_run_config(
 @click.command()
 @click.argument("results_folder", type=click.Path(file_okay=False, path_type=Path))
 @click.argument("run_config_path", type=click.Path(dir_okay=False, path_type=Path))
+@click.argument("collection", type=str)
 @click.argument("s3_bucket", type=str)
 @click.argument("s3_folder", type=str)
-def make_rtc_opera_stac_and_upload_bursts(results_folder, run_config_path, s3_bucket, s3_folder):
-    """make STAC metadata for opera-rtc. Point at results folder
-    containing the bursts"""
+def make_rtc_opera_stac_and_upload_bursts(
+    results_folder: Path, 
+    run_config_path: Path, 
+    collection: str, 
+    s3_bucket: str, 
+    s3_folder: str):
+    """makes STAC metadata for opera-rtc and uploads them to a desired s3 bucket. 
+    The final path in s3 will follow the following pattern:
+    s3_bucket/s3_folder/collection/burst_year/burst_month/burst_day/burst_id/*files
+
+    Parameters
+    ----------
+    results_folder : Path
+        Path to the folder containing the burst outputs from RTC/opera
+    run_config_path : Path
+        Path to the config path used to run RTC opera
+    collection : str
+        The collection the products belong to. e.g. s1_rtc_c1
+    s3_bucket : str
+        The bucket to upload the files
+    s3_folder : str
+        The folder within the bucket to upload the files. Note the final
+        path follows the patter in the description of this function.
+    """
 
     # iterate through the burst directory and create STAC metadata
     burst_folders = [x for x in results_folder.iterdir() if x.is_dir()]
-
     for i,burst_folder in enumerate(burst_folders):
         logger.info(f'Making STAC metadata for burst {i+1} of {len(burst_folders)} : {burst_folder}')
         # copy the run config file to the burst folder
@@ -122,13 +169,27 @@ def make_rtc_opera_stac_and_upload_bursts(results_folder, run_config_path, s3_bu
         burst_h5_filepath = burst_folder / burst_h5_files[0]
         # make the stac metadata from the .h5 metadata
         logging.info(f'Making stac metadata from .h5 file')
-        burst_stac_item = burst_stac_metadata_from_h5(burst_h5_filepath)
-        # make s3 destination based on burst acquisition start abd burst id
-        start_dt = burst_stac_item.get_datetime()
-        s3_burst_folder = Path(s3_folder) / f'{start_dt.year}/{start_dt.month}/{start_dt.day}/{burst_folder.name}' 
-        # save stac metadata
-        logging.info(f'writing stac metadata to : {burst_folder / "metadata.json"}')
-        with open(burst_folder / 'metadata.json', 'w') as fp:
-            json.dump(burst_stac_item.to_dict(), fp)
-        # push folder to S3
-        push_files_in_folder_to_s3(burst_folder, s3_bucket, s3_burst_folder)
+        # initialise the class to convert data from the .h5 to a stac doc
+        burst_stac_manager = BurstH5toStacManager(
+            h5_filepath=burst_h5_filepath,
+            collection=collection,
+            s3_bucket=s3_bucket,
+            s3_project_folder=s3_folder
+            )
+        # make the stac item based
+        burst_stac_manager.make_stac_item_from_h5()
+        # add properties to the stac foc
+        burst_stac_manager.add_properties_from_h5()
+        # add the assets to the stac doc
+        burst_stac_manager.add_assets_from_folder(burst_folder)
+        # add the links to the stac doc
+        burst_stac_manager.add_links_from_h5()
+        # add additional links
+        stac_filename = 'metadata.json'
+        burst_stac_manager.add_self_link(filename = stac_filename)
+        # save the metadata
+        burst_stac_manager.save(burst_folder / stac_filename)
+        # TODO validate the stac item when finalised
+        #burst_stac_manager.item.validate()
+        #push folder to S3
+        push_files_in_folder_to_s3(burst_folder, s3_bucket, burst_stac_manager.burst_s3_subfolder)

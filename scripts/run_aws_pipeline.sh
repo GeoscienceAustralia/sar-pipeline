@@ -1,11 +1,12 @@
 #!/bin/bash
 
-# Default values for the continer
+# Default values for the container
 scene=""
 base_rtc_config=""
 dem="cop_glo30"
+collection="s1_rtc_c1"
 s3_bucket="deant-data-public-dev"
-s3_project_folder="experimental/s1_rtc_c1"
+s3_project_folder="experimental"
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
@@ -13,6 +14,7 @@ while [[ "$#" -gt 0 ]]; do
         --scene) scene="$2"; shift ;;  # Shift moves to next argument
         --base_rtc_config) base_rtc_config="$2"; shift ;;
         --dem) dem="$2"; shift ;;
+        --collection) collection="$2"; shift ;;
         --s3_bucket) s3_bucket="$2"; shift ;;
         --s3_project_folder) s3_project_folder="$2"; shift ;;
         *) echo "Unknown parameter: $1"; exit 1 ;;
@@ -30,6 +32,7 @@ echo The input variables are:
 echo scene : "$scene"
 echo base_rtc_config : "$base_rtc_config"
 echo dem : "$dem"
+echo collection : "$collection"
 echo s3_bucket : "$s3_bucket"
 echo s3_project_folder : "$s3_project_folder"
 
@@ -52,7 +55,7 @@ conda activate sar-pipeline
 # search and download all the required ancillery/src files 
 # make the rtc config that will be used by the RTC processor
 # set the config path to be in the out_folder so it can be uploaded with products
-RUN_CONFIG_PATH="$out_folder/OPERA-RTC_CONFIG.yaml"
+RUN_CONFIG_PATH="$out_folder/OPERA-RTC_runconfig.yaml"
 
 get-data-for-scene-and-make-run-config \
 "$scene" \
@@ -81,8 +84,8 @@ fi
 conda activate sar-pipeline
 
 # point at the out product directory and make STAC metdata
-# note storage pattern is assumed to be s3_bucket / s3_project_folder / year / month / day / burstid / *files
-make-rtc-opera-stac-and-upload-bursts "$out_folder" "$RUN_CONFIG_PATH" "$s3_bucket" "$s3_project_folder"
+# note storage pattern is assumed to be s3_bucket / s3_project_folder / year / month / day / burst_id / *files
+make-rtc-opera-stac-and-upload-bursts "$out_folder" "$RUN_CONFIG_PATH" "$collection" "$s3_bucket" "$s3_project_folder" 
 
 if [ $? -ne 0 ]; then
     echo "Process failed: make-rtc-opera-stac-and-upload-bursts"
