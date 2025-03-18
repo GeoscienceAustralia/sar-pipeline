@@ -81,7 +81,8 @@ class H5Manager:
         dataset_path : str
             slash separated path to the dataset.
         decode_bytes: bool
-            decode values that are of type bytes. Default is True.
+            decode values that are of type bytes. this makes data json compatible. 
+            Default is True.
 
         Returns
         -------
@@ -99,7 +100,7 @@ class H5Manager:
         val = self.file[dataset_path][()]
 
         def _json_serialize(obj):
-            # convert to json compatible formats 
+            # convert values to json compatible formats 
             if isinstance(obj, (np.integer, np.floating)):
                 return obj.item()  # Convert to native Python types
             elif isinstance(obj, np.ndarray):
@@ -124,10 +125,12 @@ class H5Manager:
 
 
     def search_value(self, search_str: str, decode_bytes=True):
-        """Retrieve a value by searching with string. If a unique dataset
+        """Retrieve a value by searching keys with string. If a unique dataset
         parameter has this string, it will be returned. For example,
         "filteringApplied" will return the value for 
-        "metadata/processingInformation/parameters/filteringApplied"
+        "metadata/processingInformation/parameters/filteringApplied". If
+        the string corresponds to more than one key, an error would be raised.
+        For example, the string "metadata" is associated with many keys.
 
         Parameters
         ----------
