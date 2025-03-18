@@ -1,13 +1,5 @@
-from sar_pipeline.nci.preparation.dem import (
-    get_cop30_dem_for_bounds,
-    check_s1_bounds_cross_antimeridian,
-    get_target_antimeridian_projection,
-    split_s1_bounds_at_am_crossing,
-    adjust_bounds_at_high_lat,
-    find_required_dem_paths_from_index,
-)
-from sar_pipeline.nci.preparation.create_dem_vrt import find_tiles, build_tileindex
-from sar_pipeline.utils.spatial import BoundingBox
+from sar_pipeline.dem.dem import get_cop30_dem_for_bounds
+from sar_pipeline.dem.create_dem_vrt import find_tiles, build_tileindex
 from dataclasses import dataclass
 import rasterio
 from pathlib import Path
@@ -146,9 +138,9 @@ def test_get_cop30_dem_for_bounds_ocean_and_land(test_input: TestDem):
         ellipsoid_heights=False,
         adjust_at_high_lat=False,
         buffer_pixels=None,
-        buffer_world=None,
+        buffer_degrees=None,
         cop30_index_path=INDEX_PATH,
-        cop30_folder_path=None,
+        cop30_folder_path=FOLDER_PATH,
         geoid_tif_path=GEOID_PATH,
     )
 
