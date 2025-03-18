@@ -6,7 +6,7 @@ import rasterio
 from pathlib import Path
 import shapely.geometry
 
-from sar_pipeline.utils.spatial import BoundingBox
+from sar_pipeline.dem.utils.spatial import BoundingBox
 
 from sar_pipeline.dem.cop_glo30 import (
     get_cop_glo30_spacing,
