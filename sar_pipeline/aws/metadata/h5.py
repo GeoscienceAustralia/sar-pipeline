@@ -7,7 +7,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class RTCH5Manager:
+class H5Manager:
     def __init__(self, file_path: str | Path, mode: str = "r"):
         """Initialize the manager with a specified HDF5 file.
 
@@ -31,9 +31,10 @@ class RTCH5Manager:
             raise FileNotFoundError(f"HDF5 file not found: {self.file_path}")
         
         self.file = h5py.File(self.file_path, mode)
-        self.value_keys = self.list_data(print_name=False)
+        self.keys = self.get_key_list(print_name=False)
+        self.value_keys = self.get_keys_with_values()
 
-    def list_data(self, print_name=False) -> list:
+    def get_key_list(self, print_name=False) -> list:
         """list the files/data in the h5 file
 
         Parameters
@@ -53,6 +54,23 @@ class RTCH5Manager:
             data.append(name)
         self.file.visititems(visit_func)
         return data
+    
+    def get_keys_with_values(self):
+        """get the list of keys in the .h5 that have a retrievable value
+        
+        Returns
+        -------
+        list
+            List of data paths in the .h5 file
+        """
+        value_keys = []
+        for k in self.keys:
+            try:
+                self.get_value(k)
+                value_keys.append(k)
+            except:
+                continue
+        return value_keys
 
     def get_value(self, dataset_path: str, decode_bytes=True):
         """Retrieve a dataset value from the HDF5 file using a slash-separated key path.
@@ -63,7 +81,8 @@ class RTCH5Manager:
         dataset_path : str
             slash separated path to the dataset.
         decode_bytes: bool
-            decode values that are of type bytes. Default is True.
+            decode values that are of type bytes. this makes data json compatible. 
+            Default is True.
 
         Returns
         -------
@@ -77,18 +96,41 @@ class RTCH5Manager:
 
         if dataset_path not in self.file:
             raise KeyError(f"Dataset '{dataset_path}' not found in HDF5 file.")
+
         val = self.file[dataset_path][()]
+
+        def _json_serialize(obj):
+            # convert values to json compatible formats 
+            if isinstance(obj, (np.integer, np.floating)):
+                return obj.item()  # Convert to native Python types
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()  # Convert arrays to lists
+            elif isinstance(obj, np.bool_):  
+                return bool(obj)  # Convert NumPy bool_ to Python bool
+            return obj
+        
+        def _decode_recursive(item):
+            # handle decoding of nested encoded lists
+            if isinstance(item, (bytes, np.bytes_)):
+                return item.decode(self.decode_method)
+            elif isinstance(item, (list, np.ndarray)):
+                return [_decode_recursive(x) for x in item]
+            return item
+
         if decode_bytes:
-            if isinstance(val, (bytes, np.bytes_)):
-                val = val.decode(self.decode_method)
+            val = _decode_recursive(val)
+            val = _json_serialize(val)
+
         return val
 
 
     def search_value(self, search_str: str, decode_bytes=True):
-        """Retrieve a value by searching with string. If a unique dataset
+        """Retrieve a value by searching keys with string. If a unique dataset
         parameter has this string, it will be returned. For example,
         "filteringApplied" will return the value for 
-        "metadata/processingInformation/parameters/filteringApplied"
+        "metadata/processingInformation/parameters/filteringApplied". If
+        the string corresponds to more than one key, an error would be raised.
+        For example, the string "metadata" is associated with many keys.
 
         Parameters
         ----------
@@ -112,8 +154,8 @@ class RTCH5Manager:
         if len(keys) == 0:
             raise KeyError(f"Dataset containing '{search_str}' not found in HDF5 file.")
         if len(keys) > 1:
-            raise KeyError(f"Multiple dataset containing '{search_str}' found in HDF5 file."
-                           " Use a more specific string to retrieve unique data")
+            raise KeyError(f"Multiple datasets containing the string '{search_str}' found in HDF5 file."
+                           f" Use a more specific string to retrieve unique data. Keys found : {keys}")
         else:
             return self.get_value(keys[0], decode_bytes=decode_bytes)
     
