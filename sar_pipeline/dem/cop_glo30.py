@@ -40,6 +40,8 @@ def buffer_bounds_cop_glo30(
     if isinstance(bounds, tuple):
         bounds = BoundingBox(*bounds)
 
+    lon_spacing, lat_spacing = get_cop_glo30_spacing(bounds)
+
     if not pixel_buffer and not degree_buffer:
         logger.warning("No buffer has been provided.")
         return bounds
@@ -51,16 +53,16 @@ def buffer_bounds_cop_glo30(
         pixel_buffer = None
 
     if pixel_buffer:
-        lon_spacing, lat_spacing = get_cop_glo30_spacing(bounds)
+
         buffer = (pixel_buffer * lon_spacing, pixel_buffer * lat_spacing)
 
     if degree_buffer:
         buffer = (degree_buffer, degree_buffer)
 
-    new_xmin = max(bounds.xmin - buffer[0], -180)
-    new_ymin = max(bounds.ymin - buffer[1], -90)
-    new_xmax = min(bounds.xmax + buffer[0], 180)
-    new_ymax = min(bounds.ymax + buffer[1], 90)
+    new_xmin = max(bounds.xmin - buffer[0], -180.0)
+    new_ymin = max(bounds.ymin - buffer[1], -90.0)
+    new_xmax = min(bounds.xmax + buffer[0], 180 - 0.5 * lon_spacing)
+    new_ymax = min(bounds.ymax + buffer[1], 90.0)
 
     return BoundingBox(new_xmin, new_ymin, new_xmax, new_ymax)
 
@@ -131,7 +133,7 @@ def get_cop_glo30_files_covering_bounds(
 
 
 def get_cop_glo30_spacing(
-    bounds: BoundingBox | tuple[float | int, float | int, float | int, float | int]
+    bounds: BoundingBox | tuple[float | int, float | int, float | int, float | int],
 ) -> tuple[float, float]:
     """Get the longitude and latitude spacing for the Copernicus GLO30 DEM at the centre of the bounds
 

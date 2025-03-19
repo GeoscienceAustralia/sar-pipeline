@@ -74,7 +74,13 @@ def run_pyrosar_gamma_geocode(
     gamma_env: str,
     geocode_spacing: int,
     geocode_scaling: str,
-):
+) -> Path:
+    """
+    Returns
+    -------
+    Path
+        Path to the output files
+    """
 
     # Set up environment variables for GAMMA
     set_gamma_env_variables(str(gamma_library), gamma_env)
@@ -105,6 +111,10 @@ def run_pyrosar_gamma_geocode(
     else:
         border_removal_method = None
 
+    # If both linear and db scaling requested, construct the appropriate input for geocode
+    if geocode_scaling == "both":
+        geocode_scaling = ["linear", "db"]
+
     geocode(
         scene=pyrosar_scene_id,
         dem=str(dem_gamma),
@@ -134,3 +144,5 @@ def run_pyrosar_gamma_geocode(
     )
 
     log.info("finished geocode")
+
+    return processing_directories["scene"]

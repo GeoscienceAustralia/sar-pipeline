@@ -2,6 +2,7 @@ import click
 from pathlib import Path
 import tomli
 import logging
+import subprocess
 
 from sar_pipeline.nci.filesystem import get_orbits_nci
 from sar_pipeline.nci.submission.pyrosar_gamma.prepare_input import (
@@ -42,10 +43,7 @@ def configure(ctx, param, filename):
 
 
 @click.command()
-@click.argument(
-    "scene",
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-)
+@click.argument("scene", type=str)
 @click.option(
     "-c",
     "--config",
@@ -58,7 +56,8 @@ def configure(ctx, param, filename):
     show_default=True,
 )
 @click.option("--spacing", type=int)
-@click.option("--scaling", type=click.Choice(["linear", "db"]))
+@click.option("--scaling", type=click.Choice(["linear", "db", "both"]))
+@click.option("--target-crs", type=click.Choice(["4326", "3031"]))
 @click.option("--ncpu", type=str, default="4")
 @click.option("--mem", type=str, default="32")
 @click.option("--queue", type=str, default="normal")
@@ -66,12 +65,24 @@ def configure(ctx, param, filename):
 @click.option("--walltime", type=str, default="02:00:00")
 @click.option(
     "--output-dir",
-    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    type=click.Path(file_okay=False, path_type=Path),
     default="/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/",
 )
 def submit_pyrosar_gamma_workflow(
-    scene, spacing, scaling, ncpu, mem, queue, project, walltime, output_dir
+    scene, spacing, scaling, target_crs, ncpu, mem, queue, project, walltime, output_dir
 ):
+
+    if not output_dir.exists():
+        click.echo(f"Creating output directory: {output_dir}")
+        output_dir.mkdir(parents=True)
+
+    scene_file = Path(scene)
+
+    if not scene_file.is_file():
+        click.echo("An ID was passed -- locating scene on NCI")
+        scene_file = find_scene_file_from_id(scene)
+
+    click.echo(f"Submitting job for scene ID: {scene_file.stem}")
 
     pbs_parameters = {
         "ncpu": ncpu,
@@ -84,7 +95,9 @@ def submit_pyrosar_gamma_workflow(
     log_dir = output_dir / "submission/logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    submit_job(scene, spacing, scaling, pbs_parameters, log_dir)
+    submit_job(
+        scene_file, spacing, scaling, target_crs, pbs_parameters, output_dir, log_dir
+    )
 
 
 @click.command()
@@ -104,7 +117,8 @@ def submit_pyrosar_gamma_workflow(
     show_default=True,
 )
 @click.option("--spacing", type=int)
-@click.option("--scaling", type=click.Choice(["linear", "db"]))
+@click.option("--scaling", type=click.Choice(["linear", "db", "both"]))
+@click.option("--target-crs", type=click.Choice(["4326", "3031"]))
 @click.option(
     "--orbit-dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
 )
@@ -128,6 +142,7 @@ def run_pyrosar_gamma_workflow(
     scene,
     spacing,
     scaling,
+    target_crs,
     orbit_dir,
     orbit_type,
     output_dir,
@@ -144,8 +159,13 @@ def run_pyrosar_gamma_workflow(
     click.echo(f"    Identified DEM: {dem}")
 
     click.echo("Running processing")
-    print(scene, spacing, scaling, output_dir, gamma_lib_dir, gamma_env_var)
-    run_pyrosar_gamma_geocode(
+    click.echo(f"    Scene: {scene}")
+    click.echo(f"    Spacing: {spacing}")
+    click.echo(f"    Scaling: {scaling}")
+    click.echo(f"    Output directory: {output_dir}")
+    click.echo(f"    GAMMA directory: {gamma_lib_dir}")
+    click.echo(f"    LD_LIBRARY_PATH (used by GAMMA): {gamma_env_var}")
+    processed_scene_directory = run_pyrosar_gamma_geocode(
         scene=scene,
         orbit=orbit,
         dem=dem,
@@ -155,6 +175,29 @@ def run_pyrosar_gamma_workflow(
         geocode_spacing=spacing,
         geocode_scaling=scaling,
     )
+
+    if target_crs == "3031":
+        click.echo("Performing reprojection to EPSG:3031")
+        # Identify all files containing gamma0-rtc_geo
+        files_to_reproject = list(processed_scene_directory.glob("_geo.tif"))
+
+        for file in files_to_reproject:
+            click.echo(f"    Processing {file.stem}")
+            output_file = file.parent / (file.stem + "_3031" + file.suffix)
+            cmd = [
+                "gdalwarp",
+                "-t_srs",
+                f"EPSG:{target_crs}",
+                "-tr",
+                str(spacing),
+                str(spacing),  # Set output resolution to target spacing
+                "-r",
+                "bilinear",  # Use bilinear resampling
+                str(file),
+                str(output_file),
+            ]
+
+            subprocess.run(cmd, check=True)
 
 
 @click.command()

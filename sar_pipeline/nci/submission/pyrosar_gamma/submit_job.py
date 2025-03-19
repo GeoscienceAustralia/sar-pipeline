@@ -18,7 +18,9 @@ def submit_job(
     scene: Path,
     spacing: int,
     scaling: str,
+    target_crs: str,
     pbs_parameters: dict[str, str],
+    output_dir: Path,
     log_dir: str,
 ):
 
@@ -37,9 +39,7 @@ def submit_job(
         log_dir,
     )
 
-    job_command = (
-        f"run-pyrosar-gamma-workflow {scene} --spacing {spacing} --scaling {scaling}"
-    )
+    job_command = f"run-pyrosar-gamma-workflow {scene} --spacing {spacing} --scaling {scaling} --target-crs {target_crs} --output-dir {output_dir}"
 
     job_script = pbs_script + ENVIRONMENT_COMMAND + job_command
 
