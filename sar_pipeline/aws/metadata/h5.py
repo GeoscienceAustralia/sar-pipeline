@@ -155,7 +155,7 @@ class H5Manager:
             raise KeyError(f"Dataset containing '{search_str}' not found in HDF5 file.")
         if len(keys) > 1:
             raise KeyError(f"Multiple datasets containing the string '{search_str}' found in HDF5 file."
-                           " Use a more specific string to retrieve unique data")
+                           f" Use a more specific string to retrieve unique data. Keys found : {keys}")
         else:
             return self.get_value(keys[0], decode_bytes=decode_bytes)
     
