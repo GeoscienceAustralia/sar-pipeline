@@ -57,7 +57,7 @@ def configure(ctx, param, filename):
 )
 @click.option("--spacing", type=int)
 @click.option("--scaling", type=click.Choice(["linear", "db", "both"]))
-@click.option("--target-crs", type=click.Choice(["EPSG:4326", "EPSG:3031"]))
+@click.option("--target-crs", type=click.Choice(["4326", "3031"]))
 @click.option("--ncpu", type=str, default="4")
 @click.option("--mem", type=str, default="32")
 @click.option("--queue", type=str, default="normal")
@@ -118,7 +118,7 @@ def submit_pyrosar_gamma_workflow(
 )
 @click.option("--spacing", type=int)
 @click.option("--scaling", type=click.Choice(["linear", "db", "both"]))
-@click.option("--target-crs", type=click.Choice(["EPSG:4326", "EPSG:3031"]))
+@click.option("--target-crs", type=click.Choice(["4326", "3031"]))
 @click.option(
     "--orbit-dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
 )
@@ -176,12 +176,10 @@ def run_pyrosar_gamma_workflow(
         geocode_scaling=scaling,
     )
 
-    if target_crs == "EPSG:3031":
+    if target_crs == "3031":
         click.echo("Performing reprojection to EPSG:3031")
         # Identify all files containing gamma0-rtc_geo
-        files_to_reproject = list(
-            processed_scene_directory.glob("*gamma0-rtc_geo*.tif")
-        )
+        files_to_reproject = list(processed_scene_directory.glob("_geo.tif"))
 
         for file in files_to_reproject:
             click.echo(f"    Processing {file.stem}")
@@ -189,7 +187,7 @@ def run_pyrosar_gamma_workflow(
             cmd = [
                 "gdalwarp",
                 "-t_srs",
-                target_crs,
+                f"EPSG:{target_crs}",
                 "-tr",
                 str(spacing),
                 str(spacing),  # Set output resolution to target spacing
