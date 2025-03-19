@@ -72,15 +72,19 @@ class TestCopDem:
         buffer_world_x = buffer_px * self.spacing[0]
         buffer_world_y = buffer_px * self.spacing[1]
 
-        buffered_bounds = BoundingBox(*self.requested_bounds)
+        bounds = BoundingBox(*self.requested_bounds)
+        buffered_bounds = BoundingBox(
+            bounds.xmin - buffer_world_x,
+            bounds.ymin - buffer_world_y,
+            bounds.xmax + buffer_world_x,
+            bounds.ymax + buffer_world_y,
+        )
 
         # Set limits on bounds
-        buffered_bounds.xmin = max(buffered_bounds.xmin - buffer_world_x, -180.0)
-        buffered_bounds.ymin = max(buffered_bounds.ymin - buffer_world_y, -90.0)
-        buffered_bounds.xmax = min(
-            buffered_bounds.xmax + buffer_world_x, 180 - 0.5 * self.spacing[0]
-        )
-        buffered_bounds.ymax = min(buffered_bounds.ymax + buffer_world_y, 90.0)
+        buffered_bounds.xmin = max(buffered_bounds.xmin, -180.0)
+        buffered_bounds.ymin = max(buffered_bounds.ymin, -90.0)
+        buffered_bounds.xmax = min(buffered_bounds.xmax, 180 - 0.5 * self.spacing[0])
+        buffered_bounds.ymax = min(buffered_bounds.ymax, 90.0)
 
         return buffered_bounds
 
