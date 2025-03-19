@@ -175,6 +175,7 @@ class BurstH5toStacManager():
         """Map required properties from the .h5 file
         """
 
+        # TODO finalise stac properties based on best practice
         # add product stac extension properties
         self.item.properties['product:type'] = 'NRB' # or RTC ?
         self.item.properties['product:timeliness'] = '' # NRT etc see docs
