@@ -19,14 +19,26 @@ logger = logging.getLogger(__name__)
 
 
 @click.command()
-@click.argument("scene", type=str)
-@click.argument("base_rtc_config", 
-                type=click.Choice(["IW_20m_antarctica.yaml", "IW_20m_australia.yaml"]))
-@click.argument("dem", type=click.Choice(["cop_glo30"]))
-@click.argument("download_folder", type=click.Path(file_okay=False, path_type=Path))
-@click.argument("scratch_folder", type=click.Path(file_okay=False, path_type=Path))
-@click.argument("out_folder", type=click.Path(file_okay=False, path_type=Path))
-@click.argument("config_path", type=click.Path(dir_okay=False, path_type=Path))
+@click.option("--scene", type=str, required = True,
+                help="scene id. E.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD")
+@click.option("--base-rtc-config", required = True,
+                type=click.Choice(["IW_20m_antarctica.yaml", "IW_20m_australia.yaml"]),
+                help="The base configuration file for a run."
+                " these are packaged with the sar-pipeline")
+@click.option("--dem", required = True, type=click.Choice(["cop_glo30"]))
+@click.option("--download-folder", required = True,
+              type=click.Path(file_okay=False, path_type=Path),
+              help = "Path to the folder where downloaded files should go")
+@click.option("--scratch-folder", required = True,
+              type=click.Path(file_okay=False, path_type=Path),
+              help = "Path to the folder where scratch files go")
+@click.option("--out-folder", required = True, 
+              type=click.Path(file_okay=False, path_type=Path),
+              help="Path to the folder where final products will be written")
+@click.option("--run-config-save-path", required = True, 
+              type=click.Path(dir_okay=False, path_type=Path),
+              help="Path to where the RTC/opera config wil be saved")
+@click.option("--make-folders", required = False, default=True, help="Create folders")
 def get_data_for_scene_and_make_run_config(
         scene : str, 
         base_rtc_config : str,
@@ -34,32 +46,11 @@ def get_data_for_scene_and_make_run_config(
         download_folder : Path,
         scratch_folder : Path,
         out_folder : Path,
-        config_path : Path,
-        make_folders : bool = True,
+        run_config_save_path : Path,
+        make_folders : bool,
     ):
     """Download the required data for the RTC/opera and create a configuration
     file for the run that points to appropriate files and has the required settings
-
-    Parameters
-    ----------
-    scene : str
-        scene id. E.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD 
-    base_rtc_config : str
-        The base configuration file for a run. These are packaged with the sar-pipeline code.
-        options are ["IW_20m_antarctica.yaml", "IW_20m_australia.yaml"]
-    dem : str
-        The type of dem to used for processing. 
-        options are ["cop_glo30"]
-    download_folder : Path
-        Path to the folder where downloaded files should go
-    scratch_folder : Path
-        Path to the folder where scratch files go
-    out_folder : Path
-        Path to the folder where final products will be written
-    config_path : Path
-        Path to where the RTC/opera config wil be saved
-    make_folders : bool, optional
-        Make folder paths that don't exist, by default True
     """
     logger.info(f'Downloading data for scene : {scene}')
 
@@ -71,7 +62,7 @@ def get_data_for_scene_and_make_run_config(
         download_folder.mkdir(parents=True, exist_ok=True)
         out_folder.mkdir(parents=True, exist_ok=True)
         scratch_folder.mkdir(parents=True, exist_ok=True)
-        config_path.parent.mkdir(parents=True, exist_ok=True)
+        run_config_save_path.parent.mkdir(parents=True, exist_ok=True)
 
     # download the SLC and get scene metadata from asf
     logger.info(f'Downloading SLC for scene : {scene}')
@@ -122,39 +113,33 @@ def get_data_for_scene_and_make_run_config(
     RTC_RUN_CONFIG.set(f'{gk}.processing.polarization',POLARIZATION_TYPE)
 
     # save the config
-    logger.info(f'Saving config to : {config_path}')
-    RTC_RUN_CONFIG.save(config_path)
+    logger.info(f'Saving config to : {run_config_save_path}')
+    RTC_RUN_CONFIG.save(run_config_save_path)
 
 
 @click.command()
-@click.argument("results_folder", type=click.Path(file_okay=False, path_type=Path))
-@click.argument("run_config_path", type=click.Path(dir_okay=False, path_type=Path))
-@click.argument("collection", type=str)
-@click.argument("s3_bucket", type=str)
-@click.argument("s3_folder", type=str)
+@click.option("--results-folder", required=True, 
+              type=click.Path(file_okay=False, path_type=Path),
+              help="Path to the folder containing the burst outputs from RTC/opera")
+@click.option("--run-config-path", required=True, 
+              type=click.Path(dir_okay=False, path_type=Path),
+              help="Path to the config path used to run RTC opera")
+@click.option("--collection", required=True, type=str,
+              help="The collection the products belong to. e.g. s1_rtc_c1")
+@click.option("--s3-bucket", required=True, type=str,
+              help="The bucket to upload the files")
+@click.option("--s3-project-folder", required=True, type=str,
+              help="The folder within the bucket to upload the files. Note the "
+              "final path follows the patter in the description of this function.")
 def make_rtc_opera_stac_and_upload_bursts(
     results_folder: Path, 
     run_config_path: Path, 
     collection: str, 
     s3_bucket: str, 
-    s3_folder: str):
+    s3_project_folder: str):
     """makes STAC metadata for opera-rtc and uploads them to a desired s3 bucket. 
     The final path in s3 will follow the following pattern:
     s3_bucket/s3_folder/collection/burst_year/burst_month/burst_day/burst_id/*files
-
-    Parameters
-    ----------
-    results_folder : Path
-        Path to the folder containing the burst outputs from RTC/opera
-    run_config_path : Path
-        Path to the config path used to run RTC opera
-    collection : str
-        The collection the products belong to. e.g. s1_rtc_c1
-    s3_bucket : str
-        The bucket to upload the files
-    s3_folder : str
-        The folder within the bucket to upload the files. Note the final
-        path follows the patter in the description of this function.
     """
 
     # iterate through the burst directory and create STAC metadata
@@ -174,7 +159,7 @@ def make_rtc_opera_stac_and_upload_bursts(
             h5_filepath=burst_h5_filepath,
             collection=collection,
             s3_bucket=s3_bucket,
-            s3_project_folder=s3_folder
+            s3_project_folder=s3_project_folder
             )
         # make the stac item based
         burst_stac_manager.make_stac_item_from_h5()

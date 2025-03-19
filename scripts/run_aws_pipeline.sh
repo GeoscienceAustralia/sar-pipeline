@@ -58,13 +58,13 @@ conda activate sar-pipeline
 RUN_CONFIG_PATH="$out_folder/OPERA-RTC_runconfig.yaml"
 
 get-data-for-scene-and-make-run-config \
-"$scene" \
-"$base_rtc_config" \
-"$dem" \
-"$download_folder" \
-"$scratch_folder" \
-"$out_folder" \
-"$RUN_CONFIG_PATH"
+--scene "$scene" \
+--base-rtc-config "$base_rtc_config" \
+--dem "$dem" \
+--download-folder "$download_folder" \
+--scratch-folder "$scratch_folder" \
+--out-folder "$out_folder" \
+--run-config-save-path "$RUN_CONFIG_PATH"
 
 if [ $? -ne 0 ]; then
     echo "Process failed: get-data-for-scene-and-make-run-config"
@@ -85,7 +85,12 @@ conda activate sar-pipeline
 
 # point at the out product directory and make STAC metdata
 # note storage pattern is assumed to be s3_bucket / s3_project_folder / year / month / day / burst_id / *files
-make-rtc-opera-stac-and-upload-bursts "$out_folder" "$RUN_CONFIG_PATH" "$collection" "$s3_bucket" "$s3_project_folder" 
+make-rtc-opera-stac-and-upload-bursts \
+--results-folder "$out_folder" \
+--run-config-path "$RUN_CONFIG_PATH" \
+--collection "$collection" \
+--s3-bucket "$s3_bucket" \
+--s3-project-folder "$s3_project_folder" 
 
 if [ $? -ne 0 ]; then
     echo "Process failed: make-rtc-opera-stac-and-upload-bursts"
