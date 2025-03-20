@@ -11,13 +11,10 @@ def polygon_str_to_geojson(polygon_str: str) -> dict:
     dict
         Geojson for the polygon
     """
-    polygon_str = polygon_str.replace('POLYGON ((', '').replace('))', '')
-    coordinates = [list(map(float, coord.split())) for coord in polygon_str.split(', ')]
+    polygon_str = polygon_str.replace("POLYGON ((", "").replace("))", "")
+    coordinates = [list(map(float, coord.split())) for coord in polygon_str.split(", ")]
     geojson = {
         "type": "Feature",
-        "geometry": {
-            "type": "Polygon",
-            "coordinates": [coordinates]
-        },
+        "geometry": {"type": "Polygon", "coordinates": [coordinates]},
     }
     return geojson

@@ -1,4 +1,3 @@
-
 import os
 from ruamel.yaml import YAML
 from pathlib import Path
@@ -7,11 +6,12 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-VALID_BASE_CONFIGS = ['IW_20m_antarctica.yaml','IW_20m_australia.yaml']
-BASE_CONFIGS_FOLDER = Path(__file__).parents[2] / 'configs/ISCE3-RTC'
+VALID_BASE_CONFIGS = ["IW_20m_antarctica.yaml", "IW_20m_australia.yaml"]
+BASE_CONFIGS_FOLDER = Path(__file__).parents[2] / "configs/ISCE3-RTC"
+
 
 class RTCConfigManager:
-    def __init__(self, base_config : str | None = None, config_path : str | None=None):
+    def __init__(self, base_config: str | None = None, config_path: str | None = None):
         self._validate(base_config, config_path)
         self.base_config = base_config
         if config_path is not None:
@@ -23,23 +23,28 @@ class RTCConfigManager:
         self.data = self._load_yaml()
 
     def _validate(self, base_config, config_path):
-        assert base_config is not None or config_path is not None, \
-        'A `base_config` or `config_path` must be provided'
+        assert (
+            base_config is not None or config_path is not None
+        ), "A `base_config` or `config_path` must be provided"
         if base_config is not None and config_path is not None:
-            logger.info('Both `base_config` or `config_path` provided. '
-                        ' config_path will be loaded.')
-    
+            logger.info(
+                "Both `base_config` or `config_path` provided. "
+                " config_path will be loaded."
+            )
+
     def _get_base_config_path(self):
         # get the path to the specified base config
-        assert self.base_config in VALID_BASE_CONFIGS, 'specified base rtc_config is not valid'
+        assert (
+            self.base_config in VALID_BASE_CONFIGS
+        ), "specified base rtc_config is not valid"
         return BASE_CONFIGS_FOLDER / self.base_config
-    
+
     def _load_yaml(self):
         """Load YAML while preserving comments."""
         with open(self.file_path, "r") as file:
             return self.yaml.load(file)
 
-    def get(self, key, default=None, separator='.'):
+    def get(self, key, default=None, separator="."):
         """Get a nested value from the YAML data."""
         keys = key.split(separator)  # Support notation for nested keys
         data = self.data  # Start at the root
@@ -51,7 +56,7 @@ class RTCConfigManager:
 
         return data  # Return the final value
 
-    def set(self, key, value, separator='.'):
+    def set(self, key, value, separator="."):
         """Set a nested value in the YAML data."""
         keys = key.split(separator)  # Support notation for nested keys
         data = self.data  # Start at the root
