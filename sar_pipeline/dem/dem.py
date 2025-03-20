@@ -283,9 +283,6 @@ def check_s1_bounds_cross_antimeridian(bounds: BBox, max_scene_width: int = 20) 
     if isinstance(bounds, tuple):
         bounds = BoundingBox(*bounds)
 
-    if isinstance(bounds, tuple):
-        bounds = BoundingBox(*bounds)
-
     antimeridian_xmin = -180
     bounding_xmin = antimeridian_xmin + max_scene_width  # -160 by default
 
