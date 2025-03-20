@@ -6,7 +6,10 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def download_orbits_from_s3(scene: str, download_folder: Path, make_folder=True) -> Path:
+
+def download_orbits_from_s3(
+    scene: str, download_folder: Path, make_folder=True
+) -> Path:
     """_summary_
 
     Parameters
@@ -27,10 +30,8 @@ def download_orbits_from_s3(scene: str, download_folder: Path, make_folder=True)
     # https://s1-orbits.s3.us-west-2.amazonaws.com/README.html
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
-    logger.info(f'Downloading orbits for : {scene}')
+    logger.info(f"Downloading orbits for : {scene}")
     orbit_file = s1_orbits.fetch_for_scene(scene, dir=download_folder)
     # TODO handle no orbit found
-    logger.info(f'Orbit file downloaded : {orbit_file}')
+    logger.info(f"Orbit file downloaded : {orbit_file}")
     return orbit_file
-
-    

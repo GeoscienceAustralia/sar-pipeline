@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Generator
 
+
 def find_tiles(source_dir: Path, pattern: str) -> Generator[Path, None, None]:
     """_summary_
 
