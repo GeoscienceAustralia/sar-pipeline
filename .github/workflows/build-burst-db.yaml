@@ -1,0 +1,47 @@
+name: Build the Opera Burst Database and Upload to S3
+
+on:
+  workflow_dispatch:  # Allows manual triggering
+    inputs:
+      AWS_S3_BUCKET:
+        description: "AWS S3 bucket to upload to"
+        required: true
+        default: "deant-data-public-dev"
+      AWS_S3_BUCKET_FOLDER:
+        description: "Folder in the AWS S3 bucket"
+        required: true
+        default: "persistent/burst_db"
+
+jobs:
+  create-upload-burst-db:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone the burst_db repo
+        run: |
+          git clone --branch v0.9.0 https://github.com/opera-adt/burst_db.git
+          cd burst_db
+          ls -la  # Optional: Verify that files are cloned
+
+      - name: Initialize Conda and Install Dependencies
+        run: |
+          echo "Initializing Conda..."
+          source /usr/share/miniconda/etc/profile.d/conda.sh
+          conda run -n base python -m pip install ./burst_db  # Ensures install runs in Conda
+
+      - name: Run opera-db create
+        run: |
+          conda run -n base opera-db create
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Upload files to S3
+        run: |
+          aws s3 cp output/ s3://${{ github.event.inputs.AWS_S3_BUCKET }}/${{ github.event.inputs.AWS_S3_BUCKET_FOLDER }}/ --recursive
