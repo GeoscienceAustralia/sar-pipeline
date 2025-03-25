@@ -1,12 +1,14 @@
 #!/bin/bash
 
-# script to create the burst database required by the RTC and CSLC pipelines
+# script to create the burst database used by the RTC and CSLC pipelines
 # see more information at docs/workflows/burst-db.md
+# requires a local conda install and AWS access keys as environment variables
 
-# Default values for the container
-AWS_S3_BUCKET="deant-data-public-dev"
+# Default values for uploading the burst-db file
+# Version of the github code to make the burst-db
+AWS_S3_BUCKET="deant-data-public-dev" # 
 AWS_S3_FOLDER="persistent/burst_db"
-BURST_DB_VERSION_TAG="0.9.0"
+BURST_DB_VERSION_TAG="0.9.0" 
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
@@ -22,8 +24,8 @@ done
 echo The burst db file will be uploaded to:
 echo AWS_S3_BUCKET : "$AWS_S3_BUCKET"
 echo AWS_S3_FOLDER : "$AWS_S3_FOLDER"
+echo Burst-db version tagging:
 echo BURST_DB_VERSION_TAG : "$BURST_DB_VERSION_TAG"
-
 echo "WARNING - v$BURST_DB_VERSION_TAG of https://github.com/opera-adt/burst_db.git will be used." 
 echo "Update using the BURST_DB_VERSION_TAG input if required"
 
@@ -37,7 +39,7 @@ else
     exit 1  # Exit with an error code
 fi
 
-# Check if AWS credentials and region are set
+# Check if AWS credentials and region are set as environment variables 
 echo "Checking AWS Environment variables"
 echo "Environment variables must be set with write access to AWS_S3_BUCKET : $AWS_S3_BUCKET"
 if [[ -z "$AWS_ACCESS_KEY_ID" ]]; then
@@ -56,9 +58,9 @@ if [[ -z "$AWS_DEFAULT_REGION" ]]; then
 fi
 
 # If all variables are set
-echo "AWS credentials and region are set."
+echo "AWS credentials and region are set as environment variables."
 
-# clone the repository
+# clone the burst-db repository
 echo Cloning version "$BURST_DB_VERSION_TAG" from https://github.com/opera-adt/burst_db.git
 git clone --branch v"$BURST_DB_VERSION_TAG" https://github.com/opera-adt/burst_db.git
 cd burst_db
@@ -84,6 +86,7 @@ fi
 BURST_DB_FILE="opera-burst-bbox-only.sqlite3"
 aws s3 cp $BURST_DB_FILE s3://$AWS_S3_BUCKET/$AWS_S3_FOLDER/$BURST_DB_VERSION_TAG/$BURST_DB_FILE
  
- # warn user to update in workflow
+# warn user to update in workflow
+# TODO update these suggestions once integrated in code
 echo New database uploaded to bucket. Update BURST_DB_URL parameter in required scripts
 echo E.g. BURST_DB_URL=https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/persistent/burst_db/BURST_DB_VERSION_TAG/opera-burst-bbox-only.sqlite3
