@@ -2,6 +2,7 @@ name: sar-pipeline
 channels:
   - avalentino
   - conda-forge
+  - s1-etad
 dependencies:
   - _libgcc_mutex=0.1
   - _openmp_mutex=4.5
@@ -214,6 +215,7 @@ dependencies:
   - readline=8.2
   - requests=2.32.3
   - s1etad=0.5.3
+  - s1etad_tools=0.8.1
   - scipy=1.15.2
   - setuptools=75.6.0
   - setuptools-scm=8.1.0
