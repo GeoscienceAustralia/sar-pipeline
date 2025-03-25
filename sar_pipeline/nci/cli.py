@@ -8,6 +8,7 @@ from sar_pipeline.nci.filesystem import get_orbits_nci
 from sar_pipeline.nci.submission.pyrosar_gamma.prepare_input import (
     get_orbit_and_dem,
 )
+from sar_pipeline.etad.etad import download_etad_for_scene_from_cdse
 from sar_pipeline.nci.preparation.orbits import (
     filter_orbits_to_cover_time_window,
 )
@@ -26,13 +27,28 @@ logging.basicConfig(level=logging.INFO)
 
 
 @click.command()
-@click.argument("scene_name", type=str)
+@click.argument("scene-name", type=str)
 def find_scene_file(scene_name):
     scene_file = find_scene_file_from_id(scene_name)
 
     click.echo(scene_file)
 
 
+@click.command()
+@click.argument("scene-name", type=str)
+@click.option("--etad-directory", required=True, type=click.Path(file_okay=False))
+@click.option("--cdse-username", required=True, type=str)
+@click.option("--cdse-password", required=True, type=str)
+@click.option("--unzip", type=bool)
+def download_etad_for_scene(
+    scene_name, etad_directory, cdse_username, cdse_password, unzip
+):
+    etad_file = download_etad_for_scene_from_cdse(
+        scene_name, etad_directory, cdse_username, cdse_password, unzip
+    )
+
+
+# Set up default configuration for use in CLI
 DEFAULT_CONFIGURATION = Path(__file__).resolve().parent / "configs/default.toml"
 
 
