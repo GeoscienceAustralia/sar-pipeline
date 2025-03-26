@@ -89,4 +89,6 @@ aws s3 cp $BURST_DB_FILE s3://$AWS_S3_BUCKET/$AWS_S3_FOLDER/$BURST_DB_VERSION_TA
 # warn user to update in workflow
 # TODO update these suggestions once integrated in code
 echo New database uploaded to bucket. Update BURST_DB_URL parameter in required scripts
-echo E.g. BURST_DB_URL=https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/persistent/burst_db/BURST_DB_VERSION_TAG/opera-burst-bbox-only.sqlite3
+echo BURST_DB_URL=https://$AWS_S3_BUCKET.s3.ap-southeast-2.amazonaws.com/$AWS_S3_FOLDER/$BURST_DB_VERSION_TAG/$BURST_DB_FILE
+echo files to update:
+echo Docker/Dockerfile

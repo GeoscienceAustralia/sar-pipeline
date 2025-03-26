@@ -41,4 +41,6 @@ By default, the file will be uploaded to:
 
 ## Update the references to database
 
-### TODO - Add once decided how to manage in code
+The parameter `BURST_DB_URL` MUST be changed in the following files:
+
+- [Dockerfile](../../Docker/Dockerfile)
