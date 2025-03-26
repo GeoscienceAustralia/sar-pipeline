@@ -6,7 +6,10 @@ from pyroSAR.gamma import geocode
 from pyroSAR.gamma.dem import dem_import
 import shutil
 import sys
+import tarfile
+import zipfile
 
+from sar_pipeline.etad.etad import apply_etad_correction
 from sar_pipeline.nci.processing.GAMMA.GAMMA_utils import set_gamma_env_variables
 
 logging.basicConfig(
@@ -14,7 +17,7 @@ logging.basicConfig(
     level=logging.INFO,
     stream=sys.stdout,
 )
-log = logging.getLogger("gammapy")
+log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
@@ -74,6 +77,7 @@ def run_pyrosar_gamma_geocode(
     gamma_env: str,
     geocode_spacing: int,
     geocode_scaling: str,
+    etad: Path | None = None,
 ) -> Path:
     """
     Returns
@@ -93,6 +97,50 @@ def run_pyrosar_gamma_geocode(
     processing_directories = prepare_directories(
         output, scene_name, pyrosar_scene_id.outname_base(extensions=None)
     )
+
+    # Unpack the scene into the temporary directory
+    if pyrosar_scene_id.compression is not None:
+        pyrosar_scene_id.unpack(
+            directory=str(processing_directories["temp"]), exist_ok=False
+        )
+
+    # Apply ETAD file if provided
+    if etad is not None:
+        if pyrosar_scene_id.product == "SLC":
+            log.info("Correcting SLC with ETAD product.")
+
+            # Set up required paths
+            uncorrected_scene = Path(pyrosar_scene_id.scene)
+            uncorrected_scene_dir = uncorrected_scene.parent
+            corrected_scene_dir = uncorrected_scene.parent / "etad_corrected"
+
+            if not (etad.is_dir() and etad.suffix == ".SAFE"):
+                logging.info("Atte")
+                if zipfile.is_zipfile(etad):
+                    archive = tarfile.open(etad, "r")
+                elif tarfile.is_tarfile(etad):
+                    archive = zipfile.ZipFile(etad, "r")
+                else:
+                    raise RuntimeError(
+                        f"ETAD file must be one of .SAFE, .zip, or .tar. Supplied ETAD file: {etad}"
+                    )
+                archive.extractall(uncorrected_scene_dir)
+                archive.close()
+
+                # Update variable to use extracted etad
+                etad = uncorrected_scene_dir / etad.name.with_suffix(".SAFE")
+
+            corrected_scene = apply_etad_correction(
+                uncorrected_scene, etad, outdir=corrected_scene_dir, nthreads=4
+            )
+
+            # Update pyrosar scene to point at the corrected file
+            pyrosar_scene_id = identify(corrected_scene)
+
+        else:
+            log.warning(
+                f"ETAD can only be applied to SLC, but a {pyrosar_scene_id.product} has been provided. ETAD correction will be skipped."
+            )
 
     # Prepare orbit file
     # Copy to temp dir to prevent pyroSAR modifying in-place

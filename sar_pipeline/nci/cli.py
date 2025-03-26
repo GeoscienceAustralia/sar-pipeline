@@ -8,7 +8,10 @@ from sar_pipeline.nci.filesystem import get_orbits_nci
 from sar_pipeline.nci.submission.pyrosar_gamma.prepare_input import (
     get_orbit_and_dem,
 )
-from sar_pipeline.etad.etad import download_etad_for_scene_from_cdse
+from sar_pipeline.etad.etad import (
+    download_etad_for_scene_from_cdse,
+    find_etad_for_scene,
+)
 from sar_pipeline.nci.preparation.orbits import (
     filter_orbits_to_cover_time_window,
 )
@@ -36,10 +39,12 @@ def find_scene_file(scene_name):
 
 @click.command()
 @click.argument("scene-name", type=str)
-@click.option("--etad-directory", required=True, type=click.Path(file_okay=False))
+@click.option(
+    "--etad-directory", required=True, type=click.Path(file_okay=False, path_type=Path)
+)
 @click.option("--cdse-username", required=True, type=str)
 @click.option("--cdse-password", required=True, type=str)
-@click.option("--unzip", type=bool)
+@click.option("--unzip/--zip", default=True)
 def download_etad_for_scene(
     scene_name, etad_directory, cdse_username, cdse_password, unzip
 ):
@@ -140,6 +145,11 @@ def submit_pyrosar_gamma_workflow(
 )
 @click.option("--orbit-type", type=click.Choice(["POE", "RES", "either"]))
 @click.option(
+    "--etad-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+)
+@click.option(
     "--output-dir",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
     default="/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/",
@@ -161,6 +171,7 @@ def run_pyrosar_gamma_workflow(
     target_crs,
     orbit_dir,
     orbit_type,
+    etad_dir,
     output_dir,
     gamma_lib_dir,
     gamma_env_var,
@@ -173,6 +184,12 @@ def run_pyrosar_gamma_workflow(
 
     click.echo(f"    Identified orbit: {orbit}")
     click.echo(f"    Identified DEM: {dem}")
+
+    if etad_dir is not None:
+        etad = find_etad_for_scene(str(scene), etad_dir)
+        click.echo(f"    Identified ETAD: {etad}")
+    else:
+        etad = None
 
     click.echo("Running processing")
     click.echo(f"    Scene: {scene}")
@@ -190,6 +207,7 @@ def run_pyrosar_gamma_workflow(
         gamma_env=gamma_env_var,
         geocode_spacing=spacing,
         geocode_scaling=scaling,
+        etad=etad,
     )
 
     if target_crs == "3031":
