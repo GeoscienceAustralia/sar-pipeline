@@ -1,7 +1,10 @@
 import os
+import logging
 from pathlib import Path
+
 from sar_pipeline.nci.submission.utils import populate_pbs_template
 
+logger = logging.getLogger(__name__)
 
 ENVIRONMENT_COMMAND = """
 
@@ -19,9 +22,15 @@ def submit_job(
     spacing: int,
     scaling: str,
     target_crs: str,
-    pbs_parameters: dict[str, str],
+    orbit_dir: Path,
+    orbit_type: str,
+    etad_dir: Path,
     output_dir: Path,
     log_dir: str,
+    gamma_lib_dir: Path,
+    gamma_env_var: str,
+    pbs_parameters: dict[str, str],
+    dry_run: bool,
 ):
 
     scene_name = scene.stem
@@ -39,7 +48,19 @@ def submit_job(
         log_dir,
     )
 
-    job_command = f"run-pyrosar-gamma-workflow {scene} --spacing {spacing} --scaling {scaling} --target-crs {target_crs} --output-dir {output_dir}"
+    # Ensure there is a trailing white space for each line
+    job_command = (
+        f"run-pyrosar-gamma-workflow {scene} "
+        f"--spacing {spacing} "
+        f"--scaling {scaling} "
+        f"--target-crs {target_crs} "
+        f"--orbit_dir {orbit_dir} "
+        f"--orbit-type {orbit_type} "
+        f"--etad-dir {etad_dir} "
+        f"--output-dir {output_dir} "
+        f"--gamma-lib-dir {gamma_lib_dir} "
+        f"--gamma-env-var {gamma_env_var} "
+    )
 
     job_script = pbs_script + ENVIRONMENT_COMMAND + job_command
 
@@ -47,5 +68,9 @@ def submit_job(
     scene_script.write_text(job_script)
 
     # Submit script
-    qsub_command = f"qsub {scene_script}"
-    os.system(qsub_command)
+    if dry_run:
+        logger.info(f"Script written to {scene_script}, but not submitted")
+    else:
+        logger.info(f"Submitting script {scene_script}")
+        qsub_command = f"qsub {scene_script}"
+        os.system(qsub_command)

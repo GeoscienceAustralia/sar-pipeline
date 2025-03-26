@@ -79,18 +79,53 @@ def configure(ctx, param, filename):
 @click.option("--spacing", type=int)
 @click.option("--scaling", type=click.Choice(["linear", "db", "both"]))
 @click.option("--target-crs", type=click.Choice(["4326", "3031"]))
-@click.option("--ncpu", type=str, default="4")
-@click.option("--mem", type=str, default="32")
-@click.option("--queue", type=str, default="normal")
-@click.option("--project", type=str, default="u46")
-@click.option("--walltime", type=str, default="02:00:00")
+@click.option(
+    "--orbit-dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
+)
+@click.option("--orbit-type", type=click.Choice(["POE", "RES", "either"]))
+@click.option(
+    "--etad-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+)
 @click.option(
     "--output-dir",
     type=click.Path(file_okay=False, path_type=Path),
     default="/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/",
 )
+@click.option(
+    "--gamma-lib-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default="/g/data/dg9/GAMMA/GAMMA_SOFTWARE-20230712",
+)
+@click.option(
+    "--gamma-env-var",
+    type=str,
+    default="/g/data/yp75/projects/pyrosar_processing/sar-pyrosar-nci:/apps/fftw3/3.3.10/lib:/apps/gdal/3.6.4/lib64",
+)
+@click.option("--ncpu", type=str, default="4")
+@click.option("--mem", type=str, default="32")
+@click.option("--queue", type=str, default="normal")
+@click.option("--project", type=str, default="u46")
+@click.option("--walltime", type=str, default="02:00:00")
+@click.option("--dry-run", is_flag=True, default=False)
 def submit_pyrosar_gamma_workflow(
-    scene, spacing, scaling, target_crs, ncpu, mem, queue, project, walltime, output_dir
+    scene,
+    spacing,
+    scaling,
+    target_crs,
+    orbit_dir,
+    orbit_type,
+    etad_dir,
+    output_dir,
+    gamma_lib_dir,
+    gamma_env_var,
+    ncpu,
+    mem,
+    queue,
+    project,
+    walltime,
+    dry_run,
 ):
 
     if not output_dir.exists():
@@ -117,7 +152,19 @@ def submit_pyrosar_gamma_workflow(
     log_dir.mkdir(parents=True, exist_ok=True)
 
     submit_job(
-        scene_file, spacing, scaling, target_crs, pbs_parameters, output_dir, log_dir
+        scene=scene_file,
+        spacing=spacing,
+        scaling=scaling,
+        target_crs=target_crs,
+        orbit_dir=orbit_dir,
+        orbit_type=orbit_type,
+        etad_dir=etad_dir,
+        output_dir=output_dir,
+        log_dir=log_dir,
+        gamma_lib_dir=gamma_lib_dir,
+        gamma_env_var=gamma_env_var,
+        pbs_parameters=pbs_parameters,
+        dry_run=dry_run,
     )
 
 
