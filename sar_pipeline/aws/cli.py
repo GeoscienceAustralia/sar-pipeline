@@ -17,6 +17,18 @@ from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+class IntOrEmpty(click.ParamType):
+    """Custom Click type that accepts an integer, None, or an empty string."""
+    name = "int_or_empty"
+
+    def convert(self, value, param, ctx):
+        if value == "" or value is None:
+            return None  # Treat empty input as None
+        try:
+            return int(value)
+        except ValueError:
+            self.fail(f"{value} is not a valid integer or empty string", param, ctx)
+
 
 @click.command()
 @click.option(
@@ -26,11 +38,16 @@ logger = logging.getLogger(__name__)
     help="scene id. E.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
 )
 @click.option(
-    "--base-rtc-config",
+    "--resolution",
     required=True,
-    type=click.Choice(["IW_20m_antarctica.yaml", "IW_20m_australia.yaml"]),
-    help="The base configuration file for a run."
-    " these are packaged with the sar-pipeline",
+    type=int,
+    help="The desired resolution of the final product",
+)
+@click.option(
+    "--output-crs",
+    required=True,
+    default="",
+    help="The output CRS as in integer. e.g. 3031. If None the default UTM zone for scene/burst center is used",
 )
 @click.option("--dem", required=True, type=click.Choice(["cop_glo30"]))
 @click.option(
@@ -59,13 +76,14 @@ logger = logging.getLogger(__name__)
 )
 @click.option("--make-folders", required=False, default=True, help="Create folders")
 def get_data_for_scene_and_make_run_config(
-    scene: str,
-    base_rtc_config: str,
-    dem: str,
-    download_folder: Path,
-    scratch_folder: Path,
-    out_folder: Path,
-    run_config_save_path: Path,
+    scene,
+    resolution,
+    output_crs,
+    dem,
+    download_folder,
+    scratch_folder,
+    out_folder,
+    run_config_save_path,
     make_folders: bool,
 ):
     """Download the required data for the RTC/opera and create a configuration
@@ -74,7 +92,7 @@ def get_data_for_scene_and_make_run_config(
     logger.info(f"Downloading data for scene : {scene}")
 
     # make the base .yaml for RTC processing
-    RTC_RUN_CONFIG = RTCConfigManager(base_rtc_config)
+    RTC_RUN_CONFIG = RTCConfigManager(base_config='S1_RTC.yaml')
 
     if make_folders:
         logger.info(f"Making output folders if not existing")
@@ -115,7 +133,7 @@ def get_data_for_scene_and_make_run_config(
 
     # Update input and ancillery data
     logger.info(
-        f"Updating the run config for scene. Base config type : {base_rtc_config}"
+        f"Updating the run config for scene"
     )
     gk = "runconfig.groups"
     RTC_RUN_CONFIG.set(f"{gk}.input_file_group.safe_file_path", [str(SCENE_PATH)])
@@ -137,7 +155,18 @@ def get_data_for_scene_and_make_run_config(
         "dual-pol" if len(POLARIZATION) > 2 else "co-pol"
     )  # string for template value
     RTC_RUN_CONFIG.set(f"{gk}.processing.polarization", POLARIZATION_TYPE)
+    
+    # update the burst resolution
+    bk = "runconfig.groups.processing.geocoding.bursts_geogrid"
+    RTC_RUN_CONFIG.set(f"{bk}.x_posting", int(resolution))
+    RTC_RUN_CONFIG.set(f"{bk}.y_posting", int(resolution))
+    RTC_RUN_CONFIG.set(f"{bk}.x_snap", int(resolution))
+    RTC_RUN_CONFIG.set(f"{bk}.y_snap", int(resolution))
 
+    # update the burst crs if it has been set
+    if output_crs and output_crs is not None:
+        RTC_RUN_CONFIG.set(f"{bk}.output_epsg", int(output_crs))
+    
     # save the config
     logger.info(f"Saving config to : {run_config_save_path}")
     RTC_RUN_CONFIG.save(run_config_save_path)
