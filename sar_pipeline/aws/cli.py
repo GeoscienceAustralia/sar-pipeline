@@ -1,10 +1,8 @@
 import click
 import logging
-import os
 from pathlib import Path
 import shutil
 from shapely.geometry import Polygon
-import json
 
 from sar_pipeline.aws.preparation.scenes import download_slc_from_asf
 from sar_pipeline.aws.preparation.orbits import download_orbits_from_s3
@@ -16,18 +14,6 @@ from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-class IntOrEmpty(click.ParamType):
-    """Custom Click type that accepts an integer, None, or an empty string."""
-    name = "int_or_empty"
-
-    def convert(self, value, param, ctx):
-        if value == "" or value is None:
-            return None  # Treat empty input as None
-        try:
-            return int(value)
-        except ValueError:
-            self.fail(f"{value} is not a valid integer or empty string", param, ctx)
 
 
 @click.command()
