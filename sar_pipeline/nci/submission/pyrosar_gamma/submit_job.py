@@ -54,7 +54,7 @@ def submit_job(
         f"--spacing {spacing} "
         f"--scaling {scaling} "
         f"--target-crs {target_crs} "
-        f"--orbit_dir {orbit_dir} "
+        f"--orbit-dir {orbit_dir} "
         f"--orbit-type {orbit_type} "
         f"--etad-dir {etad_dir} "
         f"--output-dir {output_dir} "
