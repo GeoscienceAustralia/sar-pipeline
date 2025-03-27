@@ -27,11 +27,11 @@ logger = logging.getLogger(__name__)
     "--resolution",
     required=True,
     type=int,
-    help="The desired resolution of the final product",
+    help="The desired resolution of the final product (metres)",
 )
 @click.option(
     "--output-crs",
-    required=True,
+    required=False,
     default="",
     help="The output CRS as in integer. e.g. 3031. If None the default UTM zone for scene/burst center is used",
 )
@@ -70,7 +70,7 @@ def get_data_for_scene_and_make_run_config(
     scratch_folder,
     out_folder,
     run_config_save_path,
-    make_folders: bool,
+    make_folders,
 ):
     """Download the required data for the RTC/opera and create a configuration
     file for the run that points to appropriate files and has the required settings
@@ -78,7 +78,7 @@ def get_data_for_scene_and_make_run_config(
     logger.info(f"Downloading data for scene : {scene}")
 
     # make the base .yaml for RTC processing
-    RTC_RUN_CONFIG = RTCConfigManager(base_config='S1_RTC.yaml')
+    RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC.yaml")
 
     if make_folders:
         logger.info(f"Making output folders if not existing")
@@ -117,10 +117,8 @@ def get_data_for_scene_and_make_run_config(
         download_geoid=True,
     )
 
-    # Update input and ancillery data
-    logger.info(
-        f"Updating the run config for scene"
-    )
+    # Update input and ancillary data
+    logger.info(f"Updating the run config for scene")
     gk = "runconfig.groups"
     RTC_RUN_CONFIG.set(f"{gk}.input_file_group.safe_file_path", [str(SCENE_PATH)])
     RTC_RUN_CONFIG.set(
@@ -141,7 +139,7 @@ def get_data_for_scene_and_make_run_config(
         "dual-pol" if len(POLARIZATION) > 2 else "co-pol"
     )  # string for template value
     RTC_RUN_CONFIG.set(f"{gk}.processing.polarization", POLARIZATION_TYPE)
-    
+
     # update the burst resolution
     bk = "runconfig.groups.processing.geocoding.bursts_geogrid"
     RTC_RUN_CONFIG.set(f"{bk}.x_posting", int(resolution))
@@ -152,7 +150,7 @@ def get_data_for_scene_and_make_run_config(
     # update the burst crs if it has been set
     if output_crs and output_crs is not None:
         RTC_RUN_CONFIG.set(f"{bk}.output_epsg", int(output_crs))
-    
+
     # save the config
     logger.info(f"Saving config to : {run_config_save_path}")
     RTC_RUN_CONFIG.save(run_config_save_path)
