@@ -126,8 +126,8 @@ def find_etad_for_scene(scene: str, etad_dir: Path):
     start_query_max = scene_start + timedelta(seconds=buffer_seconds)
 
     etad = None
-    for etad_file in etad_dir:
-        etad_start, _ = parse_etad_file_dates(etad_file)
+    for etad_file in etad_dir.iterdir():
+        etad_start, _ = parse_etad_file_dates(str(etad_file))
         if (etad_start >= start_query_min) and (etad_start <= start_query_max):
             etad = etad_file
             logger.info(f"Found ETAD for scene: {etad}")
