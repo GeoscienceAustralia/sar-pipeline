@@ -24,6 +24,12 @@ logger = logging.getLogger(__name__)
     help="scene id. E.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
 )
 @click.option(
+    "--burst_id_list",
+    required=False,
+    multiple=True, 
+    help="List of burst IDs separated by space. e.g. t070_149815_iw3",
+)
+@click.option(
     "--resolution",
     required=True,
     type=int,
@@ -36,6 +42,11 @@ logger = logging.getLogger(__name__)
     help="The output CRS as in integer. e.g. 3031. If None the default UTM zone for scene/burst center is used",
 )
 @click.option("--dem", required=True, type=click.Choice(["cop_glo30"]))
+@click.option(
+    "--product", 
+    required=True, 
+    type=click.Choice(["RTC_S1","RTC_S1_STATIC"]),
+    help="The product to be made")
 @click.option(
     "--download-folder",
     required=True,
@@ -63,9 +74,11 @@ logger = logging.getLogger(__name__)
 @click.option("--make-folders", required=False, default=True, help="Create folders")
 def get_data_for_scene_and_make_run_config(
     scene,
+    burst_id_list,
     resolution,
     output_crs,
     dem,
+    product,
     download_folder,
     scratch_folder,
     out_folder,
@@ -78,7 +91,12 @@ def get_data_for_scene_and_make_run_config(
     logger.info(f"Downloading data for scene : {scene}")
 
     # make the base .yaml for RTC processing
-    RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC.yaml")
+    if product == 'RTC_S1':
+        RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC.yaml")
+    elif product == "RTC_S1_STATIC":
+        RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC_STATIC.yaml")
+    else:
+        raise ValueError('product must be S1_RTC or S1_RTC_STATIC')
 
     if make_folders:
         logger.info(f"Making output folders if not existing")
@@ -129,9 +147,16 @@ def get_data_for_scene_and_make_run_config(
     RTC_RUN_CONFIG.set(f"{gk}.dynamic_ancillary_file_group.dem_file", str(DEM_PATH))
     RTC_RUN_CONFIG.set(f"{gk}.dynamic_ancillary_file_group.dem_file_description", "tmp")
 
+    if burst_id_list:
+        # specify bursts if provided
+        RTC_RUN_CONFIG.set(f"{gk}.input_file_group.burst_id", burst_id_list)
+
     # Update Outputs
     RTC_RUN_CONFIG.set(f"{gk}.product_group.output_dir", str(out_folder))
     RTC_RUN_CONFIG.set(f"{gk}.product_group.scratch_path", str(scratch_folder))
+    if product == "RTC_S1_STATIC":
+        # TODO YYYYMMDD
+        RTC_RUN_CONFIG.set(f"{gk}.product_group.rtc_s1_static_validity_start_date",20010101)
 
     # set the polarisation
     POLARIZATION = asf_scene_metadata.properties["polarization"]
@@ -170,6 +195,11 @@ def get_data_for_scene_and_make_run_config(
     help="Path to the config path used to run RTC opera",
 )
 @click.option(
+    "--product", 
+    required=True, 
+    type=click.Choice(["RTC_S1","RTC_S1_STATIC"]),
+    help="The product being made. Determines bucket structure")
+@click.option(
     "--collection",
     required=True,
     type=str,
@@ -186,11 +216,12 @@ def get_data_for_scene_and_make_run_config(
     "final path follows the patter in the description of this function.",
 )
 def make_rtc_opera_stac_and_upload_bursts(
-    results_folder: Path,
-    run_config_path: Path,
-    collection: str,
-    s3_bucket: str,
-    s3_project_folder: str,
+    results_folder,
+    run_config_path,
+    product,
+    collection,
+    s3_bucket,
+    s3_project_folder,
 ):
     """makes STAC metadata for opera-rtc and uploads them to a desired s3 bucket.
     The final path in s3 will follow the following pattern:
@@ -209,24 +240,28 @@ def make_rtc_opera_stac_and_upload_bursts(
         burst_h5_files = list(burst_folder.glob("*.h5"))
         assert (
             len(burst_h5_files) == 1
-        ), f"{len(burst_h5_files)} .h5 files found. Expecting 1 for in {burst_folder}"
+        ), f"{len(burst_h5_files)} .h5 files found. Expecting 1 in : {burst_folder}"
         burst_h5_filepath = burst_folder / burst_h5_files[0]
         # make the stac metadata from the .h5 metadata
         logging.info(f"Making stac metadata from .h5 file")
         # initialise the class to convert data from the .h5 to a stac doc
         burst_stac_manager = BurstH5toStacManager(
             h5_filepath=burst_h5_filepath,
+            product=product,
             collection=collection,
             s3_bucket=s3_bucket,
             s3_project_folder=s3_project_folder,
         )
         # make the stac item based
         burst_stac_manager.make_stac_item_from_h5()
-        # add properties to the stac foc
-        burst_stac_manager.add_properties_from_h5()
+        # add properties to the stac doc
+        # TODO finalise stac metadata 
+        if product == "RTC_S1":
+            burst_stac_manager.add_properties_from_h5()
         # add the assets to the stac doc
         burst_stac_manager.add_assets_from_folder(burst_folder)
         # add the links to the stac doc
+        # TODO static layers not yet referenced in S1_RTC
         burst_stac_manager.add_links_from_h5()
         # add additional links
         stac_filename = "metadata.json"
