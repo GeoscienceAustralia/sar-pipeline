@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
     "--burst_id_list",
     required=False,
     multiple=True, 
-    help="List of burst IDs separated by space. e.g. t070_149815_iw3",
+    help="List of burst IDs separated by space. e.g. t070_149815_iw2 t070_149815_iw3",
 )
 @click.option(
     "--resolution",
