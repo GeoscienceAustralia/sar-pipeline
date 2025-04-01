@@ -12,27 +12,39 @@ from dateutil.parser import isoparse
 import numpy as np
 
 from sar_pipeline.aws.metadata.h5 import H5Manager
-from sar_pipeline.utils.spatial import polygon_str_to_geojson
+from sar_pipeline.utils.spatial import polygon_str_to_geojson, convert_bbox
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-REQUIRED_ASSET_FILETYPES = [
-    "_mask.tif",
-    "_number_of_looks.tif",
-    "_rtc_anf_gamma0_to_beta0.tif",
-    "_rtc_anf_gamma0_to_sigma0.tif",
-    "_HH.tif",
-    "_HV.tif",
-    "_VV.tif",
-    "_VH.tif",
-    "_local_incidence_angle.tif",
-    "_incidence_angle.tif",
-    "_interpolated_dem.tif",
-    ".png",
-]
+REQUIRED_ASSET_FILETYPES = {
+    "RTC_S1" : [
+        "_mask.tif",
+        "_number_of_looks.tif",
+        "_rtc_anf_gamma0_to_beta0.tif",
+        "_rtc_anf_gamma0_to_sigma0.tif",
+        "_HH.tif",
+        "_HV.tif",
+        "_VV.tif",
+        "_VH.tif",
+        "_local_incidence_angle.tif",
+        "_incidence_angle.tif",
+        "_interpolated_dem.tif",
+        ".png",
+    ],
+    "RTC_S1_STATIC" : [
+        "_mask.tif",
+        "_number_of_looks.tif",
+        "_rtc_anf_gamma0_to_beta0.tif",
+        "_rtc_anf_gamma0_to_sigma0.tif",
+        "_local_incidence_angle.tif",
+        "_incidence_angle.tif",
+        "_interpolated_dem.tif",
+        ".png",
+    ]
+}
 
 ASSET_FILETYPE_TO_TITLE = {
     "_mask.tif": "mask",
@@ -101,6 +113,7 @@ class BurstH5toStacManager:
     def __init__(
         self,
         h5_filepath: Path,
+        product: str,
         collection: str,
         s3_bucket: str,
         s3_project_folder: str,
@@ -111,6 +124,8 @@ class BurstH5toStacManager:
         ----------
         h5_filepath : Path
             Local path to the .h5 file output from the opera/RTC process
+        product: str
+            The product being made. RTC_S1 or RTC_S1_STATIC
         collection : str
             The collection the product belongs to. e.g. s1_rtc_c1
         s3_bucket : str
@@ -124,6 +139,7 @@ class BurstH5toStacManager:
         self.h5_filepath = h5_filepath
         self.h5 = H5Manager(self.h5_filepath)  # class to help get values from .h5 file
         self.id = self.h5_filepath.stem
+        self.product = self._check_valid_product(product)
         self.collection = collection
         self.stac_extensions = [
             "https://stac-extensions.github.io/product/v0.1.0/schema.json",
@@ -144,16 +160,45 @@ class BurstH5toStacManager:
         self.end_dt = isoparse(
             self.h5.search_value("identification/zeroDopplerEndTime")
         )
-        self.geometry_4326 = polygon_str_to_geojson(
-            self.h5.search_value("boundingPolygon")
-        )
-        self.bbox_4326 = shape(self.geometry_4326["geometry"]).bounds
+        self.projection = self.h5.search_value("data/projection")
+        if self.product == "RTC_S1":
+            self.geometry_4326 = polygon_str_to_geojson(
+                self.h5.search_value("boundingPolygon")
+            )
+            self.bbox_4326 = shape(self.geometry_4326["geometry"]).bounds
+        elif self.product == "RTC_S1_STATIC":
+            # 4326 needs to be converted from native coordinates
+            self.bbox_4326 = convert_bbox(
+                self.h5.search_value("boundingBox"),
+                src_crs=self.projection,
+                trg_crs=4326
+            )
+            # geometry is not included, set this to be bbox
+            self.geometry_4326 = self.bbox_4326
+
         self.burst_id = self.h5.search_value("burstID")
-        self.burst_s3_subfolder = f"{self.s3_project_folder}/{self.collection}/{self.start_dt.year}/{self.start_dt.month}/{self.start_dt.day}/{self.burst_id}"
+        self.burst_s3_subfolder = self._make_s3_subfolder()
         self.bucket_href = (
             f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com//"
         )
         self.base_href = Path(self.bucket_href) / self.burst_s3_subfolder
+
+    def _check_valid_product(self, product):
+        "check the product is valid"
+        if product not in ["RTC_S1", "RTC_S1_STATIC"]:
+            raise ValueError("Invalid product")
+        return product
+
+    def _make_s3_subfolder(self):
+        "make the s3 subfolder destination based on the product"
+        if self.product == "RTC_S1":
+            # include acquisition dates for S1_RTC
+            return f"{self.s3_project_folder}/{self.collection}/{self.start_dt.year}/{self.start_dt.month}/{self.start_dt.day}/{self.burst_id}"
+        if self.product == "RTC_S1_STATIC":
+            # static products are date independent
+            return f"{self.s3_project_folder}/{self.collection}/{self.burst_id}"
+        else:
+            raise ValueError()
 
     def make_stac_item_from_h5(self):
         """Make a pystac.item.Item for the given burst using key properties
@@ -190,7 +235,7 @@ class BurstH5toStacManager:
         self.item.properties["product:timeliness"] = ""  # NRT etc see docs
 
         # add projection (proj) stac extension properties
-        self.item.properties["proj:epsg"] = self.h5.search_value("data/projection")
+        self.item.properties["proj:epsg"] = self.projection
         self.item.properties["proj:bbox"] = self.h5.search_value("boundingBox")
 
         # add sat stac extension properties
@@ -357,13 +402,17 @@ class BurstH5toStacManager:
 
         # remove polarizations we don't have from the required products
         # e.g. don't try add HH if it did not exist in original source data
+        if self.product == 'RTC_S1':
+            pols = self.item.properties["sar:polarizations"]
+        elif self.product == 'RTC_S1_STATIC':
+            pols = [] # no pol for static products
         IGNORE_ASSETS = [
             f"_{p}.tif"
             for p in ["HH", "HV", "VV", "VH"]
-            if p not in self.item.properties["sar:polarizations"]
+            if p not in pols
         ]
         INCLUDED_ASSET_FILETYPES = [
-            x for x in REQUIRED_ASSET_FILETYPES if x not in IGNORE_ASSETS
+            x for x in REQUIRED_ASSET_FILETYPES[self.product] if x not in IGNORE_ASSETS
         ]
 
         # iterate through the included/required assets and add to STAC item
