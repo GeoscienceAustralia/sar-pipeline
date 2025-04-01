@@ -108,7 +108,7 @@ docker run --env-file env.secret -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220
 
 ### Australia
 
-Output CRS should be the UTM zone corresponding to scene/burst center, and is not specified. 
+The output CRS will be the UTM zone corresponding to scene/burst centre. This is selected automatically and does not need to be specified.
 
 ```bash
 docker run --env-file env.secret -it sar-pipeline --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD 
