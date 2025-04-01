@@ -185,7 +185,8 @@ class BurstH5toStacManager:
 
     def _check_valid_product(self, product):
         "check the product is valid"
-        assert product in ["RTC_S1", "RTC_S1_STATIC"], "Invalid product"
+        if product not in ["RTC_S1", "RTC_S1_STATIC"]:
+            raise ValueError("Invalid product")
         return product
 
     def _make_s3_subfolder(self):

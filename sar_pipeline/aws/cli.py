@@ -238,9 +238,8 @@ def make_rtc_opera_stac_and_upload_bursts(
         shutil.copy(run_config_path, burst_folder / run_config_path.name)
         # load in the .h5 file containing metadata for each burst
         burst_h5_files = list(burst_folder.glob("*.h5"))
-        assert (
-            len(burst_h5_files) == 1
-        ), f"{len(burst_h5_files)} .h5 files found. Expecting 1 in : {burst_folder}"
+        if len(burst_h5_files) != 1:
+            raise ValueError(f"{len(burst_h5_files)} .h5 files found. Expecting 1 in : {burst_folder}")
         burst_h5_filepath = burst_folder / burst_h5_files[0]
         # make the stac metadata from the .h5 metadata
         logging.info(f"Making stac metadata from .h5 file")
