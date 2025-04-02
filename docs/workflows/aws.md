@@ -52,7 +52,7 @@ The AWS pipeline runs using a docker container. At runtime, the script `scripts/
 
 ## Envrionment Variables
 
-At runtime, the pipeline expects the following environment variables to be set. These can be passed in using an environment file like below. NASA earthdata credentials can be created here - https://urs.earthdata.nasa.gov/. Credentials for the Copernicus Data Space Ecosystem (CDSE) can be here - https://dataspace.copernicus.eu/. The AWS credentials must have write access to the specified bucket location.
+At runtime, the pipeline expects the following environment variables to be set. These can be passed in using an environment file like below. NASA earthdata credentials can be created here - https://urs.earthdata.nasa.gov/. Credentials for the Copernicus Data Space Ecosystem (CDSE) can be created here - https://dataspace.copernicus.eu/. The AWS credentials must have write access to the specified bucket location.
 
 env.secret:
 
