@@ -60,19 +60,6 @@ def download_eof(
     Raises:
         ValueError: If CDSE credentials are not set through arguments or environment variables.
     """
-    # Configure logging
-    log_format = "[%(asctime)s] [%(levelname)s %(filename)s:%(lineno)s] %(message)s"
-    log_date_format = "%m/%d %H:%M:%S"
-    logging.basicConfig(level=logging.INFO, format=log_format, datefmt=log_date_format)
-    
-    # Configure logger from eof.download
-    logger = eof.download.logger
-    stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter(log_format, datefmt=log_date_format)
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
-    
     # Check credentials
     cdse_user = cdse_user or os.getenv("CDSE_LOGIN")
     cdse_password = cdse_password or os.getenv("CDSE_PASSWORD")
