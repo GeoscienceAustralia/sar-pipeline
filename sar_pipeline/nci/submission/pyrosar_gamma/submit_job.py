@@ -24,7 +24,7 @@ def submit_job(
     target_crs: str,
     orbit_dir: Path,
     orbit_type: str,
-    etad_dir: Path,
+    etad_dir: Path | None,
     output_dir: Path,
     log_dir: str,
     gamma_lib_dir: Path,
@@ -56,11 +56,12 @@ def submit_job(
         f"--target-crs {target_crs} "
         f"--orbit-dir {orbit_dir} "
         f"--orbit-type {orbit_type} "
-        f"--etad-dir {etad_dir} "
         f"--output-dir {output_dir} "
         f"--gamma-lib-dir {gamma_lib_dir} "
         f"--gamma-env-var {gamma_env_var} "
     )
+    if etad_dir is not None:
+        job_command = job_command + f"--etad-dir {etad_dir} "
 
     job_script = pbs_script + ENVIRONMENT_COMMAND + job_command
 
