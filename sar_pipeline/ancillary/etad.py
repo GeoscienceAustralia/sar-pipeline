@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import logging
 from pathlib import Path
 import requests
+from typing import Any
 import zipfile
 
 
@@ -12,6 +13,18 @@ logger = logging.getLogger(__name__)
 
 
 def parse_etad_file_dates(etad_id: str) -> tuple[datetime, datetime]:
+    """Identify the start and stop dates of an ETAD correction file
+
+    Parameters
+    ----------
+    etad_id : str
+        ETAD id or file, e.g. S1A_IW_ETA__AXSH_20230722T083317_20230722T083345_049533_05F4C7_4344
+
+    Returns
+    -------
+    tuple[datetime, datetime]
+        A tuple containing the start and stop date of the ETAD file
+    """
 
     # ETAD filename has same format as scene, so run scene file dates function
     start_date, stop_date = parse_scene_file_dates(etad_id)
@@ -19,7 +32,21 @@ def parse_etad_file_dates(etad_id: str) -> tuple[datetime, datetime]:
     return (start_date, stop_date)
 
 
-def get_cdse_access_token(username, password) -> str:
+def get_cdse_access_token(username: str, password: str) -> str:
+    """Generate an access token for the Copernicus Data Space Ecosystem (CDSE) REST API.
+
+    Parameters
+    ----------
+    username : str
+        CDSE username (typically an email)
+    password : str
+        CDSE password
+
+    Returns
+    -------
+    str
+        An access token that can be used to run queries against CDSE's REST API
+    """
 
     data = {
         "grant_type": "password",
@@ -38,7 +65,30 @@ def get_cdse_access_token(username, password) -> str:
     return access_token
 
 
-def find_etad_for_scene_on_cdse(scene):
+def find_etad_for_scene_on_cdse(scene: str) -> dict[str, Any]:
+    """For a given scene, find the corresponding ETAD correction file
+    on the Copernicus Data Space Ecosystem (CDSE).
+
+    Parameters
+    ----------
+    scene : str
+        Sentinel-1 scene ID
+        e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
+
+    Returns
+    -------
+    dict[str, Any]
+        A dictionary containing information about the ETAD product matching the scene.
+        Relevant keys include: Id, Name, OriginDate, PublicationDate, ModificationDate,
+        ContentDate, S3Path,
+
+    Raises
+    ------
+    ValueError
+        If no ETAD products are found. Note that ETAD has only been published since mid-2023
+    ValueError
+        If more than one ETAD product is found. The list of products is returned for review.
+    """
 
     scene_start, _ = parse_scene_file_dates(scene)
 
@@ -78,16 +128,37 @@ def find_etad_for_scene_on_cdse(scene):
 
 
 def download_etad_for_scene_from_cdse(
-    scene: str, etad_dir: Path, cdse_user: str, cdse_password: str, unzip: bool = False
-):
+    scene: str, etad_dir: Path, username: str, password: str, unzip: bool = False
+) -> Path:
+    """Download the ETAD file for a given scene from the Copernicus Data Space Ecosystem (CDSE).
+
+    Parameters
+    ----------
+    scene : str
+        Sentinel-1 scene ID
+        e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
+    etad_dir : Path
+        The local directory in which to store the downloaded ETAD file
+    username : str
+        CDSE username (typically an email)
+    password : str
+        CDSE password
+    unzip : bool, optional
+        Flag indicating whether the downloaded ETAD file should be unzipped, by default False
+
+    Returns
+    -------
+    Path
+        Path to the downloaded ETAD file, .SAFE if unzip=True, .SAFE.zip otherwise
+    """
     logger.info("Searching Copernicus Dataspace for ETAD file")
     etad_search_result = find_etad_for_scene_on_cdse(scene)
-    etad_id = etad_search_result["Id"]
-    etad_name = etad_search_result["Name"]
-    etad_filename = etad_name + ".zip"  # {etad_name}.SAFE.zip
+    etad_id: str = etad_search_result["Id"]
+    etad_name: str = etad_search_result["Name"]
+    etad_filename: str = etad_name + ".zip"
 
     # Prepare for download
-    access_token = get_cdse_access_token(cdse_user, cdse_password)
+    access_token = get_cdse_access_token(username, password)
     download_url = (
         f"https://zipper.dataspace.copernicus.eu/odata/v1/Products({etad_id})/$value"
     )
@@ -118,7 +189,28 @@ def download_etad_for_scene_from_cdse(
     return etad_zip if not unzip else etad_safe
 
 
-def find_etad_for_scene(scene: str, etad_dir: Path):
+def find_etad_for_scene(scene: str, etad_dir: Path) -> Path:
+    """For a given scene id and a directory containing ETAD files, identify the ETAD
+    file that corresponds to the scene.
+
+    Parameters
+    ----------
+    scene : str
+        Sentinel-1 scene ID
+        e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
+    etad_dir : Path
+        The local directory contianing ETAD files
+
+    Returns
+    -------
+    Path
+        Path to the ETAD file matching the given scene
+
+    Raises
+    ------
+    RuntimeError
+        No ETAD file found matching the supplied scene ID.
+    """
 
     buffer_seconds = 2
     scene_start, _ = parse_scene_file_dates(scene)
@@ -139,7 +231,35 @@ def find_etad_for_scene(scene: str, etad_dir: Path):
     return etad
 
 
-def apply_etad_correction(scene: Path, etad: Path, outdir: Path, nthreads: int = 4):
+def apply_etad_correction(
+    scene: Path, etad: Path, outdir: Path, nthreads: int = 4
+) -> Path:
+    """Apply an ETAD correction to a scene
+
+    Parameters
+    ----------
+    scene : Path
+        Path to a Sentinel-1 scene .SAFE file
+    etad : Path
+        Path to an ETAD .SAFE file
+    outdir : Path
+        Path to directory in which to store the ETAD corrected file. It will be stored at
+        outdir/scene_name
+    nthreads : int, optional
+        Number of threads to use when applying ETAD corrections, by default 4
+
+    Returns
+    -------
+    Path
+        Path to the ETAD corrected scene
+
+    Raises
+    ------
+    TypeError
+        If the scene file is not a .SAFE directory
+    TypeError
+        If the ETAD file is not a .SAFE directory
+    """
 
     # Validate that input scene and etad are .SAFE directiories
     if not (scene.is_dir() and scene.suffix == ".SAFE"):
