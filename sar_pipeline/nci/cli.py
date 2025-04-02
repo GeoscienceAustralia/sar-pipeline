@@ -8,7 +8,7 @@ from sar_pipeline.nci.filesystem import get_orbits_nci
 from sar_pipeline.nci.submission.pyrosar_gamma.prepare_input import (
     get_orbit_and_dem,
 )
-from sar_pipeline.etad.etad import (
+from sar_pipeline.ancillary.etad import (
     download_etad_for_scene_from_cdse,
     find_etad_for_scene,
 )

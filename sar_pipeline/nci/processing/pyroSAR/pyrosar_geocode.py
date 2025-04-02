@@ -9,7 +9,7 @@ import sys
 import tarfile
 import zipfile
 
-from sar_pipeline.etad.etad import apply_etad_correction
+from sar_pipeline.ancillary.etad import apply_etad_correction
 from sar_pipeline.nci.processing.GAMMA.GAMMA_utils import set_gamma_env_variables
 
 logging.basicConfig(
