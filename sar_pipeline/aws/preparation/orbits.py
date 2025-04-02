@@ -37,7 +37,7 @@ def download_orbits_from_s3(
     logger.info(f"Orbit file downloaded : {orbit_file}")
     return orbit_file
 
-def download_eof(
+def download_orbits_from_datahub(
     sentinel_file: Path,
     save_dir: Path,
     source: Literal["CDSE", "ASF"] = "CDSE",
