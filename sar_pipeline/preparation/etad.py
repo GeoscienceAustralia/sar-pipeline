@@ -118,10 +118,12 @@ def find_etad_for_scene_on_cdse(scene: str) -> dict[str, Any]:
     if len(search_results) == 1:
         etad_search_result = search_results[0]
     elif len(search_results) == 0:
-        raise ValueError(f"No ETAD products found. Scene start date: {scene_start}")
+        raise ValueError(
+            f"No ETAD products found, expected one. ETAD products are available post July 21st, 2023. Scene start date: {scene_start}"
+        )
     elif len(search_results) > 1:
         raise ValueError(
-            f"{len(search_results)} ETAD products found, which is too many. Review files: {[result['Name'] for result in search_results]}"
+            f"{len(search_results)} ETAD products found, expected one. Review files: {[result['Name'] for result in search_results]}"
         )
 
     return etad_search_result
