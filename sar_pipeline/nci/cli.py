@@ -8,10 +8,7 @@ from sar_pipeline.nci.filesystem import get_orbits_nci
 from sar_pipeline.nci.submission.pyrosar_gamma.prepare_input import (
     get_orbit_and_dem,
 )
-from sar_pipeline.ancillary.etad import (
-    download_etad_for_scene_from_cdse,
-    find_etad_for_scene,
-)
+from sar_pipeline.preparation.etad import find_etad_for_scene
 from sar_pipeline.nci.preparation.orbits import (
     filter_orbits_to_cover_time_window,
 )
@@ -30,27 +27,12 @@ logging.basicConfig(level=logging.INFO)
 
 
 @click.command()
-@click.argument("scene-name", type=str)
-def find_scene_file(scene_name):
-    scene_file = find_scene_file_from_id(scene_name)
+@click.argument("scene", type=str)
+def find_scene_file(scene):
+    """This will identify the path to a given SCENE on NCI"""
+    scene_file = find_scene_file_from_id(scene)
 
     click.echo(scene_file)
-
-
-@click.command()
-@click.argument("scene-name", type=str)
-@click.option(
-    "--etad-directory", required=True, type=click.Path(file_okay=False, path_type=Path)
-)
-@click.option("--cdse-username", required=True, type=str)
-@click.option("--cdse-password", required=True, type=str)
-@click.option("--unzip/--zip", default=True)
-def download_etad_for_scene(
-    scene_name, etad_directory, cdse_username, cdse_password, unzip
-):
-    etad_file = download_etad_for_scene_from_cdse(
-        scene_name, etad_directory, cdse_username, cdse_password, unzip
-    )
 
 
 # Set up default configuration for use in CLI
