@@ -382,7 +382,7 @@ class BurstH5toStacManager:
         )
         self.item.properties["sar-ard:ionospheric_correction_applied"] = False
 
-        # fill with study result values
+        # TODO fill with study result values
         self.item.properties["sar-ard:geometric_accuracy_ALE"] = "TODO"
         self.item.properties["sar-ard:geometric_accuracy_rmse"] = "TODO"
         self.item.properties["sar-ard:geometric_accuracy_range"] = "TODO"
