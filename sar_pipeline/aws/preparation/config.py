@@ -6,7 +6,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-VALID_BASE_CONFIGS = ["S1_RTC.yaml","S1_RTC_STATIC.yaml"]
+VALID_BASE_CONFIGS = ["S1_RTC.yaml", "S1_RTC_STATIC.yaml"]
 BASE_CONFIGS_FOLDER = Path(__file__).parents[2] / "configs/ISCE3-RTC"
 
 
