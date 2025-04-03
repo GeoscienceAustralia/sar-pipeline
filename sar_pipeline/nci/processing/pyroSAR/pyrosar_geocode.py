@@ -115,7 +115,9 @@ def run_pyrosar_gamma_geocode(
             corrected_scene_dir = uncorrected_scene.parent / "etad_corrected"
 
             if not (etad.is_dir() and etad.suffix == ".SAFE"):
-                logging.info("Atte")
+                logging.info(
+                    "Attempting to uncompress file and extract .SAFE directory"
+                )
                 if zipfile.is_zipfile(etad):
                     archive = tarfile.open(etad, "r")
                 elif tarfile.is_tarfile(etad):
@@ -130,6 +132,7 @@ def run_pyrosar_gamma_geocode(
                 # Update variable to use extracted etad
                 etad = uncorrected_scene_dir / etad.name.with_suffix(".SAFE")
 
+            logging.info("Applying ETAD correction")
             corrected_scene = apply_etad_correction(
                 uncorrected_scene, etad, outdir=corrected_scene_dir, nthreads=4
             )
