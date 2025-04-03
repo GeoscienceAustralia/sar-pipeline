@@ -53,6 +53,11 @@ python -m pip install ./s1-reader
 # installing OPERA RTC
 RUN python -m pip install ./$RTC_VERSION
 
+# Download the burst-db, this is created using scripts/make_upload_burst_db.sh
+WORKDIR /home/rtc_user/burst_db
+ARG BURST_DB_URL="https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/persistent/burst_db/0.9.0/opera-burst-bbox-only.sqlite3"
+RUN curl -o opera-burst-bbox-only.sqlite3 "$BURST_DB_URL"
+
 # Create a second CONDA envrionment for the sar-pipeline
 WORKDIR /home/rtc_user/sar-pipeline
 # Copy the environment file alone

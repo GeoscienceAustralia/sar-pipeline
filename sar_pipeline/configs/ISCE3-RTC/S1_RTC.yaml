@@ -33,7 +33,7 @@ runconfig:
         static_ancillary_file_group:
 
             # burst database sqlite file
-            burst_database_file:
+            burst_database_file: /home/rtc_user/burst_db/opera-burst-bbox-only.sqlite3
 
         product_group:
 
@@ -263,11 +263,11 @@ runconfig:
                     # - If center_lat >= 75.0: 3413
                     # - If center_lat <= -75.0: 3031
                     # - Otherwise: EPSG code associated with the closest UTM zone
-                    output_epsg: 3031
-                    x_posting: 20
-                    y_posting: 20
-                    x_snap: 20
-                    y_snap: 20
+                    output_epsg: 
+                    x_posting: 
+                    y_posting:
+                    x_snap:
+                    y_snap:
                     top_left:
                         x:
                         y:
@@ -289,10 +289,10 @@ runconfig:
                     # - If center_lat <= -75.0: 3031
                     # - Otherwise: EPSG code associated with the closest UTM zone
                     output_epsg:
-                    x_posting: 20
-                    y_posting: 20
-                    x_snap: 20
-                    y_snap: 20
+                    x_posting: 
+                    y_posting: 
+                    x_snap: 
+                    y_snap: 
                     top_left:
                         x:
                         y:

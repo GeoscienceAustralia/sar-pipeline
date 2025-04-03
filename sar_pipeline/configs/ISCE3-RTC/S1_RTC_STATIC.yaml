@@ -3,9 +3,10 @@ runconfig:
 
     groups:
 
-        # Required. Output product type: "RTC_S1" or "RTC_S1_STATIC"
         primary_executable:
-            product_type: RTC_S1
+
+        # Required. Output product type: "RTC_S1" or "RTC_S1_STATIC"
+            product_type: RTC_S1_STATIC
 
         pge_name_group:
             pge_name: RTC_S1_PGE
@@ -33,13 +34,13 @@ runconfig:
         static_ancillary_file_group:
 
             # burst database sqlite file
-            burst_database_file: 
+            burst_database_file: /home/rtc_user/burst_db/opera-burst-bbox-only.sqlite3
 
         product_group:
 
             processing_type: NOMINAL
 
-            product_version: 0.1
+            product_version:
 
             # Directory where PGE will place results
             product_path: .
@@ -56,13 +57,13 @@ runconfig:
             #     - "_" followed by the burst ID, if the product is a burst; or
             #     - An empty string, if the product is a mosaic.
             #
-            # For example, the `product_id` = `RTC-S1_{burst_id}_S1B` will become
-            # `RTC-S1_T069-147170-IW1_S1B` for the burst t069-147170-IW1; and it
-            # will become `RTC-S1_S1B` for the mosaic product.
+            # For example, the `product_id` = `RTC-S1-STATIC_{burst_id}_S1B` will become
+            # `RTC-S1-STATIC_069-147170-IW1_S1B` for the burst t069-147170-IW1; and it
+            # will become `RTC-S1-STATIC_S1B` for the mosaic product.
             #
             # If the field `product_id` is left empty, the burst product ID will
-            # follow the RTC-S1 file naming conventions:
-            # `OPERA_L2_RTC-S1_{burst_id}_{sensing_start_datetime}_
+            # follow the RTC-S1-STATIC file naming conventions:
+            # `OPERA_L2_RTC-S1-STATIC_{burst_id}_{rtc_s1_static_validity_start_date}_
             # {processing_datetime}_{sensor}_{pixel_spacing}
             #  _{product_version}`.
             #
@@ -139,10 +140,10 @@ runconfig:
             apply_rtc: True
 
             # Apply bistatic delay correction
-            apply_bistatic_delay_correction: True
+            apply_bistatic_delay_correction: False
 
             # Apply static tropospheric delay correction
-            apply_static_tropospheric_delay_correction: True
+            apply_static_tropospheric_delay_correction: False
  
             # OPTIONAL - to control behavior of RTC module
             # (only applicable if geocode.apply_rtc is True)
@@ -218,7 +219,7 @@ runconfig:
 
                 # Save the number of looks used to generate the RTC-S1 product
                 save_nlooks: True
-
+              
                 # Save the area normalization factor (ANF) to normalize RTC-S1
                 # imagery to the original SLC backscatter convention:
                 # beta0 or sigma0 (ellipsoid)
@@ -263,11 +264,11 @@ runconfig:
                     # - If center_lat >= 75.0: 3413
                     # - If center_lat <= -75.0: 3031
                     # - Otherwise: EPSG code associated with the closest UTM zone
-                    output_epsg: 
-                    x_posting: 20
-                    y_posting: 20
-                    x_snap: 20
-                    y_snap: 20
+                    output_epsg:
+                    x_posting: 
+                    y_posting: 
+                    x_snap: 
+                    y_snap: 
                     top_left:
                         x:
                         y:
@@ -289,10 +290,10 @@ runconfig:
                     # - If center_lat <= -75.0: 3031
                     # - Otherwise: EPSG code associated with the closest UTM zone
                     output_epsg:
-                    x_posting: 20
-                    y_posting: 20
-                    x_snap: 20
-                    y_snap: 20
+                    x_posting: 
+                    y_posting: 
+                    x_snap: 
+                    y_snap: 
                     top_left:
                         x:
                         y:

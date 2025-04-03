@@ -6,7 +6,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-VALID_BASE_CONFIGS = ["IW_20m_antarctica.yaml", "IW_20m_australia.yaml"]
+VALID_BASE_CONFIGS = ["S1_RTC.yaml","S1_RTC_STATIC.yaml"]
 BASE_CONFIGS_FOLDER = Path(__file__).parents[2] / "configs/ISCE3-RTC"
 
 
@@ -23,9 +23,8 @@ class RTCConfigManager:
         self.data = self._load_yaml()
 
     def _validate(self, base_config, config_path):
-        assert (
-            base_config is not None or config_path is not None
-        ), "A `base_config` or `config_path` must be provided"
+        if base_config is None and config_path is None:
+            raise ValueError("A `base_config` or `config_path` must be provided")
         if base_config is not None and config_path is not None:
             logger.info(
                 "Both `base_config` or `config_path` provided. "
@@ -34,9 +33,8 @@ class RTCConfigManager:
 
     def _get_base_config_path(self):
         # get the path to the specified base config
-        assert (
-            self.base_config in VALID_BASE_CONFIGS
-        ), "specified base rtc_config is not valid"
+        if self.base_config not in VALID_BASE_CONFIGS:
+            raise ValueError("specified base rtc_config is not valid")
         return BASE_CONFIGS_FOLDER / self.base_config
 
     def _load_yaml(self):
