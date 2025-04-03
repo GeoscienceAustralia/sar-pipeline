@@ -2,16 +2,21 @@ import os
 from ruamel.yaml import YAML
 from pathlib import Path
 import logging
+import typing
+from typing import Literal
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-VALID_BASE_CONFIGS = ["S1_RTC.yaml", "S1_RTC_STATIC.yaml"]
+BaseConfigType = Literal["S1_RTC.yaml", "S1_RTC_STATIC.yaml"]
+VALID_BASE_CONFIGS = typing.get_args(BaseConfigType)
 BASE_CONFIGS_FOLDER = Path(__file__).parents[2] / "configs/ISCE3-RTC"
 
 
 class RTCConfigManager:
-    def __init__(self, base_config: str | None = None, config_path: str | None = None):
+    def __init__(
+        self, base_config: BaseConfigType | None = None, config_path: str | None = None
+    ):
         self._validate(base_config, config_path)
         self.base_config = base_config
         if config_path is not None:
@@ -32,7 +37,7 @@ class RTCConfigManager:
             )
 
     def _get_base_config_path(self):
-        # get the path to the specified base config
+        """get the path to the specified base config"""
         if self.base_config not in VALID_BASE_CONFIGS:
             raise ValueError("specified base rtc_config is not valid")
         return BASE_CONFIGS_FOLDER / self.base_config
