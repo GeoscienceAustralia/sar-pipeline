@@ -16,6 +16,18 @@ classifiers=[
     "Programming Language :: Python :: 3",
 ]
 version = "0.1" # TODO base this on files in proje t
+dependencies = [
+    "affine", 
+    "asf-search", 
+    "boto3", 
+    "botocore", 
+    "click", 
+    "h5py", 
+    "pystac", 
+    "python-dateutil", 
+    "ruamel-yaml", 
+    "tomli", 
+]
 
 [project.urls]
 Homepage = "https://github.com/GeoscienceAustralia/sar-pipleine.git"
@@ -39,3 +51,36 @@ where = ["."]
 
 [tool.setuptools.package-data]
 sar_pipeline = ["**/*.yaml", "**/*.yml", "**/*.gpkg", "**/*.json"]
+[tool.pixi.project]
+channels = ["conda-forge", "avalentino", "s1-etad"]
+platforms = ["linux-64"]
+
+[tool.pixi.pypi-dependencies]
+sar-pipeline = { path = ".", editable = true }
+
+[tool.pixi.dependencies]
+geopandas = ">=1.0.1"
+numpy = "<2.0"
+gdal = ">=3.10.2"
+pyproj = ">=3.7.1"
+pyrosar = ">=0.28.0"
+rasterio = ">=1.4.3"
+shapely = ">=2.0.7"
+spatialist = ">=0.14.0"
+s1etad = ">=0.5.5,<0.6"
+s1etad_tools = ">=0.8.1,<0.9"
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+test = { features = ["test"], solve-group = "default" }
+
+[tool.pixi.feature.test.tasks]
+tests = "pytest"
+pipeline_tests = "pytest tests/sar_pipeline/"
+nci_filesystem_tests = "pytest tests/filesystem"
+
+[tool.pixi.tasks]
+export_conda = "pixi workspace export conda-environment"
+
+[dependency-groups]
+test = ["pytest"]
