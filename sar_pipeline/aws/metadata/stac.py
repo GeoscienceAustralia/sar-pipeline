@@ -1,14 +1,12 @@
 import json
 from pathlib import Path
-from typing import Optional, List
+from typing import Literal
 import rasterio
 import pystac
-from pystac.extensions import sar, raster
-from pystac.validation import validate
-from pystac import Item
 from shapely.geometry import shape
-from datetime import datetime
 from dateutil.parser import isoparse
+import datetime
+import re
 import numpy as np
 
 from sar_pipeline.aws.metadata.h5 import H5Manager
@@ -20,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 REQUIRED_ASSET_FILETYPES = {
-    "RTC_S1" : [
+    "RTC_S1": [
         "_mask.tif",
         "_number_of_looks.tif",
         "_rtc_anf_gamma0_to_beta0.tif",
@@ -34,7 +32,7 @@ REQUIRED_ASSET_FILETYPES = {
         "_interpolated_dem.tif",
         ".png",
     ],
-    "RTC_S1_STATIC" : [
+    "RTC_S1_STATIC": [
         "_mask.tif",
         "_number_of_looks.tif",
         "_rtc_anf_gamma0_to_beta0.tif",
@@ -43,7 +41,7 @@ REQUIRED_ASSET_FILETYPES = {
         "_incidence_angle.tif",
         "_interpolated_dem.tif",
         ".png",
-    ]
+    ],
 }
 
 ASSET_FILETYPE_TO_TITLE = {
@@ -77,16 +75,16 @@ ASSET_FILETYPE_TO_DESCRIPTION = {
 }
 
 ASSET_FILETYPE_TO_ROLES = {
-    "_mask.tif": ["data", "ancillary", "mask", "shadow", "layover"],
-    "_number_of_looks.tif": ["data", "ancillary"],
-    "_rtc_anf_gamma0_to_beta0.tif": ["data", "ancillary", "conversion"],
-    "_rtc_anf_gamma0_to_sigma0.tif": ["data", "ancillary", "conversion"],
+    "_mask.tif": ["data", "auxiliary", "mask", "shadow", "layover"],
+    "_number_of_looks.tif": ["data", "auxiliary"],
+    "_rtc_anf_gamma0_to_beta0.tif": ["data", "auxiliary", "conversion"],
+    "_rtc_anf_gamma0_to_sigma0.tif": ["data", "auxiliary", "conversion"],
     "_HH.tif": ["data", "backscatter"],
     "_HV.tif": ["data", "backscatter"],
     "_VV.tif": ["data", "backscatter"],
     "_VH.tif": ["data", "backscatter"],
-    "_local_incidence_angle.tif": ["data", "ancillary"],
-    "_incidence_angle.tif": ["data", "ancillary"],
+    "_local_incidence_angle.tif": ["data", "auxiliary"],
+    "_incidence_angle.tif": ["data", "auxiliary"],
     "_interpolated_dem.tif": ["data", "ancillary"],
     ".png": ["thumbnail"],
 }
@@ -143,12 +141,12 @@ class BurstH5toStacManager:
         self.collection = collection
         self.stac_extensions = [
             "https://stac-extensions.github.io/product/v0.1.0/schema.json",
+            "https://stac-extensions.github.io/sar/v1.1.0/schema.json",
+            "https://stac-extensions.github.io/altimetry/v0.1.0/schema.json",
             "https://github.com/stac-extensions/projection",
             "https://stac-extensions.github.io/sat/v1.1.0/schema.json",
-            "https://stac-extensions.github.io/sar/v1.1.0/schema.json",
             "https://stac-extensions.github.io/sentinel-1/v0.2.0/schema.json",
             "https://stac-extensions.github.io/processing/v1.2.0/schema.json",
-            "https://stac-extensions.github.io/card4l/v0.1.0/sar/product.json",
             "https://stac-extensions.github.io/storage/v2.0.0/schema.json",
         ]
         self.s3_bucket = s3_bucket
@@ -159,6 +157,9 @@ class BurstH5toStacManager:
         )
         self.end_dt = isoparse(
             self.h5.search_value("identification/zeroDopplerEndTime")
+        )
+        self.processed_dt = isoparse(
+            self.h5.search_value("identification/processingDateTime")
         )
         self.projection = self.h5.search_value("data/projection")
         if self.product == "RTC_S1":
@@ -171,7 +172,7 @@ class BurstH5toStacManager:
             self.bbox_4326 = convert_bbox(
                 self.h5.search_value("boundingBox"),
                 src_crs=self.projection,
-                trg_crs=4326
+                trg_crs=4326,
             )
             # geometry is not included, set this to be bbox
             self.geometry_4326 = self.bbox_4326
@@ -181,7 +182,7 @@ class BurstH5toStacManager:
         self.bucket_href = (
             f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com//"
         )
-        self.base_href = Path(self.bucket_href) / self.burst_s3_subfolder
+        self.base_href = f"{self.bucket_href}/{self.burst_s3_subfolder}"
 
     def _check_valid_product(self, product):
         "check the product is valid"
@@ -199,6 +200,38 @@ class BurstH5toStacManager:
             return f"{self.s3_project_folder}/{self.collection}/{self.burst_id}"
         else:
             raise ValueError()
+
+    def _extract_doi_link(self, text: str) -> str:
+        """extracts the doi reference from a given string and converts
+        it to a url"""
+        doi_match = re.search(r"10\.\d{4,9}/[\w.-]*\w", text)
+        return f"https://doi.org/{doi_match.group()}" if doi_match else None
+
+    def _extract_http_link(self, text: str) -> str:
+        """Extracts the first HTTP or HTTPS link from a given string"""
+        url_match = re.search(r"https?://\S+", text)
+        return url_match.group() if url_match else None
+
+    def _get_product_timeliness_category(
+        self, acquisition_dt: datetime.datetime, processed_dt: datetime.datetime
+    ) -> Literal["NRT", "STC", "NTC"]:
+        """get the timeliness based on the acquisition and processed times
+        rules defined in - https://github.com/stac-extensions/product
+
+        Returns
+        -------
+        str
+            NRT = Near Real Time
+            STC = Short Time Critical
+            NTC = Non Time-Critical
+        """
+        delta_hrs = (processed_dt - acquisition_dt).total_seconds() / 3600
+        if delta_hrs < 3:
+            return "NRT"
+        elif delta_hrs < 36:
+            return "STC"
+        else:
+            return "NTC"
 
     def make_stac_item_from_h5(self):
         """Make a pystac.item.Item for the given burst using key properties
@@ -232,30 +265,22 @@ class BurstH5toStacManager:
         # TODO finalise stac properties based on best practice
         # add product stac extension properties
         self.item.properties["product:type"] = "NRB"  # or RTC ?
-        self.item.properties["product:timeliness"] = ""  # NRT etc see docs
+        self.item.properties["product:timeliness_category"] = (
+            self._get_product_timeliness_category(self.start_dt, self.processed_dt)
+        )
+
+        # add ceosard stac extension properties
+        self.item.properties["ceosard:type"] = "NRB"
+        self.item.properties["ceosard:specification"] = (
+            "Synthetic Aperture Radar (CEOS-ARD SAR)"
+        )
+        self.item.properties["ceosard:specification_version"] = "1.1"
 
         # add projection (proj) stac extension properties
         self.item.properties["proj:epsg"] = self.projection
         self.item.properties["proj:bbox"] = self.h5.search_value("boundingBox")
 
-        # add sat stac extension properties
-        self.item.properties["sat:orbit_state"] = self.h5.search_value(
-            "orbitPassDirection"
-        )
-        self.item.properties["sat:absolute_orbit"] = self.h5.search_value(
-            "absoluteOrbitNumber"
-        )
-        self.item.properties["sat:relative_orbit"] = "trackNumber"
-        self.item.properties["sat:orbit_cycle"] = "12"
-        self.item.properties["sat:osv"] = self.h5.search_value(
-            "orbitFiles"
-        )  # Link to a file containing the orbit state vectors.
-        self.item.properties["sat:orbit_state_vectors"] = ""  # map this from .h5
-
-        # add the sar stac extension properties - see specs to add more
-        self.item.properties["sar:instrument_mode"] = self.h5.search_value(
-            "acquisitionMode"
-        )
+        # add the sar stac extension properties
         self.item.properties["sar:frequency_band"] = self.h5.search_value("radarBand")
         self.item.properties["sar:center_frequency"] = self.h5.search_value(
             "centerFrequency"
@@ -269,11 +294,30 @@ class BurstH5toStacManager:
         self.item.properties["sar:relative_burst"] = self.h5.search_value("burstID")
         self.item.properties["sar:beam_ids"] = self.h5.search_value("subSwathID")
 
+        # add altimetry stac extension properties
+        self.item.properties["altm:instrument_type"] = "sar"
+        self.item.properties["altm:instrument_mode"] = self.h5.search_value(
+            "acquisitionMode"
+        )
+
+        # add sat stac extension properties
+        self.item.properties["sat:orbit_state"] = self.h5.search_value(
+            "orbitPassDirection"
+        )
+        self.item.properties["sat:absolute_orbit"] = self.h5.search_value(
+            "absoluteOrbitNumber"
+        )
+        self.item.properties["sat:relative_orbit"] = "trackNumber"
+        self.item.properties["sat:orbit_cycle"] = "12"
+        self.item.properties["sat:osv"] = self.h5.search_value(
+            "orbitFiles"
+        )  # Link to a file containing the orbit state vectors.
+        self.item.properties["sat:orbit_state_vectors"] = ""  # TODO map this from .h5
+
         # add sentinel-1 stac extension properties - https://github.com/stac-extensions/sentinel-1
         self.item.properties["s1:orbit_source"] = self.h5.search_value("orbitType")
 
         # add processing stac extension specification
-        self.item.properties["processing:lineage"] = ""
         self.item.properties["processing:level"] = self.h5.search_value(
             "identification/productLevel"
         )
@@ -292,44 +336,57 @@ class BurstH5toStacManager:
             "dem-handler": "",  # TODO get from __version__
         }
 
-        # add card4l stac extension properties - NOTE this may be updated with CEOS-ARD stac
-        self.item.properties["card4l:specification"] = "NRB"
-        self.item.properties["card4l:specification_version"] = 5.5
-        self.item.properties["card4l:noise_removal_applied"] = self.h5.search_value(
-            "noiseCorrectionApplied"
+        # proposed sar-ard stac extension properties
+        self.item.properties["sar-ard:source_id"] = self.h5.search_value(
+            "l1SlcGranules"
         )
-        self.item.properties["card4l:speckle_filtering"] = self.h5.search_value(
+        self.item.properties["sar-ard:pixel_spacing_x"] = abs(
+            self.h5.search_value("xCoordinateSpacing")
+        )
+        self.item.properties["sar-ard:pixel_spacing_y"] = abs(
+            self.h5.search_value("yCoordinateSpacing")
+        )
+        self.item.properties["sar-ard:resolution_x"] = abs(
+            self.h5.search_value("xCoordinateSpacing")
+        )
+        self.item.properties["sar-ard:resolution_y"] = abs(
+            self.h5.search_value("yCoordinateSpacing")
+        )
+        self.item.properties["sar-ard:speckle_filter_applied"] = self.h5.search_value(
             "filteringApplied"
         )
-        self.item.properties["card4l:pixel_coordinate_convention"] = "Area"
-        self.item.properties["card4l:measurement_type"] = self.h5.search_value(
+        self.item.properties["sar-ard:speckle_filter_type"] = ""
+        self.item.properties["sar-ard:speckle_filter_window"] = ()
+        self.item.properties["sar-ard:measurement_type"] = self.h5.search_value(
             "outputBackscatterNormalizationConvention"
         )
-        self.item.properties["card4l:measurement_convention"] = self.h5.search_value(
+        self.item.properties["sar-ard:measurement_convention"] = self.h5.search_value(
             "outputBackscatterExpressionConvention"
         )
-        self.item.properties["card4l:conversion_eq"] = self.h5.search_value(
+        self.item.properties["sar-ard:conversion_eq"] = self.h5.search_value(
             "outputBackscatterDecibelConversionEquation"
         )
-        self.item.properties["card4l:northern_geometric_accuracy"] = {
-            "bias": self.h5.search_value(
-                "geometricAccuracy/bias/y"
-            ),  # NOTE not north in 3031
-            "std": self.h5.search_value(
-                "geometricAccuracy/stddev/y"
-            ),  # NOTE not north in 3031
-        }
-        self.item.properties["card4l:eastern_geometric_accuracy"] = {
-            "bias": self.h5.search_value(
-                "geometricAccuracy/bias/x"
-            ),  # NOTE not north in 3031
-            "std": self.h5.search_value(
-                "geometricAccuracy/stddev/x"
-            ),  # NOTE not north in 3031
-        }
-        self.item.properties["card4l:gridding_convention"] = (
-            "geocoded burst",
-        )  # TODO is this a valid value to set?
+        self.item.properties["sar-ard:noise_removal_applied"] = self.h5.search_value(
+            "noiseCorrectionApplied"
+        )
+
+        # additional non required parameters for atmosphere that would be good to have
+        self.item.properties["sar-ard:static_tropospheric_correction_applied"] = (
+            self.h5.search_value("staticTroposphericGeolocationCorrectionApplied")
+        )
+        self.item.properties["sar-ard:wet_tropospheric_correction_applied"] = (
+            self.h5.search_value("wetTroposphericGeolocationCorrectionApplied")
+        )
+        self.item.properties["sar-ard:bistatic_correction_applied"] = (
+            self.h5.search_value("bistaticDelayCorrectionApplied")
+        )
+        self.item.properties["sar-ard:ionospheric_correction_applied"] = False
+
+        # TODO fill with study result values
+        self.item.properties["sar-ard:geometric_accuracy_ALE"] = "TODO"
+        self.item.properties["sar-ard:geometric_accuracy_rmse"] = "TODO"
+        self.item.properties["sar-ard:geometric_accuracy_range"] = "TODO"
+        self.item.properties["sar-ard:geometric_accuracy_azimuth"] = "TODO"
 
         # add the storage stac extension properties
         self.item.properties["storage:type"] = "aws-s3"
@@ -337,19 +394,73 @@ class BurstH5toStacManager:
             f"https://{self.s3_bucket}.s3.{self.s3_region}"
         )
         self.item.properties["storage:region"] = f"{self.s3_region}"
-        self.item.properties["requester_pays"] = False
+        self.item.properties["storage:requester_pays"] = False
 
-    def add_links_from_h5(self):
+    def add_static_links(self):
+        """add static links that are not expected to change frequently"""
+
+        # link to the ceos-ard product family specification
+        self.item.add_link(
+            pystac.Link(
+                rel="ceos-ard-specification",
+                target="https://ceos.org/ard/files/PFS/SAR/v1.1/CEOS-ARD_PFS_Synthetic_Aperture_Radar_v1.1.pdf",
+                media_type=pystac.media_type.MediaType.PDF,
+            )
+        )
+
+        # add the link the the EGM_08 GEOID
+        self.item.add_link(
+            pystac.Link(
+                rel="geoid-source",
+                target="https://aria-geoid.s3.us-west-2.amazonaws.com/us_nga_egm2008_1_4326__agisoft.tif",
+            )
+        )
+
+    def add_dynamic_links_from_h5(self):
         """add links to the stac item from the .h5 file"""
 
         # link to the source SLC
         self.item.add_link(
             pystac.Link(
                 rel="derived_from",
-                target=str(
-                    self.base_href / self.h5.search_value("sourceData/dataAccess")
-                ),
-                media_type=pystac.media_type.MediaType.JSON,
+                target=self.h5.search_value("sourceData/dataAccess"),
+            )
+        )
+
+        # Add link to the DEM
+        self.item.add_link(
+            pystac.Link(
+                rel="dem-source",
+                target=self.h5.search_value("demSource"),
+            )
+        )
+
+        # Add link to the RTC algorithm, get it from the reference
+        ref_text = self.h5.search_value(
+            "radiometricTerrainCorrectionAlgorithmReference"
+        )
+        self.item.add_link(
+            pystac.Link(
+                rel="rtc-algorithm",
+                target=self._extract_doi_link(ref_text),
+            )
+        )
+
+        # Add link to the geocoding algorithm, get it from the reference
+        ref_text = self.h5.search_value("geocodingAlgorithmReference")
+        self.item.add_link(
+            pystac.Link(
+                rel="geocoding-algorithm",
+                target=self._extract_doi_link(ref_text),
+            )
+        )
+
+        # Add link to the noise removal, get it from the reference
+        ref_text = self.h5.search_value("noiseCorrectionAlgorithmReference")
+        self.item.add_link(
+            pystac.Link(
+                rel="noise-correction",
+                target=self._extract_http_link(ref_text),
             )
         )
 
@@ -357,8 +468,7 @@ class BurstH5toStacManager:
         self.item.add_link(
             pystac.Link(
                 rel="metadata",
-                target=str(self.base_href / self.h5_filepath.name),
-                # media_type=
+                target=f"{self.base_href}/{self.h5_filepath.name}",
             )
         )
 
@@ -375,7 +485,7 @@ class BurstH5toStacManager:
         self.item.add_link(
             pystac.Link(
                 rel="self",
-                target=str(self.base_href / filename),
+                target=f"{self.base_href}/{filename}",
                 media_type=pystac.media_type.MediaType.JSON,
             )
         )
@@ -402,20 +512,16 @@ class BurstH5toStacManager:
 
         # remove polarizations we don't have from the required products
         # e.g. don't try add HH if it did not exist in original source data
-        if self.product == 'RTC_S1':
+        if self.product == "RTC_S1":
             pols = self.item.properties["sar:polarizations"]
-        elif self.product == 'RTC_S1_STATIC':
-            pols = [] # no pol for static products
-        IGNORE_ASSETS = [
-            f"_{p}.tif"
-            for p in ["HH", "HV", "VV", "VH"]
-            if p not in pols
-        ]
+        elif self.product == "RTC_S1_STATIC":
+            pols = []  # no pol for static products, only auxiliary files
+        IGNORE_ASSETS = [f"_{p}.tif" for p in ["HH", "HV", "VV", "VH"] if p not in pols]
         INCLUDED_ASSET_FILETYPES = [
             x for x in REQUIRED_ASSET_FILETYPES[self.product] if x not in IGNORE_ASSETS
         ]
 
-        # iterate through the included/required assets and add to STAC item
+        # iterate through the included/required assets and add to the STAC item
         for asset_filetype in INCLUDED_ASSET_FILETYPES:
             # map the asset_filetype to important parameters
             asset_title = ASSET_FILETYPE_TO_TITLE[asset_filetype]
@@ -438,22 +544,40 @@ class BurstH5toStacManager:
             # define raster parameters
             if asset_filetype.endswith(".tif"):
                 with rasterio.open(asset_filepath) as r:
-                    asset_shape = r.shape
-                    asset_transform = list(r.transform)
+                    extra_fields = {
+                        "proj:shape": r.shape,
+                        "proj:transform": list(r.transform),
+                        "proj:epsg": r.crs.to_epsg(),
+                        "raster:data_type": r.dtypes[0],
+                        "raster:sampling": r.tags().get("AREA_OR_POINT", ""),
+                        "raster:nodata": (
+                            r.nodata
+                            if (
+                                isinstance(r.nodata, (float, int))
+                                and not np.isnan(r.nodata)
+                            )
+                            else str(r.nodata)
+                        ),
+                    }
+                    if asset_filetype == "_mask.tif":
+                        extra_fields["raster:values"] = {
+                            "shadow": 1,
+                            "layover": 2,
+                            "shadow_and_layover": 3,
+                        }
+            else:
+                extra_fields = {}
 
             # add the asset to the STAC item
             self.item.add_asset(
                 asset_title,
                 pystac.asset.Asset(
-                    href=str(self.base_href / asset_filepath.name),
+                    href=f"{self.base_href}/{asset_filepath.name}",
                     title=asset_title,
                     description=asset_description,
                     roles=asset_roles,
                     media_type=asset_mediatype,
-                    extra_fields={
-                        "proj:shape": asset_shape,
-                        "proj:transform": asset_transform,
-                    },
+                    extra_fields=extra_fields,
                 ),
             )
 
