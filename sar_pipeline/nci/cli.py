@@ -45,6 +45,7 @@ def configure(ctx, param, filename):
     ctx.default_map = configuration_dictionary
 
 
+# submit-pyrosar-gamma-workflow
 @click.command()
 @click.argument("scene", type=str)
 @click.option(
@@ -58,39 +59,88 @@ def configure(ctx, param, filename):
     help="Read option defaults from the specified .toml file",
     show_default=True,
 )
-@click.option("--spacing", type=int)
-@click.option("--scaling", type=click.Choice(["linear", "db", "both"]))
-@click.option("--target-crs", type=click.Choice(["4326", "3031"]))
 @click.option(
-    "--orbit-dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
+    "--spacing",
+    type=int,
+    required=True,
+    help="The target pixel spacing in meters. E.g. 20",
 )
-@click.option("--orbit-type", type=click.Choice(["POE", "RES", "either"]))
+@click.option(
+    "--scaling",
+    type=click.Choice(
+        ["linear", "db", "both"],
+    ),
+    required=True,
+    help="The value scaling of the backscatter values; either linear, db, or both",
+)
+@click.option(
+    "--target-crs",
+    type=click.Choice(
+        ["4326", "3031"],
+    ),
+    required=True,
+    help="The EPSG number for the target coordinate reference system. Only 4326 and 3031 are supported",
+)
+@click.option(
+    "--orbit-dir",
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        path_type=Path,
+    ),
+    required=True,
+    help="Path to where orbit files are stored",
+)
+@click.option(
+    "--orbit-type",
+    type=click.Choice(
+        ["POE", "RES", "either"],
+    ),
+    required=True,
+    help="The orbit type to use, POE for precise, RES for restitutional, either for the most recent.",
+)
 @click.option(
     "--etad-dir",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
     default=None,
+    help="Path to where ETAD correction files are stored. If provided, the ETAD correction will be applied.",
 )
 @click.option(
     "--output-dir",
     type=click.Path(file_okay=False, path_type=Path),
     default="/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/",
+    help="Path to where outputs will be stored.",
 )
 @click.option(
     "--gamma-lib-dir",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
     default="/g/data/dg9/GAMMA/GAMMA_SOFTWARE-20230712",
+    help="Path to GAMMA software binaries.",
 )
 @click.option(
     "--gamma-env-var",
     type=str,
     default="/g/data/yp75/projects/pyrosar_processing/sar-pyrosar-nci:/apps/fftw3/3.3.10/lib:/apps/gdal/3.6.4/lib64",
+    help="Environment variable to point to symlinked .sso objects to ensure GAMMA runs",
 )
-@click.option("--ncpu", type=str, default="4")
-@click.option("--mem", type=str, default="32")
-@click.option("--queue", type=str, default="normal")
-@click.option("--project", type=str, default="u46")
-@click.option("--walltime", type=str, default="02:00:00")
-@click.option("--dry-run", is_flag=True, default=False)
+@click.option("--ncpu", type=str, default="4", help="Number of CPU to request.")
+@click.option(
+    "--mem", type=str, default="32", help="Amount of memory to request in GB."
+)
+@click.option("--queue", type=str, default="normal", help="NCI queue to submit to.")
+@click.option("--project", type=str, default="u46", help="NCI project to submit to.")
+@click.option(
+    "--walltime",
+    type=str,
+    default="02:00:00",
+    help="Amount of walltime to request for the job.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Flag for dry-run. Produces the submission script without launching it.",
+)
 def submit_pyrosar_gamma_workflow(
     scene,
     spacing,
