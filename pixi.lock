@@ -2920,7 +2920,7 @@ packages:
 - pypi: .
   name: sar-pipeline
   version: '0.1'
-  sha256: f52b5f5d7750b29980c28c3c5d8f9b0a9acc19f16f1c9fe1cddabcd3c7be9ebd
+  sha256: f2c0ba5466d3cbdedd6cf03085860c5a44b3084d3452312bf187aca914ecf943
   requires_dist:
   - affine
   - asf-search

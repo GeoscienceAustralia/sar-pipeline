@@ -57,13 +57,20 @@ exit
 ```
 
 ### Run tests
-Run `pixi run tests`
+
+For the main pipeline code, run `pixi run pipeline_tests`
+
+If on the NCI:
+* For filesystem tests, run `pixi run nci_filesystem_tests`
+* For all tests, run `pixi run tests`
 
 ### Export the environment.yml
 
-Pixi can produce a conda environment.yml
+Pixi can produce a conda environment file
 
-Run `pixi run 
+Run `pixi run export_conda > environment.pixi.yml`
+
+This can then be used for any other conda based package manager (e.g. micromamba)
 
 ## Micromamba
 

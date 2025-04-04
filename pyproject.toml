@@ -76,6 +76,8 @@ test = { features = ["test"], solve-group = "default" }
 
 [tool.pixi.feature.test.tasks]
 tests = "pytest"
+pipeline_tests = "pytest tests/sar_pipeline/"
+nci_filesystem_tests = "pytest tests/filesystem"
 
 [tool.pixi.tasks]
 export_conda = "pixi workspace export conda-environment"

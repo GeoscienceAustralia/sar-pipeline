@@ -14,4 +14,4 @@ jobs:
       with:
         pixi-version: v0.44.0
         cache: true
-    - run: pixi run tests
+    - run: pixi run pipeline_tests
