@@ -57,8 +57,6 @@ platforms = ["linux-64"]
 [tool.pixi.pypi-dependencies]
 sar-pipeline = { path = ".", editable = true }
 
-[tool.pixi.tasks]
-
 [tool.pixi.dependencies]
 geopandas = ">=1.0.1"
 numpy = "<2.0"
@@ -72,6 +70,12 @@ spatialist = ">=0.14.0"
 [tool.pixi.environments]
 default = { solve-group = "default" }
 test = { features = ["test"], solve-group = "default" }
+
+[tool.pixi.feature.test.tasks]
+tests = "pytest"
+
+[tool.pixi.tasks]
+export_conda = "pixi workspace export conda-environment"
 
 [dependency-groups]
 test = ["pytest"]
