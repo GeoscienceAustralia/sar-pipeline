@@ -1,4 +1,4 @@
-name: default
+name: sar-pipeline
 channels:
   - avalentino
   - conda-forge
