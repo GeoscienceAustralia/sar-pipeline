@@ -2920,18 +2920,14 @@ packages:
 - pypi: .
   name: sar-pipeline
   version: '0.1'
-  sha256: f2c0ba5466d3cbdedd6cf03085860c5a44b3084d3452312bf187aca914ecf943
+  sha256: cb339d7f67783becf733ddaa8fda6cb739c8968a90eb3de0dfe6ce70a203a73c
   requires_dist:
-  - affine
-  - asf-search
-  - boto3
-  - botocore
-  - click
-  - h5py
-  - pystac
-  - python-dateutil
-  - ruamel-yaml
-  - tomli
+  - asf-search>=8.1.1
+  - boto3>=1.37.27
+  - botocore>=1.37.27
+  - h5py>=3.13.0
+  - pystac>=1.12.2
+  - ruamel-yaml>=0.18.10
   requires_python: '>=3.8'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.6.1-py312h7a48858_0.conda

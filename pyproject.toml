@@ -17,16 +17,12 @@ classifiers=[
 ]
 version = "0.1" # TODO base this on files in proje t
 dependencies = [
-    "affine", 
-    "asf-search", 
-    "boto3", 
-    "botocore", 
-    "click", 
-    "h5py", 
-    "pystac", 
-    "python-dateutil", 
-    "ruamel-yaml", 
-    "tomli", 
+    "asf-search>=8.1.1", 
+    "boto3>=1.37.27", 
+    "botocore>=1.37.27", 
+    "h5py>=3.13.0", 
+    "pystac>=1.12.2", 
+    "ruamel-yaml>=0.18.10", 
 ]
 
 [project.urls]
@@ -59,6 +55,8 @@ platforms = ["linux-64"]
 sar-pipeline = { path = ".", editable = true }
 
 [tool.pixi.dependencies]
+affine = ">=2.4.0"
+click = ">=8.1.8"
 geopandas = ">=1.0.1"
 numpy = "<2.0"
 gdal = ">=3.10.2"
@@ -69,6 +67,7 @@ shapely = ">=2.0.7"
 spatialist = ">=0.14.0"
 s1etad = ">=0.5.5,<0.6"
 s1etad_tools = ">=0.8.1,<0.9"
+tomli = ">=2.2.1"
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
