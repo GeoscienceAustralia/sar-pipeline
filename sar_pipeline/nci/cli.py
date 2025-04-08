@@ -23,6 +23,11 @@ from sar_pipeline.nci.processing.pyroSAR.pyrosar_geocode import (
 )
 from sar_pipeline.nci.submission.pyrosar_gamma.submit_job import submit_job
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
+from sar_pipeline.utils.post_processing import (
+    gdal_reproject,
+    gdal_update_nodata,
+    gdal_add_overviews,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -331,28 +336,28 @@ def run_pyrosar_gamma_workflow(
         etad=etad,
     )
 
-    if target_crs == "3031":
-        click.echo("Performing reprojection to EPSG:3031")
-        # Identify all files containing gamma0-rtc_geo
-        files_to_reproject = list(processed_scene_directory.glob("_geo.tif"))
+    # Identify all geocoded data laygers
+    files_to_reproject = list(processed_scene_directory.glob("_geo.tif"))
+    for file in files_to_reproject:
+        click.echo(f"Post-processing {file.stem}")
 
-        for file in files_to_reproject:
-            click.echo(f"    Processing {file.stem}")
+        if target_crs == "3031":
+            click.echo("Performing reprojection to EPSG:3031")
             output_file = file.parent / (file.stem + "_3031" + file.suffix)
-            cmd = [
-                "gdalwarp",
-                "-t_srs",
-                f"EPSG:{target_crs}",
-                "-tr",
-                str(spacing),
-                str(spacing),  # Set output resolution to target spacing
-                "-r",
-                "bilinear",  # Use bilinear resampling
-                str(file),
-                str(output_file),
-            ]
 
-            subprocess.run(cmd, check=True)
+            gdal_reproject(
+                src_file=file,
+                dst_file=output_file,
+                dst_epsg=3031,
+                dst_resolution=spacing,
+                resample_algorithm="bilinear",
+            )
+
+            # update nodata
+            gdal_update_nodata(output_file, output_file, "nan")
+
+            # add overviews
+            gdal_add_overviews(output_file)
 
 
 # find_orbits_for_scene
