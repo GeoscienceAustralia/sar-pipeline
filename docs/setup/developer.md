@@ -68,9 +68,24 @@ If on the NCI:
 
 Pixi can produce a conda environment file
 
-Run `pixi run export_conda > environment.pixi.yml`
+Run `pixi run export_conda`
 
 This can then be used for any other conda based package manager (e.g. micromamba)
+
+### Add new dependencies to the environment
+
+All dependencies explicitly called within the code should be added to the project. These can be viewed with `git grep -h import | sort | uniq`
+
+To add a new dependency we rely on pixi:
+
+1. add the required packages using `pixi add <package>` for conda distributed packages. Include `--pypi` if it's only available on pypi
+    - E.g. `pixi add --pypi numpy` 
+
+2. check the versions that were installed using `pixi list`
+
+3. Check and manually update the versions in the `pyproject.toml` if required (remove upper limits from conda packages, add versions for pypi packages)
+
+Export the update environment as described above
 
 ## Micromamba
 
