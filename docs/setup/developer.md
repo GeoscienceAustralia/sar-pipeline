@@ -81,7 +81,7 @@ To add a new dependency we rely on pixi:
 1. add the required packages using `pixi add <package>` for conda distributed packages. Include `--pypi` if it's only available on pypi
     - E.g. `pixi add --pypi numpy` 
 
-2. check the versions that were installed using `pixi list`
+2. check the versions that were installed using `pixi list -x` (this shows the versions of packages explicitly listed in pyproject.toml
 
 3. Check and manually update the versions in the `pyproject.toml` if required (remove upper limits from conda packages, add versions for pypi packages)
 
