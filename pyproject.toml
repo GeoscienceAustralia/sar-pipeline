@@ -66,7 +66,7 @@ pyrosar = ">=0.28.0"
 rasterio = ">=1.4.3"
 shapely = ">=2.0.7"
 spatialist = ">=0.14.0"
-s1etad = ">=0.5.5,<0.6"
+s1etad = ">=0.5.5"
 s1etad_tools = ">=0.8.1,<0.9"
 tomli = ">=2.2.1"
 
