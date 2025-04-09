@@ -67,7 +67,7 @@ rasterio = ">=1.4.3"
 shapely = ">=2.0.7"
 spatialist = ">=0.14.0"
 s1etad = ">=0.5.5"
-s1etad_tools = ">=0.8.1,<0.9"
+s1etad_tools = ">=0.8.1"
 tomli = ">=2.2.1"
 
 [tool.pixi.environments]
