@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--burst_id_list",
     required=False,
-    multiple=True, 
+    multiple=True,
     help="List of burst IDs separated by space. e.g. t070_149815_iw2 t070_149815_iw3",
 )
 @click.option(
@@ -43,10 +43,11 @@ logger = logging.getLogger(__name__)
 )
 @click.option("--dem", required=True, type=click.Choice(["cop_glo30"]))
 @click.option(
-    "--product", 
-    required=True, 
-    type=click.Choice(["RTC_S1","RTC_S1_STATIC"]),
-    help="The product to be made")
+    "--product",
+    required=True,
+    type=click.Choice(["RTC_S1", "RTC_S1_STATIC"]),
+    help="The product to be made",
+)
 @click.option(
     "--download-folder",
     required=True,
@@ -91,12 +92,12 @@ def get_data_for_scene_and_make_run_config(
     logger.info(f"Downloading data for scene : {scene}")
 
     # make the base .yaml for RTC processing
-    if product == 'RTC_S1':
+    if product == "RTC_S1":
         RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC.yaml")
     elif product == "RTC_S1_STATIC":
         RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC_STATIC.yaml")
     else:
-        raise ValueError('product must be S1_RTC or S1_RTC_STATIC')
+        raise ValueError("product must be S1_RTC or S1_RTC_STATIC")
 
     if make_folders:
         logger.info(f"Making output folders if not existing")
@@ -145,7 +146,13 @@ def get_data_for_scene_and_make_run_config(
     )
     RTC_RUN_CONFIG.set(f"{gk}.input_file_group.orbit_file_path", [str(ORBITS_PATH)])
     RTC_RUN_CONFIG.set(f"{gk}.dynamic_ancillary_file_group.dem_file", str(DEM_PATH))
-    RTC_RUN_CONFIG.set(f"{gk}.dynamic_ancillary_file_group.dem_file_description", "tmp")
+
+    # set the dem input source
+    if dem == "cop_glo30":
+        demSource = "https://registry.opendata.aws/copernicus-dem/"
+        RTC_RUN_CONFIG.set(
+            f"{gk}.dynamic_ancillary_file_group.dem_file_description", demSource
+        )
 
     if burst_id_list:
         # specify bursts if provided
@@ -156,7 +163,9 @@ def get_data_for_scene_and_make_run_config(
     RTC_RUN_CONFIG.set(f"{gk}.product_group.scratch_path", str(scratch_folder))
     if product == "RTC_S1_STATIC":
         # TODO YYYYMMDD
-        RTC_RUN_CONFIG.set(f"{gk}.product_group.rtc_s1_static_validity_start_date",20010101)
+        RTC_RUN_CONFIG.set(
+            f"{gk}.product_group.rtc_s1_static_validity_start_date", 20010101
+        )
 
     # set the polarisation
     POLARIZATION = asf_scene_metadata.properties["polarization"]
@@ -195,10 +204,11 @@ def get_data_for_scene_and_make_run_config(
     help="Path to the config path used to run RTC opera",
 )
 @click.option(
-    "--product", 
-    required=True, 
-    type=click.Choice(["RTC_S1","RTC_S1_STATIC"]),
-    help="The product being made. Determines bucket structure")
+    "--product",
+    required=True,
+    type=click.Choice(["RTC_S1", "RTC_S1_STATIC"]),
+    help="The product being made. Determines bucket structure",
+)
 @click.option(
     "--collection",
     required=True,
@@ -239,7 +249,9 @@ def make_rtc_opera_stac_and_upload_bursts(
         # load in the .h5 file containing metadata for each burst
         burst_h5_files = list(burst_folder.glob("*.h5"))
         if len(burst_h5_files) != 1:
-            raise ValueError(f"{len(burst_h5_files)} .h5 files found. Expecting 1 in : {burst_folder}")
+            raise ValueError(
+                f"{len(burst_h5_files)} .h5 files found. Expecting 1 in : {burst_folder}"
+            )
         burst_h5_filepath = burst_folder / burst_h5_files[0]
         # make the stac metadata from the .h5 metadata
         logging.info(f"Making stac metadata from .h5 file")
@@ -254,15 +266,17 @@ def make_rtc_opera_stac_and_upload_bursts(
         # make the stac item based
         burst_stac_manager.make_stac_item_from_h5()
         # add properties to the stac doc
-        # TODO finalise stac metadata 
+        # TODO finalise stac metadata
         if product == "RTC_S1":
             burst_stac_manager.add_properties_from_h5()
         # add the assets to the stac doc
         burst_stac_manager.add_assets_from_folder(burst_folder)
         # add the links to the stac doc
         # TODO static layers not yet referenced in S1_RTC
-        burst_stac_manager.add_links_from_h5()
+        burst_stac_manager.add_dynamic_links_from_h5()
         # add additional links
+        burst_stac_manager.add_static_links()
+        # add the link to self/metadata
         stac_filename = "metadata.json"
         burst_stac_manager.add_self_link(filename=stac_filename)
         # save the metadata

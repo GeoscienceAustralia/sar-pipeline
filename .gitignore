@@ -24,5 +24,9 @@ tests/sar_pipeline/data/**/*.json
 # ignore secret files
 *.secret
 
+# pixi environments
+.pixi
+*.egg-info
+
 # ignore the burst_db project
 burst_db
