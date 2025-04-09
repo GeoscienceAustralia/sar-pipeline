@@ -41,27 +41,41 @@ def download_orbits_from_datahub(
     sentinel_file: Path,
     save_dir: Path,
     source: Literal["CDSE", "ASF"] = "CDSE",
-    cdse_user: str | None = None,
-    cdse_password: str | None = None,
-    force_asf: bool = False,
+    cdse_user: Optional[str] = None,
+    cdse_password: Optional[str] = None,
+    asf_user: Optional[str] = None,
+    asf_password: Optional[str] = None,
 ) -> Path:
     """
     Downloads precise/restituted orbit files (.EOF files) for the given Sentinel-1 SAFE file from the
-    Copernicus Data Space Ecosystem (CDSE) or Alaskan Space Facility (ASF) datahubs. 
+    Copernicus Data Space Ecosystem (CDSE) or Alaska Satellite Facility (ASF) datahubs.
 
-    Args:
-        sentinel_file (Path): Path to the Sentinel-1 SAFE file.
-        save_dir (Path): Directory to save the downloaded EOF file.
-        source (Literal["CDSE", "ASF"], optional): Source for downloading EOF, either "CDSE" or "ASF". Defaults to "CDSE".
-        cdse_user (str | None, optional): CDSE username. Defaults to None.
-        cdse_password (str | None, optional): CDSE password. Defaults to None.
-        force_asf (bool, optional): If True, forces download from ASF, bypassing CDSE. Defaults to False.
+    Parameters
+    ----------
+    sentinel_file : Path
+        Path to the Sentinel-1 SAFE file.
+    save_dir : Path
+        Directory to save the downloaded EOF file.
+    source : Literal["CDSE", "ASF"], optional
+        Source for downloading EOF, either "CDSE" or "ASF". Defaults to "CDSE".
+    cdse_user : Optional[str], optional
+        CDSE username. Defaults to None.
+    cdse_password : Optional[str], optional
+        CDSE password. Defaults to None.
+    asf_user : Optional[str], optional
+        ASF username. Defaults to None.
+    asf_password : Optional[str], optional
+        ASF password. Defaults to None.
 
-    Returns:
-        Path: Path to the downloaded EOF file.
-    
-    Raises:
-        ValueError: If source is not recognised or credentials are not set through arguments or environment variables.
+    Returns
+    -------
+    Path
+        Path to the downloaded EOF file.
+
+    Raises
+    ------
+    ValueError
+        If required credentials are missing.
     """
     # The logic in eof.download.main() tries CDSE first by default.
     # Passing this to the force_asf argument skips checking CDSE first and goes directly to ASF.
@@ -71,21 +85,28 @@ def download_orbits_from_datahub(
         cdse_user = cdse_user or os.getenv("CDSE_LOGIN")
         cdse_password = cdse_password or os.getenv("CDSE_PASSWORD")
         if not cdse_user or not cdse_password:
-            raise ValueError("CDSE credentials are not set. Provide them as arguments or set CDSE_LOGIN and CDSE_PASSWORD as environment variables.")
+            raise ValueError(
+                "CDSE credentials are not set. Provide them as arguments or set CDSE_LOGIN and CDSE_PASSWORD as environment variables."
+            )
         asf_user, asf_password = None, None
+
     elif source == "ASF":
         asf_user = asf_user or os.getenv("EARTHDATA_LOGIN")
         asf_password = asf_password or os.getenv("EARTHDATA_PASSWORD")
         if not asf_user or not asf_password:
-            raise ValueError("ASF credentials are not set. Provide them as arguments or set EARTHDATA_LOGIN and EARTHDATA_PASSWORD as environment variables.")
+            raise ValueError(
+                "ASF credentials are not set. Provide them as arguments or set EARTHDATA_LOGIN and EARTHDATA_PASSWORD as environment variables."
+            )
         cdse_user, cdse_password = None, None
+
     else:
-        raise ValueError(f"Source can be either CDSE or ASF, but {source} was used.")
-    
-    logging.info(f"Starting EOF download from {source}...")
+        raise ValueError(f"Source must be either 'CDSE' or 'ASF', got '{source}'.")
+
+    logger.info(f"Starting EOF download from {source}...")
+
     return eof.download.main(
         sentinel_file=sentinel_file,
-        save_dir=save_dir
+        save_dir=save_dir,
         cdse_user=cdse_user,
         cdse_password=cdse_password,
         force_asf=use_asf,
