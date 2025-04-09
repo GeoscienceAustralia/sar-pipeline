@@ -30,3 +30,7 @@ tests/sar_pipeline/data/**/*.json
 
 # ignore the burst_db project
 burst_db
+
+# ignore coverage files and reports
+.coverage
+coverage.*
