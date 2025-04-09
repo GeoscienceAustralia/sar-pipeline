@@ -58,19 +58,10 @@ WORKDIR /home/rtc_user/burst_db
 ARG BURST_DB_URL="https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/persistent/burst_db/0.9.0/opera-burst-bbox-only.sqlite3"
 RUN curl -o opera-burst-bbox-only.sqlite3 "$BURST_DB_URL"
 
-# Create a second CONDA envrionment for the sar-pipeline
+# Copy the full project and create a second CONDA environment for the sar-pipeline
 WORKDIR /home/rtc_user/sar-pipeline
-# Copy the environment file alone
-COPY --chown=rtc_user:rtc_user ./environment.yml /home/rtc_user/sar-pipeline
-RUN conda env create -f /home/rtc_user/sar-pipeline/environment.yml
-
-# Copy the full project and install the sar-pipeline code
 COPY --chown=rtc_user:rtc_user . /home/rtc_user/sar-pipeline
-# Update the RTC pipeline with dependancies for the sar-pipeline
-SHELL ["conda", "run", "-n", "sar-pipeline", "/bin/bash", "-c"]
-RUN python -m pip install .
-# Install additional AWS dependancies
-RUN python -m pip install -r environment-aws.txt
+RUN conda env create -f /home/rtc_user/sar-pipeline/environment.yml
 
 # Copy the .sh file that will be run on entry to the container
 RUN mkdir -p /home/rtc_user/scripts
