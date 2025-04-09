@@ -3,7 +3,7 @@ import s1_orbits
 from pathlib import Path
 import logging
 import eof.download
-from typing import Literal
+from typing import Literal, Optional
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
