@@ -2,7 +2,6 @@ import click
 from pathlib import Path
 import tomli
 import logging
-import subprocess
 from typing import Literal
 
 from sar_pipeline.nci.filesystem import get_orbits_nci
@@ -336,13 +335,11 @@ def run_pyrosar_gamma_workflow(
         etad=etad,
     )
 
-    # Identify all geocoded data laygers
-    files_to_reproject = list(processed_scene_directory.glob("_geo.tif"))
-    for file in files_to_reproject:
-        click.echo(f"Post-processing {file.stem}")
-
-        if target_crs == "3031":
-            click.echo("Performing reprojection to EPSG:3031")
+    # If target CRS is 3031, convert geocoded data layers before proceeding
+    if target_crs == "3031":
+        click.echo("Performing reprojection to EPSG:3031")
+        files_to_reproject = list(processed_scene_directory.glob("*_geo.tif"))
+        for file in files_to_reproject:
             output_file = file.parent / (file.stem + "_3031" + file.suffix)
 
             gdal_reproject(
@@ -353,11 +350,16 @@ def run_pyrosar_gamma_workflow(
                 resample_algorithm="bilinear",
             )
 
-            # update nodata
-            gdal_update_nodata(output_file, output_file, "nan")
+    # For all geocoded files, update all no-data values to nan and add overviews
+    files_to_update = list(processed_scene_directory.glob("*_geo*.tif"))
 
-            # add overviews
-            gdal_add_overviews(output_file)
+    for file in files_to_update:
+        click.echo("Setting nodata to nan and adding overviews")
+        # update nodata - overwrite original file
+        gdal_update_nodata(file, file, "nan")
+
+        # add overviews - done inplace
+        gdal_add_overviews(file)
 
 
 # find_orbits_for_scene
