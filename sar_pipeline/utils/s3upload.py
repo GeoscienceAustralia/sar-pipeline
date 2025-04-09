@@ -37,12 +37,12 @@ def push_files_in_folder_to_s3(
         _description_, by default 'ap-southeast-2'
     """
 
-    # search for credentials in envrionment and raise warning if not there
+    # search for credentials in environment and raise warning if not there
     if os.environ.get("AWS_ACCESS_KEY_ID") is None:
-        wrn_msg = "AWS_ACCESS_KEY_ID is not set in envrionment variables. Set if authenticaiton required on bucket"
+        wrn_msg = "AWS_ACCESS_KEY_ID is not set in environment variables. Set if authentication required on bucket"
         logging.warning(wrn_msg)
     if os.environ.get("AWS_SECRET_ACCESS_KEY") is None:
-        wrn_msg = "AWS_ACCESS_KEY_ID is not set in envrionment variables. Set if authenticaiton required on bucket"
+        wrn_msg = "AWS_ACCESS_KEY_ID is not set in environment variables. Set if authentication required on bucket"
         logging.warning(wrn_msg)
 
     S3_CLIENT = boto3.client("s3", region_name=region_name)
