@@ -2,7 +2,6 @@ import click
 from pathlib import Path
 import tomli
 import logging
-import subprocess
 from typing import Literal
 
 from sar_pipeline.nci.filesystem import get_orbits_nci
@@ -23,6 +22,11 @@ from sar_pipeline.nci.processing.pyroSAR.pyrosar_geocode import (
 )
 from sar_pipeline.nci.submission.pyrosar_gamma.submit_job import submit_job
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
+from sar_pipeline.utils.post_processing import (
+    gdal_reproject,
+    gdal_update_nodata,
+    gdal_add_overviews,
+)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -331,28 +335,31 @@ def run_pyrosar_gamma_workflow(
         etad=etad,
     )
 
+    # If target CRS is 3031, convert geocoded data layers before proceeding
     if target_crs == "3031":
         click.echo("Performing reprojection to EPSG:3031")
-        # Identify all files containing gamma0-rtc_geo
-        files_to_reproject = list(processed_scene_directory.glob("_geo.tif"))
-
+        files_to_reproject = list(processed_scene_directory.glob("*_geo.tif"))
         for file in files_to_reproject:
-            click.echo(f"    Processing {file.stem}")
             output_file = file.parent / (file.stem + "_3031" + file.suffix)
-            cmd = [
-                "gdalwarp",
-                "-t_srs",
-                f"EPSG:{target_crs}",
-                "-tr",
-                str(spacing),
-                str(spacing),  # Set output resolution to target spacing
-                "-r",
-                "bilinear",  # Use bilinear resampling
-                str(file),
-                str(output_file),
-            ]
 
-            subprocess.run(cmd, check=True)
+            gdal_reproject(
+                src_file=file,
+                dst_file=output_file,
+                dst_epsg=3031,
+                dst_resolution=spacing,
+                resample_algorithm="bilinear",
+            )
+
+    # For all geocoded files, update all no-data values to nan and add overviews
+    files_to_update = list(processed_scene_directory.glob("*_geo*.tif"))
+
+    for file in files_to_update:
+        click.echo("Setting nodata to nan and adding overviews")
+        # update nodata - overwrite original file
+        gdal_update_nodata(file, file, "nan")
+
+        # add overviews - done inplace
+        gdal_add_overviews(file)
 
 
 # find_orbits_for_scene
