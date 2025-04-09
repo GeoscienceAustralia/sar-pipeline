@@ -2937,7 +2937,7 @@ packages:
 - pypi: .
   name: sar-pipeline
   version: '0.1'
-  sha256: dafd3a7c05e6ae9459e370472d171cbd84f983c93b21770ca008bc80fb9261fd
+  sha256: 86ce5379f87e19b6f48fe2e4f298d5385be83286b92eccf21b97f86bb942509e
   requires_dist:
   - asf-search>=8.1.1
   - boto3>=1.37.27
