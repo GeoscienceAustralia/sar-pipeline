@@ -30,3 +30,6 @@ tests/sar_pipeline/data/**/*.json
 
 # ignore the burst_db project
 burst_db
+
+# ignore the version file from setuptools_scm
+sar_pipeline/_version.py
