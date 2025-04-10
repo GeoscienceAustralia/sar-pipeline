@@ -51,6 +51,7 @@ where = ["."]
 
 [tool.setuptools.package-data]
 sar_pipeline = ["**/*.yaml", "**/*.yml", "**/*.gpkg", "**/*.json"]
+
 [tool.pixi.project]
 channels = ["conda-forge", "avalentino", "s1-etad"]
 platforms = ["linux-64"]
@@ -75,18 +76,20 @@ tomli = ">=2.2.1"
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
-test = { features = ["test"], solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
 
-[tool.pixi.feature.test.tasks]
-tests = "pytest"
-pipeline_tests = "pytest tests/sar_pipeline/"
-nci_filesystem_tests = "pytest tests/filesystem"
+[tool.pixi.feature.dev.tasks]
+test-all = "pytest"
+test-pipeline = "pytest tests/sar_pipeline/"
+test-nci-filesystem = "pytest tests/filesystem"
+
+[tool.pixi.feature.dev.dependencies]
+pre-commit = ">=4.2.0"
+pytest = ">=8.3.5"
+coverage = ">=7.8.0"
 
 [tool.pixi.tasks]
-export_conda = """
+export-conda = """
 pixi workspace export conda-environment environment.yml && \
 sed -i 's/^name: default$/name: sar-pipeline/' environment.yml
 """
-
-[dependency-groups]
-test = ["pytest>=8.3.5", "coverage>=7.8.0"]
