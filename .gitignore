@@ -34,3 +34,6 @@ burst_db
 # ignore coverage files and reports
 .coverage
 coverage.*
+
+# ignore the version file made by setuptools_scm
+sar_pipeline/_version.py

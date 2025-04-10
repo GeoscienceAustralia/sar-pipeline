@@ -15,7 +15,7 @@ classifiers=[
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
 ]
-version = "0.1" # TODO base this on files in project
+dynamic = ["version"]
 dependencies = [
     "asf-search>=8.1.1", 
     "boto3>=1.37.27", 
@@ -39,6 +39,9 @@ submit-pyrosar-gamma-workflow = "sar_pipeline.nci.cli:submit_pyrosar_gamma_workf
 upload-files-in-folder-to-s3 = "sar_pipeline.nci.cli:upload_files_in_folder_to_s3"
 get-data-for-scene-and-make-run-config = "sar_pipeline.aws.cli:get_data_for_scene_and_make_run_config"
 make-rtc-opera-stac-and-upload-bursts = "sar_pipeline.aws.cli:make_rtc_opera_stac_and_upload_bursts"
+
+[tool.setuptools_scm]
+version_file = "sar_pipeline/_version.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests/*"]
