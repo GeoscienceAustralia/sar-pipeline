@@ -15,7 +15,7 @@ classifiers=[
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
 ]
-version = "0.1" # TODO base this on files in project
+dynamic = ["version"]
 dependencies = [
     "asf-search>=8.1.1", 
     "boto3>=1.37.27", 
@@ -40,6 +40,9 @@ upload-files-in-folder-to-s3 = "sar_pipeline.nci.cli:upload_files_in_folder_to_s
 get-data-for-scene-and-make-run-config = "sar_pipeline.aws.cli:get_data_for_scene_and_make_run_config"
 make-rtc-opera-stac-and-upload-bursts = "sar_pipeline.aws.cli:make_rtc_opera_stac_and_upload_bursts"
 
+[tool.setuptools_scm]
+version_file = "sar_pipeline/_version.py"
+
 [tool.pytest.ini_options]
 testpaths = ["tests/*"]
 
@@ -48,6 +51,7 @@ where = ["."]
 
 [tool.setuptools.package-data]
 sar_pipeline = ["**/*.yaml", "**/*.yml", "**/*.gpkg", "**/*.json"]
+
 [tool.pixi.project]
 channels = ["conda-forge", "avalentino", "s1-etad"]
 platforms = ["linux-64"]
@@ -72,18 +76,20 @@ tomli = ">=2.2.1"
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
-test = { features = ["test"], solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
 
-[tool.pixi.feature.test.tasks]
-tests = "pytest"
-pipeline_tests = "pytest tests/sar_pipeline/"
-nci_filesystem_tests = "pytest tests/filesystem"
+[tool.pixi.feature.dev.tasks]
+test-all = "pytest"
+test-pipeline = "pytest tests/sar_pipeline/"
+test-nci-filesystem = "pytest tests/filesystem"
+
+[tool.pixi.feature.dev.dependencies]
+pre-commit = ">=4.2.0"
+pytest = ">=8.3.5"
+coverage = ">=7.8.0"
 
 [tool.pixi.tasks]
-export_conda = """
+export-conda = """
 pixi workspace export conda-environment environment.yml && \
 sed -i 's/^name: default$/name: sar-pipeline/' environment.yml
 """
-
-[dependency-groups]
-test = ["pytest"]

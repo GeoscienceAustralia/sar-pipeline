@@ -1,0 +1,15 @@
+repos:
+-   repo: local
+    hooks:
+    -   id: check-pixi-lock
+        name: Check pixi.lock and update if different from manifest
+        entry: ./hooks/check_pixi_lock.sh
+        language: system
+        verbose: false
+        pass_filenames: false
+    -   id: pixi-export-conda
+        name: Pixi export conda environment.yml      
+        entry: ./hooks/export_conda.sh
+        language: system
+        verbose: false
+        pass_filenames: false
