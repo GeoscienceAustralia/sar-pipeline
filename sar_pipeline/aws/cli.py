@@ -6,10 +6,6 @@ from shapely.geometry import Polygon
 
 from sar_pipeline.aws.preparation.scenes import download_slc_from_asf
 from sar_pipeline.aws.preparation.orbits import download_orbits_from_datahub
-from sar_pipeline.aws.preparation.static_layers import (
-    check_static_layers_in_s3,
-    make_static_layer_url,
-)
 from sar_pipeline.aws.preparation.config import RTCConfigManager
 from sar_pipeline.aws.metadata.stac import BurstH5toStacManager
 
