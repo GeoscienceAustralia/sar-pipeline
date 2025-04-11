@@ -177,6 +177,7 @@ environments:
       - conda: https://conda.anaconda.org/s1-etad/noarch/s1etad_tools-0.8.1-py_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.6.1-py312h7a48858_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/scipy-1.15.2-py312ha707e6e_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/sentineleof-0.11.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-75.8.2-pyhff2d567_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-8.2.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools_scm-8.2.1-hd8ed1ab_0.conda
@@ -428,6 +429,7 @@ environments:
       - conda: https://conda.anaconda.org/s1-etad/noarch/s1etad_tools-0.8.1-py_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.6.1-py312h7a48858_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/scipy-1.15.2-py312ha707e6e_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/sentineleof-0.11.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-75.8.2-pyhff2d567_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-8.2.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools_scm-8.2.1-hd8ed1ab_0.conda
@@ -3072,8 +3074,8 @@ packages:
   requires_python: '>=3.8'
 - pypi: .
   name: sar-pipeline
-  version: 0.2.dev230+g03b3113.d20250410
-  sha256: 057e393b9070d00a564e8b28c257e466b2515de8939978dae41da06a58fab6f1
+  version: 0.2.dev270+gbf68d2d
+  sha256: 61fed94234e665c931fda1f9c7e12f2afcce12085b7c7608f3bc7be3c26e465a
   requires_dist:
   - asf-search>=8.1.1
   - boto3>=1.37.27
@@ -3127,6 +3129,20 @@ packages:
   - pkg:pypi/scipy?source=hash-mapping
   size: 17064784
   timestamp: 1739791925628
+- conda: https://conda.anaconda.org/conda-forge/noarch/sentineleof-0.11.0-pyhd8ed1ab_0.conda
+  sha256: 515a2863794c96d2ab23d0d2125b2a6c3dbad0df4cead71891140b3fb92268b2
+  md5: f5167c725bfc2f75d01052c2524223de
+  depends:
+  - click
+  - python >=3.9
+  - python-dateutil
+  - requests
+  license: MIT
+  license_family: MIT
+  purls:
+  - pkg:pypi/sentineleof?source=hash-mapping
+  size: 31953
+  timestamp: 1743485809440
 - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-75.8.2-pyhff2d567_0.conda
   sha256: 91d664ace7c22e787775069418daa9f232ee8bafdd0a6a080a5ed2395a6fa6b2
   md5: 9bddfdbf4e061821a1a443f93223be61
