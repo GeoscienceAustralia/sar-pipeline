@@ -79,7 +79,6 @@ sentineleof = ">=0.11.0"
 default = { solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
 
-<<<<<<< HEAD
 [tool.pixi.feature.dev.tasks]
 test-all = "pytest"
 test-pipeline = "pytest tests/sar_pipeline/"
@@ -95,13 +94,3 @@ export-conda = """
 pixi workspace export conda-environment environment.yml && \
 sed -i 's/^name: default$/name: sar-pipeline/' environment.yml
 """
-=======
-[tool.pixi.feature.test.tasks]
-tests = "pytest"
-
-[tool.pixi.tasks]
-export_conda = "pixi workspace export conda-environment"
-
-[dependency-groups]
-test = ["pytest"]
->>>>>>> 5b6e789 (Update CI to use pixi, add docs)
