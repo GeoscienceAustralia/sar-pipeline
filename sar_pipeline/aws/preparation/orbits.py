@@ -79,7 +79,8 @@ def download_orbits_from_datahub(
     """
     # The logic in eof.download.main() tries CDSE first by default.
     # Passing this to the force_asf argument skips checking CDSE first and goes directly to ASF.
-    use_asf = source == "ASF"
+    if source == "ASF":
+        use_asf = True
 
     if source == "CDSE":
         cdse_user = cdse_user or os.getenv("CDSE_LOGIN")
