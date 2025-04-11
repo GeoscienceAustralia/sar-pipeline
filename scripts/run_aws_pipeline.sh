@@ -1,49 +1,36 @@
 #!/bin/bash
 
-# See docs/workflows/aws.md for instructions and argument descriptions
-## -- WORKFLOW INPUTS FOR PRODUCT CREATION -> RTC_S1 or RTC_S1_STATIC --
+# Default values for the container
 scene=""
-burst_ids=()
+burst_ids=() # list of burst_ids or line separated .txt file
 resolution=20
 output_crs=""
 dem="cop_glo30"
-product="RTC_S1"
+product="RTC_S1" # RTC_S1_STATIC or RTC_S1
+collection="s1_rtc_c1" # e.g. s1_rtc_c1 or s1_rtc_static_c1
 s3_bucket="deant-data-public-dev"
 s3_project_folder="experimental"
-collection="s1_rtc_c1"
-## -- WORKFLOW INPUTS TO LINK RTC_S1_STATIC in RTC_S1 metadata--
-# Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
-link_static_layers=false
-linked_static_layers_s3_bucket="deant-data-public-dev"
-linked_static_layers_s3_project_folder="experimental"
-linked_static_layers_collection="s1_rtc_static_c1"
-
-# Final product output paths follow the following structure
-# RTC_S1 -> s3_bucket/s3_project_folder/collection/burst_id/year/month/day/*files
-# RTC_S1_STATIC -> s3_bucket/s3_project_folder/collection/burst_id/*files
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --scene) scene="$2"; shift 2 ;;
-        --resolution) resolution="$2"; shift 2 ;;
-        --output_crs) output_crs="$2"; shift 2 ;;
-        --dem) dem="$2"; shift 2 ;;
-        --product) product="$2"; shift 2 ;;
-        --s3_bucket) s3_bucket="$2"; shift 2 ;;
-        --s3_project_folder) s3_project_folder="$2"; shift 2 ;;
-        --collection) collection="$2"; shift 2 ;;
-        --link_static_layers) link_static_layers=true; shift ;;
-        --linked_static_layers_s3_bucket) linked_static_layers_s3_bucket="$2"; shift 2 ;;
-        --linked_static_layers_collection) linked_static_layers_collection="$2"; shift 2 ;;
-        --linked_static_layers_s3_project_folder) linked_static_layers_s3_project_folder="$2"; shift 2 ;;
+        --scene) scene="$2"; shift ;;  # Shift moves to next argument
+        --resolution) resolution="$2"; shift ;; 
+        --output_crs) output_crs="$2"; shift ;; 
+        --dem) dem="$2"; shift ;;
+        --product) product="$2"; shift ;;
+        --collection) collection="$2"; shift ;;
+        --s3_bucket) s3_bucket="$2"; shift ;;
+        --s3_project_folder) s3_project_folder="$2"; shift ;;
         --burst_id_list)
-            shift
+            shift  # Move past the flag
             if [[ $# -eq 1 && -f "$1" ]]; then
+                # If only one argument remains and it's a file, read burst IDs from it
                 burst_ids=($(cat "$1"))
                 shift
             else
-                while [[ $# -gt 0 && ! $1 =~ ^-- ]]; do
+                # Otherwise, treat remaining arguments as burst IDs
+                while [[ $# -gt 0 && ! "$1" =~ ^-- ]]; do
                     burst_ids+=("$1")
                     shift
                 done
@@ -51,6 +38,7 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         *) echo "Unknown parameter: $1"; exit 1 ;;
     esac
+    shift
 done
 
 # Check if 'scene' is provided
@@ -82,7 +70,7 @@ else
     fi
 fi
 
-# Ensure the specified product is valid
+# Ensure the specified product is valud
 if [[ "$product" != "RTC_S1" && "$product" != "RTC_S1_STATIC" ]]; then
   echo "Error: Invalid product '$product'."
   echo "Allowed values: RTC_S1, RTC_S1_STATIC"
@@ -97,28 +85,16 @@ echo resolution : "$resolution"
 echo output_crs : "$epsg_code_msg"
 echo dem : "$dem"
 echo product : "$product"
+echo collection : "$collection"
 echo s3_bucket : "$s3_bucket"
 echo s3_project_folder : "$s3_project_folder"
-echo collection : "$collection"
-
-# warn the user about linking static layers
-if [[ "$link_static_layers" = true && "$product" = "RTC_S1" ]]; then
-    echo linked_static_layers_s3_bucket : "$linked_static_layers_s3_bucket"
-    echo linked_static_layers_collection : "$linked_static_layers_collection"
-    echo linked_static_layers_s3_project_folder : "$linked_static_layers_s3_project_folder"
-    echo ""
-    echo 'WARNING: RTC_S1_STATIC layers are being linked to the RTC_S1 products in STAC metadata'
-    echo 'For more information, see the workflow documentation'
-fi
-
-## -- CONTAINER PROCESSING SETTINGS --
+echo ""
 
 # set process folders for the container
 download_folder="/home/rtc_user/working/downloads"
 out_folder="/home/rtc_user/working/results/$collection/$scene"
 scratch_folder="/home/rtc_user/working/scratch/$collection/$scene"
 
-echo ""
 echo The container will use these paths for processing:
 echo download_folder : "$out_folder"
 echo scratch_folder : "$scratch_folder"
@@ -136,45 +112,24 @@ conda activate sar-pipeline
 # set the config path to be in the out_folder so it can be uploaded with products
 RUN_CONFIG_PATH="$out_folder/OPERA-RTC_runconfig.yaml"
 
-## -- DOWNLOAD DATA AND MAKE THE RUN CONFIG --
+get-data-for-scene-and-make-run-config \
+--scene "$scene" \
+--burst_id_list ${burst_ids[*]} \
+--resolution "$resolution" \
+--output-crs "$output_crs" \
+--dem "$dem" \
+--product "$product" \
+--download-folder "$download_folder" \
+--scratch-folder "$scratch_folder" \
+--out-folder "$out_folder" \
+--run-config-save-path "$RUN_CONFIG_PATH"
 
-cmd=(
-    get-data-for-scene-and-make-run-config \
-    --scene "$scene" \
-    --resolution "$resolution" \
-    --output-crs "$output_crs" \
-    --dem "$dem" \
-    --product "$product" \
-    --download-folder "$download_folder" \
-    --scratch-folder "$scratch_folder" \
-    --out-folder "$out_folder" \
-    --run-config-save-path "$RUN_CONFIG_PATH"
-)
-
-if [ "$link_static_layers" = true ] ; then
-    # Static layers ARE being linked in the stac metadata
-    # A url to the RTC_S1_STATIC product will be added to the RUN_CONFIG
-    cmd+=(
-        --link-static-layers \
-        --linked-static-layers-s3-bucket "$linked_static_layers_s3_bucket" \
-        --linked-static-layers-collection "$linked_static_layers_collection" \
-        --linked-static-layers-s3-project-folder "$linked_static_layers_s3_project_folder" 
-    )
-fi
-
-# Conditionally add --burst_id_list only if burst_ids is non-empty
-if [[ ${#burst_ids[@]} -gt 0 ]]; then
-    cmd+=(--burst_id_list "${burst_ids[@]}")
-fi
-
-# Execute the command
-"${cmd[@]}" || { 
+if [ $? -ne 0 ]; then
     echo "Process failed: get-data-for-scene-and-make-run-config"
     exit 1
-}
+fi
 
-## -- RUN THE WORKFLOW TO PRODUCE RTC_S1 or RTC_S1_STATIC --
-
+# activate the ISCE3 environment and make products
 conda activate RTC
 rtc_s1.py $RUN_CONFIG_PATH
 
@@ -183,28 +138,20 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-## -- MAKE THE METADATA FOR PRODUCTS AND UPLOAD TO S3 --
-
+# activate the sar-pipeline environment 
 conda activate sar-pipeline
 
-cmd=(
-    make-rtc-opera-stac-and-upload-bursts \
-    --results-folder "$out_folder" \
-    --run-config-path "$RUN_CONFIG_PATH" \
-    --product "$product" \
-    --collection "$collection" \
-    --s3-bucket "$s3_bucket" \
-    --s3-project-folder "$s3_project_folder" 
-)
+# point at the out product directory and make STAC metadata
+# note storage pattern is assumed to be s3_bucket / s3_project_folder / year / month / day / burst_id / *files
+make-rtc-opera-stac-and-upload-bursts \
+--results-folder "$out_folder" \
+--run-config-path "$RUN_CONFIG_PATH" \
+--product "$product" \
+--collection "$collection" \
+--s3-bucket "$s3_bucket" \
+--s3-project-folder "$s3_project_folder" 
 
-if [ "$link_static_layers" = true ] ; then
-    # Static layers are to be linked to RTC_S1 in the stac metadata
-    # The url link to static layers is read in from results .h5 file
-    cmd+=( --link-static-layers)
-fi
-
-# Execute the command
-"${cmd[@]}" || { 
-    echo "make-rtc-opera-stac-and-upload-bursts"
+if [ $? -ne 0 ]; then
+    echo "Process failed: make-rtc-opera-stac-and-upload-bursts"
     exit 1
-}
+fi

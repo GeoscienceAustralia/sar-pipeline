@@ -76,34 +76,6 @@ logger = logging.getLogger(__name__)
     type=click.Path(dir_okay=False, path_type=Path),
     help="Path to where the RTC/opera config wil be saved",
 )
-@click.option(
-    "--link-static-layers",
-    required=False,
-    is_flag=True,
-    default=False,
-    help="If static layers should be linked to RTC_S1 products in the"
-    "STAC metadata. A url to the static layer collection will be added"
-    "to the run config file.",
-)
-@click.option(
-    "--linked-static-layers-s3-bucket",
-    required=False,
-    type=str,
-    help="S3 bucket containing the RTC_S1_STATIC data that will be linked to the RTC_S1 bursts.",
-)
-@click.option(
-    "--linked-static-layers-collection",
-    required=False,
-    type=str,
-    help="Collection of RTC_S1_STATIC data that will be linked to the RTC_S1 bursts.",
-)
-@click.option(
-    "--linked-static-layers-s3-project-folder",
-    required=False,
-    type=str,
-    help="Project folder containing the RTC_S1_STATIC data that will be linked to the RTC_S1 bursts. "
-    "Expected for linked files path is : s3_bucket/s3_project_folder/collection/burst_id/*files",
-)
 @click.option("--make-folders", required=False, default=True, help="Create folders")
 def get_data_for_scene_and_make_run_config(
     scene,
@@ -116,10 +88,6 @@ def get_data_for_scene_and_make_run_config(
     scratch_folder,
     out_folder,
     run_config_save_path,
-    link_static_layers,
-    linked_static_layers_s3_bucket,
-    linked_static_layers_collection,
-    linked_static_layers_s3_project_folder,
     make_folders,
 ):
     """Download the required data for the RTC/opera and create a configuration
@@ -146,17 +114,6 @@ def get_data_for_scene_and_make_run_config(
     logger.info(f"Downloading SLC for scene : {scene}")
     scene_folder = download_folder / "scenes"
     SCENE_PATH, asf_scene_metadata = download_slc_from_asf(scene, scene_folder)
-
-    # check the static layers exist
-    if link_static_layers:
-        logger.info(f"Checking static layers exist for bursts in scene : {scene}")
-        check_static_layers_in_s3(
-            scene=scene,
-            static_layers_s3_bucket=linked_static_layers_s3_bucket,
-            static_layers_collection=linked_static_layers_collection,
-            static_layers_s3_project_folder=linked_static_layers_s3_project_folder,
-            burst_id_list=burst_id_list,
-        )
 
     # # download the orbits
     logger.info(f"Downloading Orbits for scene : {scene}")
@@ -212,18 +169,6 @@ def get_data_for_scene_and_make_run_config(
         # TODO YYYYMMDD
         RTC_RUN_CONFIG.set(
             f"{gk}.product_group.rtc_s1_static_validity_start_date", 20010101
-        )
-
-    if link_static_layers:
-        # add the static layer base url
-        static_layer_base_url = make_static_layer_url(
-            linked_static_layers_s3_bucket,
-            linked_static_layers_collection,
-            linked_static_layers_s3_project_folder,
-        )
-        logger.info(f"static layer url : {static_layer_base_url}")
-        RTC_RUN_CONFIG.set(
-            f"{gk}.product_group.static_layers_data_access", str(static_layer_base_url)
         )
 
     # set the polarisation
@@ -284,15 +229,6 @@ def get_data_for_scene_and_make_run_config(
     help="The folder within the bucket to upload the files. Note the "
     "final path follows the patter in the description of this function.",
 )
-@click.option(
-    "--link-static-layers",
-    required=False,
-    is_flag=True,
-    default=False,
-    help="If static layers should be linked to RTC_S1 products in the"
-    "STAC metadata. If set, the url to the static layer collection will "
-    "be read in from the .h5 output from the rtc_s1.py process.",
-)
 def make_rtc_opera_stac_and_upload_bursts(
     results_folder,
     run_config_path,
@@ -300,11 +236,10 @@ def make_rtc_opera_stac_and_upload_bursts(
     collection,
     s3_bucket,
     s3_project_folder,
-    link_static_layers,
 ):
     """makes STAC metadata for opera-rtc and uploads them to a desired s3 bucket.
     The final path in s3 will follow the following pattern:
-    s3_bucket/s3_folder/collection/burst_id/burst_year/burst_month/burst_day/*files
+    s3_bucket/s3_folder/collection/burst_year/burst_month/burst_day/burst_id/*files
     """
 
     # iterate through the burst directory and create STAC metadata
@@ -336,16 +271,15 @@ def make_rtc_opera_stac_and_upload_bursts(
         burst_stac_manager.make_stac_item_from_h5()
         # add properties to the stac doc
         # TODO finalise stac metadata
-        burst_stac_manager.add_properties_from_h5()
+        if product == "RTC_S1":
+            burst_stac_manager.add_properties_from_h5()
         # add the assets to the stac doc
         burst_stac_manager.add_assets_from_folder(burst_folder)
-        if link_static_layers:
-            # link to static layer metadata is in the .h5 file
-            burst_stac_manager.add_linked_static_layer_assets()
-        # add additional links that will rarely change
-        burst_stac_manager.add_fixed_links()
-        # add links that can change
+        # add the links to the stac doc
+        # TODO static layers not yet referenced in S1_RTC
         burst_stac_manager.add_dynamic_links_from_h5()
+        # add additional links
+        burst_stac_manager.add_static_links()
         # add the link to self/metadata
         stac_filename = "metadata.json"
         burst_stac_manager.add_self_link(filename=stac_filename)
