@@ -1,0 +1,44 @@
+name: Build and Push Docker Image to ECR
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write  # For OIDC (optional if using access keys)
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        role-to-assume: arn:aws:iam::538673716275:role/sar_pipeline_github-actions-role
+        aws-region: ap-southeast-2
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build and tag Docker image
+      env:
+        ECR_REGISTRY: 538673716275.dkr.ecr.ap-southeast-2.amazonaws.com 
+        ECR_REPOSITORY: sar-pipeline
+
+      run: 
+        IMAGE_TAG=${{ github.event.release.tag_name }}
+        IMAGE_URI=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
+
+        docker build -t $IMAGE_URI -f Docker/Dockerfile .
+        echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+
+    - name: Push image to ECR
+      run: |
+        docker push $IMAGE_URI
