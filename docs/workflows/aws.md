@@ -13,30 +13,39 @@ The **RTC_S1** pipeline must be run for every new scene acquired by Sentinel-1. 
 
 The static layers can be re-used across a given burst_id, saving the storage required if they were created with each acquisition. For example, every 12 days sentinel 1A will capture the burst `t070_149815_iw3`. The same `local_incidence_angles.tif` can be used for each repeat pass, only the dialectic properties of the surface will change over time. The static layer is therefore referenced in a given **RTC_S1** product STAC metadata.
 
-TODO: Ensure this is how products are structured 
+To link a **RTC_S1** product to the appropriate  **RTC_S1_STATIC** layers, the **RTC_S1_STATIC** layer product must exist for all bursts over the scene of interest. The linkage is then specified when the workflow is run to create **RTC_S1** products. See the example *Make static layers (RTC_S1_STATIC) for a burst and link it to a backscatter product (RTC_S1)* below.
 
 After each run is completed, the files will be uploaded to a specified S3 bucket location. A unique subpath for each product is created in the workflow.
 
-## Examples
+### Example outputs
 
 Example outputs of the **RTC_S1** and **RTC_S1_STATIC** workflows can be found here:
-- **RTC_S1** -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=experimental/s1_rtc_c1/2022/1/1/t070_149815_iw3/
-- **RTC_S1_STATIC** -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=experimental/s1_rtc_static_c1/t070_149815_iw3/ 
+- **RTC_S1** -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=experimental-linkage/s1_rtc_c1/t070_149815_iw3/2022/1/1/
+- **RTC_S1_STATIC** -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=experimental-linkage/s1_rtc_static_c1/t070_149815_iw3/ 
 
 
 ## Pipeline Overview
-The AWS pipeline runs using a docker container. At runtime, the script `scripts/run_aws_pipeline.sh` is run. The arguments that can be passed to the container are:
+
+### Creating Products 
+The AWS pipeline runs using a docker container. At runtime, the script [run_aws_pipeline.sh](../../scripts/run_aws_pipeline.sh) is run. The arguments that can be passed to the container are:
 
 ```bash
+# Basic input for product creation
 --scene="" (required)
 --burst_id_list=()
 --resolution=20
 --output_crs=""
 --dem="cop_glo30"
 --product="RTC_S1"
---collection="s1_rtc_c1"
 --s3_bucket="deant-data-public-dev"
 --s3_project_folder="experimental"
+--collection="s1_rtc_c1"
+# Required inputs for linking RTC_S1_STATIC to RTC_S1
+# Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
+--link_static_layers=false           
+--linked_static_layers_s3_bucket="deant-data-public-dev"
+--linked_static_layers_s3_project_folder="experimental" 
+--linked_static_layers_collection="s1_rtc_static_c1" 
 ```
 - `scene` -> A valid sentinel-1 IW scene (e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD)
 - `burst_id_list` -> A list of burst id's corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated .txt file.
@@ -44,13 +53,22 @@ The AWS pipeline runs using a docker container. At runtime, the script `scripts/
 - `output_crs` -> The target crs of the products. If not specified, the UTM of the scene center will be used. Expects integer values (e.g. 3031)
 - `dem` -> The dem to be used in processing. Supported is `cop_glo30`.
 - `product` -> The product being created with the workflow. Must be `RTC_S1` or `RTC_S1_STATIC`.
-- `collection` -> The collection which the set of products belongs.
 - `s3_bucket` -> the bucket to upload the products
-- `s3_project_folder` -> The project folder to upload to. Final 
-    - **RTC_S1** -> final path will be `s3_bucket/s3_project_folder/collection/burst_year/burst_month/burst_day/burst_id/*files*`
-    - **RTC_S1_STATIC** -> final path will be `s3_bucket/s3_project_folder/collection/burst_id/*files*`
+- `s3_project_folder` -> The project folder to upload to.
+- `collection` -> The collection which the set of products belongs.
+- `link_static_layers` -> Flag to link RTC_S1_STATIC to RTC_S1
+- `linked_static_layers_s3_bucket` -> bucket where RTC_S1_STATIC stored
+- `linked_static_layers_s3_project_folder` -> folder within bucket where RTC_S1_STATIC stored
+- `linked_static_layers_collection` -> collection where RTC_S1_STATIC stored
 
-## Envrionment Variables
+
+**Final paths of products**:
+
+- **RTC_S1** -> final path will be `s3_bucket/s3_project_folder/collection/burst_id/burst_year/burst_month/burst_day/*files*`
+- **RTC_S1_STATIC** -> final path will be `s3_bucket/s3_project_folder/collection/burst_id/*files*`
+
+
+## Environment Variables
 
 At runtime, the pipeline expects the following environment variables to be set. These can be passed in using an environment file like below. NASA earthdata credentials can be created here - https://urs.earthdata.nasa.gov/. Credentials for the Copernicus Data Space Ecosystem (CDSE) can be created here - https://dataspace.copernicus.eu/. The AWS credentials must have write access to the specified bucket location.
 
@@ -66,9 +84,9 @@ AWS_SECRET_ACCESS_KEY=
 AWS_DEFAULT_REGION=
 ```
 
-## Write / processing location
+## Container processing location
 
-The location for where data is downloaded and written for processing in the container is specified in the `scripts/run_aws_pipeline.sh` file. In the case of AWS processing, an EBS block may be mounted. The mount point must align to the paths specified in the run script for the EBS storage to be used. The values are:
+The location for where data is downloaded and written for processing in the container is specified in the [run_aws_pipeline.sh](../../scripts/run_aws_pipeline.sh) file. In the case of AWS processing, an EBS block may be mounted. The mount point must align to the paths specified in the run script for the EBS storage to be used. The hardcoded values are:
 
 ```bash
 # set process folders for the container
@@ -78,23 +96,23 @@ scratch_folder="/home/rtc_user/working/scratch/$scene"
 ```
 
 
-## Build the docker image
+# Build the docker image
 
 ```bash
 docker build -t sar-pipeline -f Docker/Dockerfile .
 ```
 
-### Test image interactively
+## Test image interactively
 
 ```bash
  docker run -it --entrypoint /bin/bash sar-pipeline
 ```
 
-# Runing the workflow
+# Running the workflow
 
 ## RTC_S1 - Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter
 
-### Antarctica
+### Antarctica (without linking RTC_S1_STATIC)
 
 Output CRS should be polar stereographic 3031
 
@@ -108,7 +126,7 @@ For a single burst:
 docker run --env-file env.secret -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --output_crs 3031 --burst_id_list t070_149815_iw3
 ```
 
-### Australia
+### Australia (without linking RTC_S1_STATIC)
 
 The output CRS will be the UTM zone corresponding to scene/burst centre. This is selected automatically and does not need to be specified.
 
@@ -116,13 +134,127 @@ The output CRS will be the UTM zone corresponding to scene/burst centre. This is
 docker run --env-file env.secret -it sar-pipeline --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD 
 ```
 
-## RTC_S1_STATIC - Static Layers for Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter
 
+## RTC_S1_STATIC - Static Layers for Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter
 
 ```bash
 docker run --env-file env.secret -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --output_crs 3031 --product RTC_S1_STATIC --collection s1_rtc_static_c1 --s3_project_folder "experimental"
 ```
 
+
+# Examples
+
+## Make static layers (RTC_S1_STATIC) for a burst and link it to a backscatter product (RTC_S1)
+
+**Context** - The incoming scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD is a repeat pass acquisition over the burst `t070_149815_iw3`. We want to link the backscatter product (HH.tif) for the given acquisition to the static layers for burst `t070_149815_iw3`. We first begin by creating the static layers for the given burst if they do not exist.
+
+
+### 1. Make the static layers to link to each product:
+
+
+```bash
+docker run --env-file env.secret -it sar-pipeline \
+--scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD \
+--burst_id_list t070_149815_iw3 \
+--output_crs 3031 \
+--product RTC_S1_STATIC \
+--s3_bucket deant-data-public-dev \
+--collection s1_rtc_static_c1 \
+--s3_project_folder "experimental-linkage" 
+```
+
+Note, any scene that covers the given burst could be used. For example, the following scene captured 12 days earlier on the same repeat orbit could be used `S1A_IW_SLC__1SSH_20211220T124745_20211220T124815_041092_04E1C2_0475`
+
+Once the workflow has been completed, you should be able to fine the static layers at:
+
+`https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=experimental-linkage/s1_rtc_static_c1/t070_149815_iw3/`
+
+### 2. Make the RTC Backscatter for the scene and link the metadata to the static layers
+
+```bash
+docker run --env-file env.secret -it sar-pipeline \
+--scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD \
+--burst_id_list t070_149815_iw3 \
+--output_crs 3031 \
+--product RTC_S1 \
+--s3_bucket deant-data-public-dev \
+--collection s1_rtc_c1 \
+--s3_project_folder experimental-linkage \
+--link_static_layers \
+--linked_static_layers_s3_bucket deant-data-public-dev \
+--linked_static_layers_collection s1_rtc_static_c1 \
+--linked_static_layers_s3_project_folder experimental-linkage
+```
+
+### 3. Ensure the files are linked in the STAC metadata
+
+By opening the metadata file and checking the assets links, you should see the links reference the static layers. For example, compare the href in the product metadata below.
+
+```json
+ "assets": {
+        "HH": {
+            "href": "https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/experimental-linkage/s1_rtc_c1/t070_149815_iw3/2022/1/1/OPERA_L2_RTC-S1_T070-149815-IW3_20220101T124752Z_20250408T025401Z_S1A_20_v0.1_HH.tif",
+            "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+            "title": "HH",
+            "description": "HH polarised backscatter",
+            "proj:shape": [
+                4539,
+                2387
+            ],
+            "proj:transform": [
+                20.0,
+                0.0,
+                241320.0,
+                0.0,
+                -20.0,
+                -1373780.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "proj:epsg": 3031,
+            "raster:data_type": "float32",
+            "raster:sampling": "Area",
+            "raster:nodata": "nan",
+            "roles": [
+                "data",
+                "backscatter"
+            ]
+        },
+        "number_of_looks": {
+            "href": "https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/experimental-linkage/s1_rtc_static_c1/t070_149815_iw3/OPERA_L2_RTC-S1-STATIC_T070-149815-IW3_20010101_20250408T012421Z_S1A_20_v1.0.2_number_of_looks.tif",
+            "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+            "title": "number_of_looks",
+            "description": "number of looks",
+            "proj:shape": [
+                4539,
+                2387
+            ],
+            "proj:transform": [
+                20.0,
+                0.0,
+                241320.0,
+                0.0,
+                -20.0,
+                -1373780.0,
+                0.0,
+                0.0,
+                1.0
+            ],
+            "proj:epsg": 3031,
+            "raster:data_type": "float32",
+            "raster:sampling": "Area",
+            "raster:nodata": "nan",
+            "roles": [
+                "data",
+                "auxiliary"
+            ]
+        },
+ }
+```
+
+
+# Development
 
 ## Development in the Container
 

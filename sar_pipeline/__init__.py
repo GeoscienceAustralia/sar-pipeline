@@ -1,0 +1,1 @@
+from sar_pipeline._version import __version__

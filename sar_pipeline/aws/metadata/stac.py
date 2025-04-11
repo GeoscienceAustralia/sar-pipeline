@@ -5,104 +5,25 @@ import rasterio
 import pystac
 from shapely.geometry import shape
 from dateutil.parser import isoparse
+import requests
 import datetime
 import re
 import numpy as np
 
 from sar_pipeline.aws.metadata.h5 import H5Manager
 from sar_pipeline.utils.spatial import polygon_str_to_geojson, convert_bbox
+from sar_pipeline.aws.metadata.filetypes import (
+    REQUIRED_ASSET_FILETYPES,
+    ASSET_FILETYPE_TO_DESCRIPTION,
+    ASSET_FILETYPE_TO_MEDIATYPE,
+    ASSET_FILETYPE_TO_ROLES,
+    ASSET_FILETYPE_TO_TITLE,
+)
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-REQUIRED_ASSET_FILETYPES = {
-    "RTC_S1": [
-        "_mask.tif",
-        "_number_of_looks.tif",
-        "_rtc_anf_gamma0_to_beta0.tif",
-        "_rtc_anf_gamma0_to_sigma0.tif",
-        "_HH.tif",
-        "_HV.tif",
-        "_VV.tif",
-        "_VH.tif",
-        "_local_incidence_angle.tif",
-        "_incidence_angle.tif",
-        "_interpolated_dem.tif",
-        ".png",
-    ],
-    "RTC_S1_STATIC": [
-        "_mask.tif",
-        "_number_of_looks.tif",
-        "_rtc_anf_gamma0_to_beta0.tif",
-        "_rtc_anf_gamma0_to_sigma0.tif",
-        "_local_incidence_angle.tif",
-        "_incidence_angle.tif",
-        "_interpolated_dem.tif",
-        ".png",
-    ],
-}
-
-ASSET_FILETYPE_TO_TITLE = {
-    "_mask.tif": "mask",
-    "_number_of_looks.tif": "number_of_looks",
-    "_rtc_anf_gamma0_to_beta0.tif": "gamma0_to_beta0_ratio",
-    "_rtc_anf_gamma0_to_sigma0.tif": "gamma0_to_sigma0_ratio",
-    "_HH.tif": "HH",
-    "_HV.tif": "HV",
-    "_VV.tif": "VV",
-    "_VH.tif": "VH",
-    "_local_incidence_angle.tif": "local_incidence_angle",
-    "_incidence_angle.tif": "incidence_angle",
-    "_interpolated_dem.tif": "digital_elevation_model",
-    ".png": "thumbnail",
-}
-
-ASSET_FILETYPE_TO_DESCRIPTION = {
-    "_mask.tif": "shadow layover data mask",
-    "_number_of_looks.tif": "number of looks",
-    "_rtc_anf_gamma0_to_beta0.tif": "backscatter conversion layer, gamma0 to beta0. Eq. beta0 = rtc_anf_gamma0_to_beta0*gamma0",
-    "_rtc_anf_gamma0_to_sigma0.tif": "backscatter conversion layer, gamma0 to sigma0. Eq. sigma0 = rtc_anf_sigma0_to_sigma0*gamma0",
-    "_HH.tif": "HH polarised backscatter",
-    "_HV.tif": "HV polarised backscatter",
-    "_VV.tif": "VV polarised backscatter",
-    "_VH.tif": "VH polarised backscatter",
-    "_local_incidence_angle.tif": "local incidence angle (LIA)",
-    "_incidence_angle.tif": "incidence angle (IA)",
-    "_interpolated_dem.tif": "interpolated digital elevation model (DEM)",
-    ".png": "thumbnail image for backscatter",
-}
-
-ASSET_FILETYPE_TO_ROLES = {
-    "_mask.tif": ["data", "auxiliary", "mask", "shadow", "layover"],
-    "_number_of_looks.tif": ["data", "auxiliary"],
-    "_rtc_anf_gamma0_to_beta0.tif": ["data", "auxiliary", "conversion"],
-    "_rtc_anf_gamma0_to_sigma0.tif": ["data", "auxiliary", "conversion"],
-    "_HH.tif": ["data", "backscatter"],
-    "_HV.tif": ["data", "backscatter"],
-    "_VV.tif": ["data", "backscatter"],
-    "_VH.tif": ["data", "backscatter"],
-    "_local_incidence_angle.tif": ["data", "auxiliary"],
-    "_incidence_angle.tif": ["data", "auxiliary"],
-    "_interpolated_dem.tif": ["data", "ancillary"],
-    ".png": ["thumbnail"],
-}
-
-ASSET_FILETYPE_TO_MEDIATYPE = {
-    "_mask.tif": pystac.media_type.MediaType.COG,
-    "_number_of_looks.tif": pystac.media_type.MediaType.COG,
-    "_rtc_anf_gamma0_to_beta0.tif": pystac.media_type.MediaType.COG,
-    "_rtc_anf_gamma0_to_sigma0.tif": pystac.media_type.MediaType.COG,
-    "_HH.tif": pystac.media_type.MediaType.COG,
-    "_HV.tif": pystac.media_type.MediaType.COG,
-    "_VV.tif": pystac.media_type.MediaType.COG,
-    "_VH.tif": pystac.media_type.MediaType.COG,
-    "_local_incidence_angle.tif": pystac.media_type.MediaType.COG,
-    "_incidence_angle.tif": pystac.media_type.MediaType.COG,
-    "_interpolated_dem.tif": pystac.media_type.MediaType.COG,
-    ".png": pystac.media_type.MediaType.PNG,
-}
 
 
 class BurstH5toStacManager:
@@ -143,12 +64,16 @@ class BurstH5toStacManager:
             "https://stac-extensions.github.io/product/v0.1.0/schema.json",
             "https://stac-extensions.github.io/sar/v1.1.0/schema.json",
             "https://stac-extensions.github.io/altimetry/v0.1.0/schema.json",
-            "https://github.com/stac-extensions/projection",
+            "https://stac-extensions.github.io/projection/v2.0.0/schema.json",
             "https://stac-extensions.github.io/sat/v1.1.0/schema.json",
             "https://stac-extensions.github.io/sentinel-1/v0.2.0/schema.json",
             "https://stac-extensions.github.io/processing/v1.2.0/schema.json",
             "https://stac-extensions.github.io/storage/v2.0.0/schema.json",
         ]
+        if self.product == "RTC_S1":
+            self.stac_extensions += [
+                "https://stac-extensions.github.io/ceos-ard/v0.2.0/schema.json"
+            ]
         self.s3_bucket = s3_bucket
         self.s3_project_folder = s3_project_folder
         self.s3_region = s3_region
@@ -179,9 +104,7 @@ class BurstH5toStacManager:
 
         self.burst_id = self.h5.search_value("burstID")
         self.burst_s3_subfolder = self._make_s3_subfolder()
-        self.bucket_href = (
-            f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com//"
-        )
+        self.bucket_href = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
         self.base_href = f"{self.bucket_href}/{self.burst_s3_subfolder}"
 
     def _check_valid_product(self, product):
@@ -194,7 +117,7 @@ class BurstH5toStacManager:
         "make the s3 subfolder destination based on the product"
         if self.product == "RTC_S1":
             # include acquisition dates for S1_RTC
-            return f"{self.s3_project_folder}/{self.collection}/{self.start_dt.year}/{self.start_dt.month}/{self.start_dt.day}/{self.burst_id}"
+            return f"{self.s3_project_folder}/{self.collection}/{self.burst_id}/{self.start_dt.year}/{self.start_dt.month}/{self.start_dt.day}"
         if self.product == "RTC_S1_STATIC":
             # static products are date independent
             return f"{self.s3_project_folder}/{self.collection}/{self.burst_id}"
@@ -264,17 +187,18 @@ class BurstH5toStacManager:
 
         # TODO finalise stac properties based on best practice
         # add product stac extension properties
-        self.item.properties["product:type"] = "NRB"  # or RTC ?
+        self.item.properties["product:type"] = self.product
         self.item.properties["product:timeliness_category"] = (
             self._get_product_timeliness_category(self.start_dt, self.processed_dt)
         )
 
-        # add ceosard stac extension properties
-        self.item.properties["ceosard:type"] = "NRB"
-        self.item.properties["ceosard:specification"] = (
-            "Synthetic Aperture Radar (CEOS-ARD SAR)"
-        )
-        self.item.properties["ceosard:specification_version"] = "1.1"
+        # add ceos-ard stac extension properties
+        if self.product == "RTC_S1":
+            self.item.properties["ceosard:type"] = "NRB"
+            self.item.properties["ceosard:specification"] = (
+                "Synthetic Aperture Radar (CEOS-ARD SAR)"
+            )
+            self.item.properties["ceosard:specification_version"] = "1.1"
 
         # add projection (proj) stac extension properties
         self.item.properties["proj:epsg"] = self.projection
@@ -282,12 +206,13 @@ class BurstH5toStacManager:
 
         # add the sar stac extension properties
         self.item.properties["sar:frequency_band"] = self.h5.search_value("radarBand")
-        self.item.properties["sar:center_frequency"] = self.h5.search_value(
-            "centerFrequency"
-        )
-        self.item.properties["sar:polarizations"] = self.h5.search_value(
-            "listOfPolarizations"
-        )
+        if self.product == "RTC_S1":
+            self.item.properties["sar:center_frequency"] = self.h5.search_value(
+                "centerFrequency"
+            )
+            self.item.properties["sar:polarizations"] = self.h5.search_value(
+                "listOfPolarizations"
+            )
         self.item.properties["sar:observation_direction"] = self.h5.search_value(
             "lookDirection"
         )
@@ -366,9 +291,10 @@ class BurstH5toStacManager:
         self.item.properties["sar-ard:conversion_eq"] = self.h5.search_value(
             "outputBackscatterDecibelConversionEquation"
         )
-        self.item.properties["sar-ard:noise_removal_applied"] = self.h5.search_value(
-            "noiseCorrectionApplied"
-        )
+        if self.product == "RTC_S1":
+            self.item.properties["sar-ard:noise_removal_applied"] = (
+                self.h5.search_value("noiseCorrectionApplied")
+            )
 
         # additional non required parameters for atmosphere that would be good to have
         self.item.properties["sar-ard:static_tropospheric_correction_applied"] = (
@@ -396,8 +322,8 @@ class BurstH5toStacManager:
         self.item.properties["storage:region"] = f"{self.s3_region}"
         self.item.properties["storage:requester_pays"] = False
 
-    def add_static_links(self):
-        """add static links that are not expected to change frequently"""
+    def add_fixed_links(self):
+        """add fixed links that are not expected to change frequently"""
 
         # link to the ceos-ard product family specification
         self.item.add_link(
@@ -456,13 +382,14 @@ class BurstH5toStacManager:
         )
 
         # Add link to the noise removal, get it from the reference
-        ref_text = self.h5.search_value("noiseCorrectionAlgorithmReference")
-        self.item.add_link(
-            pystac.Link(
-                rel="noise-correction",
-                target=self._extract_http_link(ref_text),
+        if self.product == "RTC_S1":
+            ref_text = self.h5.search_value("noiseCorrectionAlgorithmReference")
+            self.item.add_link(
+                pystac.Link(
+                    rel="noise-correction",
+                    target=self._extract_http_link(ref_text),
+                )
             )
-        )
 
         # link to the .h5 file containing additional metadata
         self.item.add_link(
@@ -577,6 +504,53 @@ class BurstH5toStacManager:
                     description=asset_description,
                     roles=asset_roles,
                     media_type=asset_mediatype,
+                    extra_fields=extra_fields,
+                ),
+            )
+
+    def add_linked_static_layer_assets(self):
+
+        burst_id = self.item.properties["sar:relative_burst"]
+
+        static_layer_url = self.h5.search_value("staticLayersDataAccess")
+        burst_static_layer_stac_url = f"{static_layer_url}/{burst_id}/metadata.json"
+
+        try:
+            # Send HTTP GET request
+            response = requests.get(burst_static_layer_stac_url)
+            # Raise an error if the request failed
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            raise RuntimeError(
+                f"Failed to fetch static layer STAC metadata from '{burst_static_layer_stac_url}'. "
+                f"Ensure the RTC_S1_STATIC product exists at this location."
+                f"Request error: {e}"
+            ) from e
+
+        # Load the JSON content into a Python dictionary
+        burst_static_layer_stac = response.json()
+
+        # iterate through the static layer assets and add them
+        for asset_title in burst_static_layer_stac["assets"].keys():
+
+            # data for each asset
+            asset_data = burst_static_layer_stac["assets"][asset_title]
+
+            # extra fields data is everything with the asset but these
+            excl = ["href", "description", "roles", "type"]
+
+            extra_fields = asset_data.copy()
+            for key in excl:
+                extra_fields.pop(key)  # `None` prevents error if key doesn't exist
+
+            self.item.add_asset(
+                asset_title,
+                pystac.asset.Asset(
+                    href=asset_data["href"],
+                    title=asset_title,
+                    description=asset_data["description"],
+                    roles=asset_data["roles"],
+                    media_type=asset_data["type"],
                     extra_fields=extra_fields,
                 ),
             )
