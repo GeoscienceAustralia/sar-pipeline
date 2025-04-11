@@ -6,10 +6,8 @@ from pyroSAR.gamma import geocode
 from pyroSAR.gamma.dem import dem_import
 import shutil
 import sys
-import tarfile
-import zipfile
 
-from sar_pipeline.preparation.etad import apply_etad_correction
+from sar_pipeline.preparation.etad import apply_etad_correction, extract_etad_correction
 from sar_pipeline.nci.processing.GAMMA.GAMMA_utils import set_gamma_env_variables
 
 logging.basicConfig(
@@ -114,27 +112,15 @@ def run_pyrosar_gamma_geocode(
             uncorrected_scene_dir = uncorrected_scene.parent
             corrected_scene_dir = uncorrected_scene.parent / "etad_corrected"
 
-            if not (etad.is_dir() and etad.suffix == ".SAFE"):
-                logging.info(
-                    "Attempting to uncompress file and extract .SAFE directory"
-                )
-                if zipfile.is_zipfile(etad):
-                    archive = tarfile.open(etad, "r")
-                elif tarfile.is_tarfile(etad):
-                    archive = zipfile.ZipFile(etad, "r")
-                else:
-                    raise RuntimeError(
-                        f"ETAD file must be one of .SAFE, .zip, or .tar. Supplied ETAD file: {etad}"
-                    )
-                archive.extractall(uncorrected_scene_dir)
-                archive.close()
-
-                # Update variable to use extracted etad
-                etad = uncorrected_scene_dir / etad.name.with_suffix(".SAFE")
+            # Extract etad file
+            etad_extracted = extract_etad_correction(etad, uncorrected_scene_dir)
 
             logging.info("Applying ETAD correction")
             corrected_scene = apply_etad_correction(
-                uncorrected_scene, etad, outdir=corrected_scene_dir, nthreads=4
+                uncorrected_scene,
+                etad_extracted,
+                outdir=corrected_scene_dir,
+                nthreads=4,
             )
 
             # Update pyrosar scene to point at the corrected file

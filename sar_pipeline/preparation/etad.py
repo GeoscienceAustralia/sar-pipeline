@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
 import logging
-from pathlib import Path
+from pathlib import Path, PurePath
 import requests
 from typing import Any
+import tarfile
 import zipfile
 
 
@@ -231,6 +232,68 @@ def find_etad_for_scene(scene: str, etad_dir: Path) -> Path:
             f"No ETAD correction file found for scene: {scene}. Download one first."
         )
     return etad
+
+
+def extract_etad_correction(etad: Path, extract_dir: Path) -> Path:
+    """If the ETAD correction file is compressed, extract it
+
+    Parameters
+    ----------
+    etad : Path
+        The path to the ETAD correction compressed directory
+    extract_dir : Path
+        The local directory to extract the uncompressed ETAD directory to
+
+    Returns
+    -------
+    Path
+        The full path to the uncompressed ETAD directory (.SAFE format)
+
+    Raises
+    ------
+    ValueError
+        The ETAD correction is neither a .SAFE directory, or a .zip or .tar compressed file
+    """
+
+    if etad.is_dir() and etad.suffix == ".SAFE":
+        logger.info(
+            "ETAD file is an uncompressed .SAFE directory. No extraction required"
+        )
+        return etad
+
+    elif etad.suffix == ".zip" or etad.suffix == ".tar":
+        logging.info("Attempting to uncompress ETAD file and extract .SAFE directory")
+
+        if zipfile.is_zipfile(etad):
+            # Identify the name of the .SAFE file in the zipped folder
+            etad_zip_path = zipfile.Path(etad)
+            for file in etad_zip_path.iterdir():
+                if file.is_dir() and file.name.endswith(".SAFE"):
+                    etad_safe_name = file.name
+                    break
+
+            archive = zipfile.ZipFile(etad).open("r")
+
+        elif tarfile.is_tarfile(etad):
+            # Identify the name of the .SAFE file in the tarred folder
+            with tarfile.open(etad, "r") as tar:
+                for member in tar.getmembers():
+                    path = PurePath(member.name)
+                    if member.isdir() and path.name.endswith(".SAFE"):
+                        etad_safe_name = path.name
+                        break
+
+            archive = tarfile.open(etad, "r")
+
+        archive.extractall(extract_dir)
+        archive.close()
+
+        return extract_dir / etad_safe_name
+
+    else:
+        raise ValueError(
+            f"ETAD file must be one of .SAFE, .zip, or .tar. Supplied ETAD file has suffix: {etad.suffix}"
+        )
 
 
 def apply_etad_correction(
