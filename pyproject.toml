@@ -73,6 +73,7 @@ spatialist = ">=0.14.0"
 s1etad = ">=0.5.5"
 s1etad_tools = ">=0.8.1"
 tomli = ">=2.2.1"
+sentineleof = ">=0.11.0"
 
 [tool.pixi.environments]
 default = { solve-group = "default" }

@@ -2,10 +2,11 @@ import os
 import s1_orbits
 from pathlib import Path
 import logging
+import eof.download
+from typing import Literal, Optional
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 def download_orbits_from_s3(
     scene: str, download_folder: Path, make_folder=True
@@ -35,3 +36,78 @@ def download_orbits_from_s3(
     # TODO handle no orbit found
     logger.info(f"Orbit file downloaded : {orbit_file}")
     return orbit_file
+
+def download_orbits_from_datahub(
+    sentinel_file: Path,
+    save_dir: Path,
+    source: Literal["CDSE", "ASF"] = "CDSE",
+    cdse_user: Optional[str] = None,
+    cdse_password: Optional[str] = None,
+    asf_user: Optional[str] = None,
+    asf_password: Optional[str] = None,
+) -> Path:
+    """
+    Downloads precise/restituted orbit files (.EOF files) for the given Sentinel-1 SAFE file from the
+    Copernicus Data Space Ecosystem (CDSE) or Alaska Satellite Facility (ASF) datahubs.
+
+    Parameters
+    ----------
+    sentinel_file : Path
+        Path to the Sentinel-1 SAFE file.
+    save_dir : Path
+        Directory to save the downloaded EOF file.
+    source : Literal["CDSE", "ASF"], optional
+        Source for downloading EOF, either "CDSE" or "ASF". Defaults to "CDSE".
+    cdse_user : Optional[str], optional
+        CDSE username. Defaults to None.
+    cdse_password : Optional[str], optional
+        CDSE password. Defaults to None.
+    asf_user : Optional[str], optional
+        ASF username. Defaults to None.
+    asf_password : Optional[str], optional
+        ASF password. Defaults to None.
+
+    Returns
+    -------
+    Path
+        Path to the downloaded EOF file.
+
+    Raises
+    ------
+    ValueError
+        If required credentials are missing.
+    """
+    
+
+    if source == "CDSE":
+        cdse_user = cdse_user or os.getenv("CDSE_LOGIN")
+        cdse_password = cdse_password or os.getenv("CDSE_PASSWORD")
+        if not cdse_user or not cdse_password:
+            raise ValueError(
+                "CDSE credentials are not set. Provide them as arguments or set CDSE_LOGIN and CDSE_PASSWORD as environment variables."
+            )
+        asf_user, asf_password = None, None
+
+    elif source == "ASF":
+        asf_user = asf_user or os.getenv("EARTHDATA_LOGIN")
+        asf_password = asf_password or os.getenv("EARTHDATA_PASSWORD")
+        if not asf_user or not asf_password:
+            raise ValueError(
+                "ASF credentials are not set. Provide them as arguments or set EARTHDATA_LOGIN and EARTHDATA_PASSWORD as environment variables."
+            )
+        cdse_user, cdse_password = None, None
+
+    else:
+        raise ValueError(f"Source must be either 'CDSE' or 'ASF', got '{source}'.")
+
+    logger.info(f"Starting EOF download from {source}...")
+    # The logic in eof.download.main() tries CDSE first by default. set force_asf by source
+    return eof.download.main(
+        sentinel_file=sentinel_file,
+        save_dir=save_dir,
+        cdse_user=cdse_user,
+        cdse_password=cdse_password,
+        force_asf=source == "ASF",
+        asf_user=asf_user,
+        asf_password=asf_password,
+    )
