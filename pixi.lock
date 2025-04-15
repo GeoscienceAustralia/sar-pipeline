@@ -2979,7 +2979,7 @@ packages:
   requires_python: '>=3.8'
 - pypi: .
   name: sar-pipeline
-  version: 0.2.dev247+g7c8e8c8.d20250415
+  version: 0.2.dev251+gfde67df.d20250415
   sha256: 61fed94234e665c931fda1f9c7e12f2afcce12085b7c7608f3bc7be3c26e465a
   requires_dist:
   - asf-search>=8.1.1
