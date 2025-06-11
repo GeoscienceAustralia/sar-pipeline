@@ -21,6 +21,7 @@ dependencies:
 - sentineleof >=0.11.0
 - s1reader >=0.2.4
 - aioboto3 ==14.1.0
+- python-dotenv *
 - python >=3.8
 - pip
 - pip:
@@ -34,3 +35,4 @@ dependencies:
   - s1-orbits>=0.1.3
   - cdsetool>=0.2.13
   - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.2
+  - python-dotenv

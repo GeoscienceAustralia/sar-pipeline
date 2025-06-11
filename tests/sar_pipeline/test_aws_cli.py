@@ -1,0 +1,109 @@
+from click.testing import CliRunner
+from dataclasses import dataclass
+from sar_pipeline.aws.cli import get_data_for_scene_and_make_run_config
+from pathlib import Path
+from dotenv import load_dotenv
+import pytest
+
+CURRENT_DIR = Path(__file__).parent.resolve()
+PROJECT_ROOT = CURRENT_DIR.parent.parent
+TEST_WORKSPACE = CURRENT_DIR / Path("data/isce3_rtc")
+
+try:
+    # load the envrionment secrets from a local file
+    # see docs/workflows/aws.md for required variables
+    # store in project root in env.secret file
+    load_dotenv(PROJECT_ROOT / "env.secret")
+except:
+    raise FileExistsError(
+        "Could not find env.secret file containing required"
+        "environment variables for run. See docs/workflows/aws.md for more information"
+    )
+
+
+@dataclass
+class RunConfig:
+    scene: str
+    burst_id_list: str
+    resolution: str
+    output_crs: str
+    dem_type: str
+    product: str
+    s3_bucket: str
+    s3_project_folder: str
+    collection: str
+    download_folder: Path
+    scratch_folder: Path
+    out_folder: Path
+    run_config_save_path: Path
+    link_static_layers: bool
+    linked_static_layers_s3_bucket: str
+    linked_static_layers_collection: str
+    linked_static_layers_s3_project_folder: str
+
+
+S3_PROJECT_FOLDER_T1 = ""
+COLLECTION_T1 = "rtc_s1_c1"
+SCENE_T1 = "S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD"
+SUBPATH_T1 = Path(S3_PROJECT_FOLDER_T1) / COLLECTION_T1 / SCENE_T1
+TEST_1 = RunConfig(
+    scene=SCENE_T1,
+    burst_id_list="t070_149815_iw3",
+    resolution="20",
+    output_crs="3031",
+    dem_type="cop_glo30",
+    product="RTC_S1",
+    s3_bucket="deant-data-public-dev",
+    s3_project_folder=S3_PROJECT_FOLDER_T1,
+    collection=COLLECTION_T1,
+    download_folder=TEST_WORKSPACE / "downloads",
+    scratch_folder=TEST_WORKSPACE / "scratch" / SUBPATH_T1,
+    out_folder=TEST_WORKSPACE / "results" / SUBPATH_T1,
+    run_config_save_path=TEST_WORKSPACE
+    / "results"
+    / SUBPATH_T1
+    / "OPERA-RTC_runconfig.yaml",
+    link_static_layers=False,
+    linked_static_layers_s3_bucket="",
+    linked_static_layers_collection="",
+    linked_static_layers_s3_project_folder="",
+)
+
+
+@pytest.mark.parametrize("test_run", [TEST_1])
+def test_get_data_for_scene_and_make_run_config(test_run):
+    runner = CliRunner()
+    args = ["--scene", test_run.scene]
+    args += ["--burst-id-list", test_run.burst_id_list]
+    args += ["--resolution", test_run.resolution]
+    args += ["--output-crs", test_run.output_crs]
+    args += ["--dem-type", test_run.dem_type]
+    args += ["--product", test_run.product]
+    args += ["--s3-bucket", test_run.s3_bucket]
+    args += ["--s3-project-folder", test_run.s3_project_folder]
+    args += ["--collection", test_run.collection]
+    args += ["--download-folder", test_run.download_folder]
+    args += ["--scratch-folder", test_run.scratch_folder]
+    args += ["--out-folder", test_run.out_folder]
+    args += ["--run-config-save-path", test_run.run_config_save_path]
+    args += ["--link-static-layers"] if test_run.link_static_layers else []
+    args += [
+        "--linked-static-layers-s3-bucket",
+        test_run.linked_static_layers_s3_bucket,
+    ]
+    args += [
+        "--linked-static-layers-collection",
+        test_run.linked_static_layers_collection,
+    ]
+    args += [
+        "--linked-static-layers-s3-project-folder",
+        test_run.linked_static_layers_s3_project_folder,
+    ]
+    import os
+
+    result = runner.invoke(get_data_for_scene_and_make_run_config, args)
+    print("Exit code:", result.exit_code)
+    print("Stdout:\n", result.output)
+    if result.exception:
+        print("Exception:\n", result.exception)
+    assert result.exit_code == 0

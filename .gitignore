@@ -37,3 +37,6 @@ coverage*
 
 # ignore the version file made by setuptools_scm
 sar_pipeline/_version.py
+
+# ignore created test files
+data/isce3_rtc/*

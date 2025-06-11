@@ -25,7 +25,8 @@ dependencies = [
     "ruamel-yaml>=0.18.10", 
     "s1-orbits>=0.1.3", 
     "cdsetool>=0.2.13",
-    "dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.2", 
+    "dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.2",
+    "python-dotenv", 
 ]
 
 [project.urls]
@@ -78,6 +79,7 @@ tomli = ">=2.2.1"
 sentineleof = ">=0.11.0"
 s1reader = ">=0.2.4"
 aioboto3 = "==14.1.0"
+python-dotenv = "*"
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
@@ -86,6 +88,7 @@ dev = { features = ["dev"], solve-group = "default" }
 [tool.pixi.feature.dev.tasks]
 test-all = "pytest"
 test-pipeline = "pytest tests/sar_pipeline/"
+test-aws-cli = "pytest tests/sar_pipeline/test_aws_cli.py -v -s"
 test-nci-filesystem = "pytest tests/filesystem"
 lint = "black sar_pipeline"
 

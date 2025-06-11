@@ -188,6 +188,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pysolid-0.3.3-py312he6b159b_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.12.9-h9e4cc4f_1_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-dateutil-2.9.0.post0-pyhff2d567_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/python-dotenv-1.1.0-pyh29332c3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-tzdata-2025.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-utils-3.9.1-pyhff2d567_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python_abi-3.12-6_cp312.conda
@@ -439,6 +440,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pysolid-0.3.3-py312h937420b_3.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/python-3.12.10-hc22306f_0_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-dateutil-2.9.0.post0-pyhff2d567_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/python-dotenv-1.1.0-pyh29332c3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-tzdata-2025.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-utils-3.9.1-pyhff2d567_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python_abi-3.12-7_cp312.conda
@@ -722,6 +724,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pytest-8.3.5-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.12.9-h9e4cc4f_1_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-dateutil-2.9.0.post0-pyhff2d567_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/python-dotenv-1.1.0-pyh29332c3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-tzdata-2025.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-utils-3.9.1-pyhff2d567_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python_abi-3.12-6_cp312.conda
@@ -991,6 +994,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pytest-8.3.5-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/python-3.12.10-hc22306f_0_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-dateutil-2.9.0.post0-pyhff2d567_1.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/python-dotenv-1.1.0-pyh29332c3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-tzdata-2025.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python-utils-3.9.1-pyhff2d567_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python_abi-3.12-7_cp312.conda
@@ -4604,7 +4608,8 @@ packages:
   - pandas >=2.0
   license: BSD-3-Clause
   license_family: BSD
-  purls: []
+  purls:
+  - pkg:pypi/networkx?source=hash-mapping
   size: 1265008
   timestamp: 1731521053408
 - conda: https://conda.anaconda.org/conda-forge/noarch/nodeenv-1.9.1-pyhd8ed1ab_1.conda
@@ -5560,6 +5565,18 @@ packages:
   - pkg:pypi/python-dateutil?source=hash-mapping
   size: 222505
   timestamp: 1733215763718
+- conda: https://conda.anaconda.org/conda-forge/noarch/python-dotenv-1.1.0-pyh29332c3_1.conda
+  sha256: 7d927317003544049c97e7108e8ca5f2be5ff0ea954f5c84c8bbeb243b663fc8
+  md5: 27d816c6981a8d50090537b761de80f4
+  depends:
+  - python >=3.9
+  - python
+  license: BSD-3-Clause
+  license_family: BSD
+  purls:
+  - pkg:pypi/python-dotenv?source=hash-mapping
+  size: 25557
+  timestamp: 1742948348635
 - conda: https://conda.anaconda.org/conda-forge/noarch/python-tzdata-2025.2-pyhd8ed1ab_0.conda
   sha256: e8392a8044d56ad017c08fec2b0eb10ae3d1235ac967d0aab8bd7b41c4a5eaf0
   md5: 88476ae6ebd24f39261e0854ac244f33
@@ -5926,8 +5943,8 @@ packages:
   timestamp: 1740681675666
 - pypi: .
   name: sar-pipeline
-  version: 0.2.2b1.dev1+g8cd4c13.d20250530
-  sha256: 2deb3ea4b9fb45f1f276adaf8c3510b11f7d14c1703ae2565123d241217caf46
+  version: 0.2.2b1.dev18+gec371ae.d20250611
+  sha256: e928957443fe3f671809cbaabaff83db47705570748907f16a141144fc203b31
   requires_dist:
   - asf-search>=8.1.1
   - boto3>=1.37.1
@@ -5938,6 +5955,7 @@ packages:
   - s1-orbits>=0.1.3
   - cdsetool>=0.2.13
   - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.2
+  - python-dotenv
   requires_python: '>=3.8'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.6.1-py312h7a48858_0.conda
