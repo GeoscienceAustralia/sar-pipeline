@@ -1,14 +1,16 @@
 import asf_search
+from asf_search import ASFSearchResults
 import os
 from pathlib import Path
 import logging
 import zipfile
-from cdsetool.query import query_features
+from cdsetool.query import query_features, FeatureQuery
 from cdsetool.credentials import Credentials
 from cdsetool.download import download_features
 from cdsetool.monitor import StatusMonitor
 
 from sar_pipeline.utils.general import log_timing
+from sar_pipeline.utils.sentinel1 import extract_metadata_from_s1_id
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,8 +22,35 @@ class MissingCredentialsError(Exception):
     pass
 
 
+def query_scene_from_asf(scene: str) -> ASFSearchResults:
+
+    logger.info(f"Searching ASF for scene")
+
+    # Extract metadata from scene ID
+    scene_metadata = extract_metadata_from_s1_id(scene)
+
+    # Determine the asf_search product type to search: https://github.com/asfadmin/Discovery-asf_search/blob/master/asf_search/constants/PRODUCT_TYPE.py
+    # GRD processingly level query cannot currently be determined from product type alone, so list all GRD and assume it is one of these five.
+    # The list is sufficient to distinguish metadata files from data files
+    if scene_metadata["product_type"] == "GRD":
+        processing_level_query = ["GRD_HD", "GRD_MD", "GRD_MS", "GRD_HS", "GRD_FD"]
+    elif scene_metadata["product_type"] in ["SLC", "OCN", "RAW"]:
+        processing_level_query = scene_metadata["product_type"]
+    else:
+        raise ValueError(
+            f"Product type {scene_metadata["product_type"]} not recognised. Should be one of GRD, SLC, OCN, or RAW"
+        )
+
+    # Run the search
+    search_results = asf_search.granule_search(
+        [scene], asf_search.ASFSearchOptions(processingLevel=processing_level_query)
+    )
+
+    return search_results
+
+
 @log_timing
-def download_slc_from_asf(
+def download_scene_from_asf(
     scene: str,
     download_folder: Path,
     make_folder: bool = True,
@@ -30,11 +59,8 @@ def download_slc_from_asf(
     asf_pass: str | None = None,
 ):
 
-    logger.info(f"Searching ASF for scene")
-
-    search_results = asf_search.granule_search(
-        [scene], asf_search.ASFSearchOptions(processingLevel="SLC")
-    )
+    # Search for scene on ASF
+    search_results = query_scene_from_asf(scene)
 
     # ensure only one slc found
     if len(search_results) != 1:
@@ -83,8 +109,22 @@ def download_slc_from_asf(
         return scene_zip_path, asf_scene_metadata
 
 
+def query_scene_from_cdse(scene: str) -> FeatureQuery:
+
+    logger.info(f"Searching CDSE for scene")
+
+    features = query_features(
+        "Sentinel1",
+        {
+            "productIdentifier": scene,
+        },
+    )
+
+    return features
+
+
 @log_timing
-def download_slc_from_cdse(
+def download_scene_from_cdse(
     scene: str,
     download_folder: Path,
     make_folder: bool = True,
@@ -107,20 +147,13 @@ def download_slc_from_cdse(
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
 
-    logger.info(f"Searching CDSE for scene")
-
-    features = query_features(
-        "Sentinel1",
-        {
-            "processingLevel": "LEVEL1",
-            "sensorMode": "IW",
-            "productType": "IW_SLC__1S",
-            "productIdentifier": scene,
-        },
-    )
+    # search for scene on CDSE
+    features = query_scene_from_cdse(scene)
 
     if len(features) != 1:
-        raise ValueError(f"Expected 1 SLC, found {len(features)} for scene : {scene}")
+        raise ValueError(
+            f"Expected 1 scene, found {len(features)} for scene id : {scene}"
+        )
 
     scene_zip_path = Path(download_folder) / f"{scene}.SAFE.zip"
     scene_safe_path = scene_zip_path.with_suffix("")
