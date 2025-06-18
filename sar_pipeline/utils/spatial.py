@@ -19,11 +19,7 @@ def polygon_str_to_geojson(polygon_str: str) -> dict:
     """
     # Load and convert
     geometry = wkt.loads(polygon_str)
-    geojson_feature = {
-        "type": "Feature",
-        "geometry": mapping(geometry),
-        "properties": {},
-    }
+    geojson_feature = mapping(geometry)
     return geojson_feature
 
 

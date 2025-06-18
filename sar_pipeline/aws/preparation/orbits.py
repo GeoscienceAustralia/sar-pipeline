@@ -108,7 +108,7 @@ def download_orbits(
     logger.info(f"Starting EOF download from {source}...")
 
     # The logic in eof.download.main() tries CDSE first by default. set force_asf by source
-    return eof.download.main(
+    orbit_paths = eof.download.main(
         sentinel_file=sentinel_file,
         save_dir=save_dir,
         cdse_user=cdse_user,
@@ -117,3 +117,9 @@ def download_orbits(
         asf_user=asf_user,
         asf_password=asf_password,
     )
+
+    if len(orbit_paths) > 1:
+        raise ValueError(
+            f"{len(ORBIT_PATHS)} orbit paths found for scene. Expecting 1."
+        )
+    return orbit_paths

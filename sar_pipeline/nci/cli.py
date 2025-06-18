@@ -1,5 +1,5 @@
 import click
-from pathlib import Path
+from pathlib import Path, PurePath
 import tomli
 import logging
 from typing import Literal
@@ -17,6 +17,7 @@ from sar_pipeline.nci.preparation.scenes import (
     parse_scene_file_dates,
     find_scene_file_from_id,
 )
+from sar_pipeline.utils.sentinel1 import is_s1_filename, is_s1_id
 from sar_pipeline.nci.processing.pyroSAR.pyrosar_geocode import (
     run_pyrosar_gamma_geocode,
 )
@@ -171,13 +172,52 @@ def submit_pyrosar_gamma_workflow(
         click.echo(f"Creating output directory: {output_dir}")
         output_dir.mkdir(parents=True)
 
-    scene_file = Path(scene)
+    # Function to get filepaths on NCI
+    # This function uses recursion. It begins by checking if the input string is any of
+    # A Sentinel-1 ID, filename, or path, before assuming that the user has provided a file
+    # containing these items. It will then open the file, and apply the previous checks to
+    # the contents line-by-line.
+    def _get_nci_s1_filepath(input: str) -> list[Path]:
+        input_as_path = Path(input)
 
-    if not scene_file.is_file():
-        click.echo("An ID was passed -- locating scene on NCI")
-        scene_file = find_scene_file_from_id(scene)
+        # Check if input string is a Sentinel-1 ID
+        if is_s1_id(input):
+            click.echo(f"A Sentinel-1 id was passed: {input}")
+            filepath = find_scene_file_from_id(input)
+            return [filepath]
 
-    click.echo(f"Submitting job for scene ID: {scene_file.stem}")
+        # Check if input string is a Sentinel-1 filename
+        elif is_s1_filename(input):
+            click.echo(f"A Sentinel-1 filename was passed: {input}")
+            scene_id = PurePath(input).stem
+            filepath = find_scene_file_from_id(scene_id)
+            return [filepath]
+
+        # Check if the input string is a file
+        elif input_as_path.is_file():
+            # If the file ends in .SAFE, it's a path to a Sentinel-1 scene
+            if input_as_path.suffix == "SAFE":
+                click.echo(f"A Sentinel-1 file path was passed: {input_as_path}")
+                return [input_as_path]
+
+            # Otherwise, open the file and process the content line-by-line, using the same
+            # logic above (ID, filename, or path)
+            else:
+                filepaths = []
+                click.echo("A file was passed, attempting to open and process contents")
+                with open(input_as_path) as f:
+                    for line in f:
+                        line_path = _get_nci_s1_filepath(line.rstrip())
+                        filepaths.extend(line_path)
+                return filepaths
+
+        # If unsuccessful, raise an error for the user.
+        else:
+            raise ValueError(
+                "scene must be a valid Sentinel-1 id/filename/path, or a file containing valid Sentinel-1 ids/filenames/paths"
+            )
+
+    processing_list = _get_nci_s1_filepath(scene)
 
     pbs_parameters = {
         "ncpu": ncpu,
@@ -190,21 +230,31 @@ def submit_pyrosar_gamma_workflow(
     log_dir = output_dir / "submission/logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    submit_job(
-        scene=scene_file,
-        spacing=spacing,
-        scaling=scaling,
-        target_crs=target_crs,
-        orbit_dir=orbit_dir,
-        orbit_type=orbit_type,
-        etad_dir=etad_dir,
-        output_dir=output_dir,
-        log_dir=log_dir,
-        gamma_lib_dir=gamma_lib_dir,
-        gamma_env_var=gamma_env_var,
-        pbs_parameters=pbs_parameters,
-        dry_run=dry_run,
-    )
+    for scene_file in processing_list:
+
+        # Check if already processed
+        scene_id = scene_file.stem
+        processed_path = output_dir / f"data/processed_scene/{scene_id}"
+        if len(list(processed_path.glob("*gamma0*.tif"))) > 0:
+            click.echo(
+                f"{scene_id} has already been processed. Check output at {processed_path}"
+            )
+        else:
+            submit_job(
+                scene=scene_file,
+                spacing=spacing,
+                scaling=scaling,
+                target_crs=target_crs,
+                orbit_dir=orbit_dir,
+                orbit_type=orbit_type,
+                etad_dir=etad_dir,
+                output_dir=output_dir,
+                log_dir=log_dir,
+                gamma_lib_dir=gamma_lib_dir,
+                gamma_env_var=gamma_env_var,
+                pbs_parameters=pbs_parameters,
+                dry_run=dry_run,
+            )
 
 
 # run_pyrosar_gamma_workflow

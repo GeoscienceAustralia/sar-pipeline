@@ -39,7 +39,7 @@ runconfig:
 
             processing_type: NOMINAL
 
-            product_version: 0.1
+            product_version:
 
             # Directory where PGE will place results
             product_path: .
