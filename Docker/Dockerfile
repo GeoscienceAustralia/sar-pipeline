@@ -3,9 +3,12 @@
 
 FROM oraclelinux:9
 
+# make the version an argument set by the git tag
+ARG VERSION=0.2.2
+
 LABEL author="Geoscience Australia" \
-description="ISCE3/RTC Pipeline Version 0.2.2" \
-version="0.2.2"
+      description="Sentinel-1 IW NRB pipeline using NASA JPL opera/RTC" \
+      version=${VERSION}
 
 RUN yum -y update &&\
 yum -y install curl &&\
