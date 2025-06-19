@@ -5,6 +5,7 @@ import os
 import logging
 import s1reader
 from typing import Literal
+import sys
 
 from sar_pipeline.aws.metadata.filetypes import REQUIRED_ASSET_FILETYPES
 from sar_pipeline.nci.preparation.scenes import parse_scene_file_dates
@@ -69,9 +70,9 @@ def find_s3_filepaths_from_suffixes(bucket_name, s3_folder, suffixes) -> dict:
     return suffix_to_s3path
 
 
-def get_burst_ids_for_scene_from_asf(
-    scene: str, burst_prefix: str = "t", lowercase=True
-) -> list[str]:
+def get_burst_ids_and_start_times_for_scene_from_asf(
+    scene: str, burst_prefix: str = "t", lowercase: bool = True
+) -> tuple[list[str], list[datetime]]:
     """Get the list of burst_ids corresponding to a scene
 
     Parameters
@@ -84,10 +85,16 @@ def get_burst_ids_for_scene_from_asf(
     lowercase: bool
         convert the burst to lowercase. default to True to match workflow output.
 
+    Raises
+    -------
+    FileExistsError:
+        The scene does not exist on the ASF.
+
     Returns
     -------
-    list[str]
+    tuple[list[str],list[datetime]]
         List of burst ids. e.g. ['t070_149822_IW3','t070_149822_IW2' ....]
+        List of sensing start times corresponding to each above burst ids.
     """
 
     st, et = parse_scene_file_dates(scene)
@@ -105,10 +112,21 @@ def get_burst_ids_for_scene_from_asf(
         for b in results
         if scene in b.properties["url"]
     ]
+    burst_sts = [
+        datetime.strptime(b.properties["startTime"], "%Y-%m-%dT%H:%M:%SZ")
+        for b in results
+        if scene in b.properties["url"]
+    ]
     if lowercase:
         burst_ids = [b.lower() for b in burst_ids]
 
-    return burst_ids
+    if len(burst_ids) == 0:
+        raise FileExistsError(
+            "No burst id's for scene could be found on the ASF. Ensure input values are correct "
+            "or set `--scene_data_source CDSE` as recent scenes may not be available on ASF, or the scene is missing"
+        )
+
+    return burst_ids, burst_sts
 
 
 def make_static_layer_base_url(
@@ -149,10 +167,12 @@ def make_static_layer_base_url(
 
 def check_burst_products_exists_in_s3(
     product: Literal["RTC_S1", "RTC_S1_STATIC"],
-    slc_bursts_info: list[s1reader.Sentinel1BurstSlc],
+    burst_id_list: list[str],
+    burst_st_list: list[str],
     s3_bucket: str,
     s3_project_folder: str,
     collection: str,
+    make_existing_products: bool,
 ) -> tuple[list[str], list[str]]:
     """Check if the product already exists in s3. The storage location differs
     for static layers (RTC_S1_STATIC) and backscatter (RTC_S1). This function checks
@@ -162,14 +182,19 @@ def check_burst_products_exists_in_s3(
     ----------
     product : str
         Product being created, either 'RTC_S1' or 'RTC_S1_STATIC'
-    slc_bursts_info : list[s1reader.Sentinel1BurstSlc]
-        List of s1reader burst classes containing information for each burst
+    burst_id_list : list[str]
+        List of burst ids
+    burst_st_list : list[str]
+        List of start-times corresponding to each burst id
     s3_bucket : str
         The bucket where the products are stored
     s3_project_folder : str
         The subpath within the bucket
     collection : str
         The collection. e.f. rtc_s1_c1
+    make_existing_products : bool
+        whether to make products if they already exist in s3. If False,
+        process will exit early if all already exist.
 
     Returns
     -------
@@ -182,32 +207,59 @@ def check_burst_products_exists_in_s3(
     existing_burst_ids = []
     existing_s3_paths = []
 
-    for burst in slc_bursts_info:
+    for burst_id, burst_st in zip(burst_id_list, burst_st_list):
         if product == "RTC_S1_STATIC":
             s3_product_subpath = make_rtc_s1_static_s3_subpath(
                 s3_project_folder=s3_project_folder,
                 collection=collection,
-                burst_id=str(burst.burst_id),
+                burst_id=burst_id,
             )
         if product == "RTC_S1":
-            sensing_start = burst.sensing_start
             s3_product_subpath = make_rtc_s1_s3_subpath(
                 s3_project_folder=s3_project_folder,
                 collection=collection,
-                burst_id=str(burst.burst_id),
-                year=sensing_start.year,
-                month=sensing_start.month,
-                day=sensing_start.day,
+                burst_id=burst_id,
+                year=burst_st.year,
+                month=burst_st.month,
+                day=burst_st.day,
             )
         # assume the product exists if there is a .h5 file
         product_h5_files = find_s3_filepaths_from_suffixes(
             bucket_name=s3_bucket, s3_folder=s3_product_subpath, suffixes=[".h5"]
         )
         if len(product_h5_files[".h5"]) > 0:
-            existing_burst_ids.append(str(burst.burst_id))
+            existing_burst_ids.append(burst_id)
             existing_s3_paths.append(s3_product_subpath)
 
-    return existing_burst_ids, existing_s3_paths
+    if len(existing_burst_ids) > 0:
+        logging.warning(
+            f"Products already exist for {len(existing_burst_ids)} of {len(burst_id_list)} requested bursts:"
+        )
+        # iterate through existing products and show message with path
+        for i in range(0, len(existing_burst_ids)):
+            logger.warning(
+                f"Existing product : {existing_burst_ids[i]}, s3_path : {s3_bucket}/{existing_s3_paths[i]}"
+            )
+        if not make_existing_products:
+            # limit burst ids to those which haven't been processed
+            burst_id_list = [b for b in burst_id_list if b not in existing_burst_ids]
+            logger.warning(
+                "Skipping the existing products. To create these, remove the existing products from S3. OR, pass flag "
+                "'--make-existing-products' to workflow. WARNING this can create duplicates that may impact downstream processes."
+            )
+            # exit if all existing burst products exist
+            if all(b in existing_burst_ids for b in burst_id_list):
+                logging.warning(
+                    "All desired burst products already exist, exiting process early"
+                )
+                sys.exit(100)
+        else:
+            logger.warning(
+                "Existing products are being re-created. WARNING This will create duplicates in the S3 bucket that may impact downstream processes. "
+                "set '--make-existing-products' if this behavior is not desired."
+            )
+
+    return burst_id_list
 
 
 def make_rtc_s1_s3_subpath(
@@ -349,6 +401,8 @@ def check_static_layers_in_s3(
             f"{n_missing} of {n_bursts} required bursts have files missing.\n"
             f"Missing Bursts and static layer filetypes:\n"
             f"{missing_info}\n"
-            f"Example path searched : {static_layers_s3_folder}\n"
-            f"Check S3 linked location settings or create missing static layers using --product RTC_S1_STATIC. See workflow docs for details."
+            f"Example AWS S3 path searched : {static_layers_s3_bucket}/{static_layers_s3_folder}\n"
+            f"Check linked location arguments or create the missing static layers. "
+            f"E.g. re-run the workflow using `--product RTC_S1_STATIC --collection rtc_s1_static_c1.`\n"
+            f"See workflow docs for details at docs/workflows/aws.md."
         )
