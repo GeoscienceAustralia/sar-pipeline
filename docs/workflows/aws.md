@@ -68,6 +68,7 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_aws_
 --skip_upload_to_s3=false
 --scene_data_source="CDSE"
 --orbit_data_source="CDSE"
+--validate_stac=false
 # Required inputs for linking RTC_S1_STATIC to RTC_S1
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
 --link_static_layers=false           
@@ -89,6 +90,7 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_aws_
 - `skip_upload_to_s3` -> Make the products, but skip uploading them to S3.
 - `scene_data_source` -> Where to download the scene slc file. Either `ASF` or `CDSE`. The default is `CDSE`.
 - `orbit_data_source` -> Where to download the orbit files. Either `ASF` or `CDSE`. The default is `CDSE`.
+- `validate_stac` -> Whether to validate the created STAC doc within the code. If the stac is invalid, products will not be uploaded.
 - `link_static_layers` -> Flag to link RTC_S1_STATIC to RTC_S1
 - `linked_static_layers_s3_bucket` -> bucket where RTC_S1_STATIC stored
 - `linked_static_layers_s3_project_folder` -> folder within bucket where RTC_S1_STATIC stored

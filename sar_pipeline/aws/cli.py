@@ -510,6 +510,15 @@ def get_data_for_scene_and_make_run_config(
     "STAC metadata. If set, the url to the static layer collection will "
     "be read in from the .h5 output from the rtc_s1.py process.",
 )
+@click.option(
+    "--validate-stac",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Whether to validate the stac document within the code. "
+    "If the stac is not valid, an error is raised and the products "
+    "will not be uploaded.",
+)
 @log_timing
 def make_rtc_opera_stac_and_upload_bursts(
     results_folder,
@@ -520,6 +529,7 @@ def make_rtc_opera_stac_and_upload_bursts(
     s3_project_folder,
     skip_upload_to_s3,
     link_static_layers,
+    validate_stac,
 ):
     """makes STAC metadata for opera-rtc and uploads them to a desired s3 bucket.
     The final path in s3 will follow the following pattern:
@@ -574,15 +584,18 @@ def make_rtc_opera_stac_and_upload_bursts(
         burst_stac_manager.add_collection_link()
         # save the metadata
         burst_stac_manager.save(burst_folder / stac_filename)
-        # TODO validate the stac item when finalised
-        logger.info("Validating STAC document")
-        try:
-            # burst_stac_manager.item.validate()
-            # logger.info("STAC is valid.")
-            logger.info("Temporarily passing STAC validation.")
-        except Exception as e:
-            logger.error(f"STAC validation failed: {e}")
-            raise
+        if validate_stac:
+            logger.info("Validating STAC document")
+            try:
+                burst_stac_manager.item.validate()
+                logger.info("STAC is valid.")
+            except Exception as e:
+                logger.error(f"STAC validation failed: {e}")
+                raise
+        else:
+            logger.warning(
+                "STAC document is not being validated. set --validate-stac if required."
+            )
         # push folder to S3
         if skip_upload_to_s3:
             logger.info(f"Skipping upload to S3.")

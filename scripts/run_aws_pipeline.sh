@@ -15,6 +15,7 @@ make_existing_products=false
 skip_upload_to_s3=false
 scene_data_source="ASF"
 orbit_data_source="ASF"
+validate_stac=false
 ## -- WORKFLOW INPUTS TO LINK RTC_S1_STATIC in RTC_S1 metadata--
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
 link_static_layers=false
@@ -45,6 +46,7 @@ while [[ "$#" -gt 0 ]]; do
         --linked_static_layers_s3_project_folder) linked_static_layers_s3_project_folder="$2"; shift 2 ;;
         --scene_data_source) scene_data_source="$2"; shift 2 ;;
         --orbit_data_source) orbit_data_source="$2"; shift 2 ;;
+        --validate_stac) validate_stac=true; shift ;;
         --burst_id_list)
             shift
             if [[ $# -eq 1 && -f "$1" ]]; then
@@ -109,6 +111,7 @@ echo make_existing_products : "$make_existing_products"
 echo skip_upload_to_s3 : "$skip_upload_to_s3"
 echo scene_data_source : "$scene_data_source"
 echo orbit_data_source : "$orbit_data_source"
+echo validate_stac : "$validate_stac"
 
 # warn the user about linking static layers
 if [[ "$link_static_layers" = true && "$product" = "RTC_S1" ]]; then
@@ -230,6 +233,10 @@ if [ "$link_static_layers" = true ] ; then
     # Static layers are to be linked to RTC_S1 in the stac metadata
     # The url link to static layers is read in from results .h5 file
     cmd+=( --link-static-layers)
+fi
+if [ "$validate_stac" = true ] ; then
+    # validate the stac doc within the code
+    cmd+=( --validate-stac)
 fi
 
 # Execute the command
