@@ -39,4 +39,4 @@ coverage*
 sar_pipeline/_version.py
 
 # ignore created test files
-data/isce3_rtc/*
+tests/sar_pipeline/data/isce3_rtc/TMP/*
