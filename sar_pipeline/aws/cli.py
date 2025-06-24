@@ -282,6 +282,7 @@ def get_data_for_scene_and_make_run_config(
     if burst_id_list:
         logger.info(f"List of bursts to process provided")
         burst_id_list = burst_id_list.split(" ")
+        # limit the list of start times
         burst_st_list = [
             all_slc_burst_st_list[i]
             for i, b in enumerate(all_slc_burst_id_list)
@@ -295,7 +296,7 @@ def get_data_for_scene_and_make_run_config(
     logger.info(
         f"Checking if burst products already exists in S3 for product {product}"
     )
-    burst_id_list = check_burst_products_exists_in_s3(
+    burst_id_list_to_process = check_burst_products_exists_in_s3(
         product=product,
         burst_id_list=burst_id_list,
         burst_st_list=burst_st_list,
@@ -303,20 +304,28 @@ def get_data_for_scene_and_make_run_config(
         s3_project_folder=s3_project_folder,
         collection=collection,
         make_existing_products=make_existing_products,
+        early_exit=True,
     )
 
-    logger.info(f"Processing {len(burst_id_list)} bursts for scene : {burst_id_list}")
+    logger.info(
+        f"Processing {len(burst_id_list_to_process)} bursts for scene : {burst_id_list_to_process}"
+    )
 
     # to link the RTC_S1_STATIC layers to RTC_S1, the static layers must already exist
     if link_static_layers and product == "RTC_S1":
         logger.info(f"Checking static layers exist for bursts in scene : {scene}")
-        check_static_layers_in_s3(
-            scene=scene,
-            burst_id_list=burst_id_list,
-            static_layers_s3_bucket=linked_static_layers_s3_bucket,
-            static_layers_collection=linked_static_layers_collection,
-            static_layers_s3_project_folder=linked_static_layers_s3_project_folder,
-        )
+        try:
+            check_static_layers_in_s3(
+                scene=scene,
+                burst_id_list=burst_id_list_to_process,
+                static_layers_s3_bucket=linked_static_layers_s3_bucket,
+                static_layers_collection=linked_static_layers_collection,
+                static_layers_s3_project_folder=linked_static_layers_s3_project_folder,
+            )
+        except FileExistsError as e:
+            # neatly handle the error where static layers are missing
+            click.echo(str(e), err=True)
+            sys.exit(101)
 
     if scene_data_source == "ASF":
         # download the SLC and get scene metadata from asf
@@ -411,9 +420,8 @@ def get_data_for_scene_and_make_run_config(
             f"{gk}.dynamic_ancillary_file_group.dem_file_description", demSource
         )
 
-    if burst_id_list:
-        # specify bursts if provided
-        RTC_RUN_CONFIG.set(f"{gk}.input_file_group.burst_id", burst_id_list)
+    # specify bursts to process
+    RTC_RUN_CONFIG.set(f"{gk}.input_file_group.burst_id", burst_id_list_to_process)
 
     # Update Outputs
     RTC_RUN_CONFIG.set(f"{gk}.product_group.output_dir", str(out_folder))
@@ -502,6 +510,14 @@ def get_data_for_scene_and_make_run_config(
     help="If we should upload outputs to S3.",
 )
 @click.option(
+    "--make-existing-products",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Create the burst products even if they already exist in the desired s3 bucket path. "
+    "WARNING - setting this argument may result in duplicate files.",
+)
+@click.option(
     "--link-static-layers",
     required=False,
     is_flag=True,
@@ -528,6 +544,7 @@ def make_rtc_opera_stac_and_upload_bursts(
     s3_bucket,
     s3_project_folder,
     skip_upload_to_s3,
+    make_existing_products,
     link_static_layers,
     validate_stac,
 ):
@@ -549,7 +566,7 @@ def make_rtc_opera_stac_and_upload_bursts(
         if len(burst_h5_files) != 1:
             raise ValueError(
                 f"{len(burst_h5_files)} .h5 files found. Expecting 1 in : {burst_folder}."
-                f"This error might be caused by repeat runs. Delete duplicate files or change run setings."
+                f"This error might be caused by repeat runs. Delete duplicate files or change run settings."
             )
         burst_h5_filepath = burst_folder / burst_h5_files[0]
         # make the stac metadata from the .h5 metadata
@@ -600,7 +617,28 @@ def make_rtc_opera_stac_and_upload_bursts(
         if skip_upload_to_s3:
             logger.info(f"Skipping upload to S3.")
         else:
-            logger.info(f"uploading files for {burst_stac_manager.burst_id} to S3.")
-            push_files_in_folder_to_s3(
-                burst_folder, s3_bucket, burst_stac_manager.burst_s3_subfolder
+            # re-check that the files don't already exist in S3. This will help protect against
+            # simultaneous runs of the same product. E.g. the product did not exist at the
+            # start of the run and was created by another process during this run
+            logger.info(
+                f"Checking if product already exist before uploading for burst : {burst_stac_manager.burst_id}"
             )
+            # returns a list of bursts that don't already exist
+            # pass in just the current burst
+            bursts_to_upload = check_burst_products_exists_in_s3(
+                product=product,
+                burst_id_list=[burst_stac_manager.burst_id],
+                burst_st_list=[burst_stac_manager.start_dt],
+                s3_bucket=s3_bucket,
+                s3_project_folder=s3_project_folder,
+                collection=collection,
+                make_existing_products=make_existing_products,
+                early_exit=False,  # don't exit early, move to next burst
+            )
+            if burst_stac_manager.burst_id in bursts_to_upload:
+                logger.info(f"uploading files for {burst_stac_manager.burst_id} to S3.")
+                push_files_in_folder_to_s3(
+                    burst_folder, s3_bucket, burst_stac_manager.burst_s3_subfolder
+                )
+            else:
+                logger.info(f"Skipping upload to S3.")

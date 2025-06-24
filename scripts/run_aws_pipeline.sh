@@ -194,8 +194,12 @@ fi
 exit_code=$?
 
 if [ $exit_code -eq 100 ]; then
-    echo "Early exit: products already exist for all bursts."
+    echo "Early exit (100): products already exist for all bursts."
     exit 0  # Graceful exit
+fi
+if [ $exit_code -eq 101 ]; then
+    echo "Process failed (101): Static Layers are missing."
+    exit 1 
 fi
 if [ $exit_code -ne 0 ]; then
     echo "Process failed: get-data-for-scene-and-make-run-config"
@@ -228,6 +232,11 @@ cmd=(
 
 if [ "$skip_upload_to_s3" = true ] ; then
     cmd+=( --skip-upload-to-s3)
+fi
+if [ "$make_existing_products" = true ] ; then
+    # make the product even if it already exists
+    # WARNING - this may result in duplicates
+    cmd+=( --make-existing-products )
 fi
 if [ "$link_static_layers" = true ] ; then
     # Static layers are to be linked to RTC_S1 in the stac metadata

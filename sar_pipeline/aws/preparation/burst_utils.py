@@ -173,6 +173,7 @@ def check_burst_products_exists_in_s3(
     s3_project_folder: str,
     collection: str,
     make_existing_products: bool,
+    early_exit=True,
 ) -> tuple[list[str], list[str]]:
     """Check if the product already exists in s3. The storage location differs
     for static layers (RTC_S1_STATIC) and backscatter (RTC_S1). This function checks
@@ -195,6 +196,9 @@ def check_burst_products_exists_in_s3(
     make_existing_products : bool
         whether to make products if they already exist in s3. If False,
         process will exit early if all already exist.
+    early_exit : bool,
+        Exit the process early with a 100 error code if True. If false,
+        No error is raised.
 
     Returns
     -------
@@ -208,6 +212,7 @@ def check_burst_products_exists_in_s3(
     existing_s3_paths = []
 
     for burst_id, burst_st in zip(burst_id_list, burst_st_list):
+        # get the path to search for
         if product == "RTC_S1_STATIC":
             s3_product_subpath = make_rtc_s1_static_s3_subpath(
                 s3_project_folder=s3_project_folder,
@@ -242,25 +247,31 @@ def check_burst_products_exists_in_s3(
             )
         if not make_existing_products:
             # limit burst ids to those which haven't been processed
-            burst_id_list = [b for b in burst_id_list if b not in existing_burst_ids]
+            burst_id_list_to_process = [
+                b for b in burst_id_list if b not in existing_burst_ids
+            ]
             logger.warning(
                 "Skipping the existing products. To create these, remove the existing products from S3. OR, pass flag "
                 "'--make-existing-products' to workflow. WARNING this can create duplicates that may impact downstream processes."
             )
             # exit if all existing burst products exist
             if all(b in existing_burst_ids for b in burst_id_list):
-                logging.warning(
-                    "All desired burst products already exist, exiting process early"
-                )
-                sys.exit(100)
+                logging.warning("All desired burst products already exist.")
+                if early_exit:
+                    logging.warning("Exiting process early")
+                    sys.exit(100)
         else:
+            burst_id_list_to_process = burst_id_list
             logger.warning(
                 "Existing products are being re-created. WARNING This will create duplicates in the S3 bucket that may impact downstream processes. "
                 "set '--make-existing-products' if this behavior is not desired."
             )
     else:
         f"No products already exist for the requested bursts."
-    return burst_id_list
+        burst_id_list_to_process = burst_id_list
+
+    # return the list of bursts that need to be processed
+    return burst_id_list_to_process
 
 
 def make_rtc_s1_s3_subpath(
@@ -399,7 +410,7 @@ def check_static_layers_in_s3(
         )
         raise FileExistsError(
             f"\nMissing static layers for bursts in scene : {scene}\n"
-            f"{n_missing} of {n_bursts} required bursts have files missing.\n"
+            f"{n_missing} of {n_bursts} bursts being processed have files missing.\n"
             f"Missing Bursts and static layer filetypes:\n"
             f"{missing_info}\n"
             f"Example AWS S3 path searched : {static_layers_s3_bucket}/{static_layers_s3_folder}\n"
