@@ -59,7 +59,8 @@ if missing:
     except:
         raise FileExistsError(
             "Could not find env.secret file at project root containing required environment variables for run. "
-            "Create this file with required variables or ensure environment is configured correctly."
+            "Create this file with required variables or ensure environment is configured correctly "
+            "(for example when running automated tests on GitHub)"
         )
 
 
