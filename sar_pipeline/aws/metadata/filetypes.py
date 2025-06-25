@@ -15,7 +15,6 @@ REQUIRED_ASSET_FILETYPES = {
         "_rtc_anf_gamma0_to_sigma0.tif",
         "_local_incidence_angle.tif",
         "_incidence_angle.tif",
-        "_interpolated_dem.tif",
     ],
 }
 
