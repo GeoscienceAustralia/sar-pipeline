@@ -146,9 +146,6 @@ def test_get_data_for_scene_and_make_run_config(test_run):
 
     logging.info(f"Running CLI, data will download. May take several minutes...")
     result = runner.invoke(get_data_for_scene_and_make_run_config, args)
-    logging.info("Exit code:", result.exit_code)
-    if result.exception:
-        logging.error("Exception:\n", result.exception)
     # delete created folders after tests
     shutil.rmtree(test_run.scratch_folder)
     shutil.rmtree(test_run.download_folder)
