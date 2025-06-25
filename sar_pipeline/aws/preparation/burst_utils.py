@@ -192,7 +192,8 @@ def check_burst_products_exists_in_s3(
     s3_project_folder: str,
     collection: str,
     make_existing_products: bool,
-    early_exit=True,
+    early_exit: bool = True,
+    early_exit_code: int = 100,
 ) -> tuple[list[str], list[str]]:
     """Check if the product already exists in s3. The storage location differs
     for static layers (RTC_S1_STATIC) and backscatter (RTC_S1). This function checks
@@ -218,6 +219,8 @@ def check_burst_products_exists_in_s3(
     early_exit : bool,
         Exit the process early with a 100 error code if True. If false,
         No error is raised.
+    early_exit_code : int
+        If early exit, the code to exit the program with. default 100.
 
     Returns
     -------
@@ -279,7 +282,7 @@ def check_burst_products_exists_in_s3(
                 logging.warning("All desired burst products already exist.")
                 if early_exit:
                     logging.warning("Exiting process early")
-                    sys.exit(100)
+                    sys.exit(early_exit_code)
         else:
             burst_id_list_to_process = burst_id_list
             logger.warning(
