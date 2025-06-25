@@ -89,6 +89,7 @@ dev = { features = ["dev"], solve-group = "default" }
 test-all = "pytest"
 test-pipeline = "pytest tests/sar_pipeline/"
 test-aws-cli = "pytest tests/sar_pipeline/test_aws_cli.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+test-aws-functions = "pytest tests/sar_pipeline/test_aws_functions.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-nci-filesystem = "pytest tests/filesystem"
 lint = "black sar_pipeline"
 

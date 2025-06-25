@@ -44,7 +44,7 @@ if missing:
     )
 
     try:
-        # load the envrionment secrets from a local file
+        # load the environment secrets from a local file
         # see docs/workflows/aws.md for required variables
         # store in project root in env.secret file
         load_dotenv(PROJECT_ROOT / "env.secret")
@@ -102,6 +102,7 @@ TEST_1 = RunConfig(
     scratch_folder=TEST_WORKSPACE / "TMP" / "scratch" / SUBPATH_T1,
     out_folder=TEST_WORKSPACE / "TMP" / "results" / SUBPATH_T1,
     run_config_save_path=TEST_WORKSPACE
+    / "TMP"
     / "results"
     / SUBPATH_T1
     / "OPERA-RTC_runconfig.yaml",

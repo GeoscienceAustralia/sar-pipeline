@@ -1,6 +1,8 @@
 import asf_search
 from datetime import datetime, timedelta
 import boto3
+from botocore import UNSIGNED
+from botocore.config import Config
 import os
 import logging
 import s1reader
@@ -14,17 +16,27 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def check_aws_environment_credentials():
+def check_aws_environment_credentials() -> list[str]:
+    """Checks if the required credentials exist
+
+    Returns: list
+        A list of the credentials that are missing
+    """
     # search for credentials in environment and raise warning if not there
+    MISSING_CREDENTIALS = []
     if os.environ.get("AWS_ACCESS_KEY_ID") is None:
         wrn_msg = "AWS_ACCESS_KEY_ID is not set in environment variables. Set if authentication required on bucket"
         logging.warning(wrn_msg)
+        MISSING_CREDENTIALS.append("AWS_ACCESS_KEY_ID")
     if os.environ.get("AWS_SECRET_ACCESS_KEY") is None:
-        wrn_msg = "AWS_ACCESS_KEY_ID is not set in environment variables. Set if authentication required on bucket"
+        wrn_msg = "AWS_SECRET_ACCESS_KEY is not set in environment variables. Set if authentication required on bucket"
         logging.warning(wrn_msg)
+        MISSING_CREDENTIALS.append("AWS_SECRET_ACCESS_KEY")
     if os.environ.get("AWS_DEFAULT_REGION") is None:
         wrn_msg = "AWS_DEFAULT_REGION is not set in environment variables. Set if authentication required on bucket"
         logging.warning(wrn_msg)
+        MISSING_CREDENTIALS.append("AWS_DEFAULT_REGION")
+    return MISSING_CREDENTIALS
 
 
 def find_s3_filepaths_from_suffixes(bucket_name, s3_folder, suffixes) -> dict:
@@ -51,8 +63,15 @@ def find_s3_filepaths_from_suffixes(bucket_name, s3_folder, suffixes) -> dict:
         }
     """
 
-    check_aws_environment_credentials()
-    s3 = boto3.client("s3")
+    MISSING_CREDENTIALS = check_aws_environment_credentials()
+    if MISSING_CREDENTIALS:
+        # attempt to connect without authentication
+        logger.info(
+            f"Attempting to search bucket with missing credentials : {MISSING_CREDENTIALS}"
+        )
+        s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+    else:
+        s3 = boto3.client("s3")
 
     response = s3.list_objects_v2(Bucket=bucket_name, Prefix=s3_folder)
     if "Contents" not in response:
@@ -229,6 +248,7 @@ def check_burst_products_exists_in_s3(
                 day=burst_st.day,
             )
         # assume the product exists if there is a .h5 file
+        logging.info(f"searching s3 folder : {s3_product_subpath}")
         product_h5_files = find_s3_filepaths_from_suffixes(
             bucket_name=s3_bucket, s3_folder=s3_product_subpath, suffixes=[".h5"]
         )
@@ -408,7 +428,7 @@ def check_static_layers_in_s3(
             for burst_id, missing_files in missing_burst_files.items()
             if missing_files  # only include bursts with missing files
         )
-        raise FileExistsError(
+        logger.error(
             f"\nMissing static layers for bursts in scene : {scene}\n"
             f"{n_missing} of {n_bursts} bursts being processed have files missing.\n"
             f"Missing Bursts and static layer filetypes:\n"
@@ -418,3 +438,4 @@ def check_static_layers_in_s3(
             f"E.g. re-run the workflow using `--product RTC_S1_STATIC --collection rtc_s1_static_c1.`\n"
             f"See workflow docs for details at docs/workflows/aws.md."
         )
+        sys.exit(101)

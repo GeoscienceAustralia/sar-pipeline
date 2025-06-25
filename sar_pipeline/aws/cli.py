@@ -314,18 +314,14 @@ def get_data_for_scene_and_make_run_config(
     # to link the RTC_S1_STATIC layers to RTC_S1, the static layers must already exist
     if link_static_layers and product == "RTC_S1":
         logger.info(f"Checking static layers exist for bursts in scene : {scene}")
-        try:
-            check_static_layers_in_s3(
-                scene=scene,
-                burst_id_list=burst_id_list_to_process,
-                static_layers_s3_bucket=linked_static_layers_s3_bucket,
-                static_layers_collection=linked_static_layers_collection,
-                static_layers_s3_project_folder=linked_static_layers_s3_project_folder,
-            )
-        except FileExistsError as e:
-            # neatly handle the error where static layers are missing
-            click.echo(str(e), err=True)
-            sys.exit(101)
+        # the process will exit early if the required files don't exist
+        check_static_layers_in_s3(
+            scene=scene,
+            burst_id_list=burst_id_list_to_process,
+            static_layers_s3_bucket=linked_static_layers_s3_bucket,
+            static_layers_collection=linked_static_layers_collection,
+            static_layers_s3_project_folder=linked_static_layers_s3_project_folder,
+        )
 
     if scene_data_source == "ASF":
         # download the SLC and get scene metadata from asf
