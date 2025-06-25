@@ -194,12 +194,12 @@ fi
 exit_code=$?
 
 if [ $exit_code -eq 100 ]; then
-    echo "Early exit (100): products already exist for all bursts."
-    exit 0  # Graceful exit
+    echo "Success: Early exit, products already exist for all bursts."
+    exit 0  # Graceful exit with success code 0 
 fi
 if [ $exit_code -eq 101 ]; then
     echo "Process failed (101): Static Layers are missing."
-    exit 1 
+    exit 101
 fi
 if [ $exit_code -ne 0 ]; then
     echo "Process failed: get-data-for-scene-and-make-run-config"
@@ -249,7 +249,13 @@ if [ "$validate_stac" = true ] ; then
 fi
 
 # Execute the command
-"${cmd[@]}" || { 
-    echo "make-rtc-opera-stac-and-upload-bursts"
+"${cmd[@]}"
+exit_code=$?
+
+if [ $exit_code -ne 0 ]; then
+    echo "Process failed: make-rtc-opera-stac-and-upload-bursts"
     exit 1
-}
+else
+    echo "Success: required burst products created."
+    exit 0
+fi
