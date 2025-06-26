@@ -229,7 +229,7 @@ runconfig:
                 save_dem: False
 
                 # Save layover shadow mask
-                save_mask: True
+                save_mask: False
 
                 # Layover/shadow mask dilation size of shadow pixels
                 # (values 1 and 3)
