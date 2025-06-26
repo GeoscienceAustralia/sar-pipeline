@@ -1,0 +1,128 @@
+# test a full build and run
+# NOTE - requires sufficient CPU, RAM and Disk Memory
+
+import subprocess
+import pytest
+import os
+import logging
+from pathlib import Path
+from dotenv import load_dotenv
+import sys
+from datetime import datetime
+
+logging.basicConfig(
+    level=logging.DEBUG,  # or INFO
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+
+logger = logging.getLogger(__name__)
+
+CURRENT_DIR = Path(__file__).parent.resolve()
+PROJECT_ROOT = CURRENT_DIR.parent.parent
+
+REQUIRED_ENV_VARIABLES = [
+    "EARTHDATA_LOGIN",
+    "EARTHDATA_PASSWORD",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_DEFAULT_REGION",
+    "CDSE_LOGIN",
+    "CDSE_PASSWORD",
+]
+# check if the required env variables are set
+missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
+
+if not missing:
+    ENV_VARS = []
+    for var in REQUIRED_ENV_VARIABLES:
+        ENV_VARS.append("-e")
+        ENV_VARS.append(f"{var}={os.getenv(var)}")
+
+if missing:
+    logger.warning(f"Missing required environment variables: {', '.join(missing)}")
+    logger.info(
+        f"The following environment variables must be set for test: {REQUIRED_ENV_VARIABLES}"
+    )
+
+    # test may be run locally which requires a secret file to set the variables
+    logger.info(
+        f"Attempting to load from env.secret file from the project root : {PROJECT_ROOT / "env.secret"}"
+    )
+
+    try:
+        # load the environment secrets from a local file
+        # see docs/workflows/aws.md for required variables
+        # store in project root in env.secret file
+        load_dotenv(PROJECT_ROOT / "env.secret")
+        missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
+        if missing:
+            raise ValueError(
+                "env.secret was found but some variables are missing. Add the required variables."
+            )
+        else:
+            logging.info("Environment variables loaded from env.secret successfully.")
+            ENV_VARS = ["--env-file", f'{PROJECT_ROOT / "env.secret"}']
+
+    except:
+        raise FileExistsError(
+            "Could not find env.secret file at project root containing required environment variables for run. "
+            "Create this file with required variables or ensure environment is configured correctly "
+            "(for example when running automated tests on GitHub)"
+        )
+
+
+# @pytest.fixture(scope="module", autouse=True)
+def build_image():
+    logging.info(
+        f"Building docker image sar-pipeline:test for testing, this may take a few minutes..."
+    )
+    result = subprocess.run(
+        [
+            "docker",
+            "build",
+            "-t",
+            "sar-pipeline:test",
+            "-f",
+            "Docker/Dockerfile",
+            ".",
+        ],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        text=True,
+    )
+    assert (
+        result.returncode == 0
+    ), f"Docker build failed: {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+
+
+def test_docker_with_args():
+    logging.info(f"Running full process, this may take a while...")
+    run_dt = str(datetime.now()).replace(" ", "_")
+    test_name = Path(__file__).stem
+    test_s3_bucket = "deant-data-public-dev"
+    test_s3_project_folder = f"TMP/sar-pipeline/{run_dt}/{test_name}"
+    logging.info(f"Uploading outputs to : {test_s3_bucket}/{test_s3_project_folder}")
+    result = subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            *ENV_VARS,
+            "sar-pipeline:test",
+            "--scene",
+            "S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
+            "--burst_id_list",
+            "t070_149815_iw3",
+            "--s3_bucket",
+            test_s3_bucket,
+            "--s3_project_folder",
+            test_s3_project_folder,
+            "--validate_stac",
+        ],
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        text=True,
+    )
+    assert (
+        result.returncode == 0
+    ), f"Non-zero exit code: {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"

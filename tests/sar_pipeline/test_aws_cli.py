@@ -83,6 +83,8 @@ class RunConfig:
     linked_static_layers_s3_bucket: str
     linked_static_layers_collection: str
     linked_static_layers_s3_project_folder: str
+    scene_data_source: str
+    orbit_data_source: str
 
 
 S3_PROJECT_FOLDER_T1 = ""
@@ -111,6 +113,8 @@ TEST_1 = RunConfig(
     linked_static_layers_s3_bucket="",
     linked_static_layers_collection="",
     linked_static_layers_s3_project_folder="",
+    scene_data_source="CDSE",
+    orbit_data_source="CDSE",
 )
 
 
@@ -143,10 +147,24 @@ def test_get_data_for_scene_and_make_run_config(test_run):
         "--linked-static-layers-s3-project-folder",
         test_run.linked_static_layers_s3_project_folder,
     ]
-    import os
+    args += [
+        "--scene-data-source",
+        test_run.scene_data_source,
+    ]
+    args += [
+        "--orbit-data-source",
+        test_run.orbit_data_source,
+    ]
 
     logging.info(f"Running CLI, data will download. May take several minutes...")
-    result = runner.invoke(get_data_for_scene_and_make_run_config, args)
+    result = runner.invoke(
+        get_data_for_scene_and_make_run_config, args, catch_exceptions=False
+    )
+    if result.exception:
+        logging.exception(
+            "An error occurred during CLI invocation", exc_info=result.exception
+        )
+        logging.error(result.output)
     # delete created folders after tests
     shutil.rmtree(test_run.scratch_folder)
     shutil.rmtree(test_run.download_folder)

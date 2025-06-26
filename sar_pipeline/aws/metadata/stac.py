@@ -102,18 +102,29 @@ class BurstH5toStacManager:
             "data/projection"
         )  # code, e.g. 4326, 3031
         if self.product == "RTC_S1":
-            self.geometry_4326 = polygon_str_to_geojson(
-                self.h5.search_value("boundingPolygon")
-            )
-            self.bbox_4326 = shape(self.geometry_4326).bounds
-        elif self.product == "RTC_S1_STATIC":
-            # 4326 needs to be converted from native coordinates
+            # NOTE - boundingPolygon does not correctly encompass the burst data
+            # We therefore use the boundingBox in native coords converted to 4326
+            # below can be uncommented to return to the boundingPolygon
+            # self.geometry_4326 = polygon_str_to_geojson(
+            #     self.h5.search_value("boundingPolygon")
+            # )
+
+            # self.bbox_4326 = shape(self.geometry_4326).bounds
             self.bbox_4326 = convert_bbox(
                 self.h5.search_value("boundingBox"),
                 src_crs=self.projection_epsg,
                 trg_crs=4326,
             )
             # geometry is not included, set this to be bbox
+            self.geometry_4326 = mapping(box(*self.bbox_4326))
+
+        elif self.product == "RTC_S1_STATIC":
+            # boundingPolygon is not included, set this to be bbox
+            self.bbox_4326 = convert_bbox(
+                self.h5.search_value("boundingBox"),
+                src_crs=self.projection_epsg,
+                trg_crs=4326,
+            )
             self.geometry_4326 = mapping(box(*self.bbox_4326))
 
         self.burst_s3_subfolder = self._make_s3_subfolder()
@@ -497,6 +508,31 @@ class BurstH5toStacManager:
             )
         )
 
+    def rename_backscatter_assets(self, burst_folder: Path):
+        """Rename the backscatter assets in the burst folder to include the calibration
+        type in the filename. e.g. HH.tif -> HH_gamma0.tif
+
+        Parameters
+        ----------
+        burst_folder : Path
+            path to the local folder containing output products for a single burst.
+            e.g. /path/to/my/scene_burst/t070_149813_iw2
+        """
+
+        # get the list of files
+        burst_files = [x for x in burst_folder.iterdir()]
+        # get gamma0 or sigma0 calibration
+        calibration = self.h5.search_value("outputBackscatterNormalizationConvention")
+
+        for f in burst_files:
+            for pol in ("VV", "VH", "HH", "HV"):
+                old_suffix = f"{pol}.tif"
+                if f.name.endswith(old_suffix):
+                    new_name = f.name.replace(old_suffix, f"{pol}_{calibration}.tif")
+                    new_path = f.with_name(new_name)
+                    f.rename(new_path)
+                    break  # once renamed, no need to check other pols
+
     def add_assets_from_folder(self, burst_folder: Path):
         """Add the asset files from the burst folder
 
@@ -521,10 +557,25 @@ class BurstH5toStacManager:
         # e.g. don't try add HH if it did not exist in original source data
         if self.product == "RTC_S1":
             pols = self.polarisations
+            calibration = self.h5.search_value(
+                "outputBackscatterNormalizationConvention"
+            )
+            IGNORE_ASSETS = [
+                f"_{p}_{calibration}.tif"
+                for p in ["HH", "HV", "VV", "VH"]
+                if p not in pols
+            ]
+            INCLUDED_POL_ASSETS = [f"_{p}_{calibration}.tif" for p in pols]
         elif self.product == "RTC_S1_STATIC":
-            pols = []  # no pol for static products, only auxiliary files
-        IGNORE_ASSETS = [f"_{p}.tif" for p in ["HH", "HV", "VV", "VH"] if p not in pols]
-        INCLUDED_POL_ASSETS = [f"_{p}.tif" for p in pols]
+            # no pol for static products, only auxiliary files
+            pols = []
+            INCLUDED_POL_ASSETS = []
+            IGNORE_ASSETS = [
+                x
+                for x in REQUIRED_ASSET_FILETYPES
+                if any(pol in x for pol in ["HH", "HV", "VV", "VH"])
+            ]
+
         INCLUDED_ASSET_FILETYPES = [
             x for x in REQUIRED_ASSET_FILETYPES[self.product] if x not in IGNORE_ASSETS
         ]

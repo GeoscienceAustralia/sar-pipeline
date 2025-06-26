@@ -5,9 +5,10 @@ from botocore import UNSIGNED
 from botocore.config import Config
 import os
 import logging
-import s1reader
+import shapely
 from typing import Literal
 import sys
+import requests
 
 from sar_pipeline.aws.metadata.filetypes import REQUIRED_ASSET_FILETYPES
 from sar_pipeline.nci.preparation.scenes import parse_scene_file_dates
@@ -89,10 +90,10 @@ def find_s3_filepaths_from_suffixes(bucket_name, s3_folder, suffixes) -> dict:
     return suffix_to_s3path
 
 
-def get_burst_ids_and_start_times_for_scene_from_asf(
+def get_burst_info_for_scene_from_asf(
     scene: str, burst_prefix: str = "t", lowercase: bool = True
 ) -> tuple[list[str], list[datetime]]:
-    """Get the list of burst_ids corresponding to a scene
+    """Get the burst info for a scene from thr ASF
 
     Parameters
     ----------
@@ -111,9 +112,9 @@ def get_burst_ids_and_start_times_for_scene_from_asf(
 
     Returns
     -------
-    tuple[list[str],list[datetime]]
-        List of burst ids. e.g. ['t070_149822_IW3','t070_149822_IW2' ....]
-        List of sensing start times corresponding to each above burst ids.
+    dict
+        unique dict of scene burst ids mapped to start_times and geometries
+        {'t070_149822_IW3' : {start_time : datetime.datetime, geometry: shapely.geom}}
     """
 
     st, et = parse_scene_file_dates(scene)
@@ -126,26 +127,87 @@ def get_burst_ids_and_start_times_for_scene_from_asf(
         end=et + timedelta(seconds=1),
     )
 
-    burst_ids = [
-        f"{burst_prefix}{b.properties['burst']['fullBurstID']}"
-        for b in results
-        if scene in b.properties["url"]
-    ]
-    burst_sts = [
-        datetime.strptime(b.properties["startTime"], "%Y-%m-%dT%H:%M:%SZ")
-        for b in results
-        if scene in b.properties["url"]
-    ]
-    if lowercase:
-        burst_ids = [b.lower() for b in burst_ids]
+    burst_info = {}
 
-    if len(burst_ids) == 0:
+    for b in results:
+        if scene in b.properties["url"]:
+            burst_id = f"{burst_prefix}{b.properties['burst']['fullBurstID']}"
+            burst_id = burst_id.lower() if lowercase else burst_id
+            burst_st = datetime.strptime(
+                b.properties["startTime"], "%Y-%m-%dT%H:%M:%SZ"
+            )
+            burst_geom = shapely.geometry.shape(b.geometry)
+            if burst_id not in burst_info:
+                burst_info[burst_id] = {"start_time": burst_st, "geometry": burst_geom}
+
+    if len(burst_info) == 0:
         raise FileExistsError(
             "No burst id's for scene could be found on the ASF. Ensure input values are correct "
             "or set `--scene_data_source CDSE` as recent scenes may not be available on ASF, or the scene is missing"
         )
 
-    return burst_ids, burst_sts
+    return burst_info
+
+
+def get_burst_info_for_scene_from_cdse(
+    scene: str, burst_prefix: str = "t", lowercase: bool = True
+):
+    """Get the burst info for a scene from the CDSE
+
+    Parameters
+    ----------
+    scene : str
+        the scene id. e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
+    burst_prefix : str
+        A prefix to add to the burst string. default 't'. For example:
+        070_149822_IW3 -> t070_149822_IW3 with burst_prefix = 't'.
+    lowercase: bool
+        convert the burst to lowercase. default to True to match workflow output.
+
+    Raises
+    -------
+    FileExistsError:
+        The scene does not exist on the ASF.
+
+    Returns
+    -------
+    dict
+        unique dict of scene burst ids mapped to start_times and geometries
+        {'t070_149822_IW3' : {start_time : datetime.datetime, geometry: shapely.geom}}
+    """
+
+    base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
+    query = f"$filter=ParentProductName eq '{scene}.SAFE'&$top=100"
+    url = f"{base_url}?{query}"
+
+    response = requests.get(url)
+    response.raise_for_status()  # Raise error for bad responses
+
+    results = response.json().get("value", [])
+    burst_info = {}
+
+    for b in results:
+        track_number = int(b.get("RelativeOrbitNumber"))
+        esa_burst_id = int(b.get("BurstId"))
+        subswath = b.get("SwathIdentifier")
+        # construct the unique JPL burst id
+        burst_id = f"t{track_number:03d}_{esa_burst_id:06d}_{subswath}"
+        burst_id = burst_id.lower() if lowercase else burst_id
+        # get start-times and geometries
+        burst_st = datetime.strptime(
+            b.get("BeginningDateTime"), "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
+        burst_geom = shapely.geometry.shape(b.get("GeoFootprint"))
+
+        if burst_id not in burst_info:
+            burst_info[burst_id] = {"start_time": burst_st, "geometry": burst_geom}
+
+    if len(burst_info) == 0:
+        raise FileExistsError(
+            "No burst id's for scene could be found on the CDSE. Ensure input values are correct."
+        )
+
+    return burst_info
 
 
 def make_static_layer_base_url(
@@ -358,12 +420,13 @@ def make_rtc_s1_static_s3_subpath(
     return f"{s3_project_folder}/{collection}/{burst_id}"
 
 
-def check_static_layers_in_s3(
+def ensure_static_layers_in_s3(
     scene: str,
     burst_id_list,
     static_layers_s3_bucket: str,
     static_layers_collection: str,
     static_layers_s3_project_folder: str,
+    early_exit_code: int = 101,
 ):
     """Check AWS S3 bucket to ensure static layers exist for the required bursts
 
@@ -441,4 +504,4 @@ def check_static_layers_in_s3(
             f"E.g. re-run the workflow using `--product RTC_S1_STATIC --collection rtc_s1_static_c1.`\n"
             f"See workflow docs for details at docs/workflows/aws.md."
         )
-        sys.exit(101)
+        sys.exit(early_exit_code)
