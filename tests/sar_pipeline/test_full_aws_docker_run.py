@@ -9,6 +9,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import sys
 from datetime import datetime
+import sar_pipeline
 
 logging.basicConfig(
     level=logging.DEBUG,  # or INFO
@@ -81,7 +82,7 @@ def build_image():
             "docker",
             "build",
             "-t",
-            "sar-pipeline:test",
+            f"sar-pipeline:{sar_pipeline.__version__}",
             "-f",
             "Docker/Dockerfile",
             ".",
@@ -108,7 +109,7 @@ def test_docker_with_args():
             "run",
             "--rm",
             *ENV_VARS,
-            "sar-pipeline:test",
+            f"sar-pipeline:{sar_pipeline.__version__}",
             "--scene",
             "S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
             "--burst_id_list",
