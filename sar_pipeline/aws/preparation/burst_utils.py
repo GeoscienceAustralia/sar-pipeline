@@ -93,7 +93,7 @@ def find_s3_filepaths_from_suffixes(bucket_name, s3_folder, suffixes) -> dict:
 def get_burst_info_for_scene_from_asf(
     scene: str, burst_prefix: str = "t", lowercase: bool = True
 ) -> tuple[list[str], list[datetime]]:
-    """Get the burst info for a scene from thr ASF
+    """Get the burst ids, start-times and geometries for a scene from ASF
 
     Parameters
     ----------
@@ -152,7 +152,7 @@ def get_burst_info_for_scene_from_asf(
 def get_burst_info_for_scene_from_cdse(
     scene: str, burst_prefix: str = "t", lowercase: bool = True
 ):
-    """Get the burst info for a scene from the CDSE
+    """Get the burst ids, start-times and geometries for a scene from CDSE
 
     Parameters
     ----------
@@ -173,7 +173,7 @@ def get_burst_info_for_scene_from_cdse(
     -------
     dict
         unique dict of scene burst ids mapped to start_times and geometries
-        {'t070_149822_IW3' : {start_time : datetime.datetime, geometry: shapely.geom}}
+        {'t070_149822_IW3' : {start_time : datetime.datetime, geometry: shapely.geometry}}
     """
 
     base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
