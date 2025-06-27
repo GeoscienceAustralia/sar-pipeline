@@ -9,7 +9,7 @@ output_crs="UTM"
 dem_type="cop_glo30"
 product="RTC_S1"
 s3_bucket="deant-data-public-dev"
-s3_project_folder="experimental"
+s3_project_folder="ga_s1"
 collection="s1_rtc_c1"
 make_existing_products=false
 skip_upload_to_s3=false
@@ -20,12 +20,13 @@ validate_stac=false
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
 link_static_layers=false
 linked_static_layers_s3_bucket="deant-data-public-dev"
-linked_static_layers_s3_project_folder="experimental"
+linked_static_layers_s3_project_folder="ga_s1"
 linked_static_layers_collection="s1_rtc_static_c1"
 
 # Final product output paths follow the following structure
-# RTC_S1 -> s3_bucket/s3_project_folder/collection/burst_id/year/month/day/*files
-# RTC_S1_STATIC -> s3_bucket/s3_project_folder/collection/burst_id/*files
+# odc-product is determined by factors such as the input scene polarisations
+# RTC_S1 -> s3_bucket/s3_project_folder/c{collection_number}/collection/odc_product_name/burst_id/year/month/day/*files
+# RTC_S1_STATIC -> s3_bucket/s3_project_folder/c{collection_number}/collection/odc_product_name/burst_id/*files
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do

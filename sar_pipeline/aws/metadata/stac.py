@@ -14,6 +14,10 @@ import os
 import dem_handler
 import sar_pipeline
 from sar_pipeline.aws.metadata.h5 import H5Manager
+from sar_pipeline.aws.metadata.odc import (
+    get_odc_product_name,
+    get_collection_number,
+)
 from sar_pipeline.aws.preparation.burst_utils import (
     make_rtc_s1_s3_subpath,
     make_rtc_s1_static_s3_subpath,
@@ -74,8 +78,10 @@ class BurstH5toStacManager:
         self.burst_id = self.h5.search_value("burstID")
         self.polarisations = self.h5.search_value("listOfPolarizations")
         self.collection = collection
-        self.collection_number = self._get_collection_number()
-        self.odc_product = self._get_odc_product()
+        self.collection_number = get_collection_number(self.collection)
+        self.odc_product_name = get_odc_product_name(
+            self.product, self.collection_number, self.polarisations
+        )
         self.stac_extensions = [
             "https://stac-extensions.github.io/product/v0.1.0/schema.json",
             "https://stac-extensions.github.io/sar/v1.1.0/schema.json",
@@ -141,35 +147,6 @@ class BurstH5toStacManager:
         if product not in ["RTC_S1", "RTC_S1_STATIC"]:
             raise ValueError("Invalid product")
         return product
-
-    def _get_collection_number(self):
-        # ensure the collection ends with cX, where X is a positive integer
-        colletion_number = re.search(r"c(\d+)$", self.collection)
-        if not colletion_number:
-            raise ValueError(
-                f"Invalid collection name. The collection MUST end in cX where X"
-                " is an integer associated with the collection. E.g. rtc_s1_c1."
-            )
-        else:
-            # return the collection number as integer, rtc_s1_c1 -> 1
-            return int(colletion_number.group(1))
-
-    def _get_odc_product(self):
-        """set the odc:product value. WARNING this must align with
-        the DEA product name at indexing into the datacube.
-        These are hard-coded and set by the provided `collection_number`.
-        """
-        if self.product == "RTC_S1":
-            if all([pol in self.polarisations for pol in ["VV", "VH"]]):
-                return f"ga_s1_iw_vv_vh_c{self.collection_number}"
-            elif all([pol in self.polarisations for pol in ["HH", "HV"]]):
-                return f"ga_s1_iw_hh_hv_c{self.collection_number}"
-            elif self.polarisations == ["VV"]:
-                return f"ga_s1_iw_vv_c{self.collection_number}"
-            elif self.polarisations == ["HH"]:
-                return f"ga_s1_iw_hh_c{self.collection_number}"
-        elif self.product == "RTC_S1_STATIC":
-            return f"ga_s1_iw_static_c{self.collection_number}"
 
     def _make_s3_subfolder(self):
         "make the s3 subfolder destination based on the product"
@@ -255,7 +232,7 @@ class BurstH5toStacManager:
 
         # add odc specific fields
         self.item.properties["odc:product"] = (
-            self.odc_product
+            self.odc_product_name
         )  # this needs to  dynamic based on the pol files and match odc product
         self.item.properties["odc:product_family"] = "sar_ard"
         self.item.properties["odc:region_code"] = self.burst_id
@@ -435,7 +412,7 @@ class BurstH5toStacManager:
         self.item.add_link(
             pystac.Link(
                 rel="dem-source",
-                target=self.h5.search_value("demSource"),
+                target=self._extract_http_link(self.h5.search_value("demSource")),
             )
         )
 

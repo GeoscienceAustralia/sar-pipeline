@@ -60,7 +60,7 @@ def convert_bbox(bbox, src_crs, trg_crs):
 def transform_polygon(
     geometry: Polygon, src_crs: int, trg_crs: int, always_xy: bool = True
 ):
-    """point by point conversion of a polygon
+    """point by point reprojection of a polygon
 
     Parameters
     ----------

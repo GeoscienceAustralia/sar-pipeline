@@ -11,6 +11,10 @@ import sys
 import requests
 
 from sar_pipeline.aws.metadata.filetypes import REQUIRED_ASSET_FILETYPES
+from sar_pipeline.aws.metadata.odc import (
+    make_rtc_s1_s3_subpath,
+    make_rtc_s1_static_s3_subpath,
+)
 from sar_pipeline.nci.preparation.scenes import parse_scene_file_dates
 
 logging.basicConfig(level=logging.INFO)
@@ -92,8 +96,8 @@ def find_s3_filepaths_from_suffixes(bucket_name, s3_folder, suffixes) -> dict:
 
 def get_burst_info_for_scene_from_asf(
     scene: str, burst_prefix: str = "t", lowercase: bool = True
-) -> tuple[list[str], list[datetime]]:
-    """Get the burst ids, start-times and geometries for a scene from ASF
+) -> dict:
+    """Get the burst ids, start-times, polarisations and geometries for a scene from ASF
 
     Parameters
     ----------
@@ -137,8 +141,15 @@ def get_burst_info_for_scene_from_asf(
                 b.properties["startTime"], "%Y-%m-%dT%H:%M:%SZ"
             )
             burst_geom = shapely.geometry.shape(b.geometry)
+            pol = b.properties["polarization"]
             if burst_id not in burst_info:
-                burst_info[burst_id] = {"start_time": burst_st, "geometry": burst_geom}
+                burst_info[burst_id] = {
+                    "start_time": burst_st,
+                    "geometry": burst_geom,
+                    "pols": [pol],
+                }
+            elif burst_id in burst_info and pol not in burst_info[burst_id]["pols"]:
+                burst_info[burst_id]["pols"].append(pol)
 
     if len(burst_info) == 0:
         raise FileExistsError(
@@ -151,8 +162,8 @@ def get_burst_info_for_scene_from_asf(
 
 def get_burst_info_for_scene_from_cdse(
     scene: str, burst_prefix: str = "t", lowercase: bool = True
-):
-    """Get the burst ids, start-times and geometries for a scene from CDSE
+) -> dict:
+    """Get the burst ids, start-times, polarisations and geometries for a scene from CDSE
 
     Parameters
     ----------
@@ -191,16 +202,23 @@ def get_burst_info_for_scene_from_cdse(
         esa_burst_id = int(b.get("BurstId"))
         subswath = b.get("SwathIdentifier")
         # construct the unique JPL burst id
-        burst_id = f"t{track_number:03d}_{esa_burst_id:06d}_{subswath}"
+        burst_id = f"{burst_prefix}{track_number:03d}_{esa_burst_id:06d}_{subswath}"
         burst_id = burst_id.lower() if lowercase else burst_id
         # get start-times and geometries
         burst_st = datetime.strptime(
             b.get("BeginningDateTime"), "%Y-%m-%dT%H:%M:%S.%fZ"
         )
         burst_geom = shapely.geometry.shape(b.get("GeoFootprint"))
+        pol = b.get("PolarisationChannels")
 
         if burst_id not in burst_info:
-            burst_info[burst_id] = {"start_time": burst_st, "geometry": burst_geom}
+            burst_info[burst_id] = {
+                "start_time": burst_st,
+                "geometry": burst_geom,
+                "pols": [pol],
+            }
+        elif burst_id in burst_info and pol not in burst_info[burst_id]["pols"]:
+            burst_info[burst_id]["pols"].append(pol)
 
     if len(burst_info) == 0:
         raise FileExistsError(
@@ -210,46 +228,11 @@ def get_burst_info_for_scene_from_cdse(
     return burst_info
 
 
-def make_static_layer_base_url(
-    static_layers_s3_bucket: str,
-    static_layers_collection: str,
-    static_layers_s3_project_folder: str,
-    s3_region: str = "ap-southeast-2",
-) -> str:
-    """Make the base url to the static layers from the paths provided
-
-    Parameters
-    ----------
-    static_layers_s3_bucket : str
-        Bucket containing static layer
-    static_layers_collection : str
-        collection static layers belong to
-    static_layers_s3_project_folder : str
-        project folder within bucket if exists
-    s3_region : str, optional
-        aws region code, by default "ap-southeast-2"
-
-    Returns
-    -------
-    str
-        The url to the index file where static layers are stored for user
-        visibility
-    """
-    root_static_layer_path = make_rtc_s1_static_s3_subpath(
-        s3_project_folder=static_layers_s3_project_folder,
-        collection=static_layers_collection,
-        burst_id="",
-    )
-    return (
-        f"https://{static_layers_s3_bucket}.s3.{s3_region}.amazonaws.com"
-        f"/index.html?prefix={root_static_layer_path}"
-    )
-
-
 def check_burst_products_exists_in_s3(
     product: Literal["RTC_S1", "RTC_S1_STATIC"],
     burst_id_list: list[str],
     burst_st_list: list[str],
+    burst_polarisations: list[str],
     s3_bucket: str,
     s3_project_folder: str,
     collection: str,
@@ -274,7 +257,7 @@ def check_burst_products_exists_in_s3(
     s3_project_folder : str
         The subpath within the bucket
     collection : str
-        The collection. e.f. rtc_s1_c1
+        The collection. e.g. rtc_s1_c1. must end with cX, where X is an int.
     make_existing_products : bool
         whether to make products if they already exist in s3. If False,
         process will exit early if all already exist.
@@ -307,6 +290,7 @@ def check_burst_products_exists_in_s3(
             s3_product_subpath = make_rtc_s1_s3_subpath(
                 s3_project_folder=s3_project_folder,
                 collection=collection,
+                burst_polarisations=burst_polarisations,
                 burst_id=burst_id,
                 year=burst_st.year,
                 month=burst_st.month,
@@ -357,67 +341,6 @@ def check_burst_products_exists_in_s3(
 
     # return the list of bursts that need to be processed
     return burst_id_list_to_process
-
-
-def make_rtc_s1_s3_subpath(
-    s3_project_folder: str,
-    collection: str,
-    burst_id: str,
-    year: str,
-    month: str,
-    day: str,
-):
-    """Structure for the rtc_s1 product sub-folders. These include
-    information about when the burst was acquired.
-
-    Parameters
-    ----------
-    s3_project_folder : str
-        s3 project folder
-    collection : str
-        collection. e.g. rtc_s1_static_c1
-    burst_id : str
-        burst_id. e.g. t028_059507_iw2
-    year : str
-        year of burst acquisition
-    month : str
-        month of burst acquisition
-    day : str
-        day of burst acquisition
-
-    Returns
-    -------
-    str
-        path to the s3 bucket subfolder
-        e.g. my-subfolder/s1_rtc_c1/t028_059507_iw2/2022/01/01
-    """
-    return f"{s3_project_folder}/{collection}/{burst_id}/{year}/{month}/{day}"
-
-
-def make_rtc_s1_static_s3_subpath(
-    s3_project_folder: str,
-    collection: str,
-    burst_id: str,
-) -> str:
-    """Structure for the bucket subpath for static layers
-
-    Parameters
-    ----------
-    s3_project_folder : str
-        s3 project folder
-    collection : str
-        collection. e.g. rtc_s1_static_c1
-    burst_id : str
-        burst_id. e.g. t028_059507_iw2
-
-    Returns
-    -------
-    str
-        path to the s3 bucket subfolder
-        e.g. my-subfolder/s1_rtc_static_c1/t028_059507_iw2
-    """
-
-    return f"{s3_project_folder}/{collection}/{burst_id}"
 
 
 def ensure_static_layers_in_s3(

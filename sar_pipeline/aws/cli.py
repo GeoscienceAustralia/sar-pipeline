@@ -14,7 +14,6 @@ from sar_pipeline.aws.preparation.scenes import (
 from sar_pipeline.aws.preparation.orbits import download_orbits
 from sar_pipeline.aws.preparation.burst_utils import (
     ensure_static_layers_in_s3,
-    make_static_layer_base_url,
     check_burst_products_exists_in_s3,
     get_burst_info_for_scene_from_asf,
     get_burst_info_for_scene_from_cdse,
@@ -22,6 +21,10 @@ from sar_pipeline.aws.preparation.burst_utils import (
 
 from sar_pipeline.aws.preparation.config import RTCConfigManager
 from sar_pipeline.aws.metadata.stac import BurstH5toStacManager
+from sar_pipeline.aws.metadata.odc import (
+    make_static_layer_base_url,
+    get_collection_number,
+)
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 from sar_pipeline.utils.general import log_timing
 
@@ -207,13 +210,9 @@ def get_data_for_scene_and_make_run_config(
     else:
         raise ValueError("product must be S1_RTC or S1_RTC_STATIC")
 
-    # ensure the collection ends with cX, where X is a positive integer
-    collection_number = re.search(r"c(\d+)$", collection)
-    if not collection_number:
-        raise ValueError(
-            f"Invalid collection name. The collection MUST end in cX where X"
-            " is an integer associated with the collection. E.g. rtc_s1_c1."
-        )
+    # ensure the collection ends with cX, where X is a positive integer.
+    # Raise error for invalid naming
+    _ = get_collection_number(collection)
 
     # sub-folders for downloads
     orbit_folder = download_folder / "orbits"
@@ -263,11 +262,17 @@ def get_data_for_scene_and_make_run_config(
     burst_st_list_candidates = [
         all_scene_burst_info[id_]["start_time"] for id_ in burst_id_list_candidates
     ]
+    burst_pols = {
+        pol
+        for id_ in burst_id_list_candidates
+        for pol in all_scene_burst_info[id_]["pols"]
+    }
     # return products that don't exist, and early exit if all already exist
     burst_id_list_to_process = check_burst_products_exists_in_s3(
         product=product,
         burst_id_list=burst_id_list_candidates,
         burst_st_list=burst_st_list_candidates,
+        burst_polarisations=burst_pols,
         s3_bucket=s3_bucket,
         s3_project_folder=s3_project_folder,
         collection=collection,
@@ -395,8 +400,18 @@ def get_data_for_scene_and_make_run_config(
     # set the dem input source
     if dem_type == "cop_glo30":
         demSource = "https://registry.opendata.aws/copernicus-dem/"
+        demDescription = f"Copernicus Global 30m DEM - {demSource}"
         RTC_RUN_CONFIG.set(
-            f"{gk}.dynamic_ancillary_file_group.dem_file_description", demSource
+            f"{gk}.dynamic_ancillary_file_group.dem_file_description", demDescription
+        )
+    elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
+        dem_res = dem_type.split("_")[-1]
+        demSource = (
+            f"https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/latest/{dem_res}m"
+        )
+        demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM at {dem_res}m - {demSource}"
+        RTC_RUN_CONFIG.set(
+            f"{gk}.dynamic_ancillary_file_group.dem_file_description", demDescription
         )
 
     # specify bursts to process
