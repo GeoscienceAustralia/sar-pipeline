@@ -18,7 +18,10 @@ from sar_pipeline.aws.preparation.burst_utils import (
     make_rtc_s1_s3_subpath,
     make_rtc_s1_static_s3_subpath,
 )
-from sar_pipeline.utils.spatial import polygon_str_to_geojson, convert_bbox
+from sar_pipeline.utils.spatial import (
+    polygon_str_to_geojson,
+    reproject_bbox_to_geometry,
+)
 from sar_pipeline.aws.metadata.filetypes import (
     REQUIRED_ASSET_FILETYPES,
     ASSET_FILETYPE_TO_DESCRIPTION,
@@ -109,23 +112,25 @@ class BurstH5toStacManager:
             #     self.h5.search_value("boundingPolygon")
             # )
 
-            # self.bbox_4326 = shape(self.geometry_4326).bounds
-            self.bbox_4326 = convert_bbox(
+            polygon_4326 = reproject_bbox_to_geometry(
                 self.h5.search_value("boundingBox"),
                 src_crs=self.projection_epsg,
                 trg_crs=4326,
+                n_segments=5,
             )
-            # geometry is not included, set this to be bbox
-            self.geometry_4326 = mapping(box(*self.bbox_4326))
+            self.geometry_4326 = mapping(polygon_4326)
+            self.bbox_4326 = polygon_4326.bounds
 
         elif self.product == "RTC_S1_STATIC":
             # boundingPolygon is not included, set this to be bbox
-            self.bbox_4326 = convert_bbox(
+            polygon_4326 = reproject_bbox_to_geometry(
                 self.h5.search_value("boundingBox"),
                 src_crs=self.projection_epsg,
                 trg_crs=4326,
+                n_segments=5,
             )
-            self.geometry_4326 = mapping(box(*self.bbox_4326))
+            self.geometry_4326 = mapping(polygon_4326)
+            self.bbox_4326 = polygon_4326.bounds
 
         self.burst_s3_subfolder = self._make_s3_subfolder()
         self.bucket_href = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
