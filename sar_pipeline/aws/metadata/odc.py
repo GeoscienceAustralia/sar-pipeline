@@ -82,7 +82,7 @@ def make_rtc_s1_s3_subpath(
     -------
     str
         path to the s3 bucket subfolder
-        e.g. my-subfolder/s1_rtc_c1/t028_059507_iw2/2022/01/01
+        e.g. s3_project_folder/c1/s1_rtc_c1/ga_s1_iw_vv_c1/t028_059507_iw2/2022/01/01
     """
     # get collection name and number from input collection
     c_number = get_collection_number(collection)
@@ -111,7 +111,7 @@ def make_rtc_s1_static_s3_subpath(
     -------
     str
         path to the s3 bucket subfolder
-        e.g. my-subfolder/s1_rtc_static_c1/t028_059507_iw2
+        e.g. s3_project_folder/c1/s1_rtc_static_c1/ga_s1_iw_static_c1/t028_059507_iw2
     """
     # get collection name and number from input collection
     c_number = get_collection_number(collection)

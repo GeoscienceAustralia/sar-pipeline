@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import pytest
 from sar_pipeline.aws.preparation.burst_utils import (
-    check_burst_products_exists_in_s3,
+    check_burst_product_h5_exists_in_s3,
 )
 
 import logging
@@ -30,6 +30,7 @@ class BurstProduct:
     product: str
     burst_id_list: list
     burst_st_list: list[datetime]
+    burst_polarisations: list
     s3_bucket: str
     s3_project_folder: str
     collection: str
@@ -38,7 +39,7 @@ class BurstProduct:
 
 
 # test a non-existent RTC_S1 product
-S3_PROJECT_FOLDER_T1 = (
+S3_PROJECT_TEST_FOLDER = (
     "persistent/repositories/sar-pipeline/tests/sar_pipeline/data/isce3_rtc/results"
 )
 TEST_NON_EXISTING_RTC_S1 = BurstProduct(
@@ -48,8 +49,9 @@ TEST_NON_EXISTING_RTC_S1 = BurstProduct(
     burst_st_list=[
         datetime.strptime("2022-12-02T10:43:11.380294Z", "%Y-%m-%dT%H:%M:%S.%fZ")
     ],
+    burst_polarisations=["VV", "VH"],
     s3_bucket="deant-data-public-dev",
-    s3_project_folder=S3_PROJECT_FOLDER_T1,
+    s3_project_folder=S3_PROJECT_TEST_FOLDER,
     collection="s1_rtc_c1",
     make_existing_products=False,
     EXISTS=False,
@@ -62,8 +64,9 @@ TEST_EXISTING_RTC_S1 = BurstProduct(
     burst_st_list=[
         datetime.strptime("2022-12-02T10:43:15.082351Z", "%Y-%m-%dT%H:%M:%S.%fZ")
     ],
+    burst_polarisations=["VV", "VH"],
     s3_bucket="deant-data-public-dev",
-    s3_project_folder=S3_PROJECT_FOLDER_T1,
+    s3_project_folder=S3_PROJECT_TEST_FOLDER,
     collection="s1_rtc_c1",
     make_existing_products=False,
     EXISTS=True,
@@ -76,8 +79,9 @@ TEST_NON_EXISTING_RTC_S1_STATIC = BurstProduct(
     burst_st_list=[
         datetime.strptime("2022-12-02T10:43:11.380294Z", "%Y-%m-%dT%H:%M:%S.%fZ")
     ],
+    burst_polarisations=["VV", "VH"],
     s3_bucket="deant-data-public-dev",
-    s3_project_folder=S3_PROJECT_FOLDER_T1,
+    s3_project_folder=S3_PROJECT_TEST_FOLDER,
     collection="s1_rtc_static_c1",
     make_existing_products=False,
     EXISTS=False,
@@ -90,8 +94,9 @@ TEST_EXISTING_RTC_S1_STATIC = BurstProduct(
     burst_st_list=[
         datetime.strptime("2022-12-02T10:43:15.082351Z", "%Y-%m-%dT%H:%M:%S.%fZ")
     ],
+    burst_polarisations=["VV", "VH"],
     s3_bucket="deant-data-public-dev",
-    s3_project_folder=S3_PROJECT_FOLDER_T1,
+    s3_project_folder=S3_PROJECT_TEST_FOLDER,
     collection="s1_rtc_static_c1",
     make_existing_products=False,
     EXISTS=True,
@@ -106,16 +111,17 @@ TEST_BURST_PRODUCT_EXIST_CASES = [
 
 
 @pytest.mark.parametrize("test_run", TEST_BURST_PRODUCT_EXIST_CASES)
-def test_check_burst_products_exists_in_s3(test_run):
+def test_check_burst_product_h5_exists_in_s3(test_run):
 
     # we expect the product to already exist and therefore exit early
     # as the processing does not need to occur
     if test_run.EXISTS:
         with pytest.raises(SystemExit) as e:
-            check_burst_products_exists_in_s3(
+            check_burst_product_h5_exists_in_s3(
                 product=test_run.product,
                 burst_id_list=test_run.burst_id_list,
                 burst_st_list=test_run.burst_st_list,
+                burst_polarisations=test_run.burst_polarisations,
                 s3_bucket=test_run.s3_bucket,
                 s3_project_folder=test_run.s3_project_folder,
                 collection=test_run.collection,
@@ -128,10 +134,11 @@ def test_check_burst_products_exists_in_s3(test_run):
     # the product does not already exist, we expect to return the burst
     # in the list to process
     elif not test_run.EXISTS:
-        burst_id_list_to_process = check_burst_products_exists_in_s3(
+        burst_id_list_to_process = check_burst_product_h5_exists_in_s3(
             product=test_run.product,
             burst_id_list=test_run.burst_id_list,
             burst_st_list=test_run.burst_st_list,
+            burst_polarisations=test_run.burst_polarisations,
             s3_bucket=test_run.s3_bucket,
             s3_project_folder=test_run.s3_project_folder,
             collection=test_run.collection,

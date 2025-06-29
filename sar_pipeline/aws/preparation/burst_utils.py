@@ -141,7 +141,7 @@ def get_burst_info_for_scene_from_asf(
                 b.properties["startTime"], "%Y-%m-%dT%H:%M:%SZ"
             )
             burst_geom = shapely.geometry.shape(b.geometry)
-            pol = b.properties["polarization"]
+            pol = b.properties["polarization"].upper()
             if burst_id not in burst_info:
                 burst_info[burst_id] = {
                     "start_time": burst_st,
@@ -209,7 +209,7 @@ def get_burst_info_for_scene_from_cdse(
             b.get("BeginningDateTime"), "%Y-%m-%dT%H:%M:%S.%fZ"
         )
         burst_geom = shapely.geometry.shape(b.get("GeoFootprint"))
-        pol = b.get("PolarisationChannels")
+        pol = b.get("PolarisationChannels").upper()
 
         if burst_id not in burst_info:
             burst_info[burst_id] = {
@@ -228,7 +228,7 @@ def get_burst_info_for_scene_from_cdse(
     return burst_info
 
 
-def check_burst_products_exists_in_s3(
+def check_burst_product_h5_exists_in_s3(
     product: Literal["RTC_S1", "RTC_S1_STATIC"],
     burst_id_list: list[str],
     burst_st_list: list[str],

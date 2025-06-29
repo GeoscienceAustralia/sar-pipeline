@@ -14,7 +14,7 @@ from sar_pipeline.aws.preparation.scenes import (
 from sar_pipeline.aws.preparation.orbits import download_orbits
 from sar_pipeline.aws.preparation.burst_utils import (
     ensure_static_layers_in_s3,
-    check_burst_products_exists_in_s3,
+    check_burst_product_h5_exists_in_s3,
     get_burst_info_for_scene_from_asf,
     get_burst_info_for_scene_from_cdse,
 )
@@ -262,13 +262,13 @@ def get_data_for_scene_and_make_run_config(
     burst_st_list_candidates = [
         all_scene_burst_info[id_]["start_time"] for id_ in burst_id_list_candidates
     ]
-    burst_pols = {
+    burst_pols = [
         pol
         for id_ in burst_id_list_candidates
         for pol in all_scene_burst_info[id_]["pols"]
-    }
+    ]
     # return products that don't exist, and early exit if all already exist
-    burst_id_list_to_process = check_burst_products_exists_in_s3(
+    burst_id_list_to_process = check_burst_product_h5_exists_in_s3(
         product=product,
         burst_id_list=burst_id_list_candidates,
         burst_st_list=burst_st_list_candidates,
@@ -280,7 +280,6 @@ def get_data_for_scene_and_make_run_config(
         early_exit=True,
         early_exit_code=100,
     )
-
     logger.info(
         f"Processing {len(burst_id_list_to_process)} bursts for scene : {burst_id_list_to_process}"
     )
@@ -622,7 +621,7 @@ def make_rtc_opera_stac_and_upload_bursts(
             )
             # returns a list of bursts that don't already exist
             # pass in just the current burst
-            bursts_to_upload = check_burst_products_exists_in_s3(
+            bursts_to_upload = check_burst_product_h5_exists_in_s3(
                 product=product,
                 burst_id_list=[burst_stac_manager.burst_id],
                 burst_st_list=[burst_stac_manager.start_dt],
