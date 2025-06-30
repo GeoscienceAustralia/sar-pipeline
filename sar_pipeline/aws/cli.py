@@ -244,7 +244,7 @@ def get_data_for_scene_and_make_run_config(
         logger.info(f"Querying CDSE for scene burst id's")
         all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
         logger.info(
-            f"{len(all_scene_burst_info)} burst ids found for scene from ASF API"
+            f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API"
         )
 
     # Limit the bursts to be processed if a list has been provided
