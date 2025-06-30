@@ -72,7 +72,7 @@ def find_s3_filepaths_from_suffixes(bucket_name, s3_folder, suffixes) -> dict:
     if MISSING_CREDENTIALS:
         # attempt to connect without authentication
         logger.info(
-            f"Attempting to search bucket with missing credentials : {MISSING_CREDENTIALS}"
+            f"Attempting to search bucket without complete credentials. Missing credentials : {MISSING_CREDENTIALS}"
         )
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
     else:
