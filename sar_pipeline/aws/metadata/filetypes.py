@@ -41,7 +41,7 @@ ASSET_FILETYPE_TO_DESCRIPTION = {
     "_HH_gamma0.tif": "HH polarised gamma0 linear backscatter",
     "_HV_gamma0.tif": "HV polarised gamma0 linear backscatter",
     "_VV_gamma0.tif": "VV polarised gamma0 linear backscatter",
-    "_VH_gamma0.tif": "VH polarised gamma0 backscatter",
+    "_VH_gamma0.tif": "VH polarised gamma0 linear backscatter",
     "_local_incidence_angle.tif": "local incidence angle (LIA)",
     "_incidence_angle.tif": "incidence angle (IA)",
     "_interpolated_dem.tif": "interpolated digital elevation model (DEM)",
