@@ -38,7 +38,7 @@ ASSET_FILETYPE_TO_DESCRIPTION = {
     "_number_of_looks.tif": "number of looks",
     "_rtc_anf_gamma0_to_beta0.tif": "backscatter conversion layer, gamma0 to beta0. Eq. beta0 = rtc_anf_gamma0_to_beta0*gamma0",
     "_rtc_anf_gamma0_to_sigma0.tif": "backscatter conversion layer, gamma0 to sigma0. Eq. sigma0 = rtc_anf_sigma0_to_sigma0*gamma0",
-    "_HH_gamma0.tif": "HH polarised gamma0 backscatter",
+    "_HH_gamma0.tif": "HH polarised gamma0 linear backscatter",
     "_HV_gamma0.tif": "HV polarised gamma0 backscatter",
     "_VV_gamma0.tif": "VV polarised gamma0 backscatter",
     "_VH_gamma0.tif": "VH polarised gamma0 backscatter",
