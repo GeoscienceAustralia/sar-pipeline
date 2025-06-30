@@ -96,8 +96,10 @@ def find_s3_filepaths_from_suffixes(bucket_name, s3_folder, suffixes) -> dict:
 
 def get_burst_info_for_scene_from_asf(
     scene: str, burst_prefix: str = "t", lowercase: bool = True
-) -> dict:
-    """Get the burst ids, start-times, polarisations and geometries for a scene from ASF
+) -> dict[str, dict[str, str | datetime | shapely.geometry.Polygon]]:
+    """Get the burst ids, start-times, polarisations and geometries for a scene from ASF.
+    Return as a dictionary of bursts as the keys, and start-times, polarisations and geometries as
+    sub-dictionaries.
 
     Parameters
     ----------
@@ -117,8 +119,8 @@ def get_burst_info_for_scene_from_asf(
     Returns
     -------
     dict
-        unique dict of scene burst ids mapped to start_times and geometries
-        {'t070_149822_IW3' : {start_time : datetime.datetime, geometry: shapely.geom}}
+        unique dict of scene burst ids mapped to start_times, geometries and shapes
+        {'t070_149822_IW3' : {start_time : datetime.datetime, geometry: shapely.geometry}}
     """
 
     st, et = parse_scene_file_dates(scene)
@@ -162,8 +164,10 @@ def get_burst_info_for_scene_from_asf(
 
 def get_burst_info_for_scene_from_cdse(
     scene: str, burst_prefix: str = "t", lowercase: bool = True
-) -> dict:
-    """Get the burst ids, start-times, polarisations and geometries for a scene from CDSE
+) -> dict[str, dict[str, str | datetime | shapely.geometry.Polygon]]:
+    """Get the burst ids, start-times, polarisations and geometries for a scene from CDSE.
+    Return as a dictionary of bursts as the keys, and start-times, polarisations and geometries as
+    sub-dictionaries.
 
     Parameters
     ----------
@@ -183,7 +187,7 @@ def get_burst_info_for_scene_from_cdse(
     Returns
     -------
     dict
-        unique dict of scene burst ids mapped to start_times and geometries
+        unique dict of scene burst ids mapped to start_times, geometries and shapes
         {'t070_149822_IW3' : {start_time : datetime.datetime, geometry: shapely.geometry}}
     """
 
@@ -202,6 +206,7 @@ def get_burst_info_for_scene_from_cdse(
         esa_burst_id = int(b.get("BurstId"))
         subswath = b.get("SwathIdentifier")
         # construct the unique JPL burst id
+        # defined here - https://github.com/isce-framework/s1-reader/blob/main/src/s1reader/s1_burst_id.py#L133
         burst_id = f"{burst_prefix}{track_number:03d}_{esa_burst_id:06d}_{subswath}"
         burst_id = burst_id.lower() if lowercase else burst_id
         # get start-times and geometries
