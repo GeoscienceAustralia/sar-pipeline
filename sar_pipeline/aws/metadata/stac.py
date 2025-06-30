@@ -492,7 +492,7 @@ class BurstH5toStacManager:
         )
 
     def rename_backscatter_assets(self, burst_folder: Path):
-        """Rename the backscatter assets in the burst folder to include the calibration
+        """Rename the backscatter assets in the burst folder to include the normalization convention
         type in the filename. e.g. HH.tif -> HH_gamma0.tif
 
         Parameters
@@ -504,14 +504,18 @@ class BurstH5toStacManager:
 
         # get the list of files
         burst_files = [x for x in burst_folder.iterdir()]
-        # get gamma0 or sigma0 calibration
-        calibration = self.h5.search_value("outputBackscatterNormalizationConvention")
+        # get gamma0 or sigma0 normalization_convention
+        normalization_convention = self.h5.search_value(
+            "outputBackscatterNormalizationConvention"
+        )
 
         for f in burst_files:
             for pol in ("VV", "VH", "HH", "HV"):
                 old_suffix = f"{pol}.tif"
                 if f.name.endswith(old_suffix):
-                    new_name = f.name.replace(old_suffix, f"{pol}_{calibration}.tif")
+                    new_name = f.name.replace(
+                        old_suffix, f"{pol}_{normalization_convention}.tif"
+                    )
                     new_path = f.with_name(new_name)
                     f.rename(new_path)
                     break  # once renamed, no need to check other pols
@@ -540,15 +544,15 @@ class BurstH5toStacManager:
         # e.g. don't try add HH if it did not exist in original source data
         if self.product == "RTC_S1":
             pols = self.polarisations
-            calibration = self.h5.search_value(
+            normalization_convention = self.h5.search_value(
                 "outputBackscatterNormalizationConvention"
             )
             IGNORE_ASSETS = [
-                f"_{p}_{calibration}.tif"
+                f"_{p}_{normalization_convention}.tif"
                 for p in ["HH", "HV", "VV", "VH"]
                 if p not in pols
             ]
-            INCLUDED_POL_ASSETS = [f"_{p}_{calibration}.tif" for p in pols]
+            INCLUDED_POL_ASSETS = [f"_{p}_{normalization_convention}.tif" for p in pols]
         elif self.product == "RTC_S1_STATIC":
             # no pol for static products, only auxiliary files
             pols = []
