@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import sys
 from datetime import datetime
 import sar_pipeline
+import re
 
 logging.basicConfig(
     level=logging.DEBUG,  # or INFO
@@ -72,17 +73,18 @@ if missing:
         )
 
 
-# @pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def build_image():
+    docker_tag = re.sub(r"[^a-zA-Z0-9_.-]", "-", sar_pipeline.__version__)
     logging.info(
-        f"Building docker image sar-pipeline:test for testing, this may take a few minutes..."
+        f"Building docker image sar-pipeline:{docker_tag} for testing, this may take a few minutes..."
     )
     result = subprocess.run(
         [
             "docker",
             "build",
             "-t",
-            f"sar-pipeline:{sar_pipeline.__version__}",
+            f"sar-pipeline:{docker_tag}",
             "-f",
             "Docker/Dockerfile",
             ".",
