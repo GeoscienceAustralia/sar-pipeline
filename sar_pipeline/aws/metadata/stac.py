@@ -155,6 +155,7 @@ class BurstH5toStacManager:
             return make_rtc_s1_s3_subpath(
                 s3_project_folder=self.s3_project_folder,
                 collection=self.collection,
+                burst_polarisations=self.polarisations,
                 burst_id=self.burst_id,
                 year=self.start_dt.year,
                 month=self.start_dt.month,
