@@ -625,6 +625,7 @@ def make_rtc_opera_stac_and_upload_bursts(
                 product=product,
                 burst_id_list=[burst_stac_manager.burst_id],
                 burst_st_list=[burst_stac_manager.start_dt],
+                burst_polarisations=burst_stac_manager.polarisations,
                 s3_bucket=s3_bucket,
                 s3_project_folder=s3_project_folder,
                 collection=collection,
