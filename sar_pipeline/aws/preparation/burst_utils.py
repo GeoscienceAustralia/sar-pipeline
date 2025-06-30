@@ -385,8 +385,8 @@ def ensure_static_layers_in_s3(
     missing_burst_files = {}
 
     for burst_id in burst_id_list:
-        static_layers_s3_folder = (
-            f"{static_layers_s3_project_folder}/{static_layers_collection}/{burst_id}"
+        static_layers_s3_folder = make_rtc_s1_static_s3_subpath(
+            static_layers_s3_project_folder, static_layers_collection, burst_id
         )
         filetype_to_s3paths = find_s3_filepaths_from_suffixes(
             static_layers_s3_bucket,
