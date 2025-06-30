@@ -105,13 +105,14 @@ def test_docker_with_args():
     test_s3_bucket = "deant-data-public-dev"
     test_s3_project_folder = f"TMP/sar-pipeline/{run_dt}/{test_name}"
     logging.info(f"Uploading outputs to : {test_s3_bucket}/{test_s3_project_folder}")
+    docker_tag = re.sub(r"[^a-zA-Z0-9_.-]", "-", sar_pipeline.__version__)
     result = subprocess.run(
         [
             "docker",
             "run",
             "--rm",
             *ENV_VARS,
-            f"sar-pipeline:{sar_pipeline.__version__}",
+            f"sar-pipeline:{docker_tag}",
             "--scene",
             "S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
             "--burst_id_list",
