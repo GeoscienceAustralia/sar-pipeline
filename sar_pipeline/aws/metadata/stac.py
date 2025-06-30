@@ -250,7 +250,7 @@ class BurstH5toStacManager:
         if self.product == "RTC_S1":
             self.item.properties["ceosard:type"] = "radar"
             self.item.properties["ceosard:specification"] = "NRB"
-            self.item.properties["ceosard:specification_version"] = "1.1"
+            self.item.properties["ceosard:specification_version"] = "5.5"
 
         # add projection (proj) stac extension properties
         self.item.properties["proj:code"] = f"EPSG:{self.projection_epsg}"
@@ -385,7 +385,7 @@ class BurstH5toStacManager:
         self.item.add_link(
             pystac.Link(
                 rel="ceos-ard-specification",
-                target="https://ceos.org/ard/files/PFS/SAR/v1.1/CEOS-ARD_PFS_Synthetic_Aperture_Radar_v1.1.pdf",
+                target="https://ceos.org/ard/files/PFS/SAR/v1.2/CEOS-ARD_PFS_Synthetic_Aperture_Radar_v1.2.pdf",
                 media_type=pystac.media_type.MediaType.PDF,
             )
         )
