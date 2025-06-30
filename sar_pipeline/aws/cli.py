@@ -8,8 +8,8 @@ from s1reader import s1_info
 import re
 
 from sar_pipeline.aws.preparation.scenes import (
-    download_slc_from_asf,
-    download_slc_from_cdse,
+    download_scene_from_asf,
+    download_scene_from_cdse,
 )
 from sar_pipeline.aws.preparation.orbits import download_orbits
 from sar_pipeline.aws.preparation.burst_utils import (
@@ -255,7 +255,7 @@ def get_data_for_scene_and_make_run_config(
             logger.info(f"Burst id's not found on ASF, downloading scene from CDSE")
             # burst information must be taken from a downloaded scene
             logger.info(f"Downloading SLC for scene : {scene}")
-            SCENE_PATH, cdse_scene_metadata = download_slc_from_cdse(
+            SCENE_PATH, cdse_scene_metadata = download_scene_from_cdse(
                 scene, scene_folder
             )
             scene_polygon = shape(cdse_scene_metadata["geometry"])
@@ -321,14 +321,14 @@ def get_data_for_scene_and_make_run_config(
     if scene_data_source == "ASF":
         # download the SLC and get scene metadata from asf
         logger.info(f"Downloading SLC for scene : {scene}")
-        SCENE_PATH, asf_scene_metadata = download_slc_from_asf(scene, scene_folder)
+        SCENE_PATH, asf_scene_metadata = download_scene_from_asf(scene, scene_folder)
         scene_polygon = shape(asf_scene_metadata.geometry)
         polarisation_list = asf_scene_metadata.properties["polarization"].split("+")
         input_scene_url = asf_scene_metadata.properties["url"]
 
     elif scene_data_source == "CDSE" and SCENE_PATH is None:
         logger.info(f"Downloading SLC for scene : {scene}")
-        SCENE_PATH, cdse_scene_metadata = download_slc_from_cdse(scene, scene_folder)
+        SCENE_PATH, cdse_scene_metadata = download_scene_from_cdse(scene, scene_folder)
         scene_polygon = shape(cdse_scene_metadata["geometry"])
         polarisation_list = cdse_scene_metadata["properties"]["polarisation"].split("&")
         input_scene_url = cdse_scene_metadata["properties"]["services"]["download"][
