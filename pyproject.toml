@@ -85,11 +85,15 @@ default = { solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
 
 [tool.pixi.feature.dev.tasks]
+# run all tests
 test-all = "pytest"
+# pipeline related tests that do not require credentials - can currently be run locally and in github
 test-pipeline = "pytest tests/sar_pipeline/ --ignore=tests/sar_pipeline/test_aws_cli.py --ignore=tests/sar_pipeline/test_full_aws_docker_run.py"
 test-aws-cli = "pytest tests/sar_pipeline/test_aws_cli.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+# cli and e2e workflow tests that require credentials - not currently setup for github but should be run locally before PRs
 test-aws-functions = "pytest tests/sar_pipeline/test_aws_functions.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-full-aws-docker-run = "pytest tests/sar_pipeline/test_full_aws_docker_run.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+# nci specific tests that should be run locally on the nci
 test-nci-filesystem = "pytest tests/filesystem"
 lint = "black sar_pipeline"
 
