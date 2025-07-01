@@ -22,7 +22,7 @@ jobs:
 
     - name: Update Dockerfile version label
       run: |
-        sed -i "s/\(version=\)[\"']\?[^\"']*\([\"']\?\)/\1\"${VERSION}\"/" Docker/Dockerfile
+        sed -i "s/^ARG VERSION=.*/ARG VERSION=${VERSION}/" Docker/Dockerfile
         echo "Updated Dockerfile version to ${VERSION}"
 
     - name: Commit and push Dockerfile version update via PR
