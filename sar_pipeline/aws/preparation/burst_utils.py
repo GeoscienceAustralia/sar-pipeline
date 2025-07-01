@@ -1,30 +1,47 @@
 import asf_search
 from datetime import datetime, timedelta
 import boto3
+from botocore import UNSIGNED
+from botocore.config import Config
 import os
 import logging
-import s1reader
+import shapely
 from typing import Literal
 import sys
+import requests
 
 from sar_pipeline.aws.metadata.filetypes import REQUIRED_ASSET_FILETYPES
+from sar_pipeline.aws.metadata.odc import (
+    make_rtc_s1_s3_subpath,
+    make_rtc_s1_static_s3_subpath,
+)
 from sar_pipeline.nci.preparation.scenes import parse_scene_file_dates
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def check_aws_environment_credentials():
+def check_aws_environment_credentials() -> list[str]:
+    """Checks if the required credentials exist
+
+    Returns: list
+        A list of the credentials that are missing
+    """
     # search for credentials in environment and raise warning if not there
+    MISSING_CREDENTIALS = []
     if os.environ.get("AWS_ACCESS_KEY_ID") is None:
         wrn_msg = "AWS_ACCESS_KEY_ID is not set in environment variables. Set if authentication required on bucket"
         logging.warning(wrn_msg)
+        MISSING_CREDENTIALS.append("AWS_ACCESS_KEY_ID")
     if os.environ.get("AWS_SECRET_ACCESS_KEY") is None:
-        wrn_msg = "AWS_ACCESS_KEY_ID is not set in environment variables. Set if authentication required on bucket"
+        wrn_msg = "AWS_SECRET_ACCESS_KEY is not set in environment variables. Set if authentication required on bucket"
         logging.warning(wrn_msg)
+        MISSING_CREDENTIALS.append("AWS_SECRET_ACCESS_KEY")
     if os.environ.get("AWS_DEFAULT_REGION") is None:
         wrn_msg = "AWS_DEFAULT_REGION is not set in environment variables. Set if authentication required on bucket"
         logging.warning(wrn_msg)
+        MISSING_CREDENTIALS.append("AWS_DEFAULT_REGION")
+    return MISSING_CREDENTIALS
 
 
 def find_s3_filepaths_from_suffixes(bucket_name, s3_folder, suffixes) -> dict:
@@ -51,8 +68,15 @@ def find_s3_filepaths_from_suffixes(bucket_name, s3_folder, suffixes) -> dict:
         }
     """
 
-    check_aws_environment_credentials()
-    s3 = boto3.client("s3")
+    MISSING_CREDENTIALS = check_aws_environment_credentials()
+    if MISSING_CREDENTIALS:
+        # attempt to connect without authentication
+        logger.info(
+            f"Attempting to search bucket without complete credentials. Missing credentials : {MISSING_CREDENTIALS}"
+        )
+        s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+    else:
+        s3 = boto3.client("s3")
 
     response = s3.list_objects_v2(Bucket=bucket_name, Prefix=s3_folder)
     if "Contents" not in response:
@@ -70,10 +94,12 @@ def find_s3_filepaths_from_suffixes(bucket_name, s3_folder, suffixes) -> dict:
     return suffix_to_s3path
 
 
-def get_burst_ids_and_start_times_for_scene_from_asf(
+def get_burst_info_for_scene_from_asf(
     scene: str, burst_prefix: str = "t", lowercase: bool = True
-) -> tuple[list[str], list[datetime]]:
-    """Get the list of burst_ids corresponding to a scene
+) -> dict[str, dict[str, str | datetime | shapely.geometry.Polygon]]:
+    """Get the burst ids, start-times, polarisations and geometries for a scene from ASF.
+    Return as a dictionary of bursts as the keys, and start-times, polarisations and geometries as
+    sub-dictionaries.
 
     Parameters
     ----------
@@ -92,9 +118,9 @@ def get_burst_ids_and_start_times_for_scene_from_asf(
 
     Returns
     -------
-    tuple[list[str],list[datetime]]
-        List of burst ids. e.g. ['t070_149822_IW3','t070_149822_IW2' ....]
-        List of sensing start times corresponding to each above burst ids.
+    dict
+        unique dict of scene burst ids mapped to start_times, geometries and shapes
+        {'t070_149822_IW3' : {start_time : datetime.datetime, geometry: shapely.geometry}}
     """
 
     st, et = parse_scene_file_dates(scene)
@@ -107,72 +133,117 @@ def get_burst_ids_and_start_times_for_scene_from_asf(
         end=et + timedelta(seconds=1),
     )
 
-    burst_ids = [
-        f"{burst_prefix}{b.properties['burst']['fullBurstID']}"
-        for b in results
-        if scene in b.properties["url"]
-    ]
-    burst_sts = [
-        datetime.strptime(b.properties["startTime"], "%Y-%m-%dT%H:%M:%SZ")
-        for b in results
-        if scene in b.properties["url"]
-    ]
-    if lowercase:
-        burst_ids = [b.lower() for b in burst_ids]
+    burst_info = {}
 
-    if len(burst_ids) == 0:
+    for b in results:
+        if scene in b.properties["url"]:
+            burst_id = f"{burst_prefix}{b.properties['burst']['fullBurstID']}"
+            burst_id = burst_id.lower() if lowercase else burst_id
+            burst_st = datetime.strptime(
+                b.properties["startTime"], "%Y-%m-%dT%H:%M:%SZ"
+            )
+            burst_geom = shapely.geometry.shape(b.geometry)
+            pol = b.properties["polarization"].upper()
+            if burst_id not in burst_info:
+                burst_info[burst_id] = {
+                    "start_time": burst_st,
+                    "geometry": burst_geom,
+                    "pols": [pol],
+                }
+            elif burst_id in burst_info and pol not in burst_info[burst_id]["pols"]:
+                burst_info[burst_id]["pols"].append(pol)
+
+    if len(burst_info) == 0:
         raise FileExistsError(
             "No burst id's for scene could be found on the ASF. Ensure input values are correct "
             "or set `--scene_data_source CDSE` as recent scenes may not be available on ASF, or the scene is missing"
         )
 
-    return burst_ids, burst_sts
+    return burst_info
 
 
-def make_static_layer_base_url(
-    static_layers_s3_bucket: str,
-    static_layers_collection: str,
-    static_layers_s3_project_folder: str,
-    s3_region: str = "ap-southeast-2",
-) -> str:
-    """Make the base url to the static layers from the paths provided
+def get_burst_info_for_scene_from_cdse(
+    scene: str, burst_prefix: str = "t", lowercase: bool = True
+) -> dict[str, dict[str, str | datetime | shapely.geometry.Polygon]]:
+    """Get the burst ids, start-times, polarisations and geometries for a scene from CDSE.
+    Return as a dictionary of bursts as the keys, and start-times, polarisations and geometries as
+    sub-dictionaries.
 
     Parameters
     ----------
-    static_layers_s3_bucket : str
-        Bucket containing static layer
-    static_layers_collection : str
-        collection static layers belong to
-    static_layers_s3_project_folder : str
-        project folder within bucket if exists
-    s3_region : str, optional
-        aws region code, by default "ap-southeast-2"
+    scene : str
+        the scene id. e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
+    burst_prefix : str
+        A prefix to add to the burst string. default 't'. For example:
+        070_149822_IW3 -> t070_149822_IW3 with burst_prefix = 't'.
+    lowercase: bool
+        convert the burst to lowercase. default to True to match workflow output.
+
+    Raises
+    -------
+    FileExistsError:
+        The scene does not exist on the ASF.
 
     Returns
     -------
-    str
-        The url to the index file where static layers are stored for user
-        visibility
+    dict
+        unique dict of scene burst ids mapped to start_times, geometries and shapes
+        {'t070_149822_IW3' : {start_time : datetime.datetime, geometry: shapely.geometry}}
     """
-    root_static_layer_path = make_rtc_s1_static_s3_subpath(
-        s3_project_folder=static_layers_s3_project_folder,
-        collection=static_layers_collection,
-        burst_id="",
-    )
-    return (
-        f"https://{static_layers_s3_bucket}.s3.{s3_region}.amazonaws.com"
-        f"/index.html?prefix={root_static_layer_path}"
-    )
+
+    base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
+    query = f"$filter=ParentProductName eq '{scene}.SAFE'&$top=100"
+    url = f"{base_url}?{query}"
+
+    response = requests.get(url)
+    response.raise_for_status()  # Raise error for bad responses
+
+    results = response.json().get("value", [])
+    burst_info = {}
+
+    for b in results:
+        track_number = int(b.get("RelativeOrbitNumber"))
+        esa_burst_id = int(b.get("BurstId"))
+        subswath = b.get("SwathIdentifier")
+        # construct the unique JPL burst id
+        # defined here - https://github.com/isce-framework/s1-reader/blob/main/src/s1reader/s1_burst_id.py#L133
+        burst_id = f"{burst_prefix}{track_number:03d}_{esa_burst_id:06d}_{subswath}"
+        burst_id = burst_id.lower() if lowercase else burst_id
+        # get start-times and geometries
+        burst_st = datetime.strptime(
+            b.get("BeginningDateTime"), "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
+        burst_geom = shapely.geometry.shape(b.get("GeoFootprint"))
+        pol = b.get("PolarisationChannels").upper()
+
+        if burst_id not in burst_info:
+            burst_info[burst_id] = {
+                "start_time": burst_st,
+                "geometry": burst_geom,
+                "pols": [pol],
+            }
+        elif burst_id in burst_info and pol not in burst_info[burst_id]["pols"]:
+            burst_info[burst_id]["pols"].append(pol)
+
+    if len(burst_info) == 0:
+        raise FileExistsError(
+            "No burst id's for scene could be found on the CDSE. Ensure input values are correct."
+        )
+
+    return burst_info
 
 
-def check_burst_products_exists_in_s3(
+def check_burst_product_h5_exists_in_s3(
     product: Literal["RTC_S1", "RTC_S1_STATIC"],
     burst_id_list: list[str],
     burst_st_list: list[str],
+    burst_polarisations: list[str],
     s3_bucket: str,
     s3_project_folder: str,
     collection: str,
     make_existing_products: bool,
+    early_exit: bool = True,
+    early_exit_code: int = 100,
 ) -> tuple[list[str], list[str]]:
     """Check if the product already exists in s3. The storage location differs
     for static layers (RTC_S1_STATIC) and backscatter (RTC_S1). This function checks
@@ -191,10 +262,15 @@ def check_burst_products_exists_in_s3(
     s3_project_folder : str
         The subpath within the bucket
     collection : str
-        The collection. e.f. rtc_s1_c1
+        The collection. e.g. rtc_s1_c1. must end with cX, where X is an int.
     make_existing_products : bool
         whether to make products if they already exist in s3. If False,
         process will exit early if all already exist.
+    early_exit : bool,
+        Exit the process early with a 100 error code if True. If false,
+        No error is raised.
+    early_exit_code : int
+        If early exit, the code to exit the program with. default 100.
 
     Returns
     -------
@@ -208,6 +284,7 @@ def check_burst_products_exists_in_s3(
     existing_s3_paths = []
 
     for burst_id, burst_st in zip(burst_id_list, burst_st_list):
+        # get the path to search for
         if product == "RTC_S1_STATIC":
             s3_product_subpath = make_rtc_s1_static_s3_subpath(
                 s3_project_folder=s3_project_folder,
@@ -218,12 +295,14 @@ def check_burst_products_exists_in_s3(
             s3_product_subpath = make_rtc_s1_s3_subpath(
                 s3_project_folder=s3_project_folder,
                 collection=collection,
+                burst_polarisations=burst_polarisations,
                 burst_id=burst_id,
                 year=burst_st.year,
                 month=burst_st.month,
                 day=burst_st.day,
             )
         # assume the product exists if there is a .h5 file
+        logging.info(f"searching s3 folder : {s3_product_subpath}")
         product_h5_files = find_s3_filepaths_from_suffixes(
             bucket_name=s3_bucket, s3_folder=s3_product_subpath, suffixes=[".h5"]
         )
@@ -242,94 +321,40 @@ def check_burst_products_exists_in_s3(
             )
         if not make_existing_products:
             # limit burst ids to those which haven't been processed
-            burst_id_list = [b for b in burst_id_list if b not in existing_burst_ids]
+            burst_id_list_to_process = [
+                b for b in burst_id_list if b not in existing_burst_ids
+            ]
             logger.warning(
                 "Skipping the existing products. To create these, remove the existing products from S3. OR, pass flag "
                 "'--make-existing-products' to workflow. WARNING this can create duplicates that may impact downstream processes."
             )
             # exit if all existing burst products exist
             if all(b in existing_burst_ids for b in burst_id_list):
-                logging.warning(
-                    "All desired burst products already exist, exiting process early"
-                )
-                sys.exit(100)
+                logging.warning("All desired burst products already exist.")
+                if early_exit:
+                    logging.warning("Exiting process early")
+                    sys.exit(early_exit_code)
         else:
+            burst_id_list_to_process = burst_id_list
             logger.warning(
                 "Existing products are being re-created. WARNING This will create duplicates in the S3 bucket that may impact downstream processes. "
                 "set '--make-existing-products' if this behavior is not desired."
             )
     else:
         f"No products already exist for the requested bursts."
-    return burst_id_list
+        burst_id_list_to_process = burst_id_list
+
+    # return the list of bursts that need to be processed
+    return burst_id_list_to_process
 
 
-def make_rtc_s1_s3_subpath(
-    s3_project_folder: str,
-    collection: str,
-    burst_id: str,
-    year: str,
-    month: str,
-    day: str,
-):
-    """Structure for the rtc_s1 product sub-folders. These include
-    information about when the burst was acquired.
-
-    Parameters
-    ----------
-    s3_project_folder : str
-        s3 project folder
-    collection : str
-        collection. e.g. rtc_s1_static_c1
-    burst_id : str
-        burst_id. e.g. t028_059507_iw2
-    year : str
-        year of burst acquisition
-    month : str
-        month of burst acquisition
-    day : str
-        day of burst acquisition
-
-    Returns
-    -------
-    str
-        path to the s3 bucket subfolder
-        e.g. my-subfolder/s1_rtc_c1/t028_059507_iw2/2022/01/01
-    """
-    return f"{s3_project_folder}/{collection}/{burst_id}/{year}/{month}/{day}"
-
-
-def make_rtc_s1_static_s3_subpath(
-    s3_project_folder: str,
-    collection: str,
-    burst_id: str,
-) -> str:
-    """Structure for the bucket subpath for static layers
-
-    Parameters
-    ----------
-    s3_project_folder : str
-        s3 project folder
-    collection : str
-        collection. e.g. rtc_s1_static_c1
-    burst_id : str
-        burst_id. e.g. t028_059507_iw2
-
-    Returns
-    -------
-    str
-        path to the s3 bucket subfolder
-        e.g. my-subfolder/s1_rtc_static_c1/t028_059507_iw2
-    """
-
-    return f"{s3_project_folder}/{collection}/{burst_id}"
-
-
-def check_static_layers_in_s3(
+def ensure_static_layers_in_s3(
     scene: str,
     burst_id_list,
     static_layers_s3_bucket: str,
     static_layers_collection: str,
     static_layers_s3_project_folder: str,
+    early_exit_code: int = 101,
 ):
     """Check AWS S3 bucket to ensure static layers exist for the required bursts
 
@@ -365,8 +390,8 @@ def check_static_layers_in_s3(
     missing_burst_files = {}
 
     for burst_id in burst_id_list:
-        static_layers_s3_folder = (
-            f"{static_layers_s3_project_folder}/{static_layers_collection}/{burst_id}"
+        static_layers_s3_folder = make_rtc_s1_static_s3_subpath(
+            static_layers_s3_project_folder, static_layers_collection, burst_id
         )
         filetype_to_s3paths = find_s3_filepaths_from_suffixes(
             static_layers_s3_bucket,
@@ -397,9 +422,9 @@ def check_static_layers_in_s3(
             for burst_id, missing_files in missing_burst_files.items()
             if missing_files  # only include bursts with missing files
         )
-        raise FileExistsError(
+        logger.error(
             f"\nMissing static layers for bursts in scene : {scene}\n"
-            f"{n_missing} of {n_bursts} required bursts have files missing.\n"
+            f"{n_missing} of {n_bursts} bursts being processed have files missing.\n"
             f"Missing Bursts and static layer filetypes:\n"
             f"{missing_info}\n"
             f"Example AWS S3 path searched : {static_layers_s3_bucket}/{static_layers_s3_folder}\n"
@@ -407,3 +432,4 @@ def check_static_layers_in_s3(
             f"E.g. re-run the workflow using `--product RTC_S1_STATIC --collection rtc_s1_static_c1.`\n"
             f"See workflow docs for details at docs/workflows/aws.md."
         )
+        sys.exit(early_exit_code)

@@ -14,6 +14,8 @@ BASE_CONFIGS_FOLDER = Path(__file__).parents[2] / "configs/ISCE3-RTC"
 
 
 class RTCConfigManager:
+    """Manager for the opera/RTC run config files"""
+
     def __init__(
         self, base_config: BaseConfigType | None = None, config_path: str | None = None
     ):
