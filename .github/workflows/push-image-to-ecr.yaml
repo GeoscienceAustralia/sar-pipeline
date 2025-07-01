@@ -10,6 +10,7 @@ jobs:
 
     permissions:
       contents: write   # Need write to push the Dockerfile commit
+      pull-requests: write     # needed to push docker version
       id-token: write   # For OIDC (optional if using access keys)
 
     steps:
@@ -24,15 +25,31 @@ jobs:
         sed -i "s/\(version=\)[\"']\?[^\"']*\([\"']\?\)/\1\"${VERSION}\"/" Docker/Dockerfile
         echo "Updated Dockerfile version to ${VERSION}"
 
-    - name: Commit and push Dockerfile version update
+    - name: Commit and push Dockerfile version update via PR
       env:
         VERSION: ${{ env.VERSION }}
       run: |
         git config user.name "github-actions"
         git config user.email "github-actions@github.com"
+        
+        BRANCH="update-dockerfile-version-${VERSION}"
+        git checkout -b $BRANCH
+
         git add Docker/Dockerfile
         git commit -m "Update Dockerfile version to ${VERSION} from release"
-        git push origin HEAD:main
+        git push origin $BRANCH
+
+        echo "branch_name=$BRANCH" >> $GITHUB_OUTPUT
+      id: dockerfile_update
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v6
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ steps.dockerfile_update.outputs.branch_name }}
+        title: "Update Dockerfile version to ${{ env.VERSION }}"
+        body: "Automated PR to update Dockerfile version to match release ${{ env.VERSION }}"
+        base: main
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
