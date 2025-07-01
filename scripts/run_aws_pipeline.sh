@@ -9,7 +9,7 @@ output_crs="UTM"
 dem_type="cop_glo30"
 product="RTC_S1"
 s3_bucket="deant-data-public-dev"
-s3_project_folder="experimental"
+s3_project_folder="ga_s1"
 collection="s1_rtc_c1"
 make_existing_products=false
 skip_upload_to_s3=false
@@ -20,12 +20,13 @@ validate_stac=false
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
 link_static_layers=false
 linked_static_layers_s3_bucket="deant-data-public-dev"
-linked_static_layers_s3_project_folder="experimental"
+linked_static_layers_s3_project_folder="ga_s1"
 linked_static_layers_collection="s1_rtc_static_c1"
 
 # Final product output paths follow the following structure
-# RTC_S1 -> s3_bucket/s3_project_folder/collection/burst_id/year/month/day/*files
-# RTC_S1_STATIC -> s3_bucket/s3_project_folder/collection/burst_id/*files
+# odc-product is determined by factors such as the input scene polarisations
+# RTC_S1 -> s3_bucket/s3_project_folder/c{collection_number}/collection/odc_product_name/burst_id/year/month/day/*files
+# RTC_S1_STATIC -> s3_bucket/s3_project_folder/c{collection_number}/collection/odc_product_name/burst_id/*files
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
@@ -81,7 +82,7 @@ fi
 # OR, the CRS from the burst_db is used if provided.
 
 if [[ -z "$output_crs" || "${output_crs,,}" == "utm" ]]; then
-    epsg_code_msg="default UTM for scene center"
+    epsg_code_msg="default UTM for scene center / polar stereographic at high latitudes"
 elif [[ "$output_crs" =~ ^[0-9]+$ ]]; then
     epsg_code_msg="EPSG:$output_crs"
 else
@@ -194,8 +195,12 @@ fi
 exit_code=$?
 
 if [ $exit_code -eq 100 ]; then
-    echo "Early exit: products already exist for all bursts."
-    exit 0  # Graceful exit
+    echo "Success: Early exit, products already exist for all bursts."
+    exit 0  # Graceful exit with success code 0 
+fi
+if [ $exit_code -eq 101 ]; then
+    echo "Process failed (101): Static Layers are missing."
+    exit 101
 fi
 if [ $exit_code -ne 0 ]; then
     echo "Process failed: get-data-for-scene-and-make-run-config"
@@ -229,6 +234,11 @@ cmd=(
 if [ "$skip_upload_to_s3" = true ] ; then
     cmd+=( --skip-upload-to-s3)
 fi
+if [ "$make_existing_products" = true ] ; then
+    # make the product even if it already exists
+    # WARNING - this may result in duplicates
+    cmd+=( --make-existing-products )
+fi
 if [ "$link_static_layers" = true ] ; then
     # Static layers are to be linked to RTC_S1 in the stac metadata
     # The url link to static layers is read in from results .h5 file
@@ -240,7 +250,13 @@ if [ "$validate_stac" = true ] ; then
 fi
 
 # Execute the command
-"${cmd[@]}" || { 
-    echo "make-rtc-opera-stac-and-upload-bursts"
+"${cmd[@]}"
+exit_code=$?
+
+if [ $exit_code -ne 0 ]; then
+    echo "Process failed: make-rtc-opera-stac-and-upload-bursts"
     exit 1
-}
+else
+    echo "Success: required burst products created."
+    exit 0
+fi

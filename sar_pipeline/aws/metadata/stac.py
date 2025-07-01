@@ -14,11 +14,18 @@ import os
 import dem_handler
 import sar_pipeline
 from sar_pipeline.aws.metadata.h5 import H5Manager
+from sar_pipeline.aws.metadata.odc import (
+    get_odc_product_name,
+    get_collection_number,
+)
 from sar_pipeline.aws.preparation.burst_utils import (
     make_rtc_s1_s3_subpath,
     make_rtc_s1_static_s3_subpath,
 )
-from sar_pipeline.utils.spatial import polygon_str_to_geojson, convert_bbox
+from sar_pipeline.utils.spatial import (
+    polygon_str_to_geojson,
+    reproject_bbox_to_geometry,
+)
 from sar_pipeline.aws.metadata.filetypes import (
     REQUIRED_ASSET_FILETYPES,
     ASSET_FILETYPE_TO_DESCRIPTION,
@@ -71,8 +78,10 @@ class BurstH5toStacManager:
         self.burst_id = self.h5.search_value("burstID")
         self.polarisations = self.h5.search_value("listOfPolarizations")
         self.collection = collection
-        self.collection_number = self._get_collection_number()
-        self.odc_product = self._get_odc_product()
+        self.collection_number = get_collection_number(self.collection)
+        self.odc_product_name = get_odc_product_name(
+            self.product, self.collection_number, self.polarisations
+        )
         self.stac_extensions = [
             "https://stac-extensions.github.io/product/v0.1.0/schema.json",
             "https://stac-extensions.github.io/sar/v1.1.0/schema.json",
@@ -102,19 +111,32 @@ class BurstH5toStacManager:
             "data/projection"
         )  # code, e.g. 4326, 3031
         if self.product == "RTC_S1":
-            self.geometry_4326 = polygon_str_to_geojson(
-                self.h5.search_value("boundingPolygon")
-            )
-            self.bbox_4326 = shape(self.geometry_4326).bounds
-        elif self.product == "RTC_S1_STATIC":
-            # 4326 needs to be converted from native coordinates
-            self.bbox_4326 = convert_bbox(
+            # NOTE - boundingPolygon does not correctly encompass the burst data
+            # We therefore use the boundingBox in native coords converted to 4326
+            # below can be uncommented to return to the boundingPolygon
+            # self.geometry_4326 = polygon_str_to_geojson(
+            #     self.h5.search_value("boundingPolygon")
+            # )
+
+            polygon_4326 = reproject_bbox_to_geometry(
                 self.h5.search_value("boundingBox"),
                 src_crs=self.projection_epsg,
                 trg_crs=4326,
+                n_segments=5,
             )
-            # geometry is not included, set this to be bbox
-            self.geometry_4326 = mapping(box(*self.bbox_4326))
+            self.geometry_4326 = mapping(polygon_4326)
+            self.bbox_4326 = polygon_4326.bounds
+
+        elif self.product == "RTC_S1_STATIC":
+            # boundingPolygon is not included, set this to be bbox
+            polygon_4326 = reproject_bbox_to_geometry(
+                self.h5.search_value("boundingBox"),
+                src_crs=self.projection_epsg,
+                trg_crs=4326,
+                n_segments=5,
+            )
+            self.geometry_4326 = mapping(polygon_4326)
+            self.bbox_4326 = polygon_4326.bounds
 
         self.burst_s3_subfolder = self._make_s3_subfolder()
         self.bucket_href = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
@@ -126,35 +148,6 @@ class BurstH5toStacManager:
             raise ValueError("Invalid product")
         return product
 
-    def _get_collection_number(self):
-        # ensure the collection ends with cX, where X is a positive integer
-        colletion_number = re.search(r"c(\d+)$", self.collection)
-        if not colletion_number:
-            raise ValueError(
-                f"Invalid collection name. The collection MUST end in cX where X"
-                " is an integer associated with the collection. E.g. rtc_s1_c1."
-            )
-        else:
-            # return the collection number as integer, rtc_s1_c1 -> 1
-            return int(colletion_number.group(1))
-
-    def _get_odc_product(self):
-        """set the odc:product value. WARNING this must align with
-        the DEA product name at indexing into the datacube.
-        These are hard-coded and set by the provided `collection_number`.
-        """
-        if self.product == "RTC_S1":
-            if all([pol in self.polarisations for pol in ["VV", "VH"]]):
-                return f"ga_s1_iw_vv_vh_c{self.collection_number}"
-            elif all([pol in self.polarisations for pol in ["HH", "HV"]]):
-                return f"ga_s1_iw_hh_hv_c{self.collection_number}"
-            elif self.polarisations == ["VV"]:
-                return f"ga_s1_iw_vv_c{self.collection_number}"
-            elif self.polarisations == ["HH"]:
-                return f"ga_s1_iw_hh_c{self.collection_number}"
-        elif self.product == "RTC_S1_STATIC":
-            return f"ga_s1_iw_static_c{self.collection_number}"
-
     def _make_s3_subfolder(self):
         "make the s3 subfolder destination based on the product"
         if self.product == "RTC_S1":
@@ -162,6 +155,7 @@ class BurstH5toStacManager:
             return make_rtc_s1_s3_subpath(
                 s3_project_folder=self.s3_project_folder,
                 collection=self.collection,
+                burst_polarisations=self.polarisations,
                 burst_id=self.burst_id,
                 year=self.start_dt.year,
                 month=self.start_dt.month,
@@ -239,7 +233,7 @@ class BurstH5toStacManager:
 
         # add odc specific fields
         self.item.properties["odc:product"] = (
-            self.odc_product
+            self.odc_product_name
         )  # this needs to  dynamic based on the pol files and match odc product
         self.item.properties["odc:product_family"] = "sar_ard"
         self.item.properties["odc:region_code"] = self.burst_id
@@ -256,7 +250,7 @@ class BurstH5toStacManager:
         if self.product == "RTC_S1":
             self.item.properties["ceosard:type"] = "radar"
             self.item.properties["ceosard:specification"] = "NRB"
-            self.item.properties["ceosard:specification_version"] = "1.1"
+            self.item.properties["ceosard:specification_version"] = "5.5"
 
         # add projection (proj) stac extension properties
         self.item.properties["proj:code"] = f"EPSG:{self.projection_epsg}"
@@ -391,7 +385,7 @@ class BurstH5toStacManager:
         self.item.add_link(
             pystac.Link(
                 rel="ceos-ard-specification",
-                target="https://ceos.org/ard/files/PFS/SAR/v1.1/CEOS-ARD_PFS_Synthetic_Aperture_Radar_v1.1.pdf",
+                target="https://ceos.org/ard/files/PFS/SAR/v1.2/CEOS-ARD_PFS_Synthetic_Aperture_Radar_v1.2.pdf",
                 media_type=pystac.media_type.MediaType.PDF,
             )
         )
@@ -419,7 +413,7 @@ class BurstH5toStacManager:
         self.item.add_link(
             pystac.Link(
                 rel="dem-source",
-                target=self.h5.search_value("demSource"),
+                target=self._extract_http_link(self.h5.search_value("demSource")),
             )
         )
 
@@ -497,6 +491,35 @@ class BurstH5toStacManager:
             )
         )
 
+    def rename_backscatter_assets(self, burst_folder: Path):
+        """Rename the backscatter assets in the burst folder to include the normalization convention
+        type in the filename. e.g. HH.tif -> HH_gamma0.tif
+
+        Parameters
+        ----------
+        burst_folder : Path
+            path to the local folder containing output products for a single burst.
+            e.g. /path/to/my/scene_burst/t070_149813_iw2
+        """
+
+        # get the list of files
+        burst_files = [x for x in burst_folder.iterdir()]
+        # get gamma0 or sigma0 normalization_convention
+        normalization_convention = self.h5.search_value(
+            "outputBackscatterNormalizationConvention"
+        )
+
+        for f in burst_files:
+            for pol in ("VV", "VH", "HH", "HV"):
+                old_suffix = f"{pol}.tif"
+                if f.name.endswith(old_suffix):
+                    new_name = f.name.replace(
+                        old_suffix, f"{pol}_{normalization_convention}.tif"
+                    )
+                    new_path = f.with_name(new_name)
+                    f.rename(new_path)
+                    break  # once renamed, no need to check other pols
+
     def add_assets_from_folder(self, burst_folder: Path):
         """Add the asset files from the burst folder
 
@@ -521,10 +544,25 @@ class BurstH5toStacManager:
         # e.g. don't try add HH if it did not exist in original source data
         if self.product == "RTC_S1":
             pols = self.polarisations
+            normalization_convention = self.h5.search_value(
+                "outputBackscatterNormalizationConvention"
+            )
+            IGNORE_ASSETS = [
+                f"_{p}_{normalization_convention}.tif"
+                for p in ["HH", "HV", "VV", "VH"]
+                if p not in pols
+            ]
+            INCLUDED_POL_ASSETS = [f"_{p}_{normalization_convention}.tif" for p in pols]
         elif self.product == "RTC_S1_STATIC":
-            pols = []  # no pol for static products, only auxiliary files
-        IGNORE_ASSETS = [f"_{p}.tif" for p in ["HH", "HV", "VV", "VH"] if p not in pols]
-        INCLUDED_POL_ASSETS = [f"_{p}.tif" for p in pols]
+            # no pol for static products, only auxiliary files
+            pols = []
+            INCLUDED_POL_ASSETS = []
+            IGNORE_ASSETS = [
+                x
+                for x in REQUIRED_ASSET_FILETYPES
+                if any(pol in x for pol in ["HH", "HV", "VV", "VH"])
+            ]
+
         INCLUDED_ASSET_FILETYPES = [
             x for x in REQUIRED_ASSET_FILETYPES[self.product] if x not in IGNORE_ASSETS
         ]

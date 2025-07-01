@@ -3,24 +3,28 @@ import logging
 from pathlib import Path
 import shutil
 import sys
-from shapely.geometry import shape
+import shapely
 from s1reader import s1_info
 import re
 
 from sar_pipeline.aws.preparation.scenes import (
-    download_slc_from_asf,
-    download_slc_from_cdse,
+    download_scene_from_asf,
+    download_scene_from_cdse,
 )
 from sar_pipeline.aws.preparation.orbits import download_orbits
 from sar_pipeline.aws.preparation.burst_utils import (
-    check_static_layers_in_s3,
-    make_static_layer_base_url,
-    check_burst_products_exists_in_s3,
-    get_burst_ids_and_start_times_for_scene_from_asf,
+    ensure_static_layers_in_s3,
+    check_burst_product_h5_exists_in_s3,
+    get_burst_info_for_scene_from_asf,
+    get_burst_info_for_scene_from_cdse,
 )
 
 from sar_pipeline.aws.preparation.config import RTCConfigManager
 from sar_pipeline.aws.metadata.stac import BurstH5toStacManager
+from sar_pipeline.aws.metadata.odc import (
+    make_static_layer_base_url,
+    get_collection_number,
+)
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 from sar_pipeline.utils.general import log_timing
 
@@ -206,13 +210,9 @@ def get_data_for_scene_and_make_run_config(
     else:
         raise ValueError("product must be S1_RTC or S1_RTC_STATIC")
 
-    # ensure the collection ends with cX, where X is a positive integer
-    collection_number = re.search(r"c(\d+)$", collection)
-    if not collection_number:
-        raise ValueError(
-            f"Invalid collection name. The collection MUST end in cX where X"
-            " is an integer associated with the collection. E.g. rtc_s1_c1."
-        )
+    # ensure the collection ends with cX, where X is a positive integer.
+    # Raise error for invalid naming
+    _ = get_collection_number(collection)
 
     # sub-folders for downloads
     orbit_folder = download_folder / "orbits"
@@ -233,103 +233,82 @@ def get_data_for_scene_and_make_run_config(
         # the burst ids and start-times can be acquired from the asf-search api.
         # We can therefore check if products already exist before needing to download the scene
         logger.info(f"Querying ASF for scene burst id's")
-        all_slc_burst_id_list, all_slc_burst_st_list = (
-            get_burst_ids_and_start_times_for_scene_from_asf(scene)
-        )
+        all_scene_burst_info = get_burst_info_for_scene_from_asf(scene)
         logger.info(
-            f"{len(all_slc_burst_id_list)} burst ids found for scene from ASF API"
+            f"{len(all_scene_burst_info)} burst ids found for scene from ASF API"
         )
 
     elif scene_data_source == "CDSE":
-        try:
-            # try to find bursts on ASF first so download is not done until required
-            logger.info(f"Querying ASF for scene burst id's")
-            all_slc_burst_id_list, all_slc_burst_st_list = (
-                get_burst_ids_and_start_times_for_scene_from_asf(scene)
-            )
-            logger.info(
-                f"{len(all_slc_burst_id_list)} burst ids found for scene from ASF API"
-            )
-            SCENE_PATH = None  # set flag so we know to download
-        except FileExistsError:
-            logger.info(f"Burst id's not found on ASF, downloading scene from CDSE")
-            # burst information must be taken from a downloaded scene
-            logger.info(f"Downloading SLC for scene : {scene}")
-            SCENE_PATH, cdse_scene_metadata = download_slc_from_cdse(
-                scene, scene_folder
-            )
-            scene_polygon = shape(cdse_scene_metadata["geometry"])
-            polarisation_list = cdse_scene_metadata["properties"]["polarisation"].split(
-                "&"
-            )
-            input_scene_url = cdse_scene_metadata["properties"]["services"]["download"][
-                "url"
-            ]
-            # get burst data from the downloaded slc
-            slc_bursts_info = []
-            logger.info(f"Getting burst information from the downloaded scene slc file")
-            logger.info(f"Scene polarisations : {polarisation_list}")
-            for pol in polarisation_list:
-                slc_bursts_info += s1_info.get_bursts(SCENE_PATH, pol=pol.lower())
-                all_slc_burst_id_list = [str(b.burst_id) for b in slc_bursts_info]
-                all_slc_burst_st_list = [b.sensing_start for b in slc_bursts_info]
-
-            logger.info(
-                f"{len(all_slc_burst_id_list)} burst ids found for scene in the slc"
-            )
+        # the burst ids and start-times can be acquired from the asf-search api.
+        # We can therefore check if products already exist before needing to download the scene
+        logger.info(f"Querying CDSE for scene burst id's")
+        all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
+        logger.info(
+            f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API"
+        )
 
     # Limit the bursts to be processed if a list has been provided
     if burst_id_list:
         logger.info(f"List of bursts to process provided")
-        burst_id_list = burst_id_list.split(" ")
-        burst_st_list = [
-            all_slc_burst_st_list[i]
-            for i, b in enumerate(all_slc_burst_id_list)
-            if b in burst_id_list
-        ]
+        burst_id_list_candidates = burst_id_list.split(" ")
+
     else:
         logger.info(f"List of bursts not provided, processing all")
-        burst_id_list = all_slc_burst_id_list
-        burst_st_list = all_slc_burst_st_list
+        burst_id_list_candidates = list(all_scene_burst_info.keys())
 
     logger.info(
         f"Checking if burst products already exists in S3 for product {product}"
     )
-    burst_id_list = check_burst_products_exists_in_s3(
+    burst_st_list_candidates = [
+        all_scene_burst_info[id_]["start_time"] for id_ in burst_id_list_candidates
+    ]
+    burst_pols = [
+        pol
+        for id_ in burst_id_list_candidates
+        for pol in all_scene_burst_info[id_]["pols"]
+    ]
+    # return products that don't exist, and early exit if all already exist
+    burst_id_list_to_process = check_burst_product_h5_exists_in_s3(
         product=product,
-        burst_id_list=burst_id_list,
-        burst_st_list=burst_st_list,
+        burst_id_list=burst_id_list_candidates,
+        burst_st_list=burst_st_list_candidates,
+        burst_polarisations=burst_pols,
         s3_bucket=s3_bucket,
         s3_project_folder=s3_project_folder,
         collection=collection,
         make_existing_products=make_existing_products,
+        early_exit=True,
+        early_exit_code=100,
     )
-
-    logger.info(f"Processing {len(burst_id_list)} bursts for scene : {burst_id_list}")
+    logger.info(
+        f"Processing {len(burst_id_list_to_process)} bursts for scene : {burst_id_list_to_process}"
+    )
 
     # to link the RTC_S1_STATIC layers to RTC_S1, the static layers must already exist
     if link_static_layers and product == "RTC_S1":
         logger.info(f"Checking static layers exist for bursts in scene : {scene}")
-        check_static_layers_in_s3(
+        # the process will exit early if the required static layers don't exist
+        ensure_static_layers_in_s3(
             scene=scene,
-            burst_id_list=burst_id_list,
+            burst_id_list=burst_id_list_to_process,
             static_layers_s3_bucket=linked_static_layers_s3_bucket,
             static_layers_collection=linked_static_layers_collection,
             static_layers_s3_project_folder=linked_static_layers_s3_project_folder,
+            early_exit_code=101,
         )
 
     if scene_data_source == "ASF":
         # download the SLC and get scene metadata from asf
         logger.info(f"Downloading SLC for scene : {scene}")
-        SCENE_PATH, asf_scene_metadata = download_slc_from_asf(scene, scene_folder)
-        scene_polygon = shape(asf_scene_metadata.geometry)
+        SCENE_PATH, asf_scene_metadata = download_scene_from_asf(scene, scene_folder)
+        scene_polygon = shapely.geometry.shape(asf_scene_metadata.geometry)
         polarisation_list = asf_scene_metadata.properties["polarization"].split("+")
         input_scene_url = asf_scene_metadata.properties["url"]
 
-    elif scene_data_source == "CDSE" and SCENE_PATH is None:
+    elif scene_data_source == "CDSE":
         logger.info(f"Downloading SLC for scene : {scene}")
-        SCENE_PATH, cdse_scene_metadata = download_slc_from_cdse(scene, scene_folder)
-        scene_polygon = shape(cdse_scene_metadata["geometry"])
+        SCENE_PATH, cdse_scene_metadata = download_scene_from_cdse(scene, scene_folder)
+        scene_polygon = shapely.geometry.shape(cdse_scene_metadata["geometry"])
         polarisation_list = cdse_scene_metadata["properties"]["polarisation"].split("&")
         input_scene_url = cdse_scene_metadata["properties"]["services"]["download"][
             "url"
@@ -342,23 +321,36 @@ def get_data_for_scene_and_make_run_config(
     )
     logger.info(f"File downloaded to : {ORBIT_PATHS[0]}")
 
-    # # download the dem
+    # download the dem
     DEM_PATH = dem_folder / f"{scene}_dem.tif"
-    bounds = scene_polygon.bounds
 
+    # get the shape of the area covering the bursts to be processed
+    burst_geoms_to_process = [
+        all_scene_burst_info[id_]["geometry"] for id_ in burst_id_list_to_process
+    ]
+    combined_burst_geom = shapely.ops.unary_union(burst_geoms_to_process)
     logger.info(f"The scene shape is : {scene_polygon}")
-    logger.info(f"The scene bounds are : {bounds}")
+    logger.info(f"The scene bounds are : {scene_polygon.bounds}")
+    logger.info(f"The shape covering the required bursts is : {combined_burst_geom}")
+    logger.info(
+        f"The bounds covering the required bursts are : {combined_burst_geom.bounds}"
+    )
+    combined_burst_bounds = combined_burst_geom.bounds
+    scene_bounds = combined_burst_geom.bounds
 
-    if check_s1_bounds_cross_antimeridian(bounds):
+    if check_s1_bounds_cross_antimeridian(scene_bounds):
         # the scene crosses the antimeridian, the bounds need to be
         # correctly obtained from the source shape
-        logger.warning("The scene crosses the antimeridian, correcting bounds")
-        bounds = get_correct_bounds_from_shape_at_antimeridian(scene_polygon)
-        logger.info(f"The scene bounds are : {bounds}")
+        logger.warning("The scene bounds cross the antimeridian")
+        logger.warning("Downloading DEM data using the corrected scene bounds")
+        bounds = get_correct_bounds_from_shape_at_antimeridian(scene_bounds)
+        logger.info(f"The corrected scene bounds are : {bounds}")
         # increase the buffer to ensure DEM sufficiently covers area
         # shape is a little odd due to merging either side of AM
         cop30_buffer_degrees = 0.8
     else:
+        logger.info(f"Downloading DEM data for the combined burst bounds")
+        bounds = combined_burst_bounds
         cop30_buffer_degrees = 0.3
 
     logger.info(f"Downloading DEM type `{dem_type}` to path : {DEM_PATH}")
@@ -407,13 +399,22 @@ def get_data_for_scene_and_make_run_config(
     # set the dem input source
     if dem_type == "cop_glo30":
         demSource = "https://registry.opendata.aws/copernicus-dem/"
+        demDescription = f"Copernicus Global 30m DEM - {demSource}"
         RTC_RUN_CONFIG.set(
-            f"{gk}.dynamic_ancillary_file_group.dem_file_description", demSource
+            f"{gk}.dynamic_ancillary_file_group.dem_file_description", demDescription
+        )
+    elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
+        dem_res = dem_type.split("_")[-1]
+        demSource = (
+            f"https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/latest/{dem_res}m"
+        )
+        demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM at {dem_res}m - {demSource}"
+        RTC_RUN_CONFIG.set(
+            f"{gk}.dynamic_ancillary_file_group.dem_file_description", demDescription
         )
 
-    if burst_id_list:
-        # specify bursts if provided
-        RTC_RUN_CONFIG.set(f"{gk}.input_file_group.burst_id", burst_id_list)
+    # specify bursts to process
+    RTC_RUN_CONFIG.set(f"{gk}.input_file_group.burst_id", burst_id_list_to_process)
 
     # Update Outputs
     RTC_RUN_CONFIG.set(f"{gk}.product_group.output_dir", str(out_folder))
@@ -502,6 +503,14 @@ def get_data_for_scene_and_make_run_config(
     help="If we should upload outputs to S3.",
 )
 @click.option(
+    "--make-existing-products",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Create the burst products even if they already exist in the desired s3 bucket path. "
+    "WARNING - setting this argument may result in duplicate files.",
+)
+@click.option(
     "--link-static-layers",
     required=False,
     is_flag=True,
@@ -528,6 +537,7 @@ def make_rtc_opera_stac_and_upload_bursts(
     s3_bucket,
     s3_project_folder,
     skip_upload_to_s3,
+    make_existing_products,
     link_static_layers,
     validate_stac,
 ):
@@ -549,7 +559,7 @@ def make_rtc_opera_stac_and_upload_bursts(
         if len(burst_h5_files) != 1:
             raise ValueError(
                 f"{len(burst_h5_files)} .h5 files found. Expecting 1 in : {burst_folder}."
-                f"This error might be caused by repeat runs. Delete duplicate files or change run setings."
+                f"This error might be caused by repeat runs. Delete duplicate files or change run settings."
             )
         burst_h5_filepath = burst_folder / burst_h5_files[0]
         # make the stac metadata from the .h5 metadata
@@ -567,6 +577,9 @@ def make_rtc_opera_stac_and_upload_bursts(
         # add properties to the stac doc
         # TODO finalise stac metadata
         burst_stac_manager.add_properties_from_h5()
+        # rename the backscatter assets to include calibration
+        # i.e. HH.tif -> HH_gamma0.tif
+        burst_stac_manager.rename_backscatter_assets(burst_folder)
         # add the assets to the stac doc
         burst_stac_manager.add_assets_from_folder(burst_folder)
         # add additional links that will rarely change
@@ -600,7 +613,29 @@ def make_rtc_opera_stac_and_upload_bursts(
         if skip_upload_to_s3:
             logger.info(f"Skipping upload to S3.")
         else:
-            logger.info(f"uploading files for {burst_stac_manager.burst_id} to S3.")
-            push_files_in_folder_to_s3(
-                burst_folder, s3_bucket, burst_stac_manager.burst_s3_subfolder
+            # re-check that the files don't already exist in S3. This will help protect against
+            # simultaneous runs of the same product. E.g. the product did not exist at the
+            # start of the run and was created by another process during this run
+            logger.info(
+                f"Checking if product already exist before uploading for burst : {burst_stac_manager.burst_id}"
             )
+            # returns a list of bursts that don't already exist
+            # pass in just the current burst
+            bursts_to_upload = check_burst_product_h5_exists_in_s3(
+                product=product,
+                burst_id_list=[burst_stac_manager.burst_id],
+                burst_st_list=[burst_stac_manager.start_dt],
+                burst_polarisations=burst_stac_manager.polarisations,
+                s3_bucket=s3_bucket,
+                s3_project_folder=s3_project_folder,
+                collection=collection,
+                make_existing_products=make_existing_products,
+                early_exit=False,  # don't exit early, move to next burst
+            )
+            if burst_stac_manager.burst_id in bursts_to_upload:
+                logger.info(f"uploading files for {burst_stac_manager.burst_id} to S3.")
+                push_files_in_folder_to_s3(
+                    burst_folder, s3_bucket, burst_stac_manager.burst_s3_subfolder
+                )
+            else:
+                logger.info(f"Skipping upload to S3.")
