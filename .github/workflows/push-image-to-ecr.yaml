@@ -43,6 +43,7 @@ jobs:
       id: dockerfile_update
 
     - name: Create Pull Request
+      id: create_pr
       uses: peter-evans/create-pull-request@v6
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
@@ -50,6 +51,13 @@ jobs:
         title: "Update Dockerfile version to ${{ env.VERSION }}"
         body: "Automated PR to update Dockerfile version to match release ${{ env.VERSION }}"
         base: main
+
+    - name: Enable auto-merge
+      uses: peter-evans/enable-pull-request-automerge@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        pull-request-number: ${{ steps.create_pr.outputs.pull-request-number }}
+        merge-method: squash
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
