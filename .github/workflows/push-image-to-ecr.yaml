@@ -9,13 +9,30 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
-      id-token: write  # For OIDC (optional if using access keys)
+      contents: write   # Need write to push the Dockerfile commit
+      id-token: write   # For OIDC (optional if using access keys)
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Extract version from release tag
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+    - name: Update Dockerfile version label
+      run: |
+        sed -i "s/\(version=\)[\"']\?[^\"']*\([\"']\?\)/\1\"${VERSION}\"/" Docker/Dockerfile
+        echo "Updated Dockerfile version to ${VERSION}"
+
+    - name: Commit and push Dockerfile version update
+      env:
+        VERSION: ${{ env.VERSION }}
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add Docker/Dockerfile
+        git commit -m "Update Dockerfile version to ${VERSION} from release"
+        git push
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -31,12 +48,11 @@ jobs:
       env:
         ECR_REGISTRY: 538673716275.dkr.ecr.ap-southeast-2.amazonaws.com/geoscienceaustralia
         ECR_REPOSITORY: sar-pipeline
-
       run: |
-        IMAGE_TAG=${{ github.event.release.tag_name }}
+        IMAGE_TAG=${{ env.VERSION }}
         IMAGE_URI=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
 
-        docker build -t $IMAGE_URI -f Docker/Dockerfile .
+        docker build --build-arg VERSION=$IMAGE_TAG -t $IMAGE_URI -f Docker/Dockerfile .
         echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
     - name: Push image to ECR
