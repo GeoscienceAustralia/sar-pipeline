@@ -32,7 +32,7 @@ jobs:
         git config user.email "github-actions@github.com"
         git add Docker/Dockerfile
         git commit -m "Update Dockerfile version to ${VERSION} from release"
-        git push
+        git push origin HEAD:main
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
