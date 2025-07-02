@@ -1,3 +1,4 @@
+
 name: Build and Push Docker Image to ECR
 
 on:
@@ -9,58 +10,13 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write   # Need write to push the Dockerfile commit
-      pull-requests: write     # needed to push docker version
-      id-token: write   # For OIDC (optional if using access keys)
+      contents: read
+      id-token: write  # For OIDC (optional if using access keys)
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Extract version from release tag
-      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
-    - name: Update Dockerfile version label
-      run: |
-        sed -i "s/^ARG VERSION=.*/ARG VERSION=${{ env.VERSION }}/" Docker/Dockerfile
-        echo "Updated Dockerfile version to ${{ env.VERSION }}"
-
-    - name: Confirm updated Dockerfile version
-      run: grep "ARG VERSION=" Docker/Dockerfile
-
-    - name: Commit and push Dockerfile version update via PR
-      run: |
-        git config user.name "github-actions"
-        git config user.email "github-actions@github.com"
-        
-        BRANCH="update-dockerfile-version-${{ env.VERSION }}"
-        git checkout -b $BRANCH
-
-        git add Docker/Dockerfile
-        git commit -m "Update Dockerfile version to ${{ env.VERSION }} from release"
-        git push origin $BRANCH
-
-        echo "branch_name=$BRANCH" >> $GITHUB_OUTPUT
-      id: dockerfile_update
-
-    - name: Create Pull Request
-      id: create_pr
-      uses: peter-evans/create-pull-request@v6
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ steps.dockerfile_update.outputs.branch_name }}
-        title: "Update Dockerfile version to ${{ env.VERSION }}"
-        body: "Automated PR to update Dockerfile version to match release ${{ env.VERSION }}"
-        base: main
-        reviewers: ${{ github.event.release.author.login }}
-
-    - name: Enable auto-merge
-      uses: peter-evans/enable-pull-request-automerge@v3
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        pull-request-number: ${{ steps.create_pr.outputs.pull-request-number }}
-        merge-method: squash
-        merge-when-succeeded: true
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -76,11 +32,12 @@ jobs:
       env:
         ECR_REGISTRY: 538673716275.dkr.ecr.ap-southeast-2.amazonaws.com/geoscienceaustralia
         ECR_REPOSITORY: sar-pipeline
+
       run: |
-        IMAGE_TAG=${{ env.VERSION }}
+        IMAGE_TAG=${{ github.event.release.tag_name }}
         IMAGE_URI=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
 
-        docker build --build-arg VERSION=$IMAGE_TAG -t $IMAGE_URI -f Docker/Dockerfile .
+        docker build -t $IMAGE_URI -f Docker/Dockerfile .
         echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
     - name: Push image to ECR
