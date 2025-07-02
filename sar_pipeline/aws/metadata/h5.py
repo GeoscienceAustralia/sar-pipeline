@@ -1,7 +1,7 @@
 import h5py
 from pathlib import Path
 import numpy as np
-
+from sar_pipeline.aws.metadata.filetypes import UPDATED_METADATA_PARAMETERS
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -229,6 +229,48 @@ class H5Manager:
             else:
                 dest.create_dataset(name, data=item[()])
 
+    def set_value(self, dataset_path: str, value, dtype=None, overwrite=True):
+        """Set or create a dataset at the given path with the specified value.
+
+        Parameters
+        ----------
+        dataset_path : str
+            Path inside the HDF5 file (e.g., 'group1/dataset1').
+        value : any
+            Value to write (scalar or array-like).
+        dtype : np.dtype, optional
+            Data type for the dataset if creating new.
+        overwrite : bool, optional
+            Whether to overwrite an existing dataset. Default is True.
+
+        Raises
+        ------
+        ValueError
+            If the dataset exists and overwrite is False.
+        """
+        # Ensure group exists
+        group_path, _, dataset_name = dataset_path.rpartition("/")
+        group = self._ensure_group(group_path)
+
+        if dataset_name in group:
+            if not overwrite:
+                raise ValueError(
+                    f"Dataset '{dataset_path}' already exists and overwrite is False."
+                )
+            del group[dataset_name]
+
+        # Handle strings explicitly
+        if isinstance(value, str):
+            dtype = h5py.string_dtype(encoding="utf-8")
+            group.create_dataset(dataset_name, data=value, dtype=dtype)
+        else:
+            # Let h5py infer dtype for everything else
+            group.create_dataset(dataset_name, data=value)
+        logger.info(f"Set value at '{dataset_path}'")
+        # Refresh key lists
+        self.keys = self.get_key_list(print_name=False)
+        self.value_keys = self.get_keys_with_values()
+
     def close(self):
         """Close the open file handle."""
         if self.file:
@@ -239,3 +281,30 @@ class H5Manager:
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
+
+
+def update_h5_file_metadata(file_path: str):
+    with H5Manager(file_path, mode="r+") as h5:
+        h5.set_value(
+            "identification/ceosAnalysisReadyDataDocumentIdentifier",
+            UPDATED_METADATA_PARAMETERS["CEOS_DOC"],
+            str,
+        )
+        h5.set_value(
+            "identification/ceosAnalysisReadyDataProductType",
+            UPDATED_METADATA_PARAMETERS["CEOS_ARD_TYPE"],
+            str,
+        )
+        h5.set_value(
+            "identification/contactInformation",
+            UPDATED_METADATA_PARAMETERS["CONTACT_INFO"],
+            str,
+        )
+        h5.set_value(
+            "identification/institution",
+            UPDATED_METADATA_PARAMETERS["INSTITUTION"],
+            str,
+        )
+        h5.set_value(
+            "identification/project", UPDATED_METADATA_PARAMETERS["PROJECT"], str
+        )
