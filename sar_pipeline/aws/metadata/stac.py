@@ -311,6 +311,7 @@ class BurstH5toStacManager:
 
         # proposed sarard stac extension properties
         self.item.properties["sarard:source_id"] = self.h5.search_value("l1SlcGranules")
+        self.item.properties["sarard:source_geometry"] = "slant range"
         self.item.properties["sarard:scene_id"] = self.h5.search_value("l1SlcGranules")[
             0
         ].replace(".SAFE", "")
