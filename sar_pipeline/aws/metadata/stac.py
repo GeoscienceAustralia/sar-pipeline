@@ -32,6 +32,7 @@ from sar_pipeline.aws.metadata.filetypes import (
     ASSET_FILETYPE_TO_MEDIATYPE,
     ASSET_FILETYPE_TO_ROLES,
     ASSET_FILETYPE_TO_TITLE,
+    UPDATED_METADATA_PARAMETERS,
 )
 
 import logging
@@ -386,7 +387,7 @@ class BurstH5toStacManager:
         self.item.add_link(
             pystac.Link(
                 rel="ceos-ard-specification",
-                target="https://ceos.org/ard/files/PFS/SAR/v1.2/CEOS-ARD_PFS_Synthetic_Aperture_Radar_v1.2.pdf",
+                target=UPDATED_METADATA_PARAMETERS["CEOS_DOC"],
                 media_type=pystac.media_type.MediaType.PDF,
             )
         )
@@ -410,7 +411,7 @@ class BurstH5toStacManager:
             )
         )
 
-        # Add link to the DEM
+        # Add link to the DEM - extract link from description
         self.item.add_link(
             pystac.Link(
                 rel="dem-source",

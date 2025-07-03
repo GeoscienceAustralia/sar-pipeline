@@ -21,7 +21,6 @@ from sar_pipeline.aws.preparation.burst_utils import (
 
 from sar_pipeline.aws.preparation.config import RTCConfigManager
 from sar_pipeline.aws.metadata.h5 import update_h5_file_metadata
-from sar_pipeline.aws.metadata.geotiffs import update_tif_metadata_in_place
 from sar_pipeline.aws.metadata.stac import BurstH5toStacManager
 from sar_pipeline.aws.metadata.odc import (
     make_static_layer_base_url,
@@ -568,11 +567,7 @@ def make_rtc_opera_stac_and_upload_bursts(
         # update GeoTIFFs and h5 metadata to reflect GA processing
         logging.info(f"Updating .h5 file with GA parameters")
         update_h5_file_metadata(burst_h5_filepath)
-        logging.info(f"Updating .tif files with GA parameters")
-        for tif_filepath in burst_tif_files:
-            burst_tif_filepath = burst_folder / tif_filepath
-            logging.info(f"Updating : {burst_tif_filepath}")
-            update_tif_metadata_in_place(burst_tif_filepath)
+        # TODO Update .tif files with GA parameters
         # make the stac metadata from the .h5 metadata
         logging.info(f"Making stac metadata from .h5 file")
         # initialise the class to convert data from the .h5 to a stac doc
@@ -586,7 +581,6 @@ def make_rtc_opera_stac_and_upload_bursts(
         # make the stac item based
         burst_stac_manager.make_stac_item_from_h5()
         # add properties to the stac doc
-        # TODO finalise stac metadata
         burst_stac_manager.add_properties_from_h5()
         # rename the backscatter assets to include calibration
         # i.e. HH.tif -> HH_gamma0.tif
