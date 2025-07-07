@@ -20,6 +20,7 @@ from sar_pipeline.aws.preparation.burst_utils import (
 )
 
 from sar_pipeline.aws.preparation.config import RTCConfigManager
+from sar_pipeline.aws.metadata.h5 import update_h5_file_metadata
 from sar_pipeline.aws.metadata.stac import BurstH5toStacManager
 from sar_pipeline.aws.metadata.odc import (
     make_static_layer_base_url,
@@ -562,6 +563,11 @@ def make_rtc_opera_stac_and_upload_bursts(
                 f"This error might be caused by repeat runs. Delete duplicate files or change run settings."
             )
         burst_h5_filepath = burst_folder / burst_h5_files[0]
+        burst_tif_files = list(burst_folder.glob("*.tif"))
+        # update GeoTIFFs and h5 metadata to reflect GA processing
+        logging.info(f"Updating .h5 file with GA parameters")
+        update_h5_file_metadata(burst_h5_filepath)
+        # TODO Update .tif files with GA parameters
         # make the stac metadata from the .h5 metadata
         logging.info(f"Making stac metadata from .h5 file")
         # initialise the class to convert data from the .h5 to a stac doc
@@ -575,7 +581,6 @@ def make_rtc_opera_stac_and_upload_bursts(
         # make the stac item based
         burst_stac_manager.make_stac_item_from_h5()
         # add properties to the stac doc
-        # TODO finalise stac metadata
         burst_stac_manager.add_properties_from_h5()
         # rename the backscatter assets to include calibration
         # i.e. HH.tif -> HH_gamma0.tif

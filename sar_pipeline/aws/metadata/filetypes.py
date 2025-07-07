@@ -77,3 +77,11 @@ ASSET_FILETYPE_TO_MEDIATYPE = {
     "_interpolated_dem.tif": pystac.media_type.MediaType.COG,
     ".png": pystac.media_type.MediaType.PNG,
 }
+
+UPDATED_METADATA_PARAMETERS = {
+    "CEOS_DOC": "https://ceos.org/ard/files/PFS/SAR/v1.2/CEOS-ARD_PFS_Synthetic_Aperture_Radar_v1.2.pdf",
+    "CEOS_ARD_TYPE": "NRB",
+    "CONTACT_INFO": "earth.observation@ga.gov.au",
+    "INSTITUTION": "Geoscience Australia",
+    "PROJECT": "SAR-ARD",
+}
