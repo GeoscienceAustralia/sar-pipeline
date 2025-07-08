@@ -8,5 +8,7 @@
   "product_type": "IW_SLC__1S",
   "output_CRS": "utm",
   "dry_run": true,
-  "geojson_key": "persistent/DEA-non-offshore-product-extent.geojson"
+  "geojson_key": "persistent/DEA-non-offshore-product-extent.geojson",
+  "project": "experimental_full_aus"
+}
 }
