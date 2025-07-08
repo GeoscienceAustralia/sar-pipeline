@@ -67,7 +67,9 @@ def get_coords_from_polygon(geometry):
     elif geometry["type"] == "Polygon":
         return geometry["coordinates"]
     else:
-        raise ValueError(f"Unsupported geometry type: {geometry['type']}. Supported types are Polygon or Multipolygon.")
+        raise ValueError(
+            f"Unsupported geometry type: {geometry['type']}. Supported types are Polygon or Multipolygon."
+        )
 
 
 def get_coords_from_geojson_file(geojson_file):
