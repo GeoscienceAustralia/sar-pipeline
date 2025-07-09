@@ -29,10 +29,11 @@ rm $HOME/miniconda.sh
 ENV PATH=${CONDA_PREFIX}/bin:${PATH}
 RUN ${CONDA_PREFIX}/bin/conda init bash
 
-# Download the opera-adt/RTC code - UPDATE VERSION AND TAG HERE IF NEEDED
-ARG RTC_VERSION=RTC-1.0.4
-ARG RTC_VERSION_TAG=v1.0.4
-RUN  curl -sSL https://github.com/opera-adt/RTC/archive/refs/tags/$RTC_VERSION_TAG.tar.gz -o $RTC_VERSION.tar.gz &&\
+# Download and install the Geoscience Australia fork of the opera/RTC project
+# UPDATE VERSION AND TAG HERE IF NEEDED
+ARG RTC_VERSION=RTC-1.0.4-GA-prod
+ARG RTC_VERSION_TAG=v1.0.4-GA-prod
+RUN  curl -sSL https://github.com/GeoscienceAustralia/RTC/archive/refs/tags/$RTC_VERSION_TAG.tar.gz -o $RTC_VERSION.tar.gz &&\
 tar -xvf $RTC_VERSION.tar.gz -C OPERA &&\
 rm $RTC_VERSION.tar.gz
 

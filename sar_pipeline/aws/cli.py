@@ -28,6 +28,7 @@ from sar_pipeline.aws.metadata.odc import (
 )
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 from sar_pipeline.utils.general import log_timing
+from sar_pipeline.utils.spatial import write_burst_geometries_to_geojson
 
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
@@ -329,6 +330,12 @@ def get_data_for_scene_and_make_run_config(
     burst_geoms_to_process = [
         all_scene_burst_info[id_]["geometry"] for id_ in burst_id_list_to_process
     ]
+    # write the geometries to a geojson. Useful for debugging if needed
+    write_burst_geometries_to_geojson(
+        burst_id_list_to_process,
+        burst_geoms_to_process,
+        out_folder / f"{scene}_burst_geoms.json",
+    )
     combined_burst_geom = shapely.ops.unary_union(burst_geoms_to_process)
     logger.info(f"The scene shape is : {scene_polygon}")
     logger.info(f"The scene bounds are : {scene_polygon.bounds}")
@@ -595,6 +602,7 @@ def make_rtc_opera_stac_and_upload_bursts(
         if link_static_layers and product == "RTC_S1":
             # link to static layer metadata is in the .h5 file
             # use this to map assets to the file
+            logger.info("Linking static layers to product")
             burst_stac_manager.add_linked_static_layer_assets_and_link()
         stac_filename = "metadata.json"
         burst_stac_manager.add_self_link(filename=stac_filename)

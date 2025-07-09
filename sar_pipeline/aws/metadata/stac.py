@@ -363,11 +363,11 @@ class BurstH5toStacManager:
         )
         self.item.properties["sarard:ionospheric_correction_applied"] = False
 
-        # TODO fill with study result values
-        self.item.properties["sarard:geometric_accuracy_ALE"] = "TODO"
-        self.item.properties["sarard:geometric_accuracy_rmse"] = "TODO"
-        self.item.properties["sarard:geometric_accuracy_range"] = "TODO"
-        self.item.properties["sarard:geometric_accuracy_azimuth"] = "TODO"
+        # TODO when official doccument, link the study supporting these values
+        self.item.properties["sarard:geometric_accuracy_ALE"] = 2.94
+        self.item.properties["sarard:geometric_accuracy_rmse"] = 3.08
+        self.item.properties["sarard:geometric_accuracy_range"] = 1.63
+        self.item.properties["sarard:geometric_accuracy_azimuth"] = 1.92
 
         # add the storage stac extension properties
         self.item.properties["storage:schemes"] = {
@@ -647,6 +647,7 @@ class BurstH5toStacManager:
         burst_static_layer_stac_url = os.path.join(
             static_layer_url, self.burst_id, "metadata.json"
         )
+        logger.info(f"Static layer url: {burst_static_layer_stac_url}")
 
         try:
             # Send HTTP GET request
