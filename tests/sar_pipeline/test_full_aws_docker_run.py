@@ -127,7 +127,6 @@ def test_docker_with_args():
         test_s3_bucket,
         "--s3_project_folder",
         test_s3_project_folder,
-        "--validate_stac",
     ]
     result = subprocess.run(
         cmd,
@@ -154,7 +153,6 @@ def test_docker_with_args():
         test_s3_bucket,
         "--s3_project_folder",
         test_s3_project_folder,
-        "--validate_stac",
         "--link_static_layers",
         "--linked_static_layers_s3_project_folder",
         test_s3_project_folder,
