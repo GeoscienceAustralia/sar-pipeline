@@ -17,7 +17,7 @@ scene_data_source="ASF"
 orbit_data_source="ASF"
 skip_validate_stac=false
 ## -- WORKFLOW INPUTS TO LINK RTC_S1_STATIC in RTC_S1 metadata--
-# Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
+# if link_static_layers, RTC_S1_STATIC products must exist for all RTC_S1 bursts being processed
 link_static_layers=false
 linked_static_layers_s3_bucket="deant-data-public-dev"
 linked_static_layers_s3_project_folder="ga_s1"

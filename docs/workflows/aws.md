@@ -99,9 +99,9 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_aws_
 
 **Final paths of products**:
 
-- **RTC_S1** -> final path will be `s3_bucket/s3_project_folder/collection/burst_id/burst_year/burst_month/burst_day/*files*`
-- **RTC_S1_STATIC** -> final path will be `s3_bucket/s3_project_folder/collection/burst_id/*files*`
-
+Final product output paths follow the following structure. odc-product is determined by factors such as the input scene polarisations.
+-  **RTC_S1** -> s3_bucket/s3_project_folder/c{collection_number}/collection/odc_product_name/burst_id/year/month/day/*files
+-  **RTC_S1_STATIC** -> s3_bucket/s3_project_folder/c{collection_number}/collection/odc_product_name/burst_id/*files
 
 ## Environment Variables
 
