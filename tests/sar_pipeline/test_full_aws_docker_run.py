@@ -68,8 +68,8 @@ if missing:
     except:
         raise FileExistsError(
             "Could not find env.secret file at project root containing required environment variables for run. "
-            "Create this file with required variables or ensure environment is configured correctly "
-            "(for example when running automated tests on GitHub)"
+            "Create this file with required variables OR ensure environment is configured correctly "
+            "(e.g. when running automated tests on GitHub)"
         )
 
 
@@ -86,7 +86,7 @@ def build_image():
             "-t",
             f"sar-pipeline:{docker_tag}",
             "-f",
-            "Docker/Dockerfile",
+            "Docker/isce3-v0.24.4.Dockerfile",
             ".",
         ],
         stdout=sys.stdout,
@@ -100,29 +100,68 @@ def build_image():
 
 def test_docker_with_args():
     logging.info(f"Running full process, this may take a while...")
+    logging.info(f"Static layers will be produced and linked to backscatter data.")
     run_dt = str(datetime.now()).replace(" ", "_")
     test_name = Path(__file__).stem
     test_s3_bucket = "deant-data-public-dev"
     test_s3_project_folder = f"TMP/sar-pipeline/{run_dt}/{test_name}"
     logging.info(f"Uploading outputs to : {test_s3_bucket}/{test_s3_project_folder}")
     docker_tag = re.sub(r"[^a-zA-Z0-9_.-]", "-", sar_pipeline.__version__)
+
+    logging.info(f"RUN 1: Producing Static Layers")
+    cmd = [
+        "docker",
+        "run",
+        "--rm",
+        *ENV_VARS,
+        f"sar-pipeline:{docker_tag}",
+        "--scene",
+        "S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
+        "--burst_id_list",
+        "t070_149815_iw3",
+        "--product",
+        "RTC_S1_STATIC",
+        "--collection",
+        "s1_rtc_static_c1",
+        "--s3_bucket",
+        test_s3_bucket,
+        "--s3_project_folder",
+        test_s3_project_folder,
+    ]
     result = subprocess.run(
-        [
-            "docker",
-            "run",
-            "--rm",
-            *ENV_VARS,
-            f"sar-pipeline:{docker_tag}",
-            "--scene",
-            "S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
-            "--burst_id_list",
-            "t070_149815_iw3",
-            "--s3_bucket",
-            test_s3_bucket,
-            "--s3_project_folder",
-            test_s3_project_folder,
-            "--validate_stac",
-        ],
+        cmd,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        text=True,
+    )
+    assert (
+        result.returncode == 0
+    ), f"Non-zero exit code: {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+
+    logging.info(f"RUN 2: Producing Backscatter and Linking to Static Layers")
+    cmd = [
+        "docker",
+        "run",
+        "--rm",
+        *ENV_VARS,
+        f"sar-pipeline:{docker_tag}",
+        "--scene",
+        "S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
+        "--burst_id_list",
+        "t070_149815_iw3",
+        "--s3_bucket",
+        test_s3_bucket,
+        "--s3_project_folder",
+        test_s3_project_folder,
+        "--link_static_layers",
+        "--linked_static_layers_s3_project_folder",
+        test_s3_project_folder,
+        "--linked_static_layers_collection",
+        "s1_rtc_static_c1",
+    ]
+
+    result = subprocess.run(
+        cmd,
         stdout=sys.stdout,
         stderr=sys.stderr,
         text=True,

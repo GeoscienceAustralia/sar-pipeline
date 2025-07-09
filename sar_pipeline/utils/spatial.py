@@ -3,7 +3,10 @@ from pyproj import Transformer
 from shapely import wkt
 from shapely.geometry import mapping, box, Polygon
 from shapely import segmentize
+import json
+from pathlib import Path
 import logging
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -136,3 +139,44 @@ def reproject_bbox_to_geometry(
     segmentized_geometry = segmentize(bbox_geometry, max_segment_length=segment_length)
     transformed_geometry = transform_polygon(segmentized_geometry, src_crs, trg_crs)
     return transformed_geometry
+
+
+def write_burst_geometries_to_geojson(burst_id_list, burst_geometry_list, save_path):
+    """
+    Write burst geometries and their IDs to a GeoJSON file.
+
+    Parameters
+    ----------
+    burst_id_list : list of str
+        List of burst identifiers (e.g., "t007_014545_iw2").
+    burst_geometry_list : list of shapely.geometry.BaseGeometry
+        List of corresponding geometries for each burst ID. Must be in the same order as `burst_id_list`.
+    save_path : str or Path
+        Path to save the resulting GeoJSON file. Will be overwritten if it exists.
+
+    Raises
+    ------
+    ValueError
+        If `burst_id_list` and `burst_geometry_list` have different lengths.
+
+    """
+    if len(burst_id_list) != len(burst_geometry_list):
+        raise ValueError(
+            "burst_id_list and burst_geometry_list must have the same length."
+        )
+
+    features = []
+    for burst_id, geom in zip(burst_id_list, burst_geometry_list):
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": mapping(geom),
+                "properties": {"burst_id": burst_id},
+            }
+        )
+
+    geojson_obj = {"type": "FeatureCollection", "features": features}
+
+    Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(save_path, "w", encoding="utf-8") as f:
+        json.dump(geojson_obj, f, indent=2)
