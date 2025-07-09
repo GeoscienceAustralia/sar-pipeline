@@ -172,6 +172,13 @@ logger = logging.getLogger(__name__)
     help="Where to download the scene from.",
 )
 @click.option("--make-folders", required=False, default=True, help="Create folders")
+@click.option(
+    "--save-burst-geometries",
+    required=False,
+    default=False,
+    is_flag=True,
+    help="Save the burst geometries to a geojson",
+)
 @log_timing
 def get_data_for_scene_and_make_run_config(
     scene,
@@ -195,6 +202,7 @@ def get_data_for_scene_and_make_run_config(
     scene_data_source,
     orbit_data_source,
     make_folders,
+    save_burst_geometries,
 ):
     """Download the required data for the RTC/opera and create a configuration
     file for the run that points to appropriate files and has the required settings
@@ -331,11 +339,12 @@ def get_data_for_scene_and_make_run_config(
         all_scene_burst_info[id_]["geometry"] for id_ in burst_id_list_to_process
     ]
     # write the geometries to a geojson. Useful for debugging if needed
-    write_burst_geometries_to_geojson(
-        burst_id_list_to_process,
-        burst_geoms_to_process,
-        out_folder / f"{scene}_burst_geoms.json",
-    )
+    if save_burst_geometries:
+        write_burst_geometries_to_geojson(
+            burst_id_list_to_process,
+            burst_geoms_to_process,
+            out_folder / f"{scene}_burst_geoms.json",
+        )
     combined_burst_geom = shapely.ops.unary_union(burst_geoms_to_process)
     logger.info(f"The scene shape is : {scene_polygon}")
     logger.info(f"The scene bounds are : {scene_polygon.bounds}")
@@ -616,7 +625,9 @@ def make_rtc_opera_stac_and_upload_bursts(
                 burst_stac_manager.item.validate()
                 logger.info("STAC is valid.")
             except Exception as e:
-                logger.error(f"STAC validation failed: {e}")
+                logger.error(
+                    f"STAC validation failed, correct error or run without --validate-stac flag.\n{e}"
+                )
                 raise
         else:
             logger.warning(
