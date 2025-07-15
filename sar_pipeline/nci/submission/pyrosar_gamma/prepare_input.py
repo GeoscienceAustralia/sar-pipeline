@@ -52,7 +52,7 @@ def get_orbit_and_dem(
     orbit_file = find_latest_orbit_covering_window(orbit_files, scene_start, scene_stop)
 
     # Isolate metadata for creating DEM
-    scene_bbox = scene.bbox().extent
+    scene_bbox = scene.bbox().extent  # type: ignore
     scene_bounds = (
         scene_bbox["xmin"],
         scene_bbox["ymin"],
