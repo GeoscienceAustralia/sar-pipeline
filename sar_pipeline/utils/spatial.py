@@ -113,7 +113,7 @@ def reproject_bbox_to_geometry(
     trg_crs: int,
     n_segments: int = 5,
 ):
-    """Segmentises a bounding box and reprojects from one CRS to another. This ensures that
+    """Segments a bounding box and reprojects from one CRS to another. This ensures that
     the 'box' shape is maintained in the new crs. For example, a box in 4326 is converted
     to a geometry in 3031 that maintains the 4326 box shape/tilt.
 

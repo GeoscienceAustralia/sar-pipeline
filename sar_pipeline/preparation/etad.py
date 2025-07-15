@@ -201,7 +201,7 @@ def find_etad_for_scene(scene: str, etad_dir: Path) -> Path:
         Sentinel-1 scene ID
         e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
     etad_dir : Path
-        The local directory contianing ETAD files
+        The local directory containing ETAD files
 
     Returns
     -------
@@ -263,7 +263,7 @@ def apply_etad_correction(
         If the ETAD file is not a .SAFE directory
     """
 
-    # Validate that input scene and etad are .SAFE directiories
+    # Validate that input scene and etad are .SAFE directories
     if not (scene.is_dir() and scene.suffix == ".SAFE"):
         raise TypeError(
             f"{scene} is not a .SAFE directory. If it is a compressed file, extract it before passing to this function."

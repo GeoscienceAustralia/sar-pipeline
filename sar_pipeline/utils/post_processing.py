@@ -40,7 +40,7 @@ def gdal_reproject(
     dst_file : Path | str
         Location of the destination file
     dst_epsg : int
-        Numeric EPSG code for the reprojection (e.g. 3031 for polar sterographic)
+        Numeric EPSG code for the reprojection (e.g. 3031 for polar stereographic)
     dst_resolution : float | int
         Resolution for pixels in the destination CRS
     resample_algorithm : GdalWarpResampleAlgType, optional
@@ -50,7 +50,7 @@ def gdal_reproject(
     Raises
     ------
     ValueError
-        If provided resanpling algorithm is not one of those listed.
+        If provided resampling algorithm is not one of those listed.
     """
 
     # Check resampling algorithm is valid

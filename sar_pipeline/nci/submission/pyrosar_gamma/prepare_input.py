@@ -36,7 +36,7 @@ def get_orbit_and_dem(
     -------
     tuple[Path, Path]
         A tuple containing the path to the orbit file and a path to the DEM file.
-        e.g. ("path/to/orbit/orbitfile.EOF", "path/to/dem/demfile.tif")
+        e.g. ("path/to/orbit/orbit_file.EOF", "path/to/dem/dem_file.tif")
     """
 
     # Extract metadata
