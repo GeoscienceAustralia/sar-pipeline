@@ -195,9 +195,12 @@ def submit_pyrosar_gamma_workflow(
 
         # Check if the input string is a file
         elif input_as_path.is_file():
-            # If the file ends in .SAFE, it's a path to a Sentinel-1 scene
-            if input_as_path.suffix == "SAFE":
-                click.echo(f"A Sentinel-1 file path was passed: {input_as_path}")
+            if input_as_path.suffix == ".zip":
+                # Confirm that stem is either a Sentinel-1 SAFE dir or Sentinel-1 ID
+                if is_s1_filename(input_as_path.stem) or is_s1_id(input_as_path.stem):
+                    click.echo(
+                        f"A zipped Sentinel-1 file path was passed: {input_as_path}"
+                    )
                 return [input_as_path]
 
             # Otherwise, open the file and process the content line-by-line, using the same
@@ -214,7 +217,7 @@ def submit_pyrosar_gamma_workflow(
         # If unsuccessful, raise an error for the user.
         else:
             raise ValueError(
-                "scene must be a valid Sentinel-1 id/filename/path, or a file containing valid Sentinel-1 ids/filenames/paths"
+                "scene must be a valid Sentinel-1 id/zipped file/path, or a file containing valid Sentinel-1 ids/zipped files/paths"
             )
 
     processing_list = _get_nci_s1_filepath(scene)
