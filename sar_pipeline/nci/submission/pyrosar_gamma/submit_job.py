@@ -26,7 +26,7 @@ def submit_job(
     orbit_type: str,
     etad_dir: Path | None,
     output_dir: Path,
-    log_dir: str,
+    log_dir: Path,
     gamma_lib_dir: Path,
     gamma_env_var: str,
     pbs_parameters: dict[str, str],
@@ -45,7 +45,7 @@ def submit_job(
         pbs_parameters["project"],
         pbs_parameters["walltime"],
         scene_name,
-        log_dir,
+        str(log_dir),
     )
 
     # Ensure there is a trailing white space for each line
