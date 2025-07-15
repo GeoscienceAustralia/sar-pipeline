@@ -121,7 +121,7 @@ def find_etad_for_scene_on_cdse(scene: str) -> dict[str, Any]:
         raise ValueError(
             f"No ETAD products found, expected one. ETAD products are available post July 21st, 2023. Scene start date: {scene_start}"
         )
-    elif len(search_results) > 1:
+    else:
         raise ValueError(
             f"{len(search_results)} ETAD products found, expected one. Review files: {[result['Name'] for result in search_results]}"
         )
@@ -188,7 +188,9 @@ def download_etad_for_scene_from_cdse(
             archive.extractall(etad_dir)
             archive.close()
 
-    return etad_zip if not unzip else etad_safe
+        return etad_safe
+    else:
+        return etad_zip
 
 
 def find_etad_for_scene(scene: str, etad_dir: Path) -> Path:
