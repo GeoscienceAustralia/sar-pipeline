@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 import re
+from typing import TypedDict
 
 from sar_pipeline.nci.preparation.scenes import (
     parse_scene_file_dates,
@@ -87,11 +88,16 @@ def find_latest_orbit_covering_window(
     return latest_orbit
 
 
+class Orbit(TypedDict):
+    orbit: Path
+    published_date: datetime
+
+
 def filter_orbits_to_cover_time_window(
     orbit_files: list[Path],
     window_start: datetime,
     window_stop: datetime,
-) -> list[dict[str, Path | datetime]]:
+) -> list[Orbit]:
     """For a list of orbit files, finds all files that cover the time window
     specified by a start and stop datetime.
 
@@ -120,7 +126,10 @@ def filter_orbits_to_cover_time_window(
         orbit_published, orbit_start, orbit_stop = parse_orbit_file_dates(orbit_file)
 
         if window_start >= orbit_start and window_stop <= orbit_stop:
-            orbit_metadata = {"orbit": orbit_file, "published_date": orbit_published}
+            orbit_metadata: Orbit = {
+                "orbit": orbit_file,
+                "published_date": orbit_published,
+            }
             matching_orbits.append(orbit_metadata)
 
     if not matching_orbits:
@@ -129,24 +138,19 @@ def filter_orbits_to_cover_time_window(
     return matching_orbits
 
 
-def filter_orbits_to_latest(orbits: list[dict[str, Path | datetime]]) -> Path:
-    """For a list of orbit files and published dates, find the orbit file with the latest published date.
+def filter_orbits_to_latest(orbits: list[Orbit]) -> Path:
+    """For a list of dicts containing orbit files and published dates, find the orbit file with the latest published date.
 
     Parameters
     ----------
-    orbits : list[dict[str, Path  |  datetime]]
-        List of orbits, where each orbit is a dictionary of
+    orbits : list[Orbit]
+        List of orbit dictionaries, where each orbit is a dictionary of
         {"orbit": Path, "published_date": datetime}
 
     Returns
     -------
     Path
         The path to the orbit file with the latest published date
-
-    Raises
-    ------
-    ValueError
-        _description_
     """
 
     latest_orbit = max(orbits, key=lambda x: x["published_date"])
@@ -156,7 +160,9 @@ def filter_orbits_to_latest(orbits: list[dict[str, Path | datetime]]) -> Path:
     return latest_orbit_file
 
 
-def parse_orbit_file_dates(orbit_file_name: str) -> tuple[datetime, datetime, datetime]:
+def parse_orbit_file_dates(
+    orbit_file_name: str | Path,
+) -> tuple[datetime, datetime, datetime]:
     """Extracts published_date, start_date, and end_date from the given orbit file.
     Filename example: S1A_OPER_AUX_POEORB_OPOD_20141207T123431_V20141115T225944_20141117T005944.EOF
     - Published: 20141207T123431
@@ -165,8 +171,8 @@ def parse_orbit_file_dates(orbit_file_name: str) -> tuple[datetime, datetime, da
 
     Parameters
     ----------
-    orbit_file_name : str
-        The orbit file name as a string.
+    orbit_file_name : str | Path
+        The orbit file name as a string or a pathlib.Path
 
     Returns
     -------
@@ -178,6 +184,9 @@ def parse_orbit_file_dates(orbit_file_name: str) -> tuple[datetime, datetime, da
     ValueError
         Did not find a match to the expected date pattern of published_date followed by start_date and end_date
     """
+    if isinstance(orbit_file_name, Path):
+        orbit_file_name = str(orbit_file_name)
+
     # Regex pattern to match the dates
     pattern = (
         r"(?P<published_date>\d{8}T\d{6})_V"
