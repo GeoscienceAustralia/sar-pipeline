@@ -342,7 +342,7 @@ def submit_pyrosar_gamma_workflow(
     help="Environment variable to point to symlinked .sso objects to ensure GAMMA runs",
 )
 def run_pyrosar_gamma_workflow(
-    scene: str,
+    scene: Path,
     spacing: int,
     scaling: Literal["linear", "db", "both"],
     target_crs: Literal["4326", "3031"],
