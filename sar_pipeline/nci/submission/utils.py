@@ -7,8 +7,8 @@ STORAGE = "gdata/yp75+gdata/dg9+gdata/fj7+gdata/v10"
 
 
 def populate_pbs_template(
-    ncpu: int,
-    mem: int,
+    ncpu: str,
+    mem: str,
     queue: str,
     project: str,
     walltime: str,

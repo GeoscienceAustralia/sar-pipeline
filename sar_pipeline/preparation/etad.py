@@ -121,7 +121,7 @@ def find_etad_for_scene_on_cdse(scene: str) -> dict[str, Any]:
         raise ValueError(
             f"No ETAD products found, expected one. ETAD products are available post July 21st, 2023. Scene start date: {scene_start}"
         )
-    elif len(search_results) > 1:
+    else:
         raise ValueError(
             f"{len(search_results)} ETAD products found, expected one. Review files: {[result['Name'] for result in search_results]}"
         )
@@ -188,7 +188,9 @@ def download_etad_for_scene_from_cdse(
             archive.extractall(etad_dir)
             archive.close()
 
-    return etad_zip if not unzip else etad_safe
+        return etad_safe
+    else:
+        return etad_zip
 
 
 def find_etad_for_scene(scene: str, etad_dir: Path) -> Path:
@@ -201,7 +203,7 @@ def find_etad_for_scene(scene: str, etad_dir: Path) -> Path:
         Sentinel-1 scene ID
         e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
     etad_dir : Path
-        The local directory contianing ETAD files
+        The local directory containing ETAD files
 
     Returns
     -------
@@ -263,7 +265,7 @@ def apply_etad_correction(
         If the ETAD file is not a .SAFE directory
     """
 
-    # Validate that input scene and etad are .SAFE directiories
+    # Validate that input scene and etad are .SAFE directories
     if not (scene.is_dir() and scene.suffix == ".SAFE"):
         raise TypeError(
             f"{scene} is not a .SAFE directory. If it is a compressed file, extract it before passing to this function."

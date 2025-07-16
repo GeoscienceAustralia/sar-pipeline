@@ -129,8 +129,8 @@ def run_pyrosar_gamma_geocode(
                 archive.extractall(uncorrected_scene_dir)
                 archive.close()
 
-                # Update variable to use extracted etad
-                etad = uncorrected_scene_dir / etad.name.with_suffix(".SAFE")
+                # Update variable to use extracted etad -- replace existing extension with .SAFE
+                etad = uncorrected_scene_dir / (etad.stem + ".SAFE")
 
             logging.info("Applying ETAD correction")
             corrected_scene = apply_etad_correction(
@@ -164,7 +164,9 @@ def run_pyrosar_gamma_geocode(
 
     # If both linear and db scaling requested, construct the appropriate input for geocode
     if geocode_scaling == "both":
-        geocode_scaling = ["linear", "db"]
+        geocode_pyrosar_scaling = ["linear", "db"]
+    else:
+        geocode_pyrosar_scaling = geocode_scaling
 
     geocode(
         scene=pyrosar_scene_id,
@@ -172,7 +174,7 @@ def run_pyrosar_gamma_geocode(
         tmpdir=str(processing_directories["temp"]),
         outdir=str(processing_directories["scene"]),
         spacing=geocode_spacing,
-        scaling=geocode_scaling,
+        scaling=geocode_pyrosar_scaling,  # type: ignore
         func_geoback=1,
         nodata=(0, -99),
         update_osv=False,
@@ -187,7 +189,7 @@ def run_pyrosar_gamma_geocode(
             "pix_ratio_geo",
         ],
         basename_extensions=None,
-        removeS1BorderNoiseMethod=border_removal_method,
+        removeS1BorderNoiseMethod=str(border_removal_method),
         refine_lut=False,
         rlks=None,
         azlks=None,

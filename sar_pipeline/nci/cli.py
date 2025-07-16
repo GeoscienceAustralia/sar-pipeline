@@ -115,7 +115,7 @@ def configure(ctx, param, filename):
 @click.option(
     "--output-dir",
     type=click.Path(file_okay=False, path_type=Path),
-    default="/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/",
+    default="/g/data/yp75/projects/sar-antarctica-processing/pyrosar_gamma/",
     help="Path to where outputs will be stored.",
 )
 @click.option(
@@ -326,7 +326,7 @@ def submit_pyrosar_gamma_workflow(
 @click.option(
     "--output-dir",
     type=click.Path(file_okay=False, path_type=Path),
-    default="/g/data/yp75/projects/sar-antractica-processing/pyrosar_gamma/",
+    default="/g/data/yp75/projects/sar-antarctica-processing/pyrosar_gamma/",
     help="Path to where outputs will be stored.",
 )
 @click.option(
@@ -342,7 +342,7 @@ def submit_pyrosar_gamma_workflow(
     help="Environment variable to point to symlinked .sso objects to ensure GAMMA runs",
 )
 def run_pyrosar_gamma_workflow(
-    scene: str,
+    scene: Path,
     spacing: int,
     scaling: Literal["linear", "db", "both"],
     target_crs: Literal["4326", "3031"],
@@ -424,10 +424,10 @@ def find_orbits_for_scene(scene):
     start_time, stop_time = parse_scene_file_dates(scene)
 
     poe_paths = get_orbits_nci("POE", sensor)
-    relevent_poe_paths = filter_orbits_to_cover_time_window(
+    relevant_poe_paths = filter_orbits_to_cover_time_window(
         poe_paths, start_time, stop_time
     )
-    for orbit in relevent_poe_paths:
+    for orbit in relevant_poe_paths:
         click.echo(f"POE Orbit: {orbit['orbit']}")
 
     res_paths = get_orbits_nci("RES", sensor)
