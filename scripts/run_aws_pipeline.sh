@@ -6,8 +6,9 @@ scene=""
 burst_id_list=()
 resolution=20
 output_crs="UTM"
-dem_type="cop_glo30"
+dem_type=("REMA_32" "cop_glo30") # order of preference, if data available for scene
 product="RTC_S1"
+backscatter_convention=gamma0 # gamma0, sigma0 or beta0
 s3_bucket="deant-data-public-dev"
 s3_project_folder="ga_s1"
 collection="s1_rtc_c1"
@@ -34,8 +35,20 @@ while [[ "$#" -gt 0 ]]; do
         --scene) scene="$2"; shift 2 ;;
         --resolution) resolution="$2"; shift 2 ;;
         --output_crs) output_crs="$2"; shift 2 ;;
-        --dem_type) dem_type="$2"; shift 2 ;;
+        --dem_type) 
+            shift
+            if [[ $# -eq 1 && -f "$1" ]]; then
+                dem_type=($(cat "$1"))
+                shift
+            else
+                while [[ $# -gt 0 && ! $1 =~ ^-- ]]; do
+                    dem_type+=("$1")
+                    shift
+                done
+            fi
+            ;;
         --product) product="$2"; shift 2 ;;
+        --backscatter_convention) backscatter_convention="$2"; shift 2 ;;
         --s3_bucket) s3_bucket="$2"; shift 2 ;;
         --s3_project_folder) s3_project_folder="$2"; shift 2 ;;
         --collection) collection="$2"; shift 2 ;;
@@ -82,7 +95,7 @@ fi
 # OR, the CRS from the burst_db is used if provided.
 
 if [[ -z "$output_crs" || "${output_crs,,}" == "utm" ]]; then
-    epsg_code_msg="default UTM for scene center / polar stereographic at high latitudes"
+    epsg_code_msg="default UTM for scene center / polar stereographic at high latitudes above 60 degrees"
 elif [[ "$output_crs" =~ ^[0-9]+$ ]]; then
     epsg_code_msg="EPSG:$output_crs"
 else
@@ -103,8 +116,9 @@ echo scene : "$scene"
 echo burst_id_list : ${burst_id_list[*]}
 echo resolution : "$resolution"
 echo output_crs : "$epsg_code_msg"
-echo dem_type : "$dem_type"
+echo dem_type :  ${dem_type[*]}
 echo product : "$product"
+echo backscatter_convention : "$backscatter_convention"
 echo s3_bucket : "$s3_bucket"
 echo s3_project_folder : "$s3_project_folder"
 echo collection : "$collection"
@@ -156,8 +170,8 @@ cmd=(
     --scene "$scene" \
     --resolution "$resolution" \
     --output-crs "$output_crs" \
-    --dem-type "$dem_type" \
     --product "$product" \
+    --backscatter-convention "$backscatter_convention" \
     --s3-bucket "$s3_bucket" \
     --s3-project-folder "$s3_project_folder" \
     --collection "$collection" \
@@ -168,6 +182,11 @@ cmd=(
     --scene-data-source "$scene_data_source" \
     --orbit-data-source "$orbit_data_source" \
 )
+
+# Conditionally add --dem-type as a list of preferences
+if [[ ${#dem_type[@]} -gt 0 ]]; then
+    cmd+=(--dem-type "${dem_type[*]}")
+fi
 
 if [ "$make_existing_products" = true ] ; then
     # make the product even if it already exists
@@ -226,6 +245,7 @@ cmd=(
     --results-folder "$out_folder" \
     --run-config-path "$RUN_CONFIG_PATH" \
     --product "$product" \
+    --backscatter-convention "$backscatter_convention" \
     --collection "$collection" \
     --s3-bucket "$s3_bucket" \
     --s3-project-folder "$s3_project_folder" 

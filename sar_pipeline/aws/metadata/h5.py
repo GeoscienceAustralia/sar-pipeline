@@ -1,7 +1,6 @@
 import h5py
 from pathlib import Path
 import numpy as np
-from sar_pipeline.aws.metadata.filetypes import UPDATED_METADATA_PARAMETERS
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -281,30 +280,3 @@ class H5Manager:
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.close()
-
-
-def update_h5_file_metadata(file_path: str):
-    with H5Manager(file_path, mode="r+") as h5:
-        h5.set_value(
-            "identification/ceosAnalysisReadyDataDocumentIdentifier",
-            UPDATED_METADATA_PARAMETERS["CEOS_DOC"],
-            str,
-        )
-        h5.set_value(
-            "identification/ceosAnalysisReadyDataProductType",
-            UPDATED_METADATA_PARAMETERS["CEOS_ARD_TYPE"],
-            str,
-        )
-        h5.set_value(
-            "identification/contactInformation",
-            UPDATED_METADATA_PARAMETERS["CONTACT_INFO"],
-            str,
-        )
-        h5.set_value(
-            "identification/institution",
-            UPDATED_METADATA_PARAMETERS["INSTITUTION"],
-            str,
-        )
-        h5.set_value(
-            "identification/project", UPDATED_METADATA_PARAMETERS["PROJECT"], str
-        )

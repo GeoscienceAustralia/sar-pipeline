@@ -32,7 +32,6 @@ from sar_pipeline.aws.metadata.filetypes import (
     ASSET_FILETYPE_TO_MEDIATYPE,
     ASSET_FILETYPE_TO_ROLES,
     ASSET_FILETYPE_TO_TITLE,
-    UPDATED_METADATA_PARAMETERS,
 )
 
 import logging
@@ -47,7 +46,8 @@ class BurstH5toStacManager:
     def __init__(
         self,
         h5_filepath: Path,
-        product: str,
+        product: Literal["RTC_S1", "RTC_S1_STATIC"],
+        backscatter_convention: Literal["gamma0", "sigma0", "beta0"],
         collection: str,
         s3_bucket: str,
         s3_project_folder: str,
@@ -58,8 +58,10 @@ class BurstH5toStacManager:
         ----------
         h5_filepath : Path
             Local path to the .h5 file output from the opera/RTC process
-        product: str
+        product: ["RTC_S1","RTC_S1_STATIC"]
             The product being made. RTC_S1 or RTC_S1_STATIC
+        backscatter_convention: ["gamma0","sigma0","beta0"]
+            normalisation convention of the backscatter product
         collection : str
             The collection the product belongs to. e.g. s1_rtc_c1
         collection_number: int
@@ -76,6 +78,7 @@ class BurstH5toStacManager:
         self.h5 = H5Manager(self.h5_filepath)  # class to help get values from .h5 file
         self.id = self.h5_filepath.stem
         self.product = self._check_valid_product(product)
+        self.backscatter_convention = backscatter_convention
         self.burst_id = self.h5.search_value("burstID")
         self.polarisations = self.h5.search_value("listOfPolarizations")
         self.collection = collection
@@ -337,9 +340,7 @@ class BurstH5toStacManager:
         )
         self.item.properties["sarard:speckle_filter_type"] = ""
         self.item.properties["sarard:speckle_filter_window"] = ()
-        self.item.properties["sarard:measurement_type"] = self.h5.search_value(
-            "outputBackscatterNormalizationConvention"
-        )
+        self.item.properties["sarard:measurement_type"] = self.backscatter_convention
         self.item.properties["sarard:measurement_convention"] = self.h5.search_value(
             "outputBackscatterExpressionConvention"
         )
@@ -383,15 +384,6 @@ class BurstH5toStacManager:
     def add_fixed_links(self):
         """add fixed links that are not expected to change frequently"""
 
-        # link to the ceos-ard product family specification
-        self.item.add_link(
-            pystac.Link(
-                rel="ceos-ard-specification",
-                target=UPDATED_METADATA_PARAMETERS["CEOS_DOC"],
-                media_type=pystac.media_type.MediaType.PDF,
-            )
-        )
-
         # add the link the the EGM_08 GEOID
         self.item.add_link(
             pystac.Link(
@@ -402,6 +394,17 @@ class BurstH5toStacManager:
 
     def add_dynamic_links_from_h5(self):
         """add links to the stac item from the .h5 file"""
+
+        # link to the ceos-ard product family specification
+        self.item.add_link(
+            pystac.Link(
+                rel="ceos-ard-specification",
+                target=self.h5.search_value(
+                    "identification/ceosAnalysisReadyDataDocumentIdentifier"
+                ),
+                media_type=pystac.media_type.MediaType.PDF,
+            )
+        )
 
         # link to the source SLC
         self.item.add_link(
@@ -420,15 +423,16 @@ class BurstH5toStacManager:
         )
 
         # Add link to the RTC algorithm, get it from the reference
-        ref_text = self.h5.search_value(
-            "radiometricTerrainCorrectionAlgorithmReference"
-        )
-        self.item.add_link(
-            pystac.Link(
-                rel="rtc-algorithm",
-                target=self._extract_doi_link(ref_text),
+        if self.backscatter_convention != "beta0":
+            ref_text = self.h5.search_value(
+                "radiometricTerrainCorrectionAlgorithmReference"
             )
-        )
+            self.item.add_link(
+                pystac.Link(
+                    rel="rtc-algorithm",
+                    target=self._extract_doi_link(ref_text),
+                )
+            )
 
         # Add link to the geocoding algorithm, get it from the reference
         ref_text = self.h5.search_value("geocodingAlgorithmReference")
@@ -506,17 +510,13 @@ class BurstH5toStacManager:
 
         # get the list of files
         burst_files = [x for x in burst_folder.iterdir()]
-        # get gamma0 or sigma0 normalization_convention
-        normalization_convention = self.h5.search_value(
-            "outputBackscatterNormalizationConvention"
-        )
 
         for f in burst_files:
             for pol in ("VV", "VH", "HH", "HV"):
                 old_suffix = f"{pol}.tif"
                 if f.name.endswith(old_suffix):
                     new_name = f.name.replace(
-                        old_suffix, f"{pol}_{normalization_convention}.tif"
+                        old_suffix, f"{pol}_{self.backscatter_convention}.tif"
                     )
                     new_path = f.with_name(new_name)
                     f.rename(new_path)
@@ -546,31 +546,30 @@ class BurstH5toStacManager:
         # e.g. don't try add HH if it did not exist in original source data
         if self.product == "RTC_S1":
             pols = self.polarisations
-            normalization_convention = self.h5.search_value(
-                "outputBackscatterNormalizationConvention"
-            )
-            IGNORE_ASSETS = [
-                f"_{p}_{normalization_convention}.tif"
+            ignore_assets = [
+                f"_{p}_{self.backscatter_convention}.tif"
                 for p in ["HH", "HV", "VV", "VH"]
                 if p not in pols
             ]
-            INCLUDED_POL_ASSETS = [f"_{p}_{normalization_convention}.tif" for p in pols]
+            included_pol_assets = [
+                f"_{p}_{self.backscatter_convention}.tif" for p in pols
+            ]
+            required_asset_filetypes = REQUIRED_ASSET_FILETYPES[self.product][
+                self.backscatter_convention
+            ]
         elif self.product == "RTC_S1_STATIC":
             # no pol for static products, only auxiliary files
             pols = []
-            INCLUDED_POL_ASSETS = []
-            IGNORE_ASSETS = [
-                x
-                for x in REQUIRED_ASSET_FILETYPES
-                if any(pol in x for pol in ["HH", "HV", "VV", "VH"])
-            ]
+            included_pol_assets = []
+            ignore_assets = []
+            required_asset_filetypes = REQUIRED_ASSET_FILETYPES[self.product]
 
-        INCLUDED_ASSET_FILETYPES = [
-            x for x in REQUIRED_ASSET_FILETYPES[self.product] if x not in IGNORE_ASSETS
+        included_asset_filetypes = [
+            x for x in required_asset_filetypes if x not in ignore_assets
         ]
 
         # iterate through the included/required assets and add to the STAC item
-        for asset_filetype in INCLUDED_ASSET_FILETYPES:
+        for asset_filetype in included_asset_filetypes:
             # map the asset_filetype to important parameters
             asset_title = ASSET_FILETYPE_TO_TITLE[asset_filetype]
             asset_description = ASSET_FILETYPE_TO_DESCRIPTION[asset_filetype]
@@ -614,7 +613,7 @@ class BurstH5toStacManager:
                             "shadow_and_layover": 3,
                             "invalid_sample": 255,
                         }
-                    if asset_filetype in INCLUDED_POL_ASSETS:
+                    if asset_filetype in included_pol_assets:
                         # need to add a processing property to satisfy the
                         # processing stac requirements
                         extra_fields["processing:level"] = self.item.properties[
