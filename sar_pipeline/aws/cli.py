@@ -75,7 +75,7 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
     "Can be passed as a string or list of preferences separated by a space. "
     "If DEM data does not exist in the area of the first preference, the next will be used. "
     "E.g. `--dem-type REMA_32 cop_glo30` will first look for the Antarctic specific REMA DEM @32m before settling on the cop_glo30. "
-    f"Values must be on of {VALID_DEMS}",
+    f"Values must be one of {VALID_DEMS}",
 )
 @click.option(
     "--product",
