@@ -18,16 +18,15 @@ chown -R rtc_user:rtc_user /home/rtc_user/OPERA
 
 USER rtc_user
 
-ENV CONDA_PREFIX=/home/rtc_user/miniconda3
-
-# Install Miniconda
+# Install Miniforge
 WORKDIR /home/rtc_user
-RUN curl -sSL https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh &&\
-bash miniconda.sh -b -p ${CONDA_PREFIX} &&\
-rm $HOME/miniconda.sh
+ENV CONDA_PREFIX=/home/rtc_user/miniforge3
+ENV PATH=$CONDA_PREFIX/bin:$PATH
 
-ENV PATH=${CONDA_PREFIX}/bin:${PATH}
-RUN ${CONDA_PREFIX}/bin/conda init bash
+RUN curl -sSL https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -o miniforge.sh &&\
+    bash miniforge.sh -b -p $CONDA_PREFIX &&\
+    rm miniforge.sh &&\
+    $CONDA_PREFIX/bin/conda init bash
 
 # Download and install the Geoscience Australia fork of the opera/RTC project
 # UPDATE VERSION AND TAG HERE IF NEEDED

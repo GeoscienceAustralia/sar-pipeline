@@ -20,7 +20,6 @@ from sar_pipeline.aws.preparation.burst_utils import (
 )
 
 from sar_pipeline.aws.preparation.config import RTCConfigManager
-from sar_pipeline.aws.metadata.h5 import update_h5_file_metadata
 from sar_pipeline.aws.metadata.stac import BurstH5toStacManager
 from sar_pipeline.aws.metadata.odc import (
     make_static_layer_base_url,
@@ -35,10 +34,13 @@ from dem_handler.dem.rema import get_rema_dem_for_bounds
 from dem_handler.utils.spatial import (
     check_s1_bounds_cross_antimeridian,
     get_correct_bounds_from_shape_at_antimeridian,
+    check_dem_type_in_bounds,
 )
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
 
 
 @click.command()
@@ -69,14 +71,26 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--dem-type",
     required=True,
-    type=click.Choice(["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]),
-    help="The type of DEM that should be downloaded for processing the scene.",
+    type=str,
+    help="The type of DEM that should be downloaded for processing the scene. "
+    "Can be passed as a string or list of preferences separated by a space. "
+    "If DEM data does not exist in the area of the first preference, the next will be used. "
+    "E.g. `--dem-type REMA_32 cop_glo30` will first look for the Antarctic specific REMA DEM @32m before settling on the cop_glo30. "
+    f"Values must be one of {VALID_DEMS}",
 )
 @click.option(
     "--product",
     required=True,
     type=click.Choice(["RTC_S1", "RTC_S1_STATIC"]),
     help="The product to be made",
+)
+@click.option(
+    "--backscatter-convention",
+    required=False,
+    default="gamma0",
+    type=click.Choice(["gamma0", "sigma0", "beta0"]),
+    help="Backscatter convention of the product to be made (gamma0, sigma0 or beta0). "
+    "Note, sigma0 data is referenced to the DEM. See docs for information on creating ellipsoid referenced sigma0 data.",
 )
 @click.option(
     "--s3-bucket",
@@ -187,6 +201,7 @@ def get_data_for_scene_and_make_run_config(
     output_crs,
     dem_type,
     product,
+    backscatter_convention,
     s3_bucket,
     s3_project_folder,
     collection,
@@ -212,6 +227,10 @@ def get_data_for_scene_and_make_run_config(
     logger.info(f"Data source for scene download : {scene_data_source}")
     logger.info(f"Data source for orbit download : {orbit_data_source}")
 
+    # get the preference list of dem types
+    dem_types = dem_type.split(" ")
+    logger.info(f"The order of DEM preference is : {dem_types}")
+
     # make the base .yaml for RTC processing
     if product == "RTC_S1":
         RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC.yaml")
@@ -220,6 +239,9 @@ def get_data_for_scene_and_make_run_config(
     else:
         raise ValueError("product must be S1_RTC or S1_RTC_STATIC")
 
+    if backscatter_convention not in ["gamma0", "sigma0", "beta0"]:
+        raise ValueError("backscatter_convention must be one of gamma0, sigma0, beta0")
+
     # ensure the collection ends with cX, where X is a positive integer.
     # Raise error for invalid naming
     _ = get_collection_number(collection)
@@ -227,14 +249,12 @@ def get_data_for_scene_and_make_run_config(
     # sub-folders for downloads
     orbit_folder = download_folder / "orbits"
     scene_folder = download_folder / "scenes"
-    dem_folder = download_folder / "dem" / dem_type
 
     if make_folders:
         logger.info(f"Making output folders if not existing")
         download_folder.mkdir(parents=True, exist_ok=True)
         orbit_folder.mkdir(parents=True, exist_ok=True)
         scene_folder.mkdir(parents=True, exist_ok=True)
-        dem_folder.mkdir(parents=True, exist_ok=True)
         out_folder.mkdir(parents=True, exist_ok=True)
         scratch_folder.mkdir(parents=True, exist_ok=True)
         run_config_save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -331,9 +351,6 @@ def get_data_for_scene_and_make_run_config(
     )
     logger.info(f"File downloaded to : {ORBIT_PATHS[0]}")
 
-    # download the dem
-    DEM_PATH = dem_folder / f"{scene}_dem.tif"
-
     # get the shape of the area covering the bursts to be processed
     burst_geoms_to_process = [
         all_scene_burst_info[id_]["geometry"] for id_ in burst_id_list_to_process
@@ -363,12 +380,35 @@ def get_data_for_scene_and_make_run_config(
         bounds = get_correct_bounds_from_shape_at_antimeridian(scene_bounds)
         logger.info(f"The corrected scene bounds are : {bounds}")
         # increase the buffer to ensure DEM sufficiently covers area
-        # shape is a little odd due to merging either side of AM
+        # cop30 shape is a little odd due to merging either side of AM
         cop30_buffer_degrees = 0.8
     else:
         logger.info(f"Downloading DEM data for the combined burst bounds")
         bounds = combined_burst_bounds
         cop30_buffer_degrees = 0.3
+
+    logger.info(f"Finding the best DEM in order of preference: {dem_types}")
+
+    for dem_type in dem_types:
+        if dem_type == "cop_glo30":
+            dem_resolution = 30
+        elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
+            dem_resolution = int(dem_type.split("_")[1])
+        dem_in_bounds = check_dem_type_in_bounds(dem_type, dem_resolution, bounds)
+        if dem_in_bounds:
+            # dem has data in the bounds we want, exit with dem_type set
+            break
+        elif dem_type == dem_types[-1] and not dem_in_bounds:
+            logger.warning(
+                "No DEM data could not be found in the requested bounds. "
+                "The bursts will be processed with ellipsoidal heights. "
+                "Change `dem_type` if this is not desired."
+            )
+
+    dem_folder = download_folder / "dem" / dem_type
+    DEM_PATH = dem_folder / f"{scene}_dem.tif"
+    if make_folders:
+        dem_folder.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Downloading DEM type `{dem_type}` to path : {DEM_PATH}")
     if dem_type == "cop_glo30":
@@ -385,7 +425,6 @@ def get_data_for_scene_and_make_run_config(
             download_geoid=True,
         )
     elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
-        dem_resolution = int(dem_type.split("_")[1])
         get_rema_dem_for_bounds(
             bounds=bounds,
             bounds_src_crs=4326,
@@ -412,6 +451,14 @@ def get_data_for_scene_and_make_run_config(
     )
     RTC_RUN_CONFIG.set(f"{gk}.input_file_group.orbit_file_path", [str(ORBIT_PATHS[0])])
     RTC_RUN_CONFIG.set(f"{gk}.dynamic_ancillary_file_group.dem_file", str(DEM_PATH))
+
+    # set the backscatter convention and if rtc_apply is true
+    if backscatter_convention == "beta0":
+        RTC_RUN_CONFIG.set(f"{gk}.processing.apply_rtc", False)
+        # note output_type is still set to gamma0, but it is ignored as apply_rtc=False
+    else:
+        RTC_RUN_CONFIG.set(f"{gk}.processing.apply_rtc", True)
+        RTC_RUN_CONFIG.set(f"{gk}.processing.rtc.output_type", backscatter_convention)
 
     # set the dem input source
     if dem_type == "cop_glo30":
@@ -496,6 +543,13 @@ def get_data_for_scene_and_make_run_config(
     help="The product being made. Determines bucket structure",
 )
 @click.option(
+    "--backscatter-convention",
+    required=False,
+    default="gamma0",
+    type=click.Choice(["gamma0", "sigma0", "beta0"]),
+    help="Backscatter convention of the product to be made (gamma0, sigma0 or beta0)",
+)
+@click.option(
     "--collection",
     required=True,
     type=str,
@@ -550,6 +604,7 @@ def make_rtc_opera_stac_and_upload_bursts(
     results_folder,
     run_config_path,
     product,
+    backscatter_convention,
     collection,
     s3_bucket,
     s3_project_folder,
@@ -579,17 +634,13 @@ def make_rtc_opera_stac_and_upload_bursts(
                 f"This error might be caused by repeat runs. Delete duplicate files or change run settings."
             )
         burst_h5_filepath = burst_folder / burst_h5_files[0]
-        burst_tif_files = list(burst_folder.glob("*.tif"))
-        # update GeoTIFFs and h5 metadata to reflect GA processing
-        logging.info(f"Updating .h5 file with GA parameters")
-        update_h5_file_metadata(burst_h5_filepath)
-        # TODO Update .tif files with GA parameters
         # make the stac metadata from the .h5 metadata
         logging.info(f"Making stac metadata from .h5 file")
         # initialise the class to convert data from the .h5 to a stac doc
         burst_stac_manager = BurstH5toStacManager(
             h5_filepath=burst_h5_filepath,
             product=product,
+            backscatter_convention=backscatter_convention,
             collection=collection,
             s3_bucket=s3_bucket,
             s3_project_folder=s3_project_folder,

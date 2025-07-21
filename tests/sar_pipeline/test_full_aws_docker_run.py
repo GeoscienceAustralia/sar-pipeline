@@ -86,7 +86,7 @@ def build_image():
             "-t",
             f"sar-pipeline:{docker_tag}",
             "-f",
-            "Docker/isce3-v0.24.4.Dockerfile",
+            "Docker/Dockerfile",
             ".",
         ],
         stdout=sys.stdout,
@@ -109,9 +109,15 @@ def test_docker_with_args():
     docker_tag = re.sub(r"[^a-zA-Z0-9_.-]", "-", sar_pipeline.__version__)
 
     logging.info(f"RUN 1: Producing Static Layers")
+    logging.info(
+        "Mounting test data directory for results: "
+        f"{CURRENT_DIR}/data/isce3_rtc/results:/home/rtc_user/working/results",
+    )
     cmd = [
         "docker",
         "run",
+        "-v",
+        f"{CURRENT_DIR}/data/isce3_rtc/results:/home/rtc_user/working/results",
         "--rm",
         *ENV_VARS,
         f"sar-pipeline:{docker_tag}",
@@ -142,6 +148,8 @@ def test_docker_with_args():
     cmd = [
         "docker",
         "run",
+        "-v",
+        f"{CURRENT_DIR}/data/isce3_rtc/results:/home/rtc_user/working/results",
         "--rm",
         *ENV_VARS,
         f"sar-pipeline:{docker_tag}",
