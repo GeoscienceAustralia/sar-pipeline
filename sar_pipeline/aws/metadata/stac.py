@@ -16,7 +16,6 @@ import sar_pipeline
 from sar_pipeline.aws.metadata.h5 import H5Manager
 from sar_pipeline.aws.metadata.odc import (
     get_odc_product_name,
-    get_collection_number,
 )
 from sar_pipeline.aws.preparation.burst_utils import (
     make_rtc_s1_s3_subpath,
@@ -48,7 +47,7 @@ class BurstH5toStacManager:
         h5_filepath: Path,
         product: Literal["RTC_S1", "RTC_S1_STATIC"],
         backscatter_convention: Literal["gamma0", "sigma0", "beta0"],
-        collection: str,
+        collection_number: int,
         s3_bucket: str,
         s3_project_folder: str,
         s3_region: str = "ap-southeast-2",
@@ -62,15 +61,13 @@ class BurstH5toStacManager:
             The product being made. RTC_S1 or RTC_S1_STATIC
         backscatter_convention: ["gamma0","sigma0","beta0"]
             normalisation convention of the backscatter product
-        collection : str
-            The collection the product belongs to. e.g. s1_rtc_c1
         collection_number: int
             The collection number associated with the product
         s3_bucket : str
             The S3 bucket where data will be uploaded
         s3_project_folder : str
             The project folder in the S3 bucket if required. Note that
-            the collection will be appended to this folder path.
+            the odc_product_name will be appended to this folder path.
         s3_region : str, optional
             The region of the S3 bucket, by default "ap-southeast-2"
         """
@@ -81,8 +78,7 @@ class BurstH5toStacManager:
         self.backscatter_convention = backscatter_convention
         self.burst_id = self.h5.search_value("burstID")
         self.polarisations = self.h5.search_value("listOfPolarizations")
-        self.collection = collection
-        self.collection_number = get_collection_number(self.collection)
+        self.collection_number = collection_number
         self.odc_product_name = get_odc_product_name(
             self.product, self.collection_number, self.polarisations
         )
@@ -158,7 +154,7 @@ class BurstH5toStacManager:
             # include acquisition dates for S1_RTC
             return make_rtc_s1_s3_subpath(
                 s3_project_folder=self.s3_project_folder,
-                collection=self.collection,
+                collection_number=self.collection_number,
                 burst_polarisations=self.polarisations,
                 burst_id=self.burst_id,
                 year=self.start_dt.year,
@@ -170,7 +166,7 @@ class BurstH5toStacManager:
             # static products are date independent
             return make_rtc_s1_static_s3_subpath(
                 s3_project_folder=self.s3_project_folder,
-                collection=self.collection,
+                collection_number=self.collection_number,
                 burst_id=self.burst_id,
             )
 
@@ -227,7 +223,7 @@ class BurstH5toStacManager:
             datetime=self.start_dt,
             start_datetime=self.start_dt,
             end_datetime=self.end_dt,
-            collection=self.collection,
+            collection=self.odc_product_name,
             properties=base_properties,
             stac_extensions=self.stac_extensions,
         )

@@ -74,23 +74,23 @@ class RunConfig:
     product: str
     s3_bucket: str
     s3_project_folder: str
-    collection: str
+    collection_number: int
     download_folder: Path
     scratch_folder: Path
     out_folder: Path
     run_config_save_path: Path
     link_static_layers: bool
     linked_static_layers_s3_bucket: str
-    linked_static_layers_collection: str
+    linked_static_layers_collection_number: int
     linked_static_layers_s3_project_folder: str
     scene_data_source: str
     orbit_data_source: str
 
 
-S3_PROJECT_FOLDER_T1 = ""
-COLLECTION_T1 = "rtc_s1_c1"
+S3_PROJECT_FOLDER_T1 = "TEST"
+COLLECTION_NUMBER_T1 = 1
 SCENE_T1 = "S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD"
-SUBPATH_T1 = Path(S3_PROJECT_FOLDER_T1) / COLLECTION_T1 / SCENE_T1
+SUBPATH_T1 = Path(S3_PROJECT_FOLDER_T1) / str(COLLECTION_NUMBER_T1) / SCENE_T1
 TEST_1 = RunConfig(
     scene=SCENE_T1,
     burst_id_list="t070_149815_iw3",
@@ -100,7 +100,7 @@ TEST_1 = RunConfig(
     product="RTC_S1",
     s3_bucket="deant-data-public-dev",
     s3_project_folder=S3_PROJECT_FOLDER_T1,
-    collection=COLLECTION_T1,
+    collection_number=COLLECTION_NUMBER_T1,
     download_folder=TEST_WORKSPACE / "TMP" / "downloads",
     scratch_folder=TEST_WORKSPACE / "TMP" / "scratch" / SUBPATH_T1,
     out_folder=TEST_WORKSPACE / "TMP" / "results" / SUBPATH_T1,
@@ -111,7 +111,7 @@ TEST_1 = RunConfig(
     / "OPERA-RTC_runconfig.yaml",
     link_static_layers=False,
     linked_static_layers_s3_bucket="",
-    linked_static_layers_collection="",
+    linked_static_layers_collection_number="",
     linked_static_layers_s3_project_folder="",
     scene_data_source="CDSE",
     orbit_data_source="CDSE",
@@ -129,7 +129,7 @@ def test_get_data_for_scene_and_make_run_config(test_run):
     args += ["--product", test_run.product]
     args += ["--s3-bucket", test_run.s3_bucket]
     args += ["--s3-project-folder", test_run.s3_project_folder]
-    args += ["--collection", test_run.collection]
+    args += ["--collection-number", test_run.collection_number]
     args += ["--download-folder", test_run.download_folder]
     args += ["--scratch-folder", test_run.scratch_folder]
     args += ["--out-folder", test_run.out_folder]
@@ -140,8 +140,8 @@ def test_get_data_for_scene_and_make_run_config(test_run):
         test_run.linked_static_layers_s3_bucket,
     ]
     args += [
-        "--linked-static-layers-collection",
-        test_run.linked_static_layers_collection,
+        "--linked-static-layers-collection-number",
+        test_run.linked_static_layers_collection_number,
     ]
     args += [
         "--linked-static-layers-s3-project-folder",

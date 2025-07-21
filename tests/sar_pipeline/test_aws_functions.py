@@ -33,7 +33,7 @@ class BurstProduct:
     burst_polarisations: list
     s3_bucket: str
     s3_project_folder: str
-    collection: str
+    collection_number: int
     make_existing_products: bool
     EXISTS: bool
 
@@ -52,7 +52,7 @@ TEST_NON_EXISTING_RTC_S1 = BurstProduct(
     burst_polarisations=["VV", "VH"],
     s3_bucket="deant-data-public-dev",
     s3_project_folder=S3_PROJECT_TEST_FOLDER,
-    collection="s1_rtc_c1",
+    collection_number=1,
     make_existing_products=False,
     EXISTS=False,
 )
@@ -67,7 +67,7 @@ TEST_EXISTING_RTC_S1 = BurstProduct(
     burst_polarisations=["VV", "VH"],
     s3_bucket="deant-data-public-dev",
     s3_project_folder=S3_PROJECT_TEST_FOLDER,
-    collection="s1_rtc_c1",
+    collection_number=1,
     make_existing_products=False,
     EXISTS=True,
 )
@@ -82,7 +82,7 @@ TEST_NON_EXISTING_RTC_S1_STATIC = BurstProduct(
     burst_polarisations=["VV", "VH"],
     s3_bucket="deant-data-public-dev",
     s3_project_folder=S3_PROJECT_TEST_FOLDER,
-    collection="s1_rtc_static_c1",
+    collection_number=1,
     make_existing_products=False,
     EXISTS=False,
 )
@@ -97,7 +97,7 @@ TEST_EXISTING_RTC_S1_STATIC = BurstProduct(
     burst_polarisations=["VV", "VH"],
     s3_bucket="deant-data-public-dev",
     s3_project_folder=S3_PROJECT_TEST_FOLDER,
-    collection="s1_rtc_static_c1",
+    collection_number=1,
     make_existing_products=False,
     EXISTS=True,
 )
@@ -124,7 +124,7 @@ def test_check_burst_product_h5_exists_in_s3(test_run):
                 burst_polarisations=test_run.burst_polarisations,
                 s3_bucket=test_run.s3_bucket,
                 s3_project_folder=test_run.s3_project_folder,
-                collection=test_run.collection,
+                collection_number=test_run.collection_number,
                 make_existing_products=test_run.make_existing_products,
                 early_exit=True,
             )
@@ -141,7 +141,7 @@ def test_check_burst_product_h5_exists_in_s3(test_run):
             burst_polarisations=test_run.burst_polarisations,
             s3_bucket=test_run.s3_bucket,
             s3_project_folder=test_run.s3_project_folder,
-            collection=test_run.collection,
+            collection_number=test_run.collection_number,
             make_existing_products=test_run.make_existing_products,
             early_exit=True,
         )

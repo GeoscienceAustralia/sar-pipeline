@@ -240,7 +240,7 @@ def check_burst_product_h5_exists_in_s3(
     burst_polarisations: list[str],
     s3_bucket: str,
     s3_project_folder: str,
-    collection: str,
+    collection_number: str,
     make_existing_products: bool,
     early_exit: bool = True,
     early_exit_code: int = 100,
@@ -261,8 +261,8 @@ def check_burst_product_h5_exists_in_s3(
         The bucket where the products are stored
     s3_project_folder : str
         The subpath within the bucket
-    collection : str
-        The collection. e.g. rtc_s1_c1. must end with cX, where X is an int.
+    collection_number : str
+        The collection_number as an int.
     make_existing_products : bool
         whether to make products if they already exist in s3. If False,
         process will exit early if all already exist.
@@ -288,13 +288,13 @@ def check_burst_product_h5_exists_in_s3(
         if product == "RTC_S1_STATIC":
             s3_product_subpath = make_rtc_s1_static_s3_subpath(
                 s3_project_folder=s3_project_folder,
-                collection=collection,
+                collection_number=collection_number,
                 burst_id=burst_id,
             )
         if product == "RTC_S1":
             s3_product_subpath = make_rtc_s1_s3_subpath(
                 s3_project_folder=s3_project_folder,
-                collection=collection,
+                collection_number=collection_number,
                 burst_polarisations=burst_polarisations,
                 burst_id=burst_id,
                 year=burst_st.year,
@@ -352,7 +352,7 @@ def ensure_static_layers_in_s3(
     scene: str,
     burst_id_list,
     static_layers_s3_bucket: str,
-    static_layers_collection: str,
+    static_layers_collection_number: int,
     static_layers_s3_project_folder: str,
     early_exit_code: int = 101,
 ):
@@ -366,8 +366,8 @@ def ensure_static_layers_in_s3(
         List of specific bursts to see if static layers exist.
     static_layers_s3_bucket : str
         s3 bucket
-    static_layers_collection : str
-        collection folder for the static layers
+    static_layers_collection_number : int
+        collection number of the static layers
     static_layers_s3_project_folder : str
         project folder for static layers
 
@@ -391,7 +391,7 @@ def ensure_static_layers_in_s3(
 
     for burst_id in burst_id_list:
         static_layers_s3_folder = make_rtc_s1_static_s3_subpath(
-            static_layers_s3_project_folder, static_layers_collection, burst_id
+            static_layers_s3_project_folder, static_layers_collection_number, burst_id
         )
         filetype_to_s3paths = find_s3_filepaths_from_suffixes(
             static_layers_s3_bucket,

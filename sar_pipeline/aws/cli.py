@@ -23,7 +23,6 @@ from sar_pipeline.aws.preparation.config import RTCConfigManager
 from sar_pipeline.aws.metadata.stac import BurstH5toStacManager
 from sar_pipeline.aws.metadata.odc import (
     make_static_layer_base_url,
-    get_collection_number,
 )
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 from sar_pipeline.utils.general import log_timing
@@ -104,11 +103,10 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
     help="project folder in the s3 bucket",
 )
 @click.option(
-    "--collection",
+    "--collection-number",
     required=True,
-    type=str,
-    help="collection associated with product. e.g. s1_rtc_c1. Must end in 'cX' where X is an "
-    "integer number referring to the collection.",
+    type=int,
+    help="The collection number of the product.",
 )
 @click.option(
     "--download-folder",
@@ -148,7 +146,7 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
     is_flag=True,
     default=False,
     help="If static layers should be linked to RTC_S1 products in the"
-    "STAC metadata. A url to the static layer collection will be added"
+    "STAC metadata. A url to the static layers will be added"
     "to the run config file.",
 )
 @click.option(
@@ -158,17 +156,16 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
     help="S3 bucket containing the RTC_S1_STATIC data that will be linked to the RTC_S1 bursts.",
 )
 @click.option(
-    "--linked-static-layers-collection",
+    "--linked-static-layers-collection-number",
     required=False,
     type=str,
-    help="Collection of RTC_S1_STATIC data that will be linked to the RTC_S1 bursts.",
+    help="Collection number of RTC_S1_STATIC data that will be linked to the RTC_S1 bursts.",
 )
 @click.option(
     "--linked-static-layers-s3-project-folder",
     required=False,
     type=str,
-    help="Project folder containing the RTC_S1_STATIC data that will be linked to the RTC_S1 bursts. "
-    "Expected for linked files path is : s3_bucket/s3_project_folder/collection/burst_id/*files",
+    help="Project folder containing the RTC_S1_STATIC data that will be linked to the RTC_S1 bursts. ",
 )
 @click.option(
     "--scene-data-source",
@@ -203,7 +200,7 @@ def get_data_for_scene_and_make_run_config(
     backscatter_convention,
     s3_bucket,
     s3_project_folder,
-    collection,
+    collection_number,
     download_folder,
     scratch_folder,
     out_folder,
@@ -211,7 +208,7 @@ def get_data_for_scene_and_make_run_config(
     make_existing_products,
     link_static_layers,
     linked_static_layers_s3_bucket,
-    linked_static_layers_collection,
+    linked_static_layers_collection_number,
     linked_static_layers_s3_project_folder,
     scene_data_source,
     orbit_data_source,
@@ -240,10 +237,6 @@ def get_data_for_scene_and_make_run_config(
 
     if backscatter_convention not in ["gamma0", "sigma0", "beta0"]:
         raise ValueError("backscatter_convention must be one of gamma0, sigma0, beta0")
-
-    # ensure the collection ends with cX, where X is a positive integer.
-    # Raise error for invalid naming
-    _ = get_collection_number(collection)
 
     # sub-folders for downloads
     orbit_folder = download_folder / "orbits"
@@ -304,7 +297,7 @@ def get_data_for_scene_and_make_run_config(
         burst_polarisations=burst_pols,
         s3_bucket=s3_bucket,
         s3_project_folder=s3_project_folder,
-        collection=collection,
+        collection_number=collection_number,
         make_existing_products=make_existing_products,
         early_exit=True,
         early_exit_code=100,
@@ -321,7 +314,7 @@ def get_data_for_scene_and_make_run_config(
             scene=scene,
             burst_id_list=burst_id_list_to_process,
             static_layers_s3_bucket=linked_static_layers_s3_bucket,
-            static_layers_collection=linked_static_layers_collection,
+            static_layers_collection_number=linked_static_layers_collection_number,
             static_layers_s3_project_folder=linked_static_layers_s3_project_folder,
             early_exit_code=101,
         )
@@ -492,7 +485,7 @@ def get_data_for_scene_and_make_run_config(
         # add the static layer base url
         static_layer_base_url = make_static_layer_base_url(
             linked_static_layers_s3_bucket,
-            linked_static_layers_collection,
+            linked_static_layers_collection_number,
             linked_static_layers_s3_project_folder,
         )
         logger.info(f"static layer base url : {static_layer_base_url}")
@@ -549,11 +542,10 @@ def get_data_for_scene_and_make_run_config(
     help="Backscatter convention of the product to be made (gamma0, sigma0 or beta0)",
 )
 @click.option(
-    "--collection",
+    "--collection-number",
     required=True,
-    type=str,
-    help="collection associated with product. e.g. s1_rtc_c1. Must end in 'cX' where X is an "
-    "integer number referring to the collection.",
+    type=int,
+    help="The collection number of the product.",
 )
 @click.option(
     "--s3-bucket", required=True, type=str, help="The bucket to upload the files"
@@ -604,7 +596,7 @@ def make_rtc_opera_stac_and_upload_bursts(
     run_config_path,
     product,
     backscatter_convention,
-    collection,
+    collection_number,
     s3_bucket,
     s3_project_folder,
     skip_upload_to_s3,
@@ -614,7 +606,10 @@ def make_rtc_opera_stac_and_upload_bursts(
 ):
     """makes STAC metadata for opera-rtc and uploads them to a desired s3 bucket.
     The final path in s3 will follow the following pattern:
-    s3_bucket/s3_folder/collection/burst_id/burst_year/burst_month/burst_day/*files
+    product = RTC_S1:
+        s3_bucket/s3_folder/odc_product_name/burst_id/burst_year/burst_month/burst_day/*files
+    product = RTC_S1_STATIC:
+        s3_bucket/s3_folder/odc_product_name/burst_id/*files
     """
 
     # iterate through the burst directory and create STAC metadata
@@ -640,7 +635,7 @@ def make_rtc_opera_stac_and_upload_bursts(
             h5_filepath=burst_h5_filepath,
             product=product,
             backscatter_convention=backscatter_convention,
-            collection=collection,
+            collection_number=collection_number,
             s3_bucket=s3_bucket,
             s3_project_folder=s3_project_folder,
         )
@@ -702,7 +697,7 @@ def make_rtc_opera_stac_and_upload_bursts(
                 burst_polarisations=burst_stac_manager.polarisations,
                 s3_bucket=s3_bucket,
                 s3_project_folder=s3_project_folder,
-                collection=collection,
+                collection_number=collection_number,
                 make_existing_products=make_existing_products,
                 early_exit=False,  # don't exit early, move to next burst
             )
