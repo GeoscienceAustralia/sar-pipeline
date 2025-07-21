@@ -99,7 +99,7 @@ fi
 # OR, the CRS from the burst_db is used if provided.
 
 if [[ -z "$output_crs" || "${output_crs,,}" == "utm" ]]; then
-    epsg_code_msg="default UTM for scene center / polar stereographic at high latitudes above 60 degrees"
+    epsg_code_msg="default UTM for scene center / polar stereographic at latitudes above 60 degrees"
 elif [[ "$output_crs" =~ ^[0-9]+$ ]]; then
     epsg_code_msg="EPSG:$output_crs"
 else
