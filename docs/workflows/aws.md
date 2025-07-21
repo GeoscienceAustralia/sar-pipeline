@@ -61,6 +61,7 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_aws_
 --output_crs=""
 --dem_type="cop_glo30"
 --product="RTC_S1"
+--backscatter_convention="gamma0" 
 --s3_bucket="deant-data-public-dev"
 --s3_project_folder="experimental"
 --collection="s1_rtc_c1"
@@ -82,9 +83,10 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_aws_
 - `output_crs` -> The target crs of the products. If not specified, the UTM of the scene center will be used. Expects integer values (e.g. 3031)
 - `dem_type` -> The type of digital elevation model (DEM) to download and use for processing. Supported values: `cop_glo30`, `REMA_32`, `REMA_10`, `REMA_2`.
 - `product` -> The product being created with the workflow. Must be `RTC_S1` or `RTC_S1_STATIC`.
+- `backscatter_convention` -> the output backscatter convention from the workflow. Note sigma0 data is referenced to the DEM. To create sigma0 ellipsoid referenced data, the beta0 layer and static incidence_angle layer is required; sigma0_ellipsoid = beta0*sin(incidence_angle).
 - `s3_bucket` -> the bucket to upload the products
 - `s3_project_folder` -> The project folder to upload to.
-- `collection` -> The collection which the set of products belongs. Must end with 'cX' where X is a valid integer reffering to the collection number of the product. e.g. rtc_s1_c1.
+- `collection` -> The collection which the set of products belongs. Must end with 'cX' where X is a valid integer referring to the collection number of the product. e.g. rtc_s1_c1.
 - `make_existing_products` -> Whether to generate products even if they already exist in AWS S3 under the specified product folder path `s3_bucket/s3_project_folder/collection/...`. 
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
 - `skip_upload_to_s3` -> Make the products, but skip uploading them to S3.

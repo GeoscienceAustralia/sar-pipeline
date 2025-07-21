@@ -89,7 +89,8 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
     required=False,
     default="gamma0",
     type=click.Choice(["gamma0", "sigma0", "beta0"]),
-    help="Backscatter convention of the product to be made (gamma0, sigma0 or beta0)",
+    help="Backscatter convention of the product to be made (gamma0, sigma0 or beta0). "
+    "Note, sigma0 data is referenced to the DEM. See docs for information on creating ellipsoid referenced sigma0 data.",
 )
 @click.option(
     "--s3-bucket",
