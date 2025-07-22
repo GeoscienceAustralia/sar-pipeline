@@ -10,8 +10,8 @@ dem_type=("REMA_32" "cop_glo30") # order of preference, if data available for sc
 product="RTC_S1"
 backscatter_convention=gamma0 # gamma0, sigma0 or beta0
 s3_bucket="deant-data-public-dev"
-s3_project_folder="ga_s1"
-collection="s1_rtc_c1"
+s3_project_folder="baseline"
+collection_number=1
 make_existing_products=false
 skip_upload_to_s3=false
 scene_data_source="ASF"
@@ -21,13 +21,17 @@ skip_validate_stac=false
 # if link_static_layers, RTC_S1_STATIC products must exist for all RTC_S1 bursts being processed
 link_static_layers=false
 linked_static_layers_s3_bucket="deant-data-public-dev"
-linked_static_layers_s3_project_folder="ga_s1"
-linked_static_layers_collection="s1_rtc_static_c1"
+linked_static_layers_s3_project_folder="baseline"
+linked_static_layers_collection_number=1
 
-# Final product output paths follow the following structure
-# odc-product is determined by factors such as the input scene polarisations
-# RTC_S1 -> s3_bucket/s3_project_folder/c{collection_number}/collection/odc_product_name/burst_id/year/month/day/*files
-# RTC_S1_STATIC -> s3_bucket/s3_project_folder/c{collection_number}/collection/odc_product_name/burst_id/*files
+# Final product output paths have the following structure
+# RTC_S1
+#   - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/*files
+#   - odc_product_name is determined by the polarisation and collection_number for RTC_S1 products.
+#   - It will be one of ga_s1_nrb_iw_vv_vh_cX, ga_s1_nrb_iw_vv_cX, ga_s1_nrb_iw_hh_hv_cX, ga_s1_nrb_iw_hh_cX, where X is the collection_number
+# RTC_S1_STATIC
+#   - e.g. s3_bucket/s3_project_folder/odc_product_name/burst_id/*files
+#   - odc_product_name = ga_s1_nrb_iw_static_cX, where X is the collection_number
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
@@ -51,12 +55,12 @@ while [[ "$#" -gt 0 ]]; do
         --backscatter_convention) backscatter_convention="$2"; shift 2 ;;
         --s3_bucket) s3_bucket="$2"; shift 2 ;;
         --s3_project_folder) s3_project_folder="$2"; shift 2 ;;
-        --collection) collection="$2"; shift 2 ;;
+        --collection_number) collection_number="$2"; shift 2 ;;
         --make_existing_products) make_existing_products=true; shift ;;
         --skip_upload_to_s3) skip_upload_to_s3=true; shift ;;
         --link_static_layers) link_static_layers=true; shift ;;
         --linked_static_layers_s3_bucket) linked_static_layers_s3_bucket="$2"; shift 2 ;;
-        --linked_static_layers_collection) linked_static_layers_collection="$2"; shift 2 ;;
+        --linked_static_layers_collection_number) linked_static_layers_collection_number="$2"; shift 2 ;;
         --linked_static_layers_s3_project_folder) linked_static_layers_s3_project_folder="$2"; shift 2 ;;
         --scene_data_source) scene_data_source="$2"; shift 2 ;;
         --orbit_data_source) orbit_data_source="$2"; shift 2 ;;
@@ -121,7 +125,7 @@ echo product : "$product"
 echo backscatter_convention : "$backscatter_convention"
 echo s3_bucket : "$s3_bucket"
 echo s3_project_folder : "$s3_project_folder"
-echo collection : "$collection"
+echo collection_number : "$collection_number"
 echo make_existing_products : "$make_existing_products"
 echo skip_upload_to_s3 : "$skip_upload_to_s3"
 echo scene_data_source : "$scene_data_source"
@@ -131,7 +135,7 @@ echo skip_validate_stac : "$skip_validate_stac"
 # warn the user about linking static layers
 if [[ "$link_static_layers" = true && "$product" = "RTC_S1" ]]; then
     echo linked_static_layers_s3_bucket : "$linked_static_layers_s3_bucket"
-    echo linked_static_layers_collection : "$linked_static_layers_collection"
+    echo linked_static_layers_collection_number : "$linked_static_layers_collection_number"
     echo linked_static_layers_s3_project_folder : "$linked_static_layers_s3_project_folder"
     echo ""
     echo 'WARNING: RTC_S1_STATIC layers are being linked to the RTC_S1 products in STAC metadata'
@@ -142,8 +146,8 @@ fi
 
 # set process folders for the container
 download_folder="/home/rtc_user/working/downloads"
-out_folder="/home/rtc_user/working/results/$s3_project_folder/$collection/$scene"
-scratch_folder="/home/rtc_user/working/scratch/$s3_project_folder/$collection/$scene"
+out_folder="/home/rtc_user/working/results/$s3_project_folder/$collection_number/$product/$scene"
+scratch_folder="/home/rtc_user/working/scratch/$s3_project_folder/$collection_number/$product/$scene"
 
 echo ""
 echo The container will use these paths for processing:
@@ -174,7 +178,7 @@ cmd=(
     --backscatter-convention "$backscatter_convention" \
     --s3-bucket "$s3_bucket" \
     --s3-project-folder "$s3_project_folder" \
-    --collection "$collection" \
+    --collection-number "$collection_number" \
     --download-folder "$download_folder" \
     --scratch-folder "$scratch_folder" \
     --out-folder "$out_folder" \
@@ -199,7 +203,7 @@ if [ "$link_static_layers" = true ] ; then
     cmd+=(
         --link-static-layers \
         --linked-static-layers-s3-bucket "$linked_static_layers_s3_bucket" \
-        --linked-static-layers-collection "$linked_static_layers_collection" \
+        --linked-static-layers-collection-number "$linked_static_layers_collection_number" \
         --linked-static-layers-s3-project-folder "$linked_static_layers_s3_project_folder" 
     )
 fi
@@ -246,7 +250,7 @@ cmd=(
     --run-config-path "$RUN_CONFIG_PATH" \
     --product "$product" \
     --backscatter-convention "$backscatter_convention" \
-    --collection "$collection" \
+    --collection-number "$collection_number" \
     --s3-bucket "$s3_bucket" \
     --s3-project-folder "$s3_project_folder" 
 )

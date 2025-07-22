@@ -21,6 +21,9 @@ tests/sar_pipeline/data/**/*.json
 !tests/sar_pipeline/data/**/*.tif
 !tests/sar_pipeline/data/**/*.vrt
 
+# ignore create test data
+tests/sar_pipeline/data/isce3_rtc/results/TMP/*
+
 # ignore secret files
 *.secret
 
