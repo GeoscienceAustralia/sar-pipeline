@@ -5,15 +5,15 @@ def get_odc_product_name(product, collection_number, polarisations):
     """
     if product == "RTC_S1":
         if all([pol in polarisations for pol in ["VV", "VH"]]):
-            return f"ga_s1_iw_vv_vh_c{collection_number}"
+            return f"ga_s1_nrb_iw_vv_vh_c{collection_number}"
         elif all([pol in polarisations for pol in ["HH", "HV"]]):
-            return f"ga_s1_iw_hh_hv_c{collection_number}"
+            return f"ga_s1_nrb_iw_hh_hv_c{collection_number}"
         elif polarisations == ["VV"]:
-            return f"ga_s1_iw_vv_c{collection_number}"
+            return f"ga_s1_nrb_iw_vv_c{collection_number}"
         elif polarisations == ["HH"]:
-            return f"ga_s1_iw_hh_c{collection_number}"
+            return f"ga_s1_nrb_iw_hh_c{collection_number}"
     elif product == "RTC_S1_STATIC":
-        return f"ga_s1_iw_static_c{collection_number}"
+        return f"ga_s1_nrb_iw_static_c{collection_number}"
 
 
 def make_rtc_s1_s3_subpath(
@@ -49,7 +49,7 @@ def make_rtc_s1_s3_subpath(
     -------
     str
         path to the s3 bucket subfolder
-        e.g. s3_project_folder/ga_s1_iw_vv_c1/t028_059507_iw2/2022/01/01
+        e.g. s3_project_folder/ga_s1_nrb_iw_vv_c1/t028_059507_iw2/2022/01/01
     """
     # get the odc product name which includes the collection number
     odc_product_name = get_odc_product_name(
@@ -78,7 +78,7 @@ def make_rtc_s1_static_s3_subpath(
     -------
     str
         path to the s3 bucket subfolder
-        e.g. s3_project_folder/ga_s1_iw_static_c1/t028_059507_iw2
+        e.g. s3_project_folder/ga_s1_nrb_iw_static_c1/t028_059507_iw2
     """
     # get the odc product name which includes the collection number
     odc_product_name = get_odc_product_name("RTC_S1_STATIC", collection_number, [])

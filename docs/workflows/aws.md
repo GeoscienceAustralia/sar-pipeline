@@ -43,8 +43,8 @@ After each run is completed, the files will be uploaded to a specified S3 bucket
 ## Example outputs
 
 Example outputs of the **RTC_S1** and **RTC_S1_STATIC** workflows can be found at the links below. If you look at the assets of metadata.json file, you can see the static layers have been linked.
-- **RTC_S1** -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_iw_hh_c1/t070_149815_iw3/2022/1/1/
-- **RTC_S1_STATIC** -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_iw_static_c1/t070_149815_iw3/
+- **RTC_S1** -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_hh_c1/t070_149815_iw3/2022/1/1/
+- **RTC_S1_STATIC** -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_static_c1/t070_149815_iw3/
 
 
 ## Pipeline Overview
@@ -121,12 +121,12 @@ Final product output paths have the following structure
 **RTC_S1**
 - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/*files
 - odc_product_name is determined by the polarisation and collection_number for RTC_S1 products.
-- It will be one of ga_s1_iw_vv_vh_cX, ga_s1_iw_vv_cX, ga_s1_iw_hh_hv_cX, ga_s1_iw_hh_cX, where X is the collection_number
-- example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_iw_hh_c1/t070_149815_iw3/2022/1/1/
+- It will be one of ga_s1_nrb_iw_vv_vh_cX, ga_s1_nrb_iw_vv_cX, ga_s1_nrb_iw_hh_hv_cX, ga_s1_nrb_iw_hh_cX, where X is the collection_number
+- example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_hh_c1/t070_149815_iw3/2022/1/1/
 **RTC_S1_STATIC**
 - e.g. s3_bucket/s3_project_folder/odc_product_name/burst_id/*files
-- odc_product_name = ga_s1_iw_static_cX, where X is the collection_number
-- example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_iw_static_c1/t070_149815_iw3/
+- odc_product_name = ga_s1_nrb_iw_static_cX, where X is the collection_number
+- example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_static_c1/t070_149815_iw3/
 
 ## Container processing location
 
@@ -221,7 +221,7 @@ Note, any scene that covers the given burst could be used. For example, the foll
 
 Once the workflow has been completed, you should be able to fine the static layers at:
 
-`https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=TMP/ga_s1_iw_static_c1/t070_149815_iw3/`
+`https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=TMP/ga_s1_nrb_iw_static_c1/t070_149815_iw3/`
 
 ### 2. Make the RTC Backscatter for the scene and link the metadata to the static layers
 

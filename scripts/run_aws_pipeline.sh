@@ -28,10 +28,10 @@ linked_static_layers_collection_number=1
 # RTC_S1
 #   - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/*files
 #   - odc_product_name is determined by the polarisation and collection_number for RTC_S1 products.
-#   - It will be one of ga_s1_iw_vv_vh_cX, ga_s1_iw_vv_cX, ga_s1_iw_hh_hv_cX, ga_s1_iw_hh_cX, where X is the collection_number
+#   - It will be one of ga_s1_nrb_iw_vv_vh_cX, ga_s1_nrb_iw_vv_cX, ga_s1_nrb_iw_hh_hv_cX, ga_s1_nrb_iw_hh_cX, where X is the collection_number
 # RTC_S1_STATIC
 #   - e.g. s3_bucket/s3_project_folder/odc_product_name/burst_id/*files
-#   - odc_product_name = ga_s1_iw_static_cX, where X is the collection_number
+#   - odc_product_name = ga_s1_nrb_iw_static_cX, where X is the collection_number
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
