@@ -240,7 +240,7 @@ def check_burst_product_h5_exists_in_s3(
     burst_polarisations: list[str],
     s3_bucket: str,
     s3_project_folder: str,
-    collection_number: str,
+    collection_number: int,
     make_existing_products: bool,
     early_exit: bool = True,
     early_exit_code: int = 100,
@@ -261,7 +261,7 @@ def check_burst_product_h5_exists_in_s3(
         The bucket where the products are stored
     s3_project_folder : str
         The subpath within the bucket
-    collection_number : str
+    collection_number : int
         The collection_number as an int.
     make_existing_products : bool
         whether to make products if they already exist in s3. If False,
