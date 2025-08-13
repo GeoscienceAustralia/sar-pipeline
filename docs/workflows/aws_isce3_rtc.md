@@ -74,21 +74,21 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_aws_
 
 ```bash
 # Basic input for product creation
-scene="" (required)
-burst_id_list=()
-resolution=20
-output_crs="UTM"
-dem_type=("REMA_32" "cop_glo30") # order of preference, if data available for scene
-product="RTC_S1"
-backscatter_convention=gamma0 # gamma0, sigma0 or beta0
-s3_bucket="deant-data-public-dev"
-s3_project_folder="baseline"
-collection_number=1
-make_existing_products=false
-skip_upload_to_s3=false
-scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
-orbit_data_source=("ASF" "CDSE")
-skip_validate_stac=false
+--scene="" (required)
+--burst_id_list=()
+--resolution=20
+--output_crs="UTM"
+--dem_type=("REMA_32" "cop_glo30") # order of preference, if data available for scene
+--product="RTC_S1"
+--backscatter_convention=gamma0 # gamma0, sigma0 or beta0
+--s3_bucket="deant-data-public-dev"
+--s3_project_folder="baseline"
+--collection_number=1
+--make_existing_products=false
+--skip_upload_to_s3=false
+--scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
+--orbit_data_source=("ASF" "CDSE")
+--skip_validate_stac=false
 # Required inputs for linking RTC_S1_STATIC to RTC_S1
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
 --link_static_layers=false           
