@@ -12,8 +12,18 @@ def get_odc_product_name(product, collection_number, polarisations):
             return f"ga_s1_nrb_iw_vv_c{collection_number}"
         elif polarisations == ["HH"]:
             return f"ga_s1_nrb_iw_hh_c{collection_number}"
+        else:
+            raise ValueError(
+                "could not create odc product name from; "
+                f"product: {product}, collection_number: {collection_number}, polarisations: {polarisations}"
+            )
     elif product == "RTC_S1_STATIC":
         return f"ga_s1_nrb_iw_static_c{collection_number}"
+    else:
+        raise ValueError(
+            "could not create odc product name from; "
+            f"product: {product}, collection_number: {collection_number}, polarisations: {polarisations}"
+        )
 
 
 def make_rtc_s1_s3_subpath(
