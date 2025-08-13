@@ -256,7 +256,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-hb9d3cd8_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstandard-0.23.0-py312h66e93f0_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb8e6e7a_2.conda
-      - pypi: https://files.pythonhosted.org/packages/e1/05/ee10f74a3b3d2263445f4cfa8d3b0258284f98fe4897b2d68f55970d15de/asf_search-8.1.1-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/72/16/eb619e84edf7510b0f8464f2134f666ec9681f55df802694587a742fa5e6/asf_search-9.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
       - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=v0.2.3#41a9331464c5e7eb52759a7ec20e961b45f88d10
@@ -509,7 +509,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zlib-1.3.1-h8359307_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstandard-0.23.0-py312hea69d52_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-h6491c7d_2.conda
-      - pypi: https://files.pythonhosted.org/packages/35/13/a4e305f1f5550216189c9772c2680a6dadec1934fb634b9e6d4bbf20a921/asf_search-8.1.2-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/72/16/eb619e84edf7510b0f8464f2134f666ec9681f55df802694587a742fa5e6/asf_search-9.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
       - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=v0.2.3#41a9331464c5e7eb52759a7ec20e961b45f88d10
@@ -802,7 +802,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-hb9d3cd8_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstandard-0.23.0-py312h66e93f0_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb8e6e7a_2.conda
-      - pypi: https://files.pythonhosted.org/packages/e1/05/ee10f74a3b3d2263445f4cfa8d3b0258284f98fe4897b2d68f55970d15de/asf_search-8.1.1-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/72/16/eb619e84edf7510b0f8464f2134f666ec9681f55df802694587a742fa5e6/asf_search-9.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6f/22/b99efca33f1f3a1d2552c714b1e1b5ae92efac6c43e790ad539a163d1754/black-25.1.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
@@ -1073,7 +1073,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zlib-1.3.1-h8359307_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstandard-0.23.0-py312hea69d52_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-h6491c7d_2.conda
-      - pypi: https://files.pythonhosted.org/packages/35/13/a4e305f1f5550216189c9772c2680a6dadec1934fb634b9e6d4bbf20a921/asf_search-8.1.2-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/72/16/eb619e84edf7510b0f8464f2134f666ec9681f55df802694587a742fa5e6/asf_search-9.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/13/f3/89aac8a83d73937ccd39bbe8fc6ac8860c11cfa0af5b1c96d081facac844/black-25.1.0-cp312-cp312-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
@@ -1334,10 +1334,10 @@ packages:
   - pkg:pypi/arrow?source=hash-mapping
   size: 99951
   timestamp: 1733584345583
-- pypi: https://files.pythonhosted.org/packages/e1/05/ee10f74a3b3d2263445f4cfa8d3b0258284f98fe4897b2d68f55970d15de/asf_search-8.1.1-py3-none-any.whl
+- pypi: https://files.pythonhosted.org/packages/72/16/eb619e84edf7510b0f8464f2134f666ec9681f55df802694587a742fa5e6/asf_search-9.0.9-py3-none-any.whl
   name: asf-search
-  version: 8.1.1
-  sha256: d2cf9331d70d1072e096e233e23ae881ea1d2ff22701acf536c00a7b333877ed
+  version: 9.0.9
+  sha256: 444dfab69f63ef7698b0438c144e44da849de053e2373c0235300c128aea49ee
   requires_dist:
   - requests
   - shapely
@@ -1346,32 +1346,7 @@ packages:
   - numpy
   - dateparser
   - python-dateutil
-  - tenacity==8.2.2
-  - pytest==8.1.1 ; extra == 'test'
-  - pytest-automation==3.0.0 ; extra == 'test'
-  - pytest-cov ; extra == 'test'
-  - pytest-xdist ; extra == 'test'
-  - coverage ; extra == 'test'
-  - requests-mock==1.11.0 ; extra == 'test'
-  - nbformat ; extra == 'test'
-  - nbconvert ; extra == 'test'
-  - ipykernel ; extra == 'test'
-  - remotezip>=0.10.0 ; extra == 'extras'
-  - ciso8601 ; extra == 'extras'
-  requires_python: '>=3.9'
-- pypi: https://files.pythonhosted.org/packages/35/13/a4e305f1f5550216189c9772c2680a6dadec1934fb634b9e6d4bbf20a921/asf_search-8.1.2-py3-none-any.whl
-  name: asf-search
-  version: 8.1.2
-  sha256: 14f1e72e683a2d3c7ce6ef846f41af0a077a7525bed091459dc1739c2b545434
-  requires_dist:
-  - requests
-  - shapely
-  - pytz
-  - importlib-metadata
-  - numpy
-  - dateparser
-  - python-dateutil
-  - tenacity==8.2.2
+  - tenacity>=8.2.2
   - pytest==8.1.1 ; extra == 'test'
   - pytest-automation==3.0.0 ; extra == 'test'
   - pytest-cov ; extra == 'test'
@@ -5998,10 +5973,10 @@ packages:
   timestamp: 1740681675666
 - pypi: .
   name: sar-pipeline
-  version: 0.2.4.dev0+gd5b572b.d20250718
-  sha256: 7c736473e582d29ab33a80c6db0bde8d17ff2a84411af2597a15673ff1d3d452
+  version: 0.2.5.dev0+gc05e694.d20250813
+  sha256: 9352c6d435b09d452da687666b9448e63e6a543106c896a10dd33f1e627f62b0
   requires_dist:
-  - asf-search>=8.1.1
+  - asf-search>=9.0.9
   - boto3>=1.37.1
   - botocore>=1.37.1
   - h5py>=3.13.0
