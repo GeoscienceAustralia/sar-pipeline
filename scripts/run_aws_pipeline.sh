@@ -14,8 +14,8 @@ s3_project_folder="baseline"
 collection_number=1
 make_existing_products=false
 skip_upload_to_s3=false
-scene_data_source="ASF"
-orbit_data_source="ASF"
+scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
+orbit_data_source=("ASF" "CDSE")
 skip_validate_stac=false
 ## -- WORKFLOW INPUTS TO LINK RTC_S1_STATIC in RTC_S1 metadata--
 # if link_static_layers, RTC_S1_STATIC products must exist for all RTC_S1 bursts being processed
@@ -40,6 +40,7 @@ while [[ "$#" -gt 0 ]]; do
         --resolution) resolution="$2"; shift 2 ;;
         --output_crs) output_crs="$2"; shift 2 ;;
         --dem_type) 
+            dem_type=()  # clear the default
             shift
             if [[ $# -eq 1 && -f "$1" ]]; then
                 dem_type=($(cat "$1"))
@@ -62,8 +63,32 @@ while [[ "$#" -gt 0 ]]; do
         --linked_static_layers_s3_bucket) linked_static_layers_s3_bucket="$2"; shift 2 ;;
         --linked_static_layers_collection_number) linked_static_layers_collection_number="$2"; shift 2 ;;
         --linked_static_layers_s3_project_folder) linked_static_layers_s3_project_folder="$2"; shift 2 ;;
-        --scene_data_source) scene_data_source="$2"; shift 2 ;;
-        --orbit_data_source) orbit_data_source="$2"; shift 2 ;;
+        --scene_data_source) 
+            scene_data_source=()  # clear the default
+            shift
+            if [[ $# -eq 1 && -f "$1" ]]; then
+                scene_data_source=($(cat "$1"))
+                shift
+            else
+                while [[ $# -gt 0 && ! $1 =~ ^-- ]]; do
+                    scene_data_source+=("$1")
+                    shift
+                done
+            fi
+            ;;
+        --orbit_data_source)
+            orbit_data_source=()  # clear the default
+            shift
+            if [[ $# -eq 1 && -f "$1" ]]; then
+                orbit_data_source=($(cat "$1"))
+                shift
+            else
+                while [[ $# -gt 0 && ! $1 =~ ^-- ]]; do
+                    orbit_data_source+=("$1")
+                    shift
+                done
+            fi
+            ;;
         --skip_validate_stac) skip_validate_stac=true; shift ;;
         --burst_id_list)
             shift
@@ -128,8 +153,8 @@ echo s3_project_folder : "$s3_project_folder"
 echo collection_number : "$collection_number"
 echo make_existing_products : "$make_existing_products"
 echo skip_upload_to_s3 : "$skip_upload_to_s3"
-echo scene_data_source : "$scene_data_source"
-echo orbit_data_source : "$orbit_data_source"
+echo scene_data_source : ${scene_data_source[*]}
+echo orbit_data_source : ${orbit_data_source[*]}
 echo skip_validate_stac : "$skip_validate_stac"
 
 # warn the user about linking static layers
@@ -183,14 +208,21 @@ cmd=(
     --scratch-folder "$scratch_folder" \
     --out-folder "$out_folder" \
     --run-config-save-path "$RUN_CONFIG_PATH" \
-    --scene-data-source "$scene_data_source" \
-    --orbit-data-source "$orbit_data_source" \
 )
 
 # Conditionally add --dem-type as a list of preferences
 if [[ ${#dem_type[@]} -gt 0 ]]; then
     cmd+=(--dem-type "${dem_type[*]}")
 fi
+# Conditionally add --scene-data-source as a list of preferences
+if [[ ${#scene_data_source[@]} -gt 0 ]]; then
+    cmd+=(--scene-data-source "${scene_data_source[*]}")
+fi
+# Conditionally add --orbit-data-source as a list of preferences
+if [[ ${#orbit_data_source[@]} -gt 0 ]]; then
+    cmd+=(--orbit-data-source "${orbit_data_source[*]}")
+fi
+
 
 if [ "$make_existing_products" = true ] ; then
     # make the product even if it already exists

@@ -8,10 +8,13 @@ from s1reader import s1_info
 import re
 
 from sar_pipeline.aws.preparation.scenes import (
-    download_scene_from_asf,
-    download_scene_from_cdse,
+    download_scene_from_preference_list,
+    VALID_SCENE_DATA_SOURCES,
 )
-from sar_pipeline.aws.preparation.orbits import download_orbits
+from sar_pipeline.aws.preparation.orbits import (
+    download_orbits,
+    VALID_ORBIT_DATA_SOURCES,
+)
 from sar_pipeline.aws.preparation.burst_utils import (
     ensure_static_layers_in_s3,
     check_burst_product_h5_exists_in_s3,
@@ -171,16 +174,28 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
 @click.option(
     "--scene-data-source",
     required=False,
-    default="CDSE",
-    type=click.Choice(["ASF", "CDSE"]),
-    help="Where to download the scene from.",
+    default=["AUS_COP_HUB", "ASF", "CDSE"],
+    type=str,
+    help="Where to download the scene from. "
+    "Can be passed as a string or list of preferences separated by a space. "
+    "If the scene cannot be found at the first preference, the next will be used. "
+    "E.g. `--scene-data-source AUS_COP_HUB ASF` will first try to download the scene from "
+    "The Copernicus Australasia Regional Data Hub before moving to try from the European CDSE. "
+    "Credentials for the desired data source must be set as environment variables."
+    f"Values must be one of {VALID_SCENE_DATA_SOURCES}",
 )
 @click.option(
     "--orbit-data-source",
     required=False,
-    default="CDSE",
-    type=click.Choice(["ASF", "CDSE"]),
-    help="Where to download the scene from.",
+    default=["ASF", "CDSE"],
+    type=str,
+    help="Where to download the orbit files from. "
+    "Can be passed as a string or list of preferences separated by a space. "
+    "If the orbits files cannot be found at the first preference, the next will be used. "
+    "E.g. `--orbit-data-source ASF CDSE` will first try to download the orbit files from "
+    "The CDSE before moving to try from the ASF. "
+    "Credentials for the desired data source must be set as environment variables."
+    f"Values must be one of {VALID_ORBIT_DATA_SOURCES}",
 )
 @click.option("--make-folders", required=False, default=True, help="Create folders")
 @click.option(
@@ -226,7 +241,31 @@ def get_data_for_scene_and_make_run_config(
 
     # get the preference list of dem types
     dem_types = dem_type.split(" ")
+    if not all([d in VALID_DEMS for d in dem_types]):
+        raise ValueError(
+            f"Invalid --dem_type {dem_types}. --dem-type valid values are {VALID_DEMS}"
+        )
     logger.info(f"The order of DEM preference is : {dem_types}")
+
+    # get the preference list scene data sources
+    scene_data_sources = scene_data_source.split(" ")
+    if not all([ds in VALID_SCENE_DATA_SOURCES for ds in scene_data_sources]):
+        raise ValueError(
+            f"--scene-data-source valid values are {VALID_SCENE_DATA_SOURCES}"
+        )
+    logger.info(
+        f"The order of preference for platform used to download the scene is : {scene_data_sources}"
+    )
+
+    # get the preference of orbit file data sources
+    orbit_data_sources = orbit_data_source.split(" ")
+    if not all([ds in VALID_ORBIT_DATA_SOURCES for ds in orbit_data_sources]):
+        raise ValueError(
+            f"--orbit-data-source valid values are {VALID_ORBIT_DATA_SOURCES}"
+        )
+    logger.info(
+        f"The order of preference for platform used to download the orbits is : {orbit_data_sources}"
+    )
 
     # make the base .yaml for RTC processing
     if product == "RTC_S1":
@@ -252,23 +291,11 @@ def get_data_for_scene_and_make_run_config(
         scratch_folder.mkdir(parents=True, exist_ok=True)
         run_config_save_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if scene_data_source == "ASF":
-        # the burst ids and start-times can be acquired from the asf-search api.
-        # We can therefore check if products already exist before needing to download the scene
-        logger.info(f"Querying ASF for scene burst id's")
-        all_scene_burst_info = get_burst_info_for_scene_from_asf(scene)
-        logger.info(
-            f"{len(all_scene_burst_info)} burst ids found for scene from ASF API"
-        )
-
-    elif scene_data_source == "CDSE":
-        # the burst ids and start-times can be acquired from the asf-search api.
-        # We can therefore check if products already exist before needing to download the scene
-        logger.info(f"Querying CDSE for scene burst id's")
-        all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
-        logger.info(
-            f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API"
-        )
+    # The burst ids and start-times can be acquired from the CDSE (origin of all S1 data)
+    # We can therefore check if products already exist before needing to download the scene
+    logger.info(f"Querying CDSE for scene burst id's")
+    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
+    logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
 
     # Limit the bursts to be processed if a list has been provided
     if burst_id_list:
@@ -285,17 +312,18 @@ def get_data_for_scene_and_make_run_config(
     burst_st_list_candidates = [
         all_scene_burst_info[id_]["start_time"] for id_ in burst_id_list_candidates
     ]
-    burst_pols = [
+    polarisation_list = [
         pol
         for id_ in burst_id_list_candidates
         for pol in all_scene_burst_info[id_]["pols"]
     ]
+    polarisation_list = list(set(polarisation_list))
     # return products that don't exist, and early exit if all already exist
     burst_id_list_to_process = check_burst_product_h5_exists_in_s3(
         product=product,
         burst_id_list=burst_id_list_candidates,
         burst_st_list=burst_st_list_candidates,
-        burst_polarisations=burst_pols,
+        burst_polarisations=polarisation_list,
         s3_bucket=s3_bucket,
         s3_project_folder=s3_project_folder,
         collection_number=collection_number,
@@ -320,29 +348,22 @@ def get_data_for_scene_and_make_run_config(
             early_exit_code=101,
         )
 
-    if scene_data_source == "ASF":
-        # download the SLC and get scene metadata from asf
-        logger.info(f"Downloading SLC for scene : {scene}")
-        SCENE_PATH, asf_scene_metadata = download_scene_from_asf(scene, scene_folder)
-        scene_polygon = shapely.geometry.shape(asf_scene_metadata.geometry)
-        polarisation_list = asf_scene_metadata.properties["polarization"].split("+")
-        input_scene_url = asf_scene_metadata.properties["url"]
-
-    elif scene_data_source == "CDSE":
-        logger.info(f"Downloading SLC for scene : {scene}")
-        SCENE_PATH, cdse_scene_metadata = download_scene_from_cdse(scene, scene_folder)
-        scene_polygon = shapely.geometry.shape(cdse_scene_metadata["geometry"])
-        polarisation_list = cdse_scene_metadata["properties"]["polarisation"].split("&")
-        input_scene_url = cdse_scene_metadata["properties"]["services"]["download"][
-            "url"
-        ]
+    # iterate through the preferences for the scene data source and download the scene
+    SCENE_PATH, scene_polygon, input_scene_url = download_scene_from_preference_list(
+        scene_data_source_preferences=scene_data_sources,
+        scene=scene,
+        download_folder=scene_folder,
+        unzip=True,
+    )
 
     # # download the orbits
     logger.info(f"Downloading Orbits for scene : {scene}")
-    ORBIT_PATHS = download_orbits(
-        sentinel_file=scene + ".SAFE", save_dir=orbit_folder, source=orbit_data_source
+    ORBIT_PATH = download_orbits(
+        scene_safe_file=scene + ".SAFE",
+        save_dir=orbit_folder,
+        source=orbit_data_sources,
     )
-    logger.info(f"File downloaded to : {ORBIT_PATHS[0]}")
+    logger.info(f"File downloaded to : {ORBIT_PATH}")
 
     # get the shape of the area covering the bursts to be processed
     burst_geoms_to_process = [
@@ -442,7 +463,7 @@ def get_data_for_scene_and_make_run_config(
         f"{gk}.input_file_group.source_data_access",
         input_scene_url,
     )
-    RTC_RUN_CONFIG.set(f"{gk}.input_file_group.orbit_file_path", [str(ORBIT_PATHS[0])])
+    RTC_RUN_CONFIG.set(f"{gk}.input_file_group.orbit_file_path", [str(ORBIT_PATH)])
     RTC_RUN_CONFIG.set(f"{gk}.dynamic_ancillary_file_group.dem_file", str(DEM_PATH))
 
     # set the backscatter convention and if rtc_apply is true
