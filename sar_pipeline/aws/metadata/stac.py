@@ -237,6 +237,10 @@ class BurstH5toStacManager:
         )  # this needs to  dynamic based on the pol files and match odc product
         self.item.properties["odc:product_family"] = "sar_ard"
         self.item.properties["odc:region_code"] = self.burst_id
+        self.item.properties["odc:producer"] = "ga.gov.au"
+        self.item.properties["odc:dataset_version"] = self.h5.search_value(
+            "identification/productVersion"
+        )
 
         # add product stac extension properties
         self.item.properties["product:type"] = self.product
@@ -317,6 +321,7 @@ class BurstH5toStacManager:
             0
         ].replace(".SAFE", "")
         self.item.properties["sarard:burst_id"] = self.burst_id
+        self.item.properties["sarard:beam_id"] = self.h5.search_value("subSwathID")
         self.item.properties["sarard:orbit_files"] = self.h5.search_value(
             "orbitFiles"
         )  # Link to a file containing the orbit state vectors.
