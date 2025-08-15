@@ -9,6 +9,7 @@ REQUIRED_ASSET_FILETYPES = {
             "_VH_gamma0.tif",
             "_mask.tif",
             ".png",
+            ".yaml",
         ],
         "sigma0": [
             "_HH_sigma0.tif",
@@ -17,6 +18,7 @@ REQUIRED_ASSET_FILETYPES = {
             "_VH_sigma0.tif",
             "_mask.tif",
             ".png",
+            ".yaml",
         ],
         "beta0": [
             "_HH_beta0.tif",
@@ -25,6 +27,7 @@ REQUIRED_ASSET_FILETYPES = {
             "_VH_beta0.tif",
             "_mask.tif",
             ".png",
+            ".yaml",
         ],
     },
     "RTC_S1_STATIC": [
@@ -33,6 +36,7 @@ REQUIRED_ASSET_FILETYPES = {
         "_rtc_anf_gamma0_to_sigma0.tif",
         "_local_incidence_angle.tif",
         "_incidence_angle.tif",
+        ".yaml",
     ],
 }
 
@@ -57,6 +61,7 @@ ASSET_FILETYPE_TO_TITLE = {
     "_incidence_angle.tif": "incidence_angle",
     "_interpolated_dem.tif": "digital_elevation_model",
     ".png": "thumbnail",
+    ".yaml": "processing_config",
 }
 
 ASSET_FILETYPE_TO_DESCRIPTION = {
@@ -80,6 +85,7 @@ ASSET_FILETYPE_TO_DESCRIPTION = {
     "_incidence_angle.tif": "incidence angle (IA)",
     "_interpolated_dem.tif": "interpolated digital elevation model (DEM)",
     ".png": "thumbnail image for backscatter",
+    ".yaml": "software processing configuration file",
 }
 
 ASSET_FILETYPE_TO_ROLES = {
@@ -103,6 +109,7 @@ ASSET_FILETYPE_TO_ROLES = {
     "_incidence_angle.tif": ["data", "auxiliary"],
     "_interpolated_dem.tif": ["data", "ancillary"],
     ".png": ["thumbnail"],
+    ".yaml": ["config"],
 }
 
 ASSET_FILETYPE_TO_MEDIATYPE = {
@@ -126,4 +133,5 @@ ASSET_FILETYPE_TO_MEDIATYPE = {
     "_incidence_angle.tif": pystac.media_type.MediaType.COG,
     "_interpolated_dem.tif": pystac.media_type.MediaType.COG,
     ".png": pystac.media_type.MediaType.PNG,
+    ".yaml": "application/yaml",
 }

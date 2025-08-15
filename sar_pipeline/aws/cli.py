@@ -497,11 +497,12 @@ def get_data_for_scene_and_make_run_config(
     # Update Outputs
     RTC_RUN_CONFIG.set(f"{gk}.product_group.output_dir", str(out_folder))
     RTC_RUN_CONFIG.set(f"{gk}.product_group.scratch_path", str(scratch_folder))
-    if product == "RTC_S1_STATIC":
-        # TODO YYYYMMDD
-        RTC_RUN_CONFIG.set(
-            f"{gk}.product_group.rtc_s1_static_validity_start_date", 20010101
-        )
+
+    # NOTE - In the future, we may want to make this dynamic. E.g. multi-temporal DEMS
+    # Currently set to a fixed value in the run config template.
+    # RTC_RUN_CONFIG.set(
+    #     f"{gk}.product_group.rtc_s1_static_validity_start_date", 20140403
+    # )
 
     if link_static_layers:
         # add the static layer base url
@@ -640,8 +641,6 @@ def make_rtc_opera_stac_and_upload_bursts(
         logger.info(
             f"Making STAC metadata for burst {i+1} of {len(burst_folders)} : {burst_folder}"
         )
-        # copy the run config file to the burst folder
-        shutil.copy(run_config_path, burst_folder / run_config_path.name)
         # load in the .h5 file containing metadata for each burst
         burst_h5_files = list(burst_folder.glob("*.h5"))
         if len(burst_h5_files) != 1:
@@ -650,6 +649,16 @@ def make_rtc_opera_stac_and_upload_bursts(
                 f"This error might be caused by repeat runs. Delete duplicate files or change run settings."
             )
         burst_h5_filepath = burst_folder / burst_h5_files[0]
+        # copy the run config file to the burst folder and rename to include product name
+        burst_run_config_filepath = burst_h5_filepath.with_suffix(
+            run_config_path.suffix
+        )
+        shutil.copy(run_config_path, burst_run_config_filepath)
+        # rename the thumbnail to include '_thumbnail'
+        burst_thumbnail_path = burst_h5_filepath.with_suffix(".png")
+        burst_thumbnail_path.rename(
+            burst_thumbnail_path.with_stem(burst_thumbnail_path.stem + "_thumbnail")
+        )
         # make the stac metadata from the .h5 metadata
         logging.info(f"Making stac metadata from .h5 file")
         # initialise the class to convert data from the .h5 to a stac doc
