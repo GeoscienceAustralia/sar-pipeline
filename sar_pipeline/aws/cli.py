@@ -730,3 +730,112 @@ def make_rtc_opera_stac_and_upload_bursts(
                 )
             else:
                 logger.info(f"Skipping upload to S3.")
+
+
+from sar_pipeline import PROJECT_ROOT_PATH
+from sar_pipeline.utils.aws import S3Util
+import os
+
+
+@click.command()
+@click.option(
+    "--product",
+    required=True,
+    type=click.Choice(["RTC_S1", "RTC_S1_STATIC"]),
+    help="The product type being compared",
+)
+@click.option(
+    "--local-product-folder-1",
+    required=False,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Path to the local folder containing the first burst outputs from RTC/opera to compare",
+)
+@click.option(
+    "--local-product-folder-2",
+    required=False,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Path to the local folder containing the second burst outputs from RTC/opera to compare",
+)
+@click.option(
+    "--s3-product-folder-1",
+    required=False,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Path to the folder in s3 containing the first burst outputs from RTC/opera to compare."
+    " Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required.",
+)
+@click.option(
+    "--s3-product-folder-2",
+    required=False,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Path to the folder in s3 containing the second burst outputs from RTC/opera to compare."
+    "Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required.",
+)
+@click.option(
+    "--s3-bucket",
+    required=False,
+    default="deant-data-public-dev",
+    type=click.Path(file_okay=False, path_type=Path),
+    help="S3 where outputs are being stored. Required if s3 folders are set as input",
+)
+@click.option(
+    "--out-folder",
+    required=False,
+    default=PROJECT_ROOT_PATH / "comparison",
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Folder to write the outputs of the comparison to",
+)
+def make_rtc_opera_stac_and_upload_bursts(
+    product,
+    local_product_folder_1,
+    local_product_folder_2,
+    s3_product_folder_1,
+    s3_product_folder_2,
+    s3_bucket,
+    out_folder,
+):
+    logger.info(f"The product being compared is : {product}")
+    logger.info(f"The outputs will be written to : {out_folder}")
+
+    if not s3_product_folder_1 or local_product_folder_1:
+        logger.error(
+            "Ensure either --local-product-folder-1 or --s3-product-folder-1 set"
+        )
+        raise ValueError
+    elif not s3_product_folder_2 or local_product_folder_2:
+        logger.error(
+            "Ensure either --local-product-folder-2 or --s3-product-folder-2 set"
+        )
+        raise ValueError
+
+    if s3_product_folder_1 or s3_product_folder_2:
+        # set up the AWS download util
+        S3Downloader = S3Util(
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_ACCESS_KEY_SECRET"),
+            region_name=os.getenv("AWS_DEFAULT_REGION") or "ap-southeast-2",
+        )
+
+    if s3_product_folder_1:
+        # download product folder to local folder
+        local_product_folder_1 = out_folder / s3_product_folder_1
+        os.makedirs(local_product_folder_1, exist_ok=True)
+        S3Downloader.download_folder(
+            s3_bucket, s3_product_folder_1, local_product_folder_1
+        )
+    if s3_product_folder_2:
+        # download product folder to local folder
+        local_product_folder_2 = out_folder / s3_product_folder_2
+        os.makedirs(local_product_folder_2, exist_ok=True)
+        S3Downloader.download_folder(
+            s3_bucket, s3_product_folder_2, local_product_folder_2
+        )
+
+    # compare count of files and filetypes in folder
+
+    # compare the metadata files
+
+    # compare the processing config
+
+    # compare the tifs
+
+    # summarise changes
