@@ -192,7 +192,7 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
     help="Where to download the orbit files from. "
     "Can be passed as a string or list of preferences separated by a space. "
     "If the orbits files cannot be found at the first preference, the next will be used. "
-    "E.g. `--orbit-data-source ASF CDSE` will first try to download the orbit files from "
+    "E.g. `--orbit-data-source CDSE ASF` will first try to download the orbit files from "
     "The CDSE before moving to try from the ASF. "
     "Credentials for the desired data source must be set as environment variables."
     f"Values must be one of {VALID_ORBIT_DATA_SOURCES}",
