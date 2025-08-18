@@ -109,7 +109,7 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_aws_
 - `make_existing_products` -> Whether to generate products even if they already exist in AWS S3 under the specified product folder path `s3_bucket/s3_project_folder/collection/...`. 
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
 - `skip_upload_to_s3` -> Make the products, but skip uploading them to S3.
-- `scene_data_source` -> Where to download the scene slc file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB` `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
+- `scene_data_source` -> Where to download the scene slc file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
 - `orbit_data_source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `ASF` or `CDSE`. The default is (`CDSE` `ASF`).
 - `skip_validate_stac` -> To skip validation of the created STAC doc within the code. If the stac is invalid, products will not be uploaded.
 - `link_static_layers` -> Flag to link RTC_S1_STATIC to RTC_S1
