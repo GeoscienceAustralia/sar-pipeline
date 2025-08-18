@@ -554,7 +554,9 @@ class BurstH5toStacManager:
                     f.rename(new_path)
                     break  # once renamed, no need to check other pols
 
-    def add_assets_from_folder(self, burst_folder: Path):
+    def add_assets_from_folder(
+        self, burst_folder: Path, add_shape_transform_to_properties: bool = True
+    ):
         """Add the asset files from the burst folder
 
         Parameters
@@ -562,6 +564,11 @@ class BurstH5toStacManager:
         burst_folder : Path
             path to the local folder containing output products for a single burst.
             e.g. /path/to/my/scene_burst/t070_149813_iw2
+        add_shape_transform_to_properties: bool
+            If true, shape and transform will be to the stac properties.
+            This is the top level of the document so therefore assumes these
+            values consistent across all tifs for the given burst. i.e. all
+            tifs have the same shape.
 
         Raises
         ------
@@ -624,9 +631,11 @@ class BurstH5toStacManager:
             if asset_filetype.endswith(".tif"):
                 with rasterio.open(asset_filepath) as r:
                     raster_sampling = r.tags().get("AREA_OR_POINT", "").lower()
+                    shape = r.shape
+                    transform = list(r.transform)
                     extra_fields = {
-                        "proj:shape": r.shape,
-                        "proj:transform": list(r.transform),
+                        "proj:shape": shape,
+                        "proj:transform": transform,
                         "proj:code": str(r.crs),
                         "raster:data_type": r.dtypes[0],
                         "raster:sampling": raster_sampling,
@@ -660,6 +669,16 @@ class BurstH5toStacManager:
                         extra_fields["processing:level"] = self.item.properties[
                             "processing:level"
                         ]
+
+                    if add_shape_transform_to_properties:
+                        self.item.properties["proj:shape"] = shape
+                        self.item.properties["proj:transform"] = transform
+                        # add ones required for ceos ard
+                        self.item.properties["sarard:number_of_lines"] = shape[0]
+                        self.item.properties["sarard:number_of_pixels_per_line"] = (
+                            shape[1]
+                        )
+
             else:
                 extra_fields = {}
 
