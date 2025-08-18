@@ -3,6 +3,7 @@ Overview:
 This is test for a complete build and run of the project docker image
 It should be completed prior to every PR and release. A local run is generally
 required, given the need for credentials, sufficient CPU, RAM and Disk Memory.
+Recommend minimum of 4 CPU and 16 GB RAM.
 
 Steps:
 1.  Required environment variables are set.
