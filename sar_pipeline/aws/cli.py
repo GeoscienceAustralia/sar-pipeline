@@ -293,7 +293,7 @@ def get_data_for_scene_and_make_run_config(
 
     # The burst ids and start-times can be acquired from the CDSE (origin of all S1 data)
     # We can therefore check if products already exist before needing to download the scene
-    logger.info(f"Querying CDSE for scene burst id's")
+    logger.info(f"Querying CDSE for scene burst ids")
     all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
     logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
 
