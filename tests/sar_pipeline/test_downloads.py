@@ -55,7 +55,7 @@ if missing:
         missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
         if missing:
             raise ValueError(
-                "env.secret was found but some variables are missing. Add the required variables."
+                f"env.secret was found but some variables are missing. The following environment variables must be set for test: {REQUIRED_ENV_VARIABLES}"
             )
 
     except:

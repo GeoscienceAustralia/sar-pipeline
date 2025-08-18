@@ -179,7 +179,7 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
     help="Where to download the scene from. "
     "Can be passed as a string or list of preferences separated by a space. "
     "If the scene cannot be found at the first preference, the next will be used. "
-    "E.g. `--scene-data-source AUS_COP_HUB ASF` will first try to download the scene from "
+    "E.g. `--scene-data-source AUS_COP_HUB CDSE` will first try to download the scene from "
     "The Copernicus Australasia Regional Data Hub before moving to try from the European CDSE. "
     "Credentials for the desired data source must be set as environment variables."
     f"Values must be one of {VALID_SCENE_DATA_SOURCES}",
@@ -192,7 +192,7 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
     help="Where to download the orbit files from. "
     "Can be passed as a string or list of preferences separated by a space. "
     "If the orbits files cannot be found at the first preference, the next will be used. "
-    "E.g. `--orbit-data-source ASF CDSE` will first try to download the orbit files from "
+    "E.g. `--orbit-data-source CDSE ASF` will first try to download the orbit files from "
     "The CDSE before moving to try from the ASF. "
     "Credentials for the desired data source must be set as environment variables."
     f"Values must be one of {VALID_ORBIT_DATA_SOURCES}",
@@ -293,7 +293,7 @@ def get_data_for_scene_and_make_run_config(
 
     # The burst ids and start-times can be acquired from the CDSE (origin of all S1 data)
     # We can therefore check if products already exist before needing to download the scene
-    logger.info(f"Querying CDSE for scene burst id's")
+    logger.info(f"Querying CDSE for scene burst ids")
     all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
     logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
 
