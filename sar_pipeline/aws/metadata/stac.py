@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Literal
 import rasterio
+import pyproj
 import pystac
 from shapely.geometry import shape, box, mapping
 from dateutil.parser import isoparse
@@ -141,6 +142,10 @@ class BurstH5toStacManager:
         self.burst_s3_subfolder = self._make_s3_subfolder()
         self.bucket_href = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
         self.base_href = f"{self.bucket_href}/{self.burst_s3_subfolder}"
+        # browse link the view all product files in folder
+        self.browse_href = (
+            f"{self.bucket_href}/index.html?prefix={self.burst_s3_subfolder}"
+        )
 
     def _check_valid_product(self, product):
         "check the product is valid"
@@ -259,6 +264,9 @@ class BurstH5toStacManager:
         # add projection (proj) stac extension properties
         self.item.properties["proj:code"] = f"EPSG:{self.projection_epsg}"
         self.item.properties["proj:bbox"] = self.h5.search_value("boundingBox")
+        self.item.properties["proj:wkt2"] = pyproj.CRS.from_epsg(
+            self.projection_epsg
+        ).to_wkt()
 
         # add the sar stac extension properties
         self.item.properties["sar:frequency_band"] = self.h5.search_value("radarBand")
@@ -325,6 +333,10 @@ class BurstH5toStacManager:
         self.item.properties["sarard:orbit_files"] = self.h5.search_value(
             "orbitFiles"
         )  # Link to a file containing the orbit state vectors.
+        self.item.properties["sarard:UL_longitude"] = self.bbox_4326[0]  # min_lon
+        self.item.properties["sarard:UL_latitude"] = self.bbox_4326[3]  # max_lat
+        self.item.properties["sarard:LR_longitude"] = self.bbox_4326[2]  # max_lon
+        self.item.properties["sarard:LR_latitude"] = self.bbox_4326[1]  # min_lat
         self.item.properties["sarard:pixel_spacing_x"] = abs(
             self.h5.search_value("xCoordinateSpacing")
         )
@@ -471,8 +483,9 @@ class BurstH5toStacManager:
             )
         )
 
-    def add_self_link(self, filename: str | Path):
-        """Add the self / STAC metadata link to the stac item
+    def add_self_links(self, filename: str | Path):
+        """Add the self / STAC metadata link to the stac item and
+        Link to browse the product folder.
 
         Parameters
         ----------
@@ -480,6 +493,15 @@ class BurstH5toStacManager:
             Filename of the STAC file. This will be appended to the
             base_href for product.
         """
+
+        # link to product folder for browsing
+        self.item.add_link(
+            pystac.Link(
+                rel="browse",
+                target=f"{self.browse_href}",
+                media_type=pystac.media_type.MediaType.JSON,
+            )
+        )
 
         self.item.add_link(
             pystac.Link(
@@ -659,9 +681,15 @@ class BurstH5toStacManager:
         achieved by reading in the STAC metadata file associated with the
         static layers themselves"""
 
-        static_layer_root_url = self.h5.search_value("staticLayersDataAccess")
+        static_layer_browse_root_url = self.h5.search_value("staticLayersDataAccess")
+        static_layer_browse_url = os.path.join(
+            static_layer_browse_root_url, self.burst_id
+        )
+
         # remove the index string which is used for user visibility
-        static_layer_url = static_layer_root_url.replace("index.html?prefix=", "")
+        static_layer_url = static_layer_browse_root_url.replace(
+            "index.html?prefix=", ""
+        )
         burst_static_layer_stac_url = os.path.join(
             static_layer_url, self.burst_id, "metadata.json"
         )
@@ -679,11 +707,19 @@ class BurstH5toStacManager:
                 f"Request error: {e}"
             ) from e
 
-        # add the link to the static layer metadatafile to the links
+        # add the link to the static layer metadata file to the links
         self.item.add_link(
             pystac.Link(
                 rel="static-layers",
                 target=burst_static_layer_stac_url,
+            )
+        )
+
+        # add link to browse the static layer folder
+        self.item.add_link(
+            pystac.Link(
+                rel="static-layers-browse",
+                target=static_layer_browse_url,
             )
         )
 

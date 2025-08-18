@@ -690,7 +690,7 @@ def make_rtc_opera_stac_and_upload_bursts(
             logger.info("Linking static layers to product")
             burst_stac_manager.add_linked_static_layer_assets_and_link()
         stac_filename = "metadata.json"
-        burst_stac_manager.add_self_link(filename=stac_filename)
+        burst_stac_manager.add_self_links(filename=stac_filename)
         # TODO add final link to the collection STAC
         burst_stac_manager.add_collection_link()
         # save the metadata
