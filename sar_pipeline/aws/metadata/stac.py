@@ -237,6 +237,10 @@ class BurstH5toStacManager:
         )  # this needs to  dynamic based on the pol files and match odc product
         self.item.properties["odc:product_family"] = "sar_ard"
         self.item.properties["odc:region_code"] = self.burst_id
+        self.item.properties["odc:producer"] = "ga.gov.au"
+        self.item.properties["odc:dataset_version"] = self.h5.search_value(
+            "identification/productVersion"
+        )
 
         # add product stac extension properties
         self.item.properties["product:type"] = self.product
@@ -259,9 +263,10 @@ class BurstH5toStacManager:
         # add the sar stac extension properties
         self.item.properties["sar:frequency_band"] = self.h5.search_value("radarBand")
         if self.product == "RTC_S1":
-            self.item.properties["sar:center_frequency"] = self.h5.search_value(
-                "centerFrequency"
-            )
+            self.item.properties["sar:center_frequency"] = (
+                float(self.h5.search_value("centerFrequency")) / 1e9
+            )  # GHz
+            self.item.properties["sarard:center_frequency_unit"] = "GHz"
             self.item.properties["sar:polarizations"] = self.polarisations
         else:
             # add all to static layer
@@ -316,6 +321,7 @@ class BurstH5toStacManager:
             0
         ].replace(".SAFE", "")
         self.item.properties["sarard:burst_id"] = self.burst_id
+        self.item.properties["sarard:beam_id"] = self.h5.search_value("subSwathID")
         self.item.properties["sarard:orbit_files"] = self.h5.search_value(
             "orbitFiles"
         )  # Link to a file containing the orbit state vectors.
@@ -325,18 +331,25 @@ class BurstH5toStacManager:
         self.item.properties["sarard:pixel_spacing_y"] = abs(
             self.h5.search_value("yCoordinateSpacing")
         )
+        self.item.properties["sarard:pixel_spacing_unit"] = "metre"
         self.item.properties["sarard:resolution_x"] = abs(
             self.h5.search_value("xCoordinateSpacing")
         )
         self.item.properties["sarard:resolution_y"] = abs(
             self.h5.search_value("yCoordinateSpacing")
         )
+        self.item.properties["sarard:resolution_unit"] = "metre"
         self.item.properties["sarard:speckle_filter_applied"] = self.h5.search_value(
             "filteringApplied"
         )
         self.item.properties["sarard:speckle_filter_type"] = ""
         self.item.properties["sarard:speckle_filter_window"] = ()
-        self.item.properties["sarard:measurement_type"] = self.backscatter_convention
+        # convert to preferred format, gamma0 -> Gamma-0
+        self.item.properties["sarard:measurement_type"] = {
+            "gamma0": "Gamma-0",
+            "sigma0": "Sigma-0",
+            "beta0": "Beta-0",
+        }[self.backscatter_convention]
         self.item.properties["sarard:measurement_convention"] = self.h5.search_value(
             "outputBackscatterExpressionConvention"
         )
@@ -360,11 +373,12 @@ class BurstH5toStacManager:
         )
         self.item.properties["sarard:ionospheric_correction_applied"] = False
 
-        # TODO when official doccument, link the study supporting these values
+        # TODO when official document, link the study supporting these values
         self.item.properties["sarard:geometric_accuracy_ALE"] = 2.94
         self.item.properties["sarard:geometric_accuracy_rmse"] = 3.08
         self.item.properties["sarard:geometric_accuracy_range"] = 1.63
         self.item.properties["sarard:geometric_accuracy_azimuth"] = 1.92
+        self.item.properties["sarard:geometric_accuracy_unit"] = "metre"
 
         # add the storage stac extension properties
         self.item.properties["storage:schemes"] = {
@@ -587,12 +601,13 @@ class BurstH5toStacManager:
             # define raster parameters
             if asset_filetype.endswith(".tif"):
                 with rasterio.open(asset_filepath) as r:
+                    raster_sampling = r.tags().get("AREA_OR_POINT", "").lower()
                     extra_fields = {
                         "proj:shape": r.shape,
                         "proj:transform": list(r.transform),
                         "proj:code": str(r.crs),
                         "raster:data_type": r.dtypes[0],
-                        "raster:sampling": r.tags().get("AREA_OR_POINT", ""),
+                        "raster:sampling": raster_sampling,
                         "raster:nodata": (
                             r.nodata
                             if (
@@ -602,6 +617,14 @@ class BurstH5toStacManager:
                             else str(r.nodata)
                         ),
                     }
+                    # add pixel coordinate convention
+                    if "area" in raster_sampling:
+                        extra_fields["raster:pixel_coordinate_convention"] = "pixel ULC"
+                    elif "point" in raster_sampling:
+                        extra_fields["raster:pixel_coordinate_convention"] = (
+                            "pixel centre"
+                        )
+
                     if asset_filetype == "_mask.tif":
                         extra_fields["raster:values"] = {
                             "shadow": 1,

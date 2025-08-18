@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 from sar_pipeline.utils.general import log_timing
 
+VALID_ORBIT_DATA_SOURCES = ["ASF", "CDSE"]
+
 
 @log_timing
 def download_orbits_from_s3(
@@ -44,9 +46,9 @@ def download_orbits_from_s3(
 
 @log_timing
 def download_orbits(
-    sentinel_file: Path,
+    scene_safe_file: Path,
     save_dir: Path,
-    source: Literal["CDSE", "ASF"] = "CDSE",
+    source: Literal["CDSE", "ASF"] | list[Literal["CDSE", "ASF"]] = ["ASF", "CDSE"],
     cdse_user: Optional[str] = None,
     cdse_password: Optional[str] = None,
     asf_user: Optional[str] = None,
@@ -58,12 +60,13 @@ def download_orbits(
 
     Parameters
     ----------
-    sentinel_file : Path
+    scene_safe_file : Path
         Path to the Sentinel-1 SAFE file.
     save_dir : Path
         Directory to save the downloaded EOF file.
-    source : Literal["CDSE", "ASF"], optional
-        Source for downloading EOF, either "CDSE" or "ASF". Defaults to "CDSE".
+    source : Literal["CDSE", "ASF"] | list[Literal["CDSE", "ASF"]], optional
+        Source for downloading EOF, either "CDSE" or "ASF", or a list of preferences.
+        Defaults to ["ASF", "CDSE"].
     cdse_user : Optional[str], optional
         CDSE username. Defaults to None.
     cdse_password : Optional[str], optional
@@ -84,42 +87,66 @@ def download_orbits(
         If required credentials are missing.
     """
 
-    if source == "CDSE":
-        cdse_user = cdse_user or os.getenv("CDSE_LOGIN")
-        cdse_password = cdse_password or os.getenv("CDSE_PASSWORD")
-        if not cdse_user or not cdse_password:
-            raise ValueError(
-                "CDSE credentials are not set. Provide them as arguments or set CDSE_LOGIN and CDSE_PASSWORD as environment variables."
-            )
-        asf_user, asf_password = None, None
-
-    elif source == "ASF":
-        asf_user = asf_user or os.getenv("EARTHDATA_LOGIN")
-        asf_password = asf_password or os.getenv("EARTHDATA_PASSWORD")
-        if not asf_user or not asf_password:
-            raise ValueError(
-                "ASF credentials are not set. Provide them as arguments or set EARTHDATA_LOGIN and EARTHDATA_PASSWORD as environment variables."
-            )
-        cdse_user, cdse_password = None, None
-
+    # if single string provided, add to list of preferences to iterate
+    if isinstance(source, str):
+        orbit_source_preferences = [source]
     else:
-        raise ValueError(f"Source must be either 'CDSE' or 'ASF', got '{source}'.")
+        orbit_source_preferences = source
 
-    logger.info(f"Starting EOF download from {source}...")
-
-    # The logic in eof.download.main() tries CDSE first by default. set force_asf by source
-    orbit_paths = eof.download.main(
-        sentinel_file=sentinel_file,
-        save_dir=save_dir,
-        cdse_user=cdse_user,
-        cdse_password=cdse_password,
-        force_asf=source == "ASF",
-        asf_user=asf_user,
-        asf_password=asf_password,
-    )
-
-    if len(orbit_paths) > 1:
-        raise ValueError(
-            f"{len(ORBIT_PATHS)} orbit paths found for scene. Expecting 1."
+    for i, source in enumerate(orbit_source_preferences):
+        logger.info(
+            f"Attempting to download orbits from preference {i+1} of {len(orbit_source_preferences)} : {source}"
         )
-    return orbit_paths
+        if source == "CDSE":
+            cdse_user = cdse_user or os.getenv("CDSE_LOGIN")
+            cdse_password = cdse_password or os.getenv("CDSE_PASSWORD")
+            if not cdse_user or not cdse_password:
+                raise ValueError(
+                    "CDSE credentials are not set. Provide them as arguments or set CDSE_LOGIN and CDSE_PASSWORD as environment variables."
+                )
+            asf_user, asf_password = None, None
+
+        elif source == "ASF":
+            asf_user = asf_user or os.getenv("EARTHDATA_LOGIN")
+            asf_password = asf_password or os.getenv("EARTHDATA_PASSWORD")
+            if not asf_user or not asf_password:
+                raise ValueError(
+                    "ASF credentials are not set. Provide them as arguments or set EARTHDATA_LOGIN and EARTHDATA_PASSWORD as environment variables."
+                )
+            cdse_user, cdse_password = None, None
+
+        else:
+            raise ValueError(f"Source must be either 'CDSE' or 'ASF', got '{source}'.")
+
+        logger.info(f"Starting EOF download from {source}...")
+
+        # The logic in eof.download.main() tries CDSE first by default. set force_asf by source
+        try:
+            force_asf = source == "ASF"
+            orbit_paths = eof.download.main(
+                sentinel_file=scene_safe_file,
+                save_dir=save_dir,
+                cdse_user=cdse_user,
+                cdse_password=cdse_password,
+                force_asf=force_asf,
+                asf_user=asf_user,
+                asf_password=asf_password,
+            )
+
+            if len(orbit_paths) == 1:
+                break
+            if len(orbit_paths) != 1:
+                raise ValueError(
+                    f"{len(orbit_paths)} orbit paths found for scene. Expecting 1."
+                )
+        except Exception as e:
+            logger.error(
+                f"Could not download orbits from preference {i+1} of {len(orbit_source_preferences)} : {source}",
+                exc_info=True,
+            )
+            if source == orbit_source_preferences[-1]:
+                raise FileNotFoundError(
+                    f"Orbits could not be downloaded from any data source provided : {orbit_source_preferences}"
+                )
+
+    return orbit_paths[0]

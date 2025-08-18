@@ -227,7 +227,8 @@ def get_burst_info_for_scene_from_cdse(
 
     if len(burst_info) == 0:
         raise FileExistsError(
-            "No burst id's for scene could be found on the CDSE. Ensure input values are correct."
+            "No burst ids for scene could be found on the CDSE. Ensure input values are correct. "
+            f"Input scene : {scene}"
         )
 
     return burst_info

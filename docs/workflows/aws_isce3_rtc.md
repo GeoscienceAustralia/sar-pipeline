@@ -1,6 +1,6 @@
-# AWS Pipeline
+# AWS ISCE3 RTC Pipeline (Sentinel-1 IW NRB)
 
-- [AWS Pipeline](#aws-pipeline)
+- [AWS ISCE3 RTC Pipeline (Sentinel-1 IW NRB)](#aws-isce3-rtc-pipeline-sentinel-1-iw-nrb)
   - [About](#about)
   - [Example outputs](#example-outputs)
   - [Pipeline Overview](#pipeline-overview)
@@ -63,6 +63,10 @@ CDSE_PASSWORD=
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 AWS_DEFAULT_REGION=
+AUS_COP_HUB_LOGIN=
+AUS_COP_HUB_PASSWORD=
+AUS_COP_HUB_CLIENT_ID=odata
+AUS_COP_HUB_CLIENT_SECRET=
 ```
 
 ### Creating Products 
@@ -73,17 +77,17 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_aws_
 --scene="" (required)
 --burst_id_list=()
 --resolution=20
---output_crs=""
---dem_type=("REMA_32" "cop_glo30")
+--output_crs="UTM"
+--dem_type=("REMA_32" "cop_glo30") # order of preference, if data available for scene
 --product="RTC_S1"
---backscatter_convention="gamma0" 
+--backscatter_convention=gamma0 # gamma0, sigma0 or beta0
 --s3_bucket="deant-data-public-dev"
 --s3_project_folder="baseline"
 --collection_number=1
 --make_existing_products=false
 --skip_upload_to_s3=false
---scene_data_source="ASF"
---orbit_data_source="ASF"
+--scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
+--orbit_data_source=("ASF" "CDSE")
 --skip_validate_stac=false
 # Required inputs for linking RTC_S1_STATIC to RTC_S1
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
@@ -105,8 +109,8 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_aws_
 - `make_existing_products` -> Whether to generate products even if they already exist in AWS S3 under the specified product folder path `s3_bucket/s3_project_folder/collection/...`. 
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
 - `skip_upload_to_s3` -> Make the products, but skip uploading them to S3.
-- `scene_data_source` -> Where to download the scene slc file. Either `ASF` or `CDSE`. The default is `CDSE`.
-- `orbit_data_source` -> Where to download the orbit files. Either `ASF` or `CDSE`. The default is `CDSE`.
+- `scene_data_source` -> Where to download the scene slc file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
+- `orbit_data_source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `ASF` or `CDSE`. The default is (`ASF` `CDSE`).
 - `skip_validate_stac` -> To skip validation of the created STAC doc within the code. If the stac is invalid, products will not be uploaded.
 - `link_static_layers` -> Flag to link RTC_S1_STATIC to RTC_S1
 - `linked_static_layers_s3_bucket` -> bucket where RTC_S1_STATIC stored
@@ -326,17 +330,15 @@ conda activate sar-pipeline
 
 pip install -e /home/rtc_user/sar-pipeline
 
-# run the pipeline script
-
 chmod +x /home/rtc_user/scripts/run_aws_pipeline.sh 
 
 # Antarctic scene (all bursts)
 
-/home/rtc_user/scripts/run_aws_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --output_crs 3031 --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
+/home/rtc_user/scripts/run_aws_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
 
 # Antarctic scene (single burst)
 
-/home/rtc_user/scripts/run_aws_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --output_crs 3031 --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
+/home/rtc_user/scripts/run_aws_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
 
 # Australia scene
 
@@ -344,7 +346,7 @@ chmod +x /home/rtc_user/scripts/run_aws_pipeline.sh
 
 # Antarctica static layers
 
-/home/rtc_user/scripts/run_aws_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --output_crs 3031 --product RTC_S1_STATIC --collection_number 1 --s3_project_folder "TMP" --skip_upload_to_s3 --make_existing_products
+/home/rtc_user/scripts/run_aws_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --product RTC_S1_STATIC --collection_number 1 --s3_project_folder "TMP" --skip_upload_to_s3 --make_existing_products
 
 
 ```

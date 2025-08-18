@@ -1,5 +1,18 @@
-# test a full build and run
-# NOTE - requires sufficient CPU, RAM and Disk Memory
+"""
+Overview:
+This is test for a complete build and run of the project docker image
+It should be completed prior to every PR and release. A local run is generally
+required, given the need for credentials, sufficient CPU, RAM and Disk Memory.
+Recommend minimum of 4 CPU and 16 GB RAM.
+
+Steps:
+1.  Required environment variables are set.
+2.  The docker image for the current state is built and tagged.
+3.  The container is run, creating static layers (RTC_S1_STATIC) and uploading them to a
+    temporary folder in the AWS `test_s3_bucket` and `test_s3_project_folder` set below
+4. The container is run again for the backscatter products (RTC_S1), linking them to the
+    RTC_S1_STATIC products made in the above step. The results are similarly uploaded to AWS.
+"""
 
 import subprocess
 import pytest
@@ -30,6 +43,10 @@ REQUIRED_ENV_VARIABLES = [
     "AWS_DEFAULT_REGION",
     "CDSE_LOGIN",
     "CDSE_PASSWORD",
+    "AUS_COP_HUB_LOGIN",
+    "AUS_COP_HUB_PASSWORD",
+    "AUS_COP_HUB_CLIENT_ID",
+    "AUS_COP_HUB_CLIENT_SECRET",
 ]
 # check if the required env variables are set
 missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]

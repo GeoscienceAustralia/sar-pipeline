@@ -14,4 +14,4 @@ For more information see [Setup](docs/setup/README.md)
 
 For more information see [Workflows](docs/workflows/README.md)
 * [NCI (pyroSAR+GAMMA)](docs/workflows/pyrosar_gamma.md)
-* [AWS (ISCE3)](docs/workflows/aws.md)
+* [AWS (ISCE3_RTC)](docs/workflows/aws_isce3_rtc.md)
