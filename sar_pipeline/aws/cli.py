@@ -179,7 +179,7 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
     help="Where to download the scene from. "
     "Can be passed as a string or list of preferences separated by a space. "
     "If the scene cannot be found at the first preference, the next will be used. "
-    "E.g. `--scene-data-source AUS_COP_HUB ASF` will first try to download the scene from "
+    "E.g. `--scene-data-source AUS_COP_HUB CDSE` will first try to download the scene from "
     "The Copernicus Australasia Regional Data Hub before moving to try from the European CDSE. "
     "Credentials for the desired data source must be set as environment variables."
     f"Values must be one of {VALID_SCENE_DATA_SOURCES}",
