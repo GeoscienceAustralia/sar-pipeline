@@ -95,13 +95,14 @@ def make_rtc_s1_static_s3_subpath(
     return f"{s3_project_folder}/{odc_product_name}/{burst_id}"
 
 
-def make_static_layer_base_url(
+def make_static_layer_browse_url(
     static_layers_s3_bucket: str,
     static_layers_collection_number: int,
     static_layers_s3_project_folder: str,
+    burst_id: str = "",
     s3_region: str = "ap-southeast-2",
 ) -> str:
-    """Make the base url to the static layers from the paths provided
+    """Make the browse url to the static layers from the paths provided
 
     Parameters
     ----------
@@ -111,6 +112,10 @@ def make_static_layer_base_url(
         collection number of the static layers
     static_layers_s3_project_folder : str
         project folder within bucket if exists
+    burst_id:
+        burst id. If not supplied, the root browse link to all static
+        layers is created.
+
     s3_region : str, optional
         aws region code, by default "ap-southeast-2"
 
@@ -123,7 +128,7 @@ def make_static_layer_base_url(
     root_static_layer_path = make_rtc_s1_static_s3_subpath(
         s3_project_folder=static_layers_s3_project_folder,
         collection_number=static_layers_collection_number,
-        burst_id="",
+        burst_id=burst_id,
     )
     return (
         f"https://{static_layers_s3_bucket}.s3.{s3_region}.amazonaws.com"

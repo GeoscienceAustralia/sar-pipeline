@@ -25,7 +25,7 @@ from sar_pipeline.aws.preparation.burst_utils import (
 from sar_pipeline.aws.preparation.config import RTCConfigManager
 from sar_pipeline.aws.metadata.stac import BurstH5toStacManager
 from sar_pipeline.aws.metadata.odc import (
-    make_static_layer_base_url,
+    make_static_layer_browse_url,
 )
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 from sar_pipeline.utils.general import log_timing
@@ -506,7 +506,7 @@ def get_data_for_scene_and_make_run_config(
 
     if link_static_layers:
         # add the static layer base url
-        static_layer_base_url = make_static_layer_base_url(
+        static_layer_base_url = make_static_layer_browse_url(
             linked_static_layers_s3_bucket,
             linked_static_layers_collection_number,
             linked_static_layers_s3_project_folder,
@@ -649,22 +649,28 @@ def make_rtc_opera_stac_and_upload_bursts(
                 f"This error might be caused by repeat runs. Delete duplicate files or change run settings."
             )
         burst_h5_filepath = burst_folder / burst_h5_files[0]
-        # copy the run config file to the burst folder and rename to include product name
-        burst_run_config_filepath = burst_h5_filepath.with_suffix(
-            run_config_path.suffix
+
+        # get the product name common to files from the .h5
+        # e.g. ga_s1_nrb-static_v0.1.0_T070-149815-IW3_20140403
+        burst_product_name = burst_h5_filepath.stem.replace(".metadata", "")
+
+        # rename the .h5 file to conform with ga naming conventions
+        burst_h5_filepath = burst_h5_filepath.rename(
+            burst_folder / f"{burst_product_name}.metadata.h5"
+        )
+        # copy the run config file to the burst folder and rename to conform with ga naming conventions
+        burst_run_config_filepath = (
+            burst_folder / f"{burst_product_name}.proc-config.yaml"
         )
         shutil.copy(run_config_path, burst_run_config_filepath)
-        # rename the thumbnail to include '_thumbnail'
-        burst_thumbnail_path = burst_h5_filepath.with_suffix(".png")
-        burst_thumbnail_path.rename(
-            burst_thumbnail_path.with_stem(burst_thumbnail_path.stem + "_thumbnail")
-        )
+
         # make the stac metadata from the .h5 metadata
         logging.info(f"Making stac metadata from .h5 file")
         # initialise the class to convert data from the .h5 to a stac doc
         burst_stac_manager = BurstH5toStacManager(
             h5_filepath=burst_h5_filepath,
             product=product,
+            product_id=burst_product_name,
             backscatter_convention=backscatter_convention,
             collection_number=collection_number,
             s3_bucket=s3_bucket,
@@ -673,28 +679,36 @@ def make_rtc_opera_stac_and_upload_bursts(
         # make the stac item based
         burst_stac_manager.make_stac_item_from_h5()
         # add properties to the stac doc
+        logging.info(f"Adding properties from .h5 file")
         burst_stac_manager.add_properties_from_h5()
-        # rename the backscatter assets to include calibration
-        # i.e. HH.tif -> HH_gamma0.tif
-        burst_stac_manager.rename_backscatter_assets(burst_folder)
-        # add the assets to the stac doc
+        # rename the backscatter assets to include calibration and conform to ga naming conventions
+        logging.info(f"Renaming asset files")
+        burst_stac_manager.rename_asset_files(burst_folder)
+        logging.info(f"Adding assets to stac doc")
         burst_stac_manager.add_assets_from_folder(burst_folder)
         # add additional links that will rarely change
+        logging.info(f"Adding fixed links")
         burst_stac_manager.add_fixed_links()
-        # add links that can change
+        logging.info(f"Adding dynamic links from h5")
         burst_stac_manager.add_dynamic_links_from_h5()
-        # add the link to self/metadata
         if link_static_layers and product == "RTC_S1":
             # link to static layer metadata is in the .h5 file
             # use this to map assets to the file
             logger.info("Linking static layers to product")
-            burst_stac_manager.add_linked_static_layer_assets_and_link()
-        stac_filename = "metadata.json"
-        burst_stac_manager.add_self_links(filename=stac_filename)
-        # TODO add final link to the collection STAC
-        burst_stac_manager.add_collection_link()
+            burst_stac_manager.add_linked_static_layers_as_assets_to_stac()
+        # add additional links to metadata files. e.g. stac, xml, proc config
+        logging.info(f"Adding links to metadata files and self")
+        stac_filepath = burst_folder / f"{burst_product_name}.stac-item.json"
+        burst_stac_manager.add_metadata_links(
+            stac_filepath=stac_filepath,
+            h5_filepath=burst_h5_filepath,
+            runconfig_filepath=burst_run_config_filepath,
+        )
+        # set PRODUCTION = True when indexing data into production data cube
+        logging.info(f"Adding stac collection link")
+        burst_stac_manager.add_collection_link(PRODUCTION=False)
         # save the metadata
-        burst_stac_manager.save(burst_folder / stac_filename)
+        burst_stac_manager.save(stac_filepath)
         if validate_stac:
             logger.info("Validating STAC document")
             try:

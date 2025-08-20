@@ -40,7 +40,7 @@ runconfig:
 
             processing_type: NOMINAL
 
-            product_version:
+            product_version: 0.1.0
 
             # Directory where PGE will place results
             product_path: .
@@ -70,9 +70,10 @@ runconfig:
             # `suffix` is only used when there are multiple output files.
             # `ext` is determined by geocoding_options.output_imagery_format.
             output_dir:
-            product_id: ga_s1_nrb-static_{product_version}_{burst_id}_{rtc_s1_static_validity_start_date}
+            product_id: ga_s1_nrb-static_{product_version}_{burst_id}_20140403
 
             # Validity start date for RTC-S1-STATIC products in the format YYYYMMDD
+            # Hard code into above as value cannot be set with curly braces
             rtc_s1_static_validity_start_date: 20140403
 
             # Location from where the output product can be retrieved (URL or DOI)

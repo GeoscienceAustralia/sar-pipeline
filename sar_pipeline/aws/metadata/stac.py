@@ -17,6 +17,7 @@ import sar_pipeline
 from sar_pipeline.aws.metadata.h5 import H5Manager
 from sar_pipeline.aws.metadata.odc import (
     get_odc_product_name,
+    make_rtc_s1_static_s3_subpath,
 )
 from sar_pipeline.aws.preparation.burst_utils import (
     make_rtc_s1_s3_subpath,
@@ -26,7 +27,9 @@ from sar_pipeline.utils.spatial import (
     polygon_str_to_geojson,
     reproject_bbox_to_geometry,
 )
+from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
 from sar_pipeline.aws.metadata.filetypes import (
+    RENAME_ASSET_FILETYPES,
     REQUIRED_ASSET_FILETYPES,
     ASSET_FILETYPE_TO_DESCRIPTION,
     ASSET_FILETYPE_TO_MEDIATYPE,
@@ -47,6 +50,7 @@ class BurstH5toStacManager:
         self,
         h5_filepath: Path,
         product: Literal["RTC_S1", "RTC_S1_STATIC"],
+        product_id: str,
         backscatter_convention: Literal["gamma0", "sigma0", "beta0"],
         collection_number: int,
         s3_bucket: str,
@@ -60,6 +64,9 @@ class BurstH5toStacManager:
             Local path to the .h5 file output from the opera/RTC process
         product: ["RTC_S1","RTC_S1_STATIC"]
             The product being made. RTC_S1 or RTC_S1_STATIC
+        product_id: str:
+            The product id for the burst run. This is common across files.
+            e.g. ga_s1_nrb-static_v0.1.0_T070-149815-IW3_20140403
         backscatter_convention: ["gamma0","sigma0","beta0"]
             normalisation convention of the backscatter product
         collection_number: int
@@ -74,7 +81,8 @@ class BurstH5toStacManager:
         """
         self.h5_filepath = h5_filepath
         self.h5 = H5Manager(self.h5_filepath)  # class to help get values from .h5 file
-        self.id = self.h5_filepath.stem
+        self.id = product_id
+        self.burst_folder = h5_filepath.parent
         self.product = self._check_valid_product(product)
         self.backscatter_convention = backscatter_convention
         self.burst_id = self.h5.search_value("burstID")
@@ -431,7 +439,7 @@ class BurstH5toStacManager:
         # link to the source SLC
         self.item.add_link(
             pystac.Link(
-                rel="derived_from",
+                rel="derived-from",
                 target=self.h5.search_value("sourceData/dataAccess"),
             )
         )
@@ -475,24 +483,53 @@ class BurstH5toStacManager:
                 )
             )
 
-        # link to the .h5 file containing additional metadata
-        self.item.add_link(
-            pystac.Link(
-                rel="additional-metadata",
-                target=f"{self.base_href}/{self.h5_filepath.name}",
-            )
-        )
+    def add_metadata_links(
+        self,
+        stac_filepath: Path | str,
+        h5_filepath: Path | str,
+        runconfig_filepath: Path | str,
+    ):
+        """Add:
+            - Link to self / STAC metadata doc,
+            - Link to the h5 metadata file
+            - Link to the processing config yaml file
+            - Link to the product folder in s3 that can be used for browsing
 
-    def add_self_links(self, filename: str | Path):
-        """Add the self / STAC metadata link to the stac item and
-        Link to browse the product folder.
+        This will be appended to the base_href for product.
 
         Parameters
         ----------
-        filename : str | Path
-            Filename of the STAC file. This will be appended to the
-            base_href for product.
+        stac_filepath : Path | str
+            Filepath of the stac file
+        h5_filepath: Path | str
+            Filepath of the .h5 file
+        runconfig_filepath: Path | str
+            Filepath of the config .yaml
         """
+
+        if not Path(h5_filepath).exists():
+            raise FileNotFoundError(
+                f"Error setting metadata stac links. The required metadata file does not exist : {h5_filepath}"
+            )
+        self.item.add_link(
+            pystac.Link(
+                rel="h5-metadata",
+                target=f"{self.base_href}/{Path(h5_filepath).name}",
+                media_type=pystac.media_type.MediaType.HDF5,
+            )
+        )
+
+        if not Path(runconfig_filepath).exists():
+            raise FileNotFoundError(
+                f"Error setting metadata stac links. The required metadata file does not exist : {runconfig_filepath}"
+            )
+        self.item.add_link(
+            pystac.Link(
+                rel="processing-config",
+                target=f"{self.base_href}/{Path(runconfig_filepath).name}",
+                media_type=pystac.media_type.MediaType.HDF5,
+            )
+        )
 
         # link to product folder for browsing
         self.item.add_link(
@@ -503,35 +540,61 @@ class BurstH5toStacManager:
             )
         )
 
+        # the stac file gets referenced as self. We do not check if it
+        # exists yet as it is saved after this process once all info as been added.
         self.item.add_link(
             pystac.Link(
                 rel="self",
-                target=f"{self.base_href}/{filename}",
+                target=f"{self.base_href}/{Path(stac_filepath).name}",
                 media_type=pystac.media_type.MediaType.JSON,
             )
         )
 
-    def add_collection_link(self, target="./collection.json"):
-        """add link to the collection
+    def add_collection_link(
+        self,
+        prod_stac_href: str = "https://explorer.dea.ga.gov.au/stac/collections",
+        dev_stac_href: str = "https://explorer.dev.dea.ga.gov.au/stac/collections",
+        PRODUCTION: bool = True,
+    ):
+        """Add the link the the stac collection. The link is different pending
+        if the product is to be indexed into the dev or prod ODC. This is handled
+        as a downstream process and must be communicated to ensure this collection
+        link is correct.
 
         Parameters
         ----------
-        target : str, optional
-            Path to collection file. by default './collection.json'.
+        prod_stac_href : str, optional
+            Link to production collection, by default "https://explorer.dea.ga.gov.au/stac/collections"
+        dev_stac_href : str, optional
+            link to to development collection, by default "https://explorer.dev.dea.ga.gov.au/stac/collections"
+        PRODUCTION : bool, optional
+            Whether to use the production collection, by default True. Set False for testing in dev odc.
         """
 
-        # TODO placeholder
+        if PRODUCTION:
+            stac_href = f"{prod_stac_href}/{self.odc_product_name}"
+            logger.info(
+                f"STAC collection references the production environment: {stac_href}"
+            )
+        else:
+            stac_href = f"{dev_stac_href}/{self.odc_product_name}"
+            logger.warning(
+                f"STAC collection references the development environment: {stac_href}"
+            )
+
         self.item.add_link(
             pystac.Link(
                 rel="collection",
-                target=target,
+                target=stac_href,
                 media_type=pystac.media_type.MediaType.JSON,
             )
         )
 
-    def rename_backscatter_assets(self, burst_folder: Path):
-        """Rename the backscatter assets in the burst folder to include the normalization convention
-        type in the filename. e.g. HH.tif -> HH_gamma0.tif
+    def rename_asset_files(self, burst_folder: Path):
+        """Rename the assets in the burst folder. Backscatter files will include the normalization
+        convention type in the filename. e.g. HH.tif -> HH_gamma0.tif and other filetypes will be
+        changed from '_' separated to '-' separated for consistency. e.g. incidence_angle.tif ->
+        incidence-angle.tif.
 
         Parameters
         ----------
@@ -544,20 +607,21 @@ class BurstH5toStacManager:
         burst_files = [x for x in burst_folder.iterdir()]
 
         for f in burst_files:
-            for pol in ("VV", "VH", "HH", "HV"):
-                old_suffix = f"{pol}.tif"
-                if f.name.endswith(old_suffix):
-                    new_name = f.name.replace(
-                        old_suffix, f"{pol}_{self.backscatter_convention}.tif"
-                    )
-                    new_path = f.with_name(new_name)
+            for old_suffix in RENAME_ASSET_FILETYPES.keys():
+                new_suffix = RENAME_ASSET_FILETYPES[old_suffix]
+                new_suffix = new_suffix.replace(
+                    "BACKSCATTER-CONVENTION", self.backscatter_convention
+                )
+                if str(f.name) == f"{self.id}{old_suffix}":
+                    # backscatter convention will be added here
+                    new_path = f.with_name(f.name.replace(old_suffix, new_suffix))
                     f.rename(new_path)
-                    break  # once renamed, no need to check other pols
+                    break  # once renamed, move to next file
 
     def add_assets_from_folder(
         self, burst_folder: Path, add_shape_transform_to_properties: bool = True
     ):
-        """Add the asset files from the burst folder
+        """Add the asset files from the local burst folder
 
         Parameters
         ----------
@@ -586,12 +650,12 @@ class BurstH5toStacManager:
         if self.product == "RTC_S1":
             pols = self.polarisations
             ignore_assets = [
-                f"_{p}_{self.backscatter_convention}.tif"
+                f"_{p}-{self.backscatter_convention}.tif"
                 for p in ["HH", "HV", "VV", "VH"]
                 if p not in pols
             ]
             included_pol_assets = [
-                f"_{p}_{self.backscatter_convention}.tif" for p in pols
+                f"_{p}-{self.backscatter_convention}.tif" for p in pols
             ]
             required_asset_filetypes = REQUIRED_ASSET_FILETYPES[self.product][
                 self.backscatter_convention
@@ -600,7 +664,7 @@ class BurstH5toStacManager:
             # no pol for static products, only auxiliary files
             pols = []
             included_pol_assets = []
-            ignore_assets = []
+            ignore_assets = []  # pols already excluded from REQUIRED_ASSET_FILETYPES
             required_asset_filetypes = REQUIRED_ASSET_FILETYPES[self.product]
 
         included_asset_filetypes = [
@@ -617,6 +681,7 @@ class BurstH5toStacManager:
             asset_filepaths = [
                 x for x in burst_files if x.name == f"{self.id}{asset_filetype}"
             ]
+            logger.info(f"{self.id}{asset_filetype}")
             if len(asset_filepaths) == 0:
                 raise FileNotFoundError(
                     f'The required asset: "{asset_title}" is missing from burst folder: "{burst_folder}"'
@@ -695,23 +760,51 @@ class BurstH5toStacManager:
                 ),
             )
 
-    def add_linked_static_layer_assets_and_link(self):
+    def add_linked_static_layers_as_assets_to_stac(
+        self, stac_suffix_string: str = "stac-item.json"
+    ):
         """add the static layer assets to the STAC metadata file. This is
         achieved by reading in the STAC metadata file associated with the
-        static layers themselves"""
+        static layers themselves
 
-        static_layer_browse_root_url = self.h5.search_value("staticLayersDataAccess")
-        static_layer_browse_url = os.path.join(
-            static_layer_browse_root_url, self.burst_id
+        Parameters
+        ----------
+            stac_suffix_string : The 'endswith' file string to search for in the
+            static layers s3 bucket to find the stac item metadata file.
+            e.g. stac-item.json -> the following file will be found
+                ga_s1_nrb-static_v0.1.0_T070-149815-IW3_20140403.stac-item.json
+
+        """
+
+        # get the path to the static layer folder in AWS S3
+        burst_static_layer_s3_subpath = make_rtc_s1_static_s3_subpath(
+            self.s3_project_folder, self.collection_number, self.burst_id
         )
 
-        # remove the index string which is used for user visibility
-        static_layer_url = static_layer_browse_root_url.replace(
-            "index.html?prefix=", ""
+        logger.info(
+            f"Searching for '{stac_suffix_string}' in AWS S3 burst static layer folder: {burst_static_layer_s3_subpath}"
         )
-        burst_static_layer_stac_url = os.path.join(
-            static_layer_url, self.burst_id, "metadata.json"
+
+        # search for the stac-item in the burst folder
+        s3_static_layer_files = find_s3_filepaths_from_suffixes(
+            self.s3_bucket,
+            burst_static_layer_s3_subpath,
+            suffixes=[stac_suffix_string],
         )
+
+        # get the keys containing the proposed suffix
+        s3_static_layer_files = s3_static_layer_files[stac_suffix_string]
+
+        if len(s3_static_layer_files) != 1:
+            raise ValueError(
+                f"Expecting 1 file containing '{stac_suffix_string}' in {burst_static_layer_s3_subpath}, found {len(s3_static_layer_files)}: {s3_static_layer_files} "
+            )
+        else:
+            static_layer_stac_file = s3_static_layer_files[0]
+            logger.info(f"Static layer stac item found: {static_layer_stac_file}")
+
+        burst_static_layer_stac_url = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com/{static_layer_stac_file}"
+
         logger.info(f"Static layer url: {burst_static_layer_stac_url}")
 
         try:
@@ -729,9 +822,14 @@ class BurstH5toStacManager:
         # add the link to the static layer metadata file to the links
         self.item.add_link(
             pystac.Link(
-                rel="static-layers",
+                rel="static-layers-stac-item",
                 target=burst_static_layer_stac_url,
             )
+        )
+
+        static_layer_browse_url = (
+            f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
+            f"/index.html?prefix={burst_static_layer_s3_subpath}"
         )
 
         # add link to browse the static layer folder
