@@ -5,20 +5,20 @@ def get_odc_product_name(product, collection_number, polarisations):
     """
     if product == "RTC_S1":
         if all([pol in polarisations for pol in ["VV", "VH"]]):
-            return f"ga_s1_nrb_iw_vv_vh_c{collection_number}"
+            return f"ga_s1_nrb_iw_vv_vh_{collection_number}"
         elif all([pol in polarisations for pol in ["HH", "HV"]]):
-            return f"ga_s1_nrb_iw_hh_hv_c{collection_number}"
+            return f"ga_s1_nrb_iw_hh_hv_{collection_number}"
         elif polarisations == ["VV"]:
-            return f"ga_s1_nrb_iw_vv_c{collection_number}"
+            return f"ga_s1_nrb_iw_vv_{collection_number}"
         elif polarisations == ["HH"]:
-            return f"ga_s1_nrb_iw_hh_c{collection_number}"
+            return f"ga_s1_nrb_iw_hh_{collection_number}"
         else:
             raise ValueError(
                 "could not create odc product name from; "
                 f"product: {product}, collection_number: {collection_number}, polarisations: {polarisations}"
             )
     elif product == "RTC_S1_STATIC":
-        return f"ga_s1_nrb_iw_static_c{collection_number}"
+        return f"ga_s1_nrb_iw_static_{collection_number}"
     else:
         raise ValueError(
             "could not create odc product name from; "

@@ -498,6 +498,19 @@ def get_data_for_scene_and_make_run_config(
     RTC_RUN_CONFIG.set(f"{gk}.product_group.output_dir", str(out_folder))
     RTC_RUN_CONFIG.set(f"{gk}.product_group.scratch_path", str(scratch_folder))
 
+    # check if the collection_number passed in aligns with the
+    # product_version specified in the config
+    prod_version = RTC_RUN_CONFIG.get(f"{gk}.product_group.product_version")
+    prod_version_collection_number = int(prod_version.split(".")[0])
+    if prod_version_collection_number != collection_number:
+        logger.warning(
+            f"The specified collection_number is {collection_number}. However, "
+            f"the product_version in the config template is : {prod_version}. "
+            f"The product_version format is <collection_number>.<minor_version>.<patch_version> "
+            f"and should align with the specified collection_number. One of these should be updated. "
+            f"The path to the config is {RTC_RUN_CONFIG.file_path}."
+        )
+
     # NOTE - In the future, we may want to make this dynamic. E.g. multi-temporal DEMS
     # Currently set to a fixed value in the run config template.
     # RTC_RUN_CONFIG.set(
@@ -704,9 +717,9 @@ def make_rtc_opera_stac_and_upload_bursts(
             h5_filepath=burst_h5_filepath,
             runconfig_filepath=burst_run_config_filepath,
         )
-        # set PRODUCTION = True when indexing data into production data cube
+        # reference the production stac catalogue for collection number > 0
         logging.info(f"Adding stac collection link")
-        burst_stac_manager.add_collection_link(PRODUCTION=False)
+        burst_stac_manager.add_collection_link(PRODUCTION=collection_number > 0)
         # save the metadata
         burst_stac_manager.save(stac_filepath)
         if validate_stac:
