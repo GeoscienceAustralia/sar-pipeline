@@ -304,9 +304,6 @@ class BurstH5toStacManager:
         )
         self.item.properties["sat:relative_orbit"] = self.h5.search_value("trackNumber")
         self.item.properties["sat:orbit_cycle"] = 12
-        # self.item.properties["sat:orbit_state_vectors"] = (
-        #     "TODO"  # TODO map this from .h5
-        # )
 
         # add sentinel-1 stac extension properties - https://github.com/stac-extensions/sentinel-1
         self.item.properties["s1:orbit_source"] = self.h5.search_value("orbitType")
