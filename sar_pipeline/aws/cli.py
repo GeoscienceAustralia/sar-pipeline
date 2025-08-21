@@ -650,7 +650,7 @@ def make_rtc_opera_stac_and_upload_bursts(
 
     # iterate through the burst directory and create STAC metadata
     logger.info(
-        f"Iterating through the burst folders to rename files and create STAC metadata"
+        f"Iterating through the burst folders to reformat files and create STAC metadata"
     )
     burst_folders = [x for x in results_folder.iterdir() if x.is_dir()]
 

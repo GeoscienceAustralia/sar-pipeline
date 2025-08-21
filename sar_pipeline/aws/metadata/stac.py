@@ -449,6 +449,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="dem-source",
                 target=self._extract_http_link(self.h5.search_value("demSource")),
+                media_type=pystac.media_type.MediaType.HTML,
             )
         )
 
