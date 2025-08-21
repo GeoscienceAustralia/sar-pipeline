@@ -828,7 +828,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="static-layers-stac-item",
                 target=burst_static_layer_stac_url,
-                media_type=pystac.media_type.MediaType.STAC_JSON,
+                media_type=pystac.media_type.STAC_JSON,
             )
         )
 
