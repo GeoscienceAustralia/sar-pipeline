@@ -501,7 +501,7 @@ def get_data_for_scene_and_make_run_config(
     # check if the collection_number passed in aligns with the
     # product_version specified in the config
     prod_version = RTC_RUN_CONFIG.get(f"{gk}.product_group.product_version")
-    prod_version_collection_number = int(prod_version.split(".")[0])
+    prod_version_collection_number = int(re.split(r"[-.]", prod_version)[0])
     if prod_version_collection_number != collection_number:
         logger.warning(
             f"The specified collection_number is {collection_number}. However, "
@@ -649,11 +649,26 @@ def make_rtc_opera_stac_and_upload_bursts(
     """
 
     # iterate through the burst directory and create STAC metadata
+    logger.info(
+        f"Iterating through the burst folders to rename files and create STAC metadata"
+    )
     burst_folders = [x for x in results_folder.iterdir() if x.is_dir()]
+
     for i, burst_folder in enumerate(burst_folders):
         logger.info(
             f"Making STAC metadata for burst {i+1} of {len(burst_folders)} : {burst_folder}"
         )
+
+        logger.info(f"Renaming all files so 'v' is not in the product version number ")
+        for product_file in burst_folder.iterdir():
+            if product_file.is_file():
+                new_path = product_file.with_name(
+                    re.sub(r"v(?=\d)", "", product_file.name)
+                )
+                if new_path != product_file:
+                    logger.info(f"Renaming: {product_file.name} -> {new_path.name}")
+                    product_file.rename(new_path)
+
         # load in the .h5 file containing metadata for each burst
         burst_h5_files = list(burst_folder.glob("*.h5"))
         if len(burst_h5_files) != 1:
@@ -665,15 +680,15 @@ def make_rtc_opera_stac_and_upload_bursts(
 
         # get the product name common to files from the .h5
         # e.g. ga_s1_nrb-static_v0.1.0_T070-149815-IW3_20140403
-        burst_product_name = burst_h5_filepath.stem.replace(".metadata", "")
+        burst_product_name = burst_h5_filepath.stem.replace("_metadata", "")
 
         # rename the .h5 file to conform with ga naming conventions
         burst_h5_filepath = burst_h5_filepath.rename(
-            burst_folder / f"{burst_product_name}.metadata.h5"
+            burst_folder / f"{burst_product_name}_metadata.h5"
         )
         # copy the run config file to the burst folder and rename to conform with ga naming conventions
         burst_run_config_filepath = (
-            burst_folder / f"{burst_product_name}.proc-config.yaml"
+            burst_folder / f"{burst_product_name}_proc-config.yaml"
         )
         shutil.copy(run_config_path, burst_run_config_filepath)
 
@@ -711,7 +726,7 @@ def make_rtc_opera_stac_and_upload_bursts(
             burst_stac_manager.add_linked_static_layers_as_assets_to_stac()
         # add additional links to metadata files. e.g. stac, xml, proc config
         logging.info(f"Adding links to metadata files and self")
-        stac_filepath = burst_folder / f"{burst_product_name}.stac-item.json"
+        stac_filepath = burst_folder / f"{burst_product_name}_stac-item.json"
         burst_stac_manager.add_metadata_links(
             stac_filepath=stac_filepath,
             h5_filepath=burst_h5_filepath,

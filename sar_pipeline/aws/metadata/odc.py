@@ -65,7 +65,7 @@ def make_rtc_s1_s3_subpath(
     odc_product_name = get_odc_product_name(
         "RTC_S1", collection_number, burst_polarisations
     )
-    return f"{s3_project_folder}/{odc_product_name}/{burst_id}/{year}/{month}/{day}"
+    return f"{s3_project_folder}/{odc_product_name}/{burst_id}/{year}/{month:02d}/{day:02d}"
 
 
 def make_rtc_s1_static_s3_subpath(

@@ -547,7 +547,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="self",
                 target=f"{self.base_href}/{Path(stac_filepath).name}",
-                media_type=pystac.media_type.MediaType.STAC_JSON,
+                media_type=pystac.media_type.STAC_JSON,
             )
         )
 
@@ -587,7 +587,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="collection",
                 target=stac_href,
-                media_type=pystac.media_type.MediaType.STAC_JSON,
+                media_type=pystac.media_type.STAC_JSON,
             )
         )
 
