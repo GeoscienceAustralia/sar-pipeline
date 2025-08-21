@@ -3,9 +3,12 @@ from pathlib import Path
 import re
 from typing import TypedDict
 
-from sar_pipeline.nci.preparation.scenes import (
-    parse_scene_file_dates,
-)
+from sar_pipeline.utils.sentinel1 import extract_metadata_from_s1_id
+
+
+class Orbit(TypedDict):
+    orbit: Path
+    published_date: datetime
 
 
 def find_latest_orbit_for_scene(scene_id: str, orbit_files: list[Path]) -> Path:
@@ -26,7 +29,10 @@ def find_latest_orbit_for_scene(scene_id: str, orbit_files: list[Path]) -> Path:
             File path to latest orbit file on NCI
     """
 
-    scene_start, scene_stop = parse_scene_file_dates(scene_id)
+    scene_metadata = extract_metadata_from_s1_id(scene_id)
+
+    scene_start = datetime.strptime(scene_metadata["start_datetime"], "%Y%m%dT%H%M%S")
+    scene_stop = datetime.strptime(scene_metadata["stop_datetime"], "%Y%m%dT%H%M%S")
 
     latest_orbit = find_latest_orbit_covering_window(
         orbit_files, scene_start, scene_stop
@@ -36,7 +42,7 @@ def find_latest_orbit_for_scene(scene_id: str, orbit_files: list[Path]) -> Path:
 
 
 def find_orbits(directories: list[Path], extension: str = ".EOF") -> list[Path]:
-    """_summary_
+    """Find all orbit files within a set of directories
 
     Parameters
     ----------
@@ -88,11 +94,6 @@ def find_latest_orbit_covering_window(
     return latest_orbit
 
 
-class Orbit(TypedDict):
-    orbit: Path
-    published_date: datetime
-
-
 def filter_orbits_to_cover_time_window(
     orbit_files: list[Path],
     window_start: datetime,
@@ -112,13 +113,14 @@ def filter_orbits_to_cover_time_window(
 
     Returns
     -------
-    list[dict[str, Path | datetime]]
-        _description_
+    list[Orbit]
+        List of orbit dictionaries, where each orbit is a dictionary of
+        {"orbit": Path, "published_date": datetime}
 
     Raises
     ------
     ValueError
-        _description_
+        No matching orbits were found
     """
 
     matching_orbits = []
@@ -133,7 +135,7 @@ def filter_orbits_to_cover_time_window(
             matching_orbits.append(orbit_metadata)
 
     if not matching_orbits:
-        raise ValueError("No orbits were found within the specified time widow.")
+        raise ValueError("No orbits were found within the specified time window.")
 
     return matching_orbits
 
