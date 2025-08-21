@@ -322,7 +322,9 @@ class BurstH5toStacManager:
         self.item.properties["processing:software"] = {
             "isce3": self.h5.search_value("algorithms/isce3Version"),
             "s1Reader": self.h5.search_value("algorithms/s1ReaderVersion"),
-            "OPERA-adt/RTC": self.h5.search_value("algorithms/softwareVersion"),
+            "GeoscienceAustralia/RTC": self.h5.search_value(
+                "algorithms/softwareVersion"
+            ),
             "sar-pipeline": sar_pipeline.__version__,
             "dem-handler": dem_handler.__version__,
         }
