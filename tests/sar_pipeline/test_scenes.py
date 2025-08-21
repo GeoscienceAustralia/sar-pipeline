@@ -1,5 +1,5 @@
 import datetime
-from sar_pipeline.nci.preparation.scenes import (
+from sar_pipeline.preparation.nci.scenes import (
     parse_scene_file_dates,
     parse_scene_file_sensor,
 )

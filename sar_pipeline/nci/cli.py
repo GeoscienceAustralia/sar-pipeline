@@ -9,10 +9,10 @@ from sar_pipeline.nci.submission.pyrosar_gamma.prepare_input import (
     get_orbit_and_dem,
 )
 from sar_pipeline.preparation.etad import find_etad_for_scene
-from sar_pipeline.nci.preparation.orbits import (
+from sar_pipeline.preparation.nci.orbits import (
     filter_orbits_to_cover_time_window,
 )
-from sar_pipeline.nci.preparation.scenes import (
+from sar_pipeline.preparation.nci.scenes import (
     parse_scene_file_sensor,
     parse_scene_file_dates,
     find_scene_file_from_id,

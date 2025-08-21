@@ -16,7 +16,7 @@ from sar_pipeline.aws.metadata.odc import (
     make_rtc_s1_s3_subpath,
     make_rtc_s1_static_s3_subpath,
 )
-from sar_pipeline.nci.preparation.scenes import parse_scene_file_dates
+from sar_pipeline.preparation.nci.scenes import parse_scene_file_dates
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

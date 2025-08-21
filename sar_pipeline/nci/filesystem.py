@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from sar_pipeline.nci.preparation.orbits import find_orbits
+from sar_pipeline.preparation.nci.orbits import find_orbits
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 
 

@@ -7,7 +7,7 @@ import zipfile
 
 
 from s1etad_tools.cli.slc_correct import s1etad_slc_correct_main
-from sar_pipeline.nci.preparation.scenes import parse_scene_file_dates
+from sar_pipeline.preparation.nci.scenes import parse_scene_file_dates
 
 logger = logging.getLogger(__name__)
 
