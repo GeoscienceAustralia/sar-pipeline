@@ -125,11 +125,11 @@ Final product output paths have the following structure
 **RTC_S1**
 - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/*files
 - odc_product_name is determined by the polarisation and collection_number for RTC_S1 products.
-- It will be one of ga_s1_nrb_iw_vv_vh_cX, ga_s1_nrb_iw_vv_cX, ga_s1_nrb_iw_hh_hv_cX, ga_s1_nrb_iw_hh_cX, where X is the collection_number
+- It will be one of ga_s1_nrb_iw_vv_vh_X, ga_s1_nrb_iw_vv_X, ga_s1_nrb_iw_hh_hv_X, ga_s1_nrb_iw_hh_X, where X is the collection_number
 - example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_hh_c1/t070_149815_iw3/2022/1/1/
 **RTC_S1_STATIC**
 - e.g. s3_bucket/s3_project_folder/odc_product_name/burst_id/*files
-- odc_product_name = ga_s1_nrb_iw_static_cX, where X is the collection_number
+- odc_product_name = ga_s1_nrb_iw_static_X, where X is the collection_number
 - example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_static_c1/t070_149815_iw3/
 
 ## Container processing location

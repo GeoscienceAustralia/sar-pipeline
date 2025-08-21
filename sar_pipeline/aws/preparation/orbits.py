@@ -39,7 +39,6 @@ def download_orbits_from_s3(
         os.makedirs(download_folder, exist_ok=True)
     logger.info(f"Downloading orbits for : {scene}")
     orbit_file = s1_orbits.fetch_for_scene(scene, dir=download_folder)
-    # TODO handle no orbit found
     logger.info(f"Orbit file downloaded : {orbit_file}")
     return orbit_file
 
