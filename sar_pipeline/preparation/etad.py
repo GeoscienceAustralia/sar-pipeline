@@ -7,7 +7,7 @@ import zipfile
 
 
 from s1etad_tools.cli.slc_correct import s1etad_slc_correct_main
-from sar_pipeline.preparation.nci.scenes import parse_scene_file_dates
+from sar_pipeline.utils.sentinel1 import get_dates_from_scene_id
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ def parse_etad_file_dates(etad_id: str) -> tuple[datetime, datetime]:
     """
 
     # ETAD filename has same format as scene, so run scene file dates function
-    start_date, stop_date = parse_scene_file_dates(etad_id)
+    start_date, stop_date = get_dates_from_scene_id(etad_id)
 
     return (start_date, stop_date)
 
@@ -90,7 +90,7 @@ def find_etad_for_scene_on_cdse(scene: str) -> dict[str, Any]:
         If more than one ETAD product is found. The list of products is returned for review.
     """
 
-    scene_start, _ = parse_scene_file_dates(scene)
+    scene_start, _ = get_dates_from_scene_id(scene)
 
     # Buffer start and end by a few seconds to ensure correct ETAD file is found
     buffer_seconds = 2
@@ -217,7 +217,7 @@ def find_etad_for_scene(scene: str, etad_dir: Path) -> Path:
     """
 
     buffer_seconds = 2
-    scene_start, _ = parse_scene_file_dates(scene)
+    scene_start, _ = get_dates_from_scene_id(scene)
     start_query_min = scene_start - timedelta(seconds=buffer_seconds)
     start_query_max = scene_start + timedelta(seconds=buffer_seconds)
 

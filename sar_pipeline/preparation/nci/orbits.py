@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 from typing import TypedDict
 
-from sar_pipeline.utils.sentinel1 import extract_metadata_from_s1_id
+from sar_pipeline.utils.sentinel1 import get_dates_from_scene_id
 
 
 class Orbit(TypedDict):
@@ -29,10 +29,7 @@ def find_latest_orbit_for_scene(scene_id: str, orbit_files: list[Path]) -> Path:
             File path to latest orbit file on NCI
     """
 
-    scene_metadata = extract_metadata_from_s1_id(scene_id)
-
-    scene_start = datetime.strptime(scene_metadata["start_datetime"], "%Y%m%dT%H%M%S")
-    scene_stop = datetime.strptime(scene_metadata["stop_datetime"], "%Y%m%dT%H%M%S")
+    scene_start, scene_stop = get_dates_from_scene_id(scene_id)
 
     latest_orbit = find_latest_orbit_covering_window(
         orbit_files, scene_start, scene_stop
