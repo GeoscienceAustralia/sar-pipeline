@@ -322,7 +322,9 @@ class BurstH5toStacManager:
         self.item.properties["processing:software"] = {
             "isce3": self.h5.search_value("algorithms/isce3Version"),
             "s1Reader": self.h5.search_value("algorithms/s1ReaderVersion"),
-            "OPERA-adt/RTC": self.h5.search_value("algorithms/softwareVersion"),
+            "GeoscienceAustralia/RTC": self.h5.search_value(
+                "algorithms/softwareVersion"
+            ),
             "sar-pipeline": sar_pipeline.__version__,
             "dem-handler": dem_handler.__version__,
         }
@@ -399,12 +401,11 @@ class BurstH5toStacManager:
 
         # add the storage stac extension properties
         self.item.properties["storage:schemes"] = {
-            "aws-std": {
+            "aws": {
                 "type": "aws-s3",
                 "platform": "https://{bucket}.s3.{region}.amazonaws.com",
                 "bucket": f"{self.s3_bucket}",
                 "region": f"{self.s3_region}",
-                "requester_pays": True,
             }
         }
 
@@ -416,6 +417,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="geoid-source",
                 target="https://aria-geoid.s3.us-west-2.amazonaws.com/us_nga_egm2008_1_4326__agisoft.tif",
+                media_type=pystac.media_type.MediaType.GEOTIFF,
             )
         )
 
@@ -446,6 +448,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="dem-source",
                 target=self._extract_http_link(self.h5.search_value("demSource")),
+                media_type=pystac.media_type.MediaType.HTML,
             )
         )
 
@@ -458,6 +461,7 @@ class BurstH5toStacManager:
                 pystac.Link(
                     rel="rtc-algorithm",
                     target=self._extract_doi_link(ref_text),
+                    media_type=pystac.media_type.MediaType.HTML,
                 )
             )
 
@@ -467,6 +471,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="geocoding-algorithm",
                 target=self._extract_doi_link(ref_text),
+                media_type=pystac.media_type.MediaType.HTML,
             )
         )
 
@@ -477,6 +482,7 @@ class BurstH5toStacManager:
                 pystac.Link(
                     rel="noise-correction",
                     target=self._extract_http_link(ref_text),
+                    media_type=pystac.media_type.MediaType.PDF,
                 )
             )
 
@@ -524,7 +530,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="processing-config",
                 target=f"{self.base_href}/{Path(runconfig_filepath).name}",
-                media_type=pystac.media_type.MediaType.HDF5,
+                media_type="application/yaml",
             )
         )
 
@@ -533,7 +539,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="browse",
                 target=f"{self.browse_href}",
-                media_type=pystac.media_type.MediaType.JSON,
+                media_type=pystac.media_type.MediaType.HTML,
             )
         )
 
@@ -543,7 +549,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="self",
                 target=f"{self.base_href}/{Path(stac_filepath).name}",
-                media_type=pystac.media_type.MediaType.JSON,
+                media_type=pystac.media_type.STAC_JSON,
             )
         )
 
@@ -583,7 +589,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="collection",
                 target=stac_href,
-                media_type=pystac.media_type.MediaType.JSON,
+                media_type=pystac.media_type.STAC_JSON,
             )
         )
 
@@ -821,6 +827,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="static-layers-stac-item",
                 target=burst_static_layer_stac_url,
+                media_type=pystac.media_type.STAC_JSON,
             )
         )
 
@@ -834,6 +841,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="static-layers-browse",
                 target=static_layer_browse_url,
+                media_type=pystac.media_type.MediaType.HTML,
             )
         )
 
