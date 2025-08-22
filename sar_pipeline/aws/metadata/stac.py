@@ -401,12 +401,11 @@ class BurstH5toStacManager:
 
         # add the storage stac extension properties
         self.item.properties["storage:schemes"] = {
-            "aws-std": {
+            "aws": {
                 "type": "aws-s3",
                 "platform": "https://{bucket}.s3.{region}.amazonaws.com",
                 "bucket": f"{self.s3_bucket}",
                 "region": f"{self.s3_region}",
-                "requester_pays": True,
             }
         }
 
