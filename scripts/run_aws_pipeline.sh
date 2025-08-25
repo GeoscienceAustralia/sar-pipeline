@@ -250,7 +250,7 @@ fi
 exit_code=$?
 
 if [ $exit_code -eq 100 ]; then
-    echo "Success: Early exit, products already exist for all bursts."
+    echo "Success (100): Early exit, products already exist for all bursts."
     exit 0  # Graceful exit with success code 0 
 fi
 if [ $exit_code -eq 101 ]; then

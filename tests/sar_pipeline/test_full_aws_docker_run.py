@@ -33,6 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 CURRENT_DIR = Path(__file__).parent.resolve()
+TEST_OUTPUTS_DIR = f"{CURRENT_DIR}/data/isce3_rtc/results"
 PROJECT_ROOT = CURRENT_DIR.parent.parent
 
 REQUIRED_ENV_VARIABLES = [
@@ -122,19 +123,22 @@ def test_docker_with_args():
     test_name = Path(__file__).stem
     test_s3_bucket = "deant-data-public-dev"
     test_s3_project_folder = f"TMP/sar-pipeline/{run_dt}/{test_name}"
+    if not Path(TEST_OUTPUTS_DIR).exists():
+        os.makedirs(TEST_OUTPUTS_DIR)
+    logging.info(f"Saving test outputs locally to : {TEST_OUTPUTS_DIR}")
     logging.info(f"Uploading outputs to : {test_s3_bucket}/{test_s3_project_folder}")
     docker_tag = re.sub(r"[^a-zA-Z0-9_.-]", "-", sar_pipeline.__version__)
 
     logging.info(f"RUN 1: Producing Static Layers")
     logging.info(
         "Mounting test data directory for results: "
-        f"{CURRENT_DIR}/data/isce3_rtc/results:/home/rtc_user/working/results",
+        f"{TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
     )
     cmd = [
         "docker",
         "run",
         "-v",
-        f"{CURRENT_DIR}/data/isce3_rtc/results:/home/rtc_user/working/results",
+        f"{TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
         "--rm",
         *ENV_VARS,
         f"sar-pipeline:{docker_tag}",
@@ -168,7 +172,7 @@ def test_docker_with_args():
         "docker",
         "run",
         "-v",
-        f"{CURRENT_DIR}/data/isce3_rtc/results:/home/rtc_user/working/results",
+        f"{TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
         "--rm",
         *ENV_VARS,
         f"sar-pipeline:{docker_tag}",
