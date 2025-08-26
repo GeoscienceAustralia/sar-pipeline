@@ -250,7 +250,7 @@ fi
 exit_code=$?
 
 if [ $exit_code -eq 100 ]; then
-    echo "Success: Early exit, products already exist for all bursts."
+    echo "Success (100): Early exit, products already exist for all bursts."
     exit 0  # Graceful exit with success code 0 
 fi
 if [ $exit_code -eq 101 ]; then
@@ -258,7 +258,7 @@ if [ $exit_code -eq 101 ]; then
     exit 101
 fi
 if [ $exit_code -ne 0 ]; then
-    echo "Process failed: get-data-for-scene-and-make-run-config"
+    echo "Process failed (1): get-data-for-scene-and-make-run-config"
     exit 1
 fi
 
@@ -268,8 +268,8 @@ conda activate RTC
 rtc_s1.py $RUN_CONFIG_PATH
 
 if [ $? -ne 0 ]; then
-    echo "Process failed: rtc_s1.py $RUN_CONFIG_PATH"
-    exit 1
+    echo "Process failed (2): rtc_s1.py $RUN_CONFIG_PATH"
+    exit 2
 fi
 
 ## -- MAKE THE METADATA FOR PRODUCTS AND UPLOAD TO S3 --
@@ -310,9 +310,9 @@ fi
 exit_code=$?
 
 if [ $exit_code -ne 0 ]; then
-    echo "Process failed: make-rtc-opera-stac-and-upload-bursts"
-    exit 1
+    echo "Process failed (3): make-rtc-opera-stac-and-upload-bursts"
+    exit 3
 else
-    echo "Success: required burst products created."
+    echo "Success (0): required burst products created!"
     exit 0
 fi
