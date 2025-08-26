@@ -393,10 +393,13 @@ class BurstH5toStacManager:
         self.item.properties["sarard:ionospheric_correction_applied"] = False
 
         # TODO when official document, link the study supporting these values
-        self.item.properties["sarard:geometric_accuracy_ALE"] = 2.94
+        # Northing and Easting error is based on surat basin CR's
+        self.item.properties["sarard:geometric_accuracy_absolute"] = 2.93
         self.item.properties["sarard:geometric_accuracy_rmse"] = 3.08
-        self.item.properties["sarard:geometric_accuracy_range"] = 1.63
-        self.item.properties["sarard:geometric_accuracy_azimuth"] = 1.92
+        self.item.properties["sarard:geometric_accuracy_north_bias"] = 2.25
+        self.item.properties["sarard:geometric_accuracy_east_bias"] = 1.14
+        self.item.properties["sarard:geometric_accuracy_north_std"] = 1.30
+        self.item.properties["sarard:geometric_accuracy_east_std"] = 1.19
         self.item.properties["sarard:geometric_accuracy_unit"] = "metre"
 
         # add the storage stac extension properties
@@ -491,11 +494,13 @@ class BurstH5toStacManager:
         stac_filepath: Path | str,
         h5_filepath: Path | str,
         runconfig_filepath: Path | str,
+        xml_filepath: Path | str | None,
     ):
         """Add:
             - Link to self / STAC metadata doc,
             - Link to the h5 metadata file
             - Link to the processing config yaml file
+            - Link to the xml metadata file (if provided)
             - Link to the product folder in s3 that can be used for browsing
 
         This will be appended to the base_href for product.
@@ -508,6 +513,8 @@ class BurstH5toStacManager:
             Filepath of the .h5 file
         runconfig_filepath: Path | str
             Filepath of the config .yaml
+        xml_filepath : Path | str | None
+            Filepath of the xml file. If None, no file linked
         """
 
         if not Path(h5_filepath).exists():
@@ -542,6 +549,17 @@ class BurstH5toStacManager:
                 media_type=pystac.media_type.MediaType.HTML,
             )
         )
+
+        if xml_filepath:
+            # link the xml file. We do not check if it exists yet as it is created
+            # after the stac file is saved. i.e. the xml file is built from the stac json
+            self.item.add_link(
+                pystac.Link(
+                    rel="xml-metadata",
+                    target=f"{self.base_href}/{Path(xml_filepath).name}",
+                    media_type=pystac.media_type.MediaType.XML,
+                )
+            )
 
         # the stac file gets referenced as self. We do not check if it
         # exists yet as it is saved after this process once all info as been added.
@@ -716,13 +734,6 @@ class BurstH5toStacManager:
                             else str(r.nodata)
                         ),
                     }
-                    # add pixel coordinate convention
-                    if "area" in raster_sampling:
-                        extra_fields["raster:pixel_coordinate_convention"] = "pixel ULC"
-                    elif "point" in raster_sampling:
-                        extra_fields["raster:pixel_coordinate_convention"] = (
-                            "pixel centre"
-                        )
 
                     if asset_filetype == "_mask.tif":
                         extra_fields["raster:values"] = {
@@ -746,6 +757,15 @@ class BurstH5toStacManager:
                         self.item.properties["sarard:number_of_pixels_per_line"] = (
                             shape[1]
                         )
+                        # add pixel coordinate convention
+                        if "area" in raster_sampling:
+                            self.item.properties[
+                                "sarard:pixel_coordinate_convention"
+                            ] = "pixel ULC"
+                        elif "point" in raster_sampling:
+                            self.item.properties[
+                                "sarard:pixel_coordinate_convention"
+                            ] = "pixel centre"
 
             else:
                 extra_fields = {}
