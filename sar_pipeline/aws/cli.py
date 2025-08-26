@@ -27,6 +27,7 @@ from sar_pipeline.aws.metadata.stac import BurstH5toStacManager
 from sar_pipeline.aws.metadata.odc import (
     make_static_layer_browse_url,
 )
+from sar_pipeline.aws.metadata.xml import XMLMapper
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 from sar_pipeline.utils.general import log_timing
 from sar_pipeline.utils.spatial import write_burst_geometries_to_geojson
@@ -724,13 +725,19 @@ def make_rtc_opera_stac_and_upload_bursts(
             # use this to map assets to the file
             logger.info("Linking static layers to product")
             burst_stac_manager.add_linked_static_layers_as_assets_to_stac()
-        # add additional links to metadata files. e.g. stac, xml, proc config
         logging.info(f"Adding links to metadata files and self")
+        # set the filepaths for stac and xml data if applicable
         stac_filepath = burst_folder / f"{burst_product_name}_stac-item.json"
+        if product == "RTC_S1":
+            xml_filepath = burst_folder / f"{burst_product_name}_metadata.xml"
+        else:
+            xml_filepath = None  # no xml for static layers
+        # add additional links to metadata files. e.g. stac, xml, proc config
         burst_stac_manager.add_metadata_links(
             stac_filepath=stac_filepath,
             h5_filepath=burst_h5_filepath,
             runconfig_filepath=burst_run_config_filepath,
+            xml_filepath=xml_filepath,
         )
         # reference the production stac catalogue for collection number > 0
         logging.info(f"Adding stac collection link")
@@ -751,6 +758,15 @@ def make_rtc_opera_stac_and_upload_bursts(
             logger.warning(
                 "STAC document is not being validated. set --validate-stac if required."
             )
+        # create the XML file from the existing metadata files
+        if xml_filepath:
+            logger.info("Creating the XML file from the stac and .h5 metadata files")
+            XML = XMLMapper(stac_path=stac_filepath, h5_path=burst_h5_filepath)
+            logger.info("Populating the XML template using the mapping file")
+            XML.populate_xml()
+            logger.info(f"Saving XML file to : {xml_filepath}")
+            XML.save_xml(xml_filepath)
+
         # push folder to S3
         if skip_upload_to_s3:
             logger.info(f"Skipping upload to S3.")
