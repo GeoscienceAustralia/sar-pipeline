@@ -337,12 +337,13 @@ class BurstH5toStacManager:
         ].replace(".SAFE", "")
         self.item.properties["sarard:burst_id"] = self.burst_id
         self.item.properties["sarard:beam_id"] = self.h5.search_value("subSwathID")
-        self.item.properties["sarard:near_range_incidence_angle"] = (
-            self.h5.search_value("nearRangeIncidenceAngle")
-        )
-        self.item.properties["sarard:far_range_incidence_angle"] = self.h5.search_value(
-            "farRangeIncidenceAngle"
-        )
+        if self.product == "RTC_S1":
+            self.item.properties["sarard:near_range_incidence_angle"] = (
+                self.h5.search_value("nearRangeIncidenceAngle")
+            )
+            self.item.properties["sarard:far_range_incidence_angle"] = (
+                self.h5.search_value("farRangeIncidenceAngle")
+            )
         self.item.properties["sarard:orbit_files"] = self.h5.search_value(
             "orbitFiles"
         )  # Link to a file containing the orbit state vectors.
