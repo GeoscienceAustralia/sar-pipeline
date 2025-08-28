@@ -3,12 +3,15 @@ import json
 import pandas as pd
 from sar_pipeline.aws.metadata.h5 import H5Manager
 import xml.etree.ElementTree as ET
+import copy
+import pyproj
+from typing import Literal
 
 CURRENT_DIR = Path(__file__).parent.resolve()
 XML_TEMPLATE_PATH = CURRENT_DIR / "templates" / "s1nrb.xml"
 XML_MAPPING_CSV = CURRENT_DIR / "templates" / "s1nrbXmlMapping.csv"
 
-VALID_XML_METADATA_SOURCES = ["STAC", "JSON", "H5", "HDF5", "FIXED_VALUE"]
+VALID_XML_METADATA_SOURCES = ["STAC", "JSON", "H5", "HDF5", "FIXED_VALUE", "SPECIAL"]
 
 import logging
 
@@ -21,6 +24,8 @@ class XMLMapper:
         self,
         stac_path: Path | str,
         h5_path: Path | str,
+        polarisations: list,
+        backscatter_convention: Literal["gamma0", "sigma0", "beta0"],
         xml_template_path: Path | str = XML_TEMPLATE_PATH,
         mapping_csv_path: Path | str = XML_MAPPING_CSV,
     ):
@@ -33,6 +38,11 @@ class XMLMapper:
             Path to the stac file
         h5_path : Path | str
             Path to the hdf5 / .h5 file
+        polarisations : list
+            List of the burst polarisations. Combination of
+            HH, HV, VV, VH
+        backscatter_convention: Literal["gamma0", "sigma0", "beta0"]
+            The normalisation convention of the backscatter products
         xml_template_path : Path | str, optional
             Path to the empty xml template with tags. By default XML_TEMPLATE_PATH
         mapping_csv_path : Path | str, optional
@@ -46,6 +56,8 @@ class XMLMapper:
         self.xml_template_path = xml_template_path
         self.mapping_csv_path = mapping_csv_path
         self.stac = self._load_json(Path(stac_path))
+        self.polarisations = polarisations
+        self.backscatter_convention = backscatter_convention
         self.h5 = H5Manager(Path(h5_path))
         self.xml = self._load_xml(Path(xml_template_path))
         self.mapper_df = self._load_mapping_csv_into_df(Path(mapping_csv_path))
@@ -116,6 +128,32 @@ class XMLMapper:
         else:
             return pd.read_csv(csv_path)
 
+    def duplicate_xml_section(self, xml_tag: str, n_copies: int = 1):
+        """
+        Duplicate the first occurrence of a given XML section
+        and insert the copies directly after the original section.
+        """
+        root = self.xml.getroot()
+
+        # find the first occurrence
+        section = root.find(f".//{xml_tag}")
+        if section is None:
+            raise ValueError(f"No <{xml_tag}> found in XML.")
+
+        # find the parent
+        parent = next((elem for elem in root.iter() if section in list(elem)), None)
+        if parent is None:
+            raise ValueError(f"Could not find parent for <{xml_tag}>.")
+
+        # find index of original section in parent's children
+        children = list(parent)
+        index = children.index(section)
+
+        # insert deep copies directly after the original
+        for i in range(n_copies):
+            new_section = copy.deepcopy(section)
+            parent.insert(index + 1 + i, new_section)  # keep incrementing index
+
     def populate_xml(self):
         """populate the xml template using other metadata files and the
         xml template"""
@@ -127,7 +165,7 @@ class XMLMapper:
             source_tag = row["SOURCE_TAG"]
             unit = row["UNIT"]
             if not source_file or pd.isna(source_file):
-                # no source file, header tag, pass
+                # no source file, header tag with no mapping
                 continue
 
             if source_file in ["STAC", "JSON"]:
@@ -141,6 +179,12 @@ class XMLMapper:
             elif source_file == "FIXED_VALUE":
                 # value is fixed and already set in the mapping file
                 value = source_tag
+
+            elif source_file == "SPECIAL":
+                # This is a special value that gets handled elsewhere in the code
+                # For example, creating multiple sections for the BackscatterMeasurementData
+                # As multiple polarisations may be present in the product
+                continue
 
             else:
                 raise ValueError(
@@ -161,6 +205,59 @@ class XMLMapper:
                         f"SOURCE_TAG : {source_tag}"
                         f"UNIT : {unit}"
                     )
+
+    def populate_special_xml_mappings(
+        self, backscatter_section="BackscatterMeasurementData"
+    ):
+        """Logic to populate special xml values. E.g.
+            - backscatter measurement tags, given there
+              can be any combination of HH+HV, HH, VV, VV+VH. The tag may
+              need to be duplicated and added to the data set.
+            - projection wkt2 code. Not included in STAC, so is set here.
+
+        Parameters
+        ----------
+        backscatter_section : str, optional
+            XML Tag for the backscatter, by default 'BackscatterMeasurementData'
+        """
+
+        # create the required number of backscatter sections
+        if len(self.polarisations) > 1:
+            self.duplicate_xml_section(
+                backscatter_section, n_copies=len(self.polarisations) - 1
+            )
+        for i, pol in enumerate(self.polarisations):
+            # set the polarisation tag
+            logger.info(
+                f"Setting xml <{backscatter_section}> information for {pol} pol"
+            )
+            tag = "CEOS-ARDProductAttributes/BackscatterMeasurementData/Polarization"
+            value = pol
+            try:
+                self.xml.getroot().findall(".//" + tag)[i].text = str(value)
+            except:
+                raise ValueError(
+                    f"Could not set the polarisation tag : {tag} for pol : {pol}"
+                )
+            # set the filename tag which is the s3 link for the given file
+            tag = "CEOS-ARDProductAttributes/BackscatterMeasurementData/FileName"
+            stac_tag = f"assets.{pol}_{self.backscatter_convention}.href"
+            value = self.get_nested_stac_values(stac_tag)
+            try:
+                self.xml.getroot().findall(".//" + tag)[i].text = str(value)
+            except:
+                raise ValueError(
+                    f"Could not set the polarisation filename tag : {tag} for pol : {pol}"
+                )
+
+        # set the wkt2 code for the projection
+        proj_epsg = self.h5.search_value("data/projection")
+        value = pyproj.CRS.from_epsg(proj_epsg).to_wkt()
+        tag = 'CEOS-ARDProductAttributes/CoordinateReferenceSystem[@type="WKT"]'
+        try:
+            self.xml.getroot().find(".//" + tag).text = str(value)
+        except:
+            raise ValueError(f"Could not set the special tag {tag} in xml")
 
     def save_xml(self, output_path):
         try:

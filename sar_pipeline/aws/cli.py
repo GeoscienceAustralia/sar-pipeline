@@ -761,9 +761,18 @@ def make_rtc_opera_stac_and_upload_bursts(
         # create the XML file from the existing metadata files
         if xml_filepath:
             logger.info("Creating the XML file from the stac and .h5 metadata files")
-            XML = XMLMapper(stac_path=stac_filepath, h5_path=burst_h5_filepath)
+            XML = XMLMapper(
+                stac_path=stac_filepath,
+                h5_path=burst_h5_filepath,
+                polarisations=burst_stac_manager.polarisations,
+                backscatter_convention=backscatter_convention,
+            )
             logger.info("Populating the XML template using the mapping file")
             XML.populate_xml()
+            logger.info(
+                f"Add special mappings to XML template. e.g. multiple backscatter pols"
+            )
+            XML.populate_special_xml_mappings()
             logger.info(f"Saving XML file to : {xml_filepath}")
             XML.save_xml(xml_filepath)
 
@@ -773,7 +782,7 @@ def make_rtc_opera_stac_and_upload_bursts(
         else:
             # re-check that the files don't already exist in S3. This will help protect against
             # simultaneous runs of the same product. E.g. the product did not exist at the
-            # start of the run and was created by another process during this run
+            # start of the run and was created by another process during this runtime
             logger.info(
                 f"Checking if product already exist before uploading for burst : {burst_stac_manager.burst_id}"
             )

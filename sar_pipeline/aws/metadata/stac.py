@@ -258,7 +258,7 @@ class BurstH5toStacManager:
         # add product stac extension properties
         self.item.properties["product:type"] = self.product
         # remove timeliness as not required. May re-add if approach is determined.
-        # self.item.properties["product:timeliness"] = "TODO"
+        # self.item.properties["product:timeliness"] = ""
         # self.item.properties["product:timeliness_category"] = (
         #     self._get_product_timeliness_category(self.start_dt, self.processed_dt)
         # )
@@ -272,9 +272,9 @@ class BurstH5toStacManager:
         # add projection (proj) stac extension properties
         self.item.properties["proj:code"] = f"EPSG:{self.projection_epsg}"
         self.item.properties["proj:bbox"] = self.h5.search_value("boundingBox")
-        self.item.properties["proj:wkt2"] = pyproj.CRS.from_epsg(
-            self.projection_epsg
-        ).to_wkt()
+        # self.item.properties["proj:wkt2"] = pyproj.CRS.from_epsg(
+        #     self.projection_epsg
+        # ).to_wkt() # causing issues in explorer, value set in XML
 
         # add the sar stac extension properties
         self.item.properties["sar:frequency_band"] = self.h5.search_value("radarBand")
