@@ -42,7 +42,7 @@ runconfig:
             # <collection_number>.<minor_version>.<patch_version>
             # note the collection_number is set by the pipeline script
             # at runtime and should align to this value
-            product_version: 0-1-0
+            product_version: 0.1.0
 
             # Directory where PGE will place results
             product_path: .
@@ -251,10 +251,10 @@ runconfig:
 
                 # Fields to populate the products' metadata required by
                 # CEOS Analysis Ready Data specifications
-                estimated_geometric_accuracy_bias_x:
-                estimated_geometric_accuracy_bias_y:
-                estimated_geometric_accuracy_stddev_x:
-                estimated_geometric_accuracy_stddev_y:
+                estimated_geometric_accuracy_bias_x: 1.14
+                estimated_geometric_accuracy_bias_y: 2.25
+                estimated_geometric_accuracy_stddev_x: 1.19
+                estimated_geometric_accuracy_stddev_y: 1.3
 
                 bursts_geogrid:
 

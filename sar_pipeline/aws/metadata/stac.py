@@ -258,7 +258,7 @@ class BurstH5toStacManager:
         # add product stac extension properties
         self.item.properties["product:type"] = self.product
         # remove timeliness as not required. May re-add if approach is determined.
-        # self.item.properties["product:timeliness"] = "TODO"
+        # self.item.properties["product:timeliness"] = ""
         # self.item.properties["product:timeliness_category"] = (
         #     self._get_product_timeliness_category(self.start_dt, self.processed_dt)
         # )
@@ -272,9 +272,9 @@ class BurstH5toStacManager:
         # add projection (proj) stac extension properties
         self.item.properties["proj:code"] = f"EPSG:{self.projection_epsg}"
         self.item.properties["proj:bbox"] = self.h5.search_value("boundingBox")
-        self.item.properties["proj:wkt2"] = pyproj.CRS.from_epsg(
-            self.projection_epsg
-        ).to_wkt()
+        # self.item.properties["proj:wkt2"] = pyproj.CRS.from_epsg(
+        #     self.projection_epsg
+        # ).to_wkt() # causing issues in explorer, value set in XML
 
         # add the sar stac extension properties
         self.item.properties["sar:frequency_band"] = self.h5.search_value("radarBand")
@@ -330,7 +330,9 @@ class BurstH5toStacManager:
         }
 
         # proposed sarard stac extension properties
-        self.item.properties["sarard:source_id"] = self.h5.search_value("l1SlcGranules")
+        self.item.properties["sarard:source_id"] = self.h5.search_value(
+            "l1SlcGranules"
+        )[0]
         self.item.properties["sarard:source_geometry"] = "slant range"
         self.item.properties["sarard:scene_id"] = self.h5.search_value("l1SlcGranules")[
             0
@@ -344,9 +346,9 @@ class BurstH5toStacManager:
             self.item.properties["sarard:far_range_incidence_angle"] = (
                 self.h5.search_value("farRangeIncidenceAngle")
             )
-        self.item.properties["sarard:orbit_files"] = self.h5.search_value(
-            "orbitFiles"
-        )  # Link to a file containing the orbit state vectors.
+        self.item.properties["sarard:orbit_file"] = self.h5.search_value("orbitFiles")[
+            0
+        ]  # Link to a file containing the orbit state vectors.
         self.item.properties["sarard:UL_longitude"] = self.bbox_4326[0]  # min_lon
         self.item.properties["sarard:UL_latitude"] = self.bbox_4326[3]  # max_lat
         self.item.properties["sarard:LR_longitude"] = self.bbox_4326[2]  # max_lon

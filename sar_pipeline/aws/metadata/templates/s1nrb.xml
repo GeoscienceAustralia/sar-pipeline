@@ -104,16 +104,16 @@
             <DemSource type="URL"></DemSource>
         </AuxiliaryData>
         <ProductSampleSpacing>
-            <ProductColumnSpacing units="meter">
+            <ProductColumnSpacing units="m">
             </ProductColumnSpacing>
-            <ProductRowSpacing units="meter">
+            <ProductRowSpacing units="m">
             </ProductRowSpacing>
         </ProductSampleSpacing>
         <ProductENL>
         </ProductENL>
         <ProductResolution>
-            <ProductResolutionColumn unit="meter"></ProductResolutionColumn>
-            <ProductResolutionRow unit="meter"></ProductResolutionRow>
+            <ProductResolutionColumn unit="m"></ProductResolutionColumn>
+            <ProductResolutionRow unit="m"></ProductResolutionRow>
         </ProductResolution>
         <Filtering>
             <FilterApplied>
@@ -149,7 +149,7 @@
         </CoordinateReferenceSystem>
         <PerPixelMetadata>
             <DataMask>
-                <FileName>
+                <FileName type="URL">
                 </FileName>
                 <SampleType>
                 </SampleType>
@@ -179,7 +179,7 @@
                 </BitValues>
             </DataMask>
             <LocalIncAngle>
-                <FileName>
+                <FileName type="URL">
                 </FileName>
                 <SampleType units="deg">
                 </SampleType>
@@ -193,7 +193,7 @@
                 </ByteOrder>
             </LocalIncAngle>
             <EllipsoidIncAngle>
-                <FileName>
+                <FileName type="URL">
                 </FileName>
                 <SampleType units="deg">
                 </SampleType>
@@ -209,7 +209,7 @@
                 </EllipsoidName>
             </EllipsoidIncAngle>
             <GammaToSigmaRatio>
-                <FileName>
+                <FileName type="URL">
                 </FileName>
                 <SampleType units="Ratio">
                 </SampleType>
@@ -232,7 +232,7 @@
             </BackscatterConversionEq>
             <Polarization>
             </Polarization>
-            <FileName>
+            <FileName type="URL">
             </FileName>
             <DataFormat>
             </DataFormat>
@@ -256,6 +256,8 @@
         <GeometricCorrection>
             <GeoCorrAlgorithm type="DOI">
             </GeoCorrAlgorithm>
+            <GriddingConvention>
+            </GriddingConvention> 
             <DigitalElevationModel dem="Surface">
                 <DEMReference type="URL">
                 </DEMReference>
@@ -275,7 +277,5 @@
                 </GeoAccuracyReference>
             </GeoCorrAccuracy>
         </GeometricCorrection>
-        <GridName>
-        </GridName>
     </CEOS-ARDProductAttributes>
 </Product>

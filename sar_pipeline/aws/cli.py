@@ -660,12 +660,16 @@ def make_rtc_opera_stac_and_upload_bursts(
             f"Making STAC metadata for burst {i+1} of {len(burst_folders)} : {burst_folder}"
         )
 
-        logger.info(f"Renaming all files so 'v' is not in the product version number ")
+        logger.info(
+            f"Renaming all files so 'v' is not in the product version number, and version is '-' separated "
+        )
         for product_file in burst_folder.iterdir():
             if product_file.is_file():
-                new_path = product_file.with_name(
-                    re.sub(r"v(?=\d)", "", product_file.name)
-                )
+                # step 1: remove 'v' before version numbers
+                name = re.sub(r"v(?=\d)", "", product_file.name)
+                # step 2: replace version pattern digits.digits.digits → digits-digits-digits
+                name = re.sub(r"(\d+)\.(\d+)\.(\d+)", r"\1-\2-\3", name)
+                new_path = product_file.with_name(name)
                 if new_path != product_file:
                     logger.info(f"Renaming: {product_file.name} -> {new_path.name}")
                     product_file.rename(new_path)
@@ -761,9 +765,18 @@ def make_rtc_opera_stac_and_upload_bursts(
         # create the XML file from the existing metadata files
         if xml_filepath:
             logger.info("Creating the XML file from the stac and .h5 metadata files")
-            XML = XMLMapper(stac_path=stac_filepath, h5_path=burst_h5_filepath)
+            XML = XMLMapper(
+                stac_path=stac_filepath,
+                h5_path=burst_h5_filepath,
+                polarisations=burst_stac_manager.polarisations,
+                backscatter_convention=backscatter_convention,
+            )
             logger.info("Populating the XML template using the mapping file")
             XML.populate_xml()
+            logger.info(
+                f"Adding special mappings to XML template. e.g. multiple backscatter pols"
+            )
+            XML.populate_special_xml_mappings()
             logger.info(f"Saving XML file to : {xml_filepath}")
             XML.save_xml(xml_filepath)
 
@@ -773,7 +786,7 @@ def make_rtc_opera_stac_and_upload_bursts(
         else:
             # re-check that the files don't already exist in S3. This will help protect against
             # simultaneous runs of the same product. E.g. the product did not exist at the
-            # start of the run and was created by another process during this run
+            # start of the run and was created by another process during this runtime
             logger.info(
                 f"Checking if product already exist before uploading for burst : {burst_stac_manager.burst_id}"
             )
