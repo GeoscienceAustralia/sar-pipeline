@@ -215,7 +215,7 @@ class XMLMapper:
         self, backscatter_section="BackscatterMeasurementData"
     ):
         """Logic to populate special xml values. These are flagged with
-        the 'SOURCE_FILE' = SPECIAL in the xml mapping csv. E.g.
+        the SOURCE_FILE = SPECIAL in the xml mapping csv. E.g.
             - backscatter measurement tags, given there
               can be any combination of HH+HV, HH, VV, VV+VH. The tag may
               need to be duplicated and added to the data set.
