@@ -284,3 +284,13 @@ def test_docker_dual_pol_with_args():
         "--linked_static_layers_collection_number",
         "1",
     ]
+
+    result = subprocess.run(
+        cmd,
+        stdout=sys.stdout,
+        stderr=sys.stderr,
+        text=True,
+    )
+    assert (
+        result.returncode == 0
+    ), f"Non-zero exit code: {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
