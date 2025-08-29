@@ -5,6 +5,7 @@ from sar_pipeline.aws.metadata.h5 import H5Manager
 import xml.etree.ElementTree as ET
 import copy
 import pyproj
+import shapely
 from typing import Literal
 
 CURRENT_DIR = Path(__file__).parent.resolve()
@@ -194,12 +195,16 @@ class XMLMapper:
 
             # update the tag value
             template_tag = self.xml.getroot().find(".//" + xml_tag)
+            if template_tag is None:
+                raise ValueError(
+                    f"Could not find mapping XML_TAG in xml template : {xml_tag}"
+                )
             if template_tag is not None:
                 try:
                     self.xml.getroot().find(".//" + xml_tag).text = str(value)
                 except:
                     raise ValueError(
-                        "could not set value in the xml : "
+                        "Could not set value in the xml : "
                         f"XML_TAG : {xml_tag}"
                         f"SOURCE_FILE : {source_file}"
                         f"SOURCE_TAG : {source_tag}"
@@ -209,11 +214,15 @@ class XMLMapper:
     def populate_special_xml_mappings(
         self, backscatter_section="BackscatterMeasurementData"
     ):
-        """Logic to populate special xml values. E.g.
+        """Logic to populate special xml values. These are flagged with
+        the 'SOURCE_FILE' = SPECIAL in the xml mapping csv. E.g.
             - backscatter measurement tags, given there
               can be any combination of HH+HV, HH, VV, VV+VH. The tag may
               need to be duplicated and added to the data set.
+            - polarisations need to be a string, i.e. HH+HV not a list
+              ['HH','HV']
             - projection wkt2 code. Not included in STAC, so is set here.
+            - bbox provided as a wkt not list.
 
         Parameters
         ----------
@@ -228,9 +237,6 @@ class XMLMapper:
             )
         for i, pol in enumerate(self.polarisations):
             # set the polarisation tag
-            logger.info(
-                f"Setting xml <{backscatter_section}> information for {pol} pol"
-            )
             tag = "CEOS-ARDProductAttributes/BackscatterMeasurementData/Polarization"
             value = pol
             try:
@@ -250,14 +256,32 @@ class XMLMapper:
                     f"Could not set the polarisation filename tag : {tag} for pol : {pol}"
                 )
 
-        # set the wkt2 code for the projection
-        proj_epsg = self.h5.search_value("data/projection")
-        value = pyproj.CRS.from_epsg(proj_epsg).to_wkt()
-        tag = 'CEOS-ARDProductAttributes/CoordinateReferenceSystem[@type="WKT"]'
+        # set the polarisations as a string separated by '+' for dual pol
+        tag = "SourceDataAcquisitionParameters/Polarizations"
+        stac_tag = "properties.sar:polarizations"
+        value = "+".join(self.get_nested_stac_values(stac_tag))
         try:
             self.xml.getroot().find(".//" + tag).text = str(value)
         except:
-            raise ValueError(f"Could not set the special tag {tag} in xml")
+            raise ValueError(f"Could not set the 'SPECIAL' tag {tag} in xml")
+
+        # set the wkt2 code for the projection
+        tag = 'CEOS-ARDProductAttributes/CoordinateReferenceSystem[@type="WKT"]'
+        proj_epsg = self.h5.search_value("data/projection")
+        value = pyproj.CRS.from_epsg(proj_epsg).to_wkt()
+        try:
+            self.xml.getroot().find(".//" + tag).text = str(value)
+        except:
+            raise ValueError(f"Could not set the 'SPECIAL' tag {tag} in xml")
+
+        # set the extent as wkt
+        tag = "CEOS-ARDProductAttributes/ProductGeographicalExtent"
+        stac_tag = "bbox"
+        value = shapely.box(*self.get_nested_stac_values(stac_tag)).wkt
+        try:
+            self.xml.getroot().find(".//" + tag).text = str(value)
+        except:
+            raise ValueError(f"Could not set the 'SPECIAL' tag {tag} in xml")
 
     def save_xml(self, output_path):
         try:

@@ -660,12 +660,16 @@ def make_rtc_opera_stac_and_upload_bursts(
             f"Making STAC metadata for burst {i+1} of {len(burst_folders)} : {burst_folder}"
         )
 
-        logger.info(f"Renaming all files so 'v' is not in the product version number ")
+        logger.info(
+            f"Renaming all files so 'v' is not in the product version number, and version is '-' separated "
+        )
         for product_file in burst_folder.iterdir():
             if product_file.is_file():
-                new_path = product_file.with_name(
-                    re.sub(r"v(?=\d)", "", product_file.name)
-                )
+                # step 1: remove 'v' before version numbers
+                name = re.sub(r"v(?=\d)", "", product_file.name)
+                # step 2: replace version pattern digits.digits.digits → digits-digits-digits
+                name = re.sub(r"(\d+)\.(\d+)\.(\d+)", r"\1-\2-\3", name)
+                new_path = product_file.with_name(name)
                 if new_path != product_file:
                     logger.info(f"Renaming: {product_file.name} -> {new_path.name}")
                     product_file.rename(new_path)
@@ -770,7 +774,7 @@ def make_rtc_opera_stac_and_upload_bursts(
             logger.info("Populating the XML template using the mapping file")
             XML.populate_xml()
             logger.info(
-                f"Add special mappings to XML template. e.g. multiple backscatter pols"
+                f"Adding special mappings to XML template. e.g. multiple backscatter pols"
             )
             XML.populate_special_xml_mappings()
             logger.info(f"Saving XML file to : {xml_filepath}")
