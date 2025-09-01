@@ -250,15 +250,15 @@ fi
 exit_code=$?
 
 if [ $exit_code -eq 100 ]; then
-    echo "Success (100): Early exit, products already exist for all bursts."
+    echo "Success (100): Early exit, products already exist for all bursts. Product: $product. Scene: $scene."
     exit 0  # Graceful exit with success code 0 
 fi
 if [ $exit_code -eq 101 ]; then
-    echo "Process failed (101): Static Layers are missing."
+    echo "Process failed (101): Required Static Layers are missing. Product: $product. Scene: $scene."
     exit 101
 fi
 if [ $exit_code -ne 0 ]; then
-    echo "Process failed (1): get-data-for-scene-and-make-run-config"
+    echo "Process failed (1): Error in get-data-for-scene-and-make-run-config process. Product: $product. Scene: $scene."
     exit 1
 fi
 
@@ -268,7 +268,7 @@ conda activate RTC
 rtc_s1.py $RUN_CONFIG_PATH
 
 if [ $? -ne 0 ]; then
-    echo "Process failed (2): rtc_s1.py $RUN_CONFIG_PATH"
+    echo "Process failed (2): Error in rtc_s1.py $RUN_CONFIG_PATH process. Product: $product. Scene: $scene."
     exit 2
 fi
 
@@ -310,9 +310,9 @@ fi
 exit_code=$?
 
 if [ $exit_code -ne 0 ]; then
-    echo "Process failed (3): make-rtc-opera-stac-and-upload-bursts"
+    echo "Process failed (3): Error in make-rtc-opera-stac-and-upload-bursts process. Product: $product. Scene: $scene."
     exit 3
 else
-    echo "Success (0): required burst products created!"
+    echo "Success (0): Required burst products have been created. Product: $product. Scene: $scene."
     exit 0
 fi
