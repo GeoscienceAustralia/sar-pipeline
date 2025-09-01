@@ -1,3 +1,5 @@
 .pixi
 *.secret
 *.env
+tests/sar_pipeline/data/isce3_rtc/results/*
+tests/sar_pipeline/data/isce3_rtc/TMP/*
