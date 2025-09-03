@@ -25,7 +25,7 @@ OrbitInformation/OrbitDataSource,HDF5,metadata/orbit/orbitType,,
 OrbitInformation/OrbitDataFileName,STAC,properties.sarard:orbit_file,,
 <SourceProcParam>,,,,
 SourceProcParam/ProcessingFacility,HDF5,metadata/sourceData/processingCenter,,
-SourceProcParam/ProcessingDate,HDF5,metadata/sourceData/processingDateTime,,
+SourceProcParam/ProcessingDate,HDF5,metadata/sourceData/processingDateTime,,Converted to a UTC with the special parameter handling in the xml.py code
 SourceProcParam/SoftwareVersion,HDF5,metadata/sourceData/softwareVersion,,
 SourceProcParam/ProductID,STAC,properties.sarard:source_id,,
 SourceProcParam/ProductLevel,HDF5,identification/productLevel,,

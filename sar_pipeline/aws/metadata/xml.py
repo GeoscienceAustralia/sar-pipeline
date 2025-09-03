@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import datetime, timezone
 import json
 import pandas as pd
 from sar_pipeline.aws.metadata.h5 import H5Manager
@@ -223,6 +224,7 @@ class XMLMapper:
               ['HH','HV']
             - projection wkt2 code. Not included in STAC, so is set here.
             - bbox provided as a wkt not list.
+            - Sets SourceProcParam/ProcessingDate as a UTC timestamp
 
         Parameters
         ----------
@@ -282,6 +284,14 @@ class XMLMapper:
             self.xml.getroot().find(".//" + tag).text = str(value)
         except:
             raise ValueError(f"Could not set the 'SPECIAL' tag {tag} in xml")
+
+        # set the SourceProcParam/ProcessingDate as a UTC time by adding 'Z'
+        tag = "SourceProcParam/ProcessingDate"
+        try:
+            value = f"{self.xml.getroot().find(".//" + tag).text}Z"
+            self.xml.getroot().find(".//" + tag).text = value
+        except:
+            raise ValueError(f"Could convert xml tag {tag} to UTC time")
 
     def save_xml(self, output_path):
         try:
