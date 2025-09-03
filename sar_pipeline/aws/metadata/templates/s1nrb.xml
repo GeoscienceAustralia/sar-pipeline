@@ -81,7 +81,7 @@
             <IncAngleFarRange units="deg">
             </IncAngleFarRange>
         </SourceDataImageAttributes>
-        <PerformanceIndicators pol="HH">
+        <PerformanceIndicators pol="VV,VH,HH,HV">
             <NoiseEquivalentIntensity type="Sigma0" units="dB">
                 <Estimates type="max">
                 </Estimates>
