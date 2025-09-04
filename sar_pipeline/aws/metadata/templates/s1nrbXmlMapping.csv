@@ -117,7 +117,7 @@ CEOS-ARDProductAttributes/PerPixelMetadata/GammaToBetaRatio/BitsPerSample,FIXED_
 CEOS-ARDProductAttributes/PerPixelMetadata/GammaToBetaRatio/ByteOrder,FIXED_VALUE,Little Endian,,
 <NumberOfLooks>,,,,
 CEOS-ARDProductAttributes/PerPixelMetadata/NumberOfLooks/FileName,STAC,assets.number_of_looks.href,,
-CEOS-ARDProductAttributes/PerPixelMetadata/NumberOfLooks/SampleType,FIXED_VALUE,Ratio,Count,
+CEOS-ARDProductAttributes/PerPixelMetadata/NumberOfLooks/SampleType,FIXED_VALUE,Count,Count,
 CEOS-ARDProductAttributes/PerPixelMetadata/NumberOfLooks/DataFormat,FIXED_VALUE,GeoTIFF,,
 CEOS-ARDProductAttributes/PerPixelMetadata/NumberOfLooks/DataType,FIXED_VALUE,Float,,
 CEOS-ARDProductAttributes/PerPixelMetadata/NumberOfLooks/BitsPerSample,FIXED_VALUE,32,,
