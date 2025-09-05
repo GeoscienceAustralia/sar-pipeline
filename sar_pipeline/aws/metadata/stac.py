@@ -793,7 +793,15 @@ class BurstH5toStacManager:
             )
 
     def add_linked_static_layers_as_assets_to_stac(
-        self, stac_suffix_string: str = "stac-item.json"
+        self,
+        stac_suffix_string: str = "stac-item.json",
+        assets_to_link: str = [
+            "number_of_looks",
+            "gamma0_to_beta0_ratio",
+            "gamma0_to_sigma0_ratio",
+            "local_incidence_angle",
+            "incidence_angle",
+        ],
     ):
         """add the static layer assets to the STAC metadata file. This is
         achieved by reading in the STAC metadata file associated with the
@@ -879,6 +887,10 @@ class BurstH5toStacManager:
 
         # iterate through the static layer assets and add them to the file
         for asset_title in burst_static_layer_stac["assets"].keys():
+
+            # only link the requested assets. e.g. ignore the thumbnail
+            if asset_title not in assets_to_link:
+                continue
 
             # data for each asset
             asset_data = burst_static_layer_stac["assets"][asset_title]

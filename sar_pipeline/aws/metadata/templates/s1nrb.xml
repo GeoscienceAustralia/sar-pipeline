@@ -81,7 +81,7 @@
             <IncAngleFarRange units="deg">
             </IncAngleFarRange>
         </SourceDataImageAttributes>
-        <PerformanceIndicators pol="HH">
+        <PerformanceIndicators pol="VV,VH,HH,HV">
             <NoiseEquivalentIntensity type="Sigma0" units="dB">
                 <Estimates type="max">
                 </Estimates>
@@ -109,8 +109,6 @@
             <ProductRowSpacing units="m">
             </ProductRowSpacing>
         </ProductSampleSpacing>
-        <ProductENL>
-        </ProductENL>
         <ProductResolution>
             <ProductResolutionColumn unit="m"></ProductResolutionColumn>
             <ProductResolutionRow unit="m"></ProductResolutionRow>
@@ -222,6 +220,34 @@
                 <ByteOrder>
                 </ByteOrder>
             </GammaToSigmaRatio>
+            <GammaToBetaRatio>
+                <FileName type="URL">
+                </FileName>
+                <SampleType units="Ratio">
+                </SampleType>
+                <DataFormat>
+                </DataFormat>
+                <DataType>
+                </DataType>
+                <BitsPerSample>
+                </BitsPerSample>
+                <ByteOrder>
+                </ByteOrder>
+            </GammaToBetaRatio>
+            <NumberOfLooks>
+                <FileName type="URL">
+                </FileName>
+                <SampleType units="Count">
+                </SampleType>
+                <DataFormat>
+                </DataFormat>
+                <DataType>
+                </DataType>
+                <BitsPerSample>
+                </BitsPerSample>
+                <ByteOrder>
+                </ByteOrder>
+            </NumberOfLooks>
         </PerPixelMetadata>
         <BackscatterMeasurementData>
             <BackscatterMeasurement>
@@ -257,6 +283,12 @@
             <GeoCorrAlgorithm type="DOI">
             </GeoCorrAlgorithm>
             <GriddingConvention>
+                <BurstGeogridSnapX units="m">
+                </BurstGeogridSnapX>
+                <BurstGeogridSnapY units="m">
+                </BurstGeogridSnapY>
+                <GriddingConventionReference type="URL">
+                </GriddingConventionReference>
             </GriddingConvention> 
             <DigitalElevationModel dem="Surface">
                 <DEMReference type="URL">

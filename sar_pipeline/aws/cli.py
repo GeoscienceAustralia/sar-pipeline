@@ -661,7 +661,7 @@ def make_rtc_opera_stac_and_upload_bursts(
         )
 
         logger.info(
-            f"Renaming all files so 'v' is not in the product version number, and version is '-' separated "
+            f"Renaming all files so 'v' is not in the product version number, version is '-' separated, and the platform name is lowercase (e.g s1a)."
         )
         for product_file in burst_folder.iterdir():
             if product_file.is_file():
@@ -669,6 +669,8 @@ def make_rtc_opera_stac_and_upload_bursts(
                 name = re.sub(r"v(?=\d)", "", product_file.name)
                 # step 2: replace version pattern digits.digits.digits → digits-digits-digits
                 name = re.sub(r"(\d+)\.(\d+)\.(\d+)", r"\1-\2-\3", name)
+                # step 3: lowercase the platform (S1 + single letter, anywhere)
+                name = re.sub(r"S1[A-Z]", lambda m: m.group(0).lower(), name)
                 new_path = product_file.with_name(name)
                 if new_path != product_file:
                     logger.info(f"Renaming: {product_file.name} -> {new_path.name}")

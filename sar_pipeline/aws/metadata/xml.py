@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import datetime, timezone
 import json
 import pandas as pd
 from sar_pipeline.aws.metadata.h5 import H5Manager
@@ -162,6 +163,7 @@ class XMLMapper:
         # iterate through the rows of the csv
         for _, row in self.mapper_df.iterrows():
             xml_tag = row["XML_TAG"]
+            required = row["REQUIRED"]
             source_file = row["SOURCE_FILE"]
             source_tag = row["SOURCE_TAG"]
             unit = row["UNIT"]
@@ -171,11 +173,25 @@ class XMLMapper:
 
             if source_file in ["STAC", "JSON"]:
                 # get desired tag value from stac json file
-                value = self.get_nested_stac_values(source_tag)
+                try:
+                    value = self.get_nested_stac_values(source_tag)
+                except:
+                    if not required:
+                        # skip if not required and can't be found
+                        continue
+                    else:
+                        raise
 
             elif source_file in ["HDF5", "H5"]:
                 # get desired tag value from hdf5 / .h5 file
-                value = self.h5.get_value(source_tag)
+                try:
+                    value = self.h5.get_value(source_tag)
+                except:
+                    if not required:
+                        # skip if not required and can't be found
+                        continue
+                    else:
+                        raise
 
             elif source_file == "FIXED_VALUE":
                 # value is fixed and already set in the mapping file
@@ -223,6 +239,7 @@ class XMLMapper:
               ['HH','HV']
             - projection wkt2 code. Not included in STAC, so is set here.
             - bbox provided as a wkt not list.
+            - Sets SourceProcParam/ProcessingDate as a UTC timestamp
 
         Parameters
         ----------
@@ -282,6 +299,14 @@ class XMLMapper:
             self.xml.getroot().find(".//" + tag).text = str(value)
         except:
             raise ValueError(f"Could not set the 'SPECIAL' tag {tag} in xml")
+
+        # set the SourceProcParam/ProcessingDate as a UTC time by adding 'Z'
+        tag = "SourceProcParam/ProcessingDate"
+        try:
+            value = f"{self.xml.getroot().find(".//" + tag).text}Z"
+            self.xml.getroot().find(".//" + tag).text = value
+        except:
+            raise ValueError(f"Could convert xml tag {tag} to UTC time")
 
     def save_xml(self, output_path):
         try:
