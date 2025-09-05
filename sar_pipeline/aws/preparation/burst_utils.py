@@ -226,9 +226,7 @@ def check_burst_product_h5_exists_in_s3(
                 collection_number=collection_number,
                 burst_polarisations=burst_polarisations,
                 burst_id=burst_id,
-                year=burst_st.year,
-                month=burst_st.month,
-                day=burst_st.day,
+                burst_st=burst_st,
             )
         # assume the product exists if there is a .h5 file
         logging.info(f"searching s3 folder : {s3_product_subpath}")
