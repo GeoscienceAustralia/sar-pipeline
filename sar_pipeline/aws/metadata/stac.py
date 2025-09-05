@@ -170,9 +170,7 @@ class BurstH5toStacManager:
                 collection_number=self.collection_number,
                 burst_polarisations=self.polarisations,
                 burst_id=self.burst_id,
-                year=self.start_dt.year,
-                month=self.start_dt.month,
-                day=self.start_dt.day,
+                burst_st=self.start_dt,
             )
 
         elif self.product == "RTC_S1_STATIC":
