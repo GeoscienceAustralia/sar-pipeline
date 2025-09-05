@@ -163,6 +163,7 @@ class XMLMapper:
         # iterate through the rows of the csv
         for _, row in self.mapper_df.iterrows():
             xml_tag = row["XML_TAG"]
+            required = row["REQUIRED"]
             source_file = row["SOURCE_FILE"]
             source_tag = row["SOURCE_TAG"]
             unit = row["UNIT"]
@@ -172,11 +173,25 @@ class XMLMapper:
 
             if source_file in ["STAC", "JSON"]:
                 # get desired tag value from stac json file
-                value = self.get_nested_stac_values(source_tag)
+                try:
+                    value = self.get_nested_stac_values(source_tag)
+                except:
+                    if not required:
+                        # skip if not required and can't be found
+                        continue
+                    else:
+                        raise
 
             elif source_file in ["HDF5", "H5"]:
                 # get desired tag value from hdf5 / .h5 file
-                value = self.h5.get_value(source_tag)
+                try:
+                    value = self.h5.get_value(source_tag)
+                except:
+                    if not required:
+                        # skip if not required and can't be found
+                        continue
+                    else:
+                        raise
 
             elif source_file == "FIXED_VALUE":
                 # value is fixed and already set in the mapping file
