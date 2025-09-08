@@ -10,7 +10,7 @@ import tarfile
 import zipfile
 
 from sar_pipeline.preparation.etad import apply_etad_correction
-from sar_pipeline.nci.processing.GAMMA.GAMMA_utils import set_gamma_env_variables
+from sar_pipeline.utils.gamma import set_gamma_env_variables
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s : %(message)s",

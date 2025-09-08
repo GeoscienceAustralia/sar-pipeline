@@ -9,12 +9,14 @@ from sar_pipeline.nci.submission.pyrosar_gamma.prepare_input import (
     get_orbit_and_dem,
 )
 from sar_pipeline.preparation.etad import find_etad_for_scene
-from sar_pipeline.nci.preparation.orbits import (
+from sar_pipeline.preparation.nci.orbits import (
     filter_orbits_to_cover_time_window,
 )
-from sar_pipeline.nci.preparation.scenes import (
-    parse_scene_file_sensor,
-    parse_scene_file_dates,
+from sar_pipeline.utils.sentinel1 import (
+    get_mission_from_scene_id,
+    get_dates_from_scene_id,
+)
+from sar_pipeline.preparation.nci.scenes import (
     find_scene_file_from_id,
 )
 from sar_pipeline.utils.sentinel1 import is_s1_filename, is_s1_id
@@ -420,8 +422,8 @@ def run_pyrosar_gamma_workflow(
 @click.argument("scene", type=str)
 def find_orbits_for_scene(scene):
     """For a given SCENE, find paths to POE and RES orbits"""
-    sensor = parse_scene_file_sensor(scene)
-    start_time, stop_time = parse_scene_file_dates(scene)
+    sensor = get_mission_from_scene_id(scene)
+    start_time, stop_time = get_dates_from_scene_id(scene)
 
     poe_paths = get_orbits_nci("POE", sensor)
     relevant_poe_paths = filter_orbits_to_cover_time_window(

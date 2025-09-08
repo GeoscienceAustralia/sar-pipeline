@@ -16,7 +16,7 @@ from sar_pipeline.aws.metadata.odc import (
     make_rtc_s1_s3_subpath,
     make_rtc_s1_static_s3_subpath,
 )
-from sar_pipeline.nci.preparation.scenes import parse_scene_file_dates
+from sar_pipeline.utils.sentinel1 import get_dates_from_scene_id
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ def get_burst_info_for_scene_from_asf(
         {'t070_149822_IW3' : {start_time : datetime.datetime, geometry: shapely.geometry}}
     """
 
-    st, et = parse_scene_file_dates(scene)
+    st, et = get_dates_from_scene_id(scene)
 
     results = asf_search.search(
         platform=[asf_search.PLATFORM.SENTINEL1],

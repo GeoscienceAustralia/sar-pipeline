@@ -66,13 +66,13 @@ def query_scene_from_asf(scene: str) -> ASFSearchResults:
     # Determine the asf_search product type to search: https://github.com/asfadmin/Discovery-asf_search/blob/master/asf_search/constants/PRODUCT_TYPE.py
     # GRD processingly level query cannot currently be determined from product type alone, so list all GRD and assume it is one of these five.
     # The list is sufficient to distinguish metadata files from data files
-    if scene_metadata["product_type"] == "GRD":
+    if scene_metadata.product_type == "GRD":
         processing_level_query = ["GRD_HD", "GRD_MD", "GRD_MS", "GRD_HS", "GRD_FD"]
-    elif scene_metadata["product_type"] in ["SLC", "OCN", "RAW"]:
-        processing_level_query = scene_metadata["product_type"]
+    elif scene_metadata.product_type in ["SLC", "OCN", "RAW"]:
+        processing_level_query = scene_metadata.product_type
     else:
         raise ValueError(
-            f"Product type {scene_metadata["product_type"]} not recognised. Should be one of GRD, SLC, OCN, or RAW"
+            f"Product type {scene_metadata.product_type} not recognised. Should be one of GRD, SLC, OCN, or RAW"
         )
 
     # Run the search
