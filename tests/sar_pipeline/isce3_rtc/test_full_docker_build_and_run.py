@@ -35,15 +35,15 @@ logger = logging.getLogger(__name__)
 
 # Directories
 CURRENT_DIR = Path(__file__).parent.resolve()
-TEST_OUTPUTS_DIR = f"{CURRENT_DIR}/data/isce3_rtc/results"
-PROJECT_ROOT = CURRENT_DIR.parent.parent
+TEST_OUTPUTS_DIR = f"{CURRENT_DIR}/data/TMP/results"
+PROJECT_ROOT = CURRENT_DIR.parents[2]
 
 # shared test values
 DOCKER_TAG = re.sub(r"[^a-zA-Z0-9_.-]", "-", sar_pipeline.__version__)
 RUN_DATETIME = str(datetime.now()).replace(" ", "_")
 TEST_NAME = Path(__file__).stem
 TEST_S3_BUCKET = "deant-data-public-dev"
-TEST_S3_PROJECT_FOLDER = f"TMP/sar-pipeline/{RUN_DATETIME}/{TEST_NAME}"
+TEST_S3_PROJECT_FOLDER = f"TMP/sar-pipeline/isce3_rtc/{RUN_DATETIME}/{TEST_NAME}"
 
 REQUIRED_ENV_VARIABLES = [
     "EARTHDATA_LOGIN",
@@ -75,26 +75,26 @@ if missing:
 
     # test may be run locally which requires a secret file to set the variables
     logger.info(
-        f"Attempting to load from env.secret file from the project root : {PROJECT_ROOT / "env.secret"}"
+        f"Attempting to load from .env file from the project root : {PROJECT_ROOT / ".env"}"
     )
 
     try:
         # load the environment secrets from a local file
         # see docs/workflows/aws.md for required variables
-        # store in project root in env.secret file
-        load_dotenv(PROJECT_ROOT / "env.secret")
+        # store in project root in .env file
+        load_dotenv(PROJECT_ROOT / ".env")
         missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
         if missing:
             raise ValueError(
-                "env.secret was found but some variables are missing. Add the required variables."
+                ".env was found but some variables are missing. Add the required variables."
             )
         else:
-            logging.info("Environment variables loaded from env.secret successfully.")
-            ENV_VARS = ["--env-file", f'{PROJECT_ROOT / "env.secret"}']
+            logging.info("Environment variables loaded from .env successfully.")
+            ENV_VARS = ["--env-file", f'{PROJECT_ROOT / ".env"}']
 
     except:
         raise FileExistsError(
-            "Could not find env.secret file at project root containing required environment variables for run. "
+            "Could not find .env file at project root containing required environment variables for run. "
             "Create this file with required variables OR ensure environment is configured correctly "
             "(e.g. when running automated tests on GitHub)"
         )
@@ -112,7 +112,7 @@ def build_image():
             "-t",
             f"sar-pipeline:{DOCKER_TAG}",
             "-f",
-            "Docker/Dockerfile",
+            "Docker/isce3_rtc/Dockerfile",
             ".",
         ],
         stdout=sys.stdout,

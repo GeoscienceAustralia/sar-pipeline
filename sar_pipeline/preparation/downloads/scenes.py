@@ -335,7 +335,7 @@ def download_scene_from_aus_cop_hub(
     Australasia Regional Data Hub. Function makes use of pygssearch -
     https://pypi.org/project/pygssearch/ which is installed in a separate conda environment
     and called in a subprocess due to package conflicts. The path to the conda environment
-    can be set in the function or as an environment variable (e.g. defined in the Dockerfile).
+    can be set in the function or as an environment variable (e.g. defined in the isce3_rtc/Dockerfile).
 
     Parameters
     ----------

@@ -4,8 +4,8 @@ import tomli
 import logging
 from typing import Literal
 
-from sar_pipeline.nci.filesystem import get_orbits_nci
-from sar_pipeline.nci.submission.pyrosar_gamma.prepare_input import (
+from sar_pipeline.pipelines.pyrosar_gamma.filesystem import get_orbits_nci
+from sar_pipeline.pipelines.pyrosar_gamma.submission.pyrosar_gamma.prepare_input import (
     get_orbit_and_dem,
 )
 from sar_pipeline.preparation.etad import find_etad_for_scene
@@ -20,10 +20,12 @@ from sar_pipeline.preparation.nci.scenes import (
     find_scene_file_from_id,
 )
 from sar_pipeline.utils.sentinel1 import is_s1_filename, is_s1_id
-from sar_pipeline.nci.processing.pyroSAR.pyrosar_geocode import (
+from sar_pipeline.pipelines.pyrosar_gamma.processing.pyroSAR.pyrosar_geocode import (
     run_pyrosar_gamma_geocode,
 )
-from sar_pipeline.nci.submission.pyrosar_gamma.submit_job import submit_job
+from sar_pipeline.pipelines.pyrosar_gamma.submission.pyrosar_gamma.submit_job import (
+    submit_job,
+)
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 from sar_pipeline.utils.post_processing import (
     gdal_reproject,

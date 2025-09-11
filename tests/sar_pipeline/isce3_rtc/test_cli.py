@@ -1,6 +1,6 @@
 from click.testing import CliRunner
 from dataclasses import dataclass
-from sar_pipeline.aws.cli import get_data_for_scene_and_make_run_config
+from sar_pipeline.pipelines.isce3_rtc.cli import get_data_for_scene_and_make_run_config
 from pathlib import Path
 from dotenv import load_dotenv
 import os
@@ -17,8 +17,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 CURRENT_DIR = Path(__file__).parent.resolve()
-PROJECT_ROOT = CURRENT_DIR.parent.parent
-TEST_WORKSPACE = CURRENT_DIR / Path("data/isce3_rtc")
+PROJECT_ROOT = CURRENT_DIR.parents[2]
+TEST_WORKSPACE = CURRENT_DIR / Path("data")
 REQUIRED_ENV_VARIABLES = [
     "EARTHDATA_LOGIN",
     "EARTHDATA_PASSWORD",
@@ -40,25 +40,25 @@ if missing:
 
     # test may be run locally which requires a secret file to set the variables
     logger.info(
-        f"Attempting to load from env.secret file from the project root : {PROJECT_ROOT / "env.secret"}"
+        f"Attempting to load from .env file from the project root : {PROJECT_ROOT / ".env"}"
     )
 
     try:
         # load the environment secrets from a local file
         # see docs/workflows/aws.md for required variables
-        # store in project root in env.secret file
-        load_dotenv(PROJECT_ROOT / "env.secret")
+        # store in project root in .env file
+        load_dotenv(PROJECT_ROOT / ".env")
         missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
         if missing:
             raise ValueError(
-                "env.secret was found but some variables are missing. Add the required variables."
+                ".env was found but some variables are missing. Add the required variables."
             )
         else:
-            logging.info("Environment variables loaded from env.secret successfully.")
+            logging.info("Environment variables loaded from .env successfully.")
 
     except:
         raise FileExistsError(
-            "Could not find env.secret file at project root containing required environment variables for run. "
+            "Could not find .env file at project root containing required environment variables for run. "
             "Create this file with required variables or ensure environment is configured correctly "
             "(for example when running automated tests on GitHub)"
         )

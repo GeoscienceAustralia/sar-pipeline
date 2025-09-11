@@ -65,17 +65,17 @@ RUN conda env create -f /home/rtc_user/sar-pipeline/environment.yaml && conda cl
 
 # Create third conda environment for pygssearch. Installed outside of sar-pipeline due to package conflicts. 
 # This is required for downloading data from AUS_COP_HUB and will be called by a subprocess in the scene download function.
-RUN conda env create -f /home/rtc_user/sar-pipeline/environment-pygssearch.yaml && conda clean -afy
+RUN conda env create -f /home/rtc_user/sar-pipeline/Conda/pygssearch/environment.yaml && conda clean -afy
 
 # set the conda environment as a path
 ENV PYGSSEARCH_CONDA_ENV=$CONDA_PREFIX/envs/pygssearch-env
 
 # Copy the .sh file that will be run on entry to the container
 RUN mkdir -p /home/rtc_user/scripts
-COPY --chown=rtc_user:rtc_user ./scripts/run_aws_pipeline.sh /home/rtc_user/scripts
-RUN chmod +x /home/rtc_user/scripts/run_aws_pipeline.sh 
+COPY --chown=rtc_user:rtc_user ./scripts/run_isce3_rtc_pipeline.sh /home/rtc_user/scripts
+RUN chmod +x /home/rtc_user/scripts/run_isce3_rtc_pipeline.sh 
 
 WORKDIR /home/rtc_user/working
 
-ENTRYPOINT ["/home/rtc_user/scripts/run_aws_pipeline.sh"]
+ENTRYPOINT ["/home/rtc_user/scripts/run_isce3_rtc_pipeline.sh"]
 CMD []

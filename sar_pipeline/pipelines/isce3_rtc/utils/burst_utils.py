@@ -11,8 +11,8 @@ import sys
 import requests
 
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
-from sar_pipeline.aws.metadata.filetypes import REQUIRED_ASSET_FILETYPES
-from sar_pipeline.aws.metadata.odc import (
+from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import REQUIRED_ASSET_FILETYPES
+from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     make_rtc_s1_s3_subpath,
     make_rtc_s1_static_s3_subpath,
 )

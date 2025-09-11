@@ -37,7 +37,7 @@ jobs:
         IMAGE_TAG=${{ github.event.release.tag_name }}
         IMAGE_URI=${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
 
-        docker build -t $IMAGE_URI -f Docker/Dockerfile .
+        docker build -t $IMAGE_URI -f Docker/isce3_rtc/Dockerfile .
         echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
     - name: Push image to ECR

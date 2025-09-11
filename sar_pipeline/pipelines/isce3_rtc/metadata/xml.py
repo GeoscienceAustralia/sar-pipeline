@@ -2,7 +2,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import json
 import pandas as pd
-from sar_pipeline.aws.metadata.h5 import H5Manager
+from sar_pipeline.pipelines.isce3_rtc.metadata.h5 import H5Manager
 import xml.etree.ElementTree as ET
 import copy
 import pyproj

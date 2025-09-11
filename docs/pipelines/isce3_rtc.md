@@ -53,7 +53,7 @@ Example outputs of the **RTC_S1** and **RTC_S1_STATIC** workflows can be found a
 
 At runtime, the pipeline expects the following environment variables to be set. These can be passed in using an environment file. NASA earthdata credentials can be created here - https://urs.earthdata.nasa.gov/. Credentials for the Copernicus Data Space Ecosystem (CDSE) can be created here - https://dataspace.copernicus.eu/. The AWS credentials must have write access to the specified bucket location.
 
-[env.secret.example](../../env.secret.example)
+[.env.example](../../.env.example)
 
 ```txt
 EARTHDATA_LOGIN=
@@ -70,7 +70,7 @@ AUS_COP_HUB_CLIENT_SECRET=
 ```
 
 ### Creating Products 
-The AWS pipeline runs using a docker container. At runtime, the script [run_aws_pipeline.sh](../../scripts/run_aws_pipeline.sh) is run. The arguments that can be passed to the container are as follows:
+The AWS pipeline runs using a docker container. At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) is run. The arguments that can be passed to the container are as follows:
 
 ```bash
 # Basic input for product creation
@@ -134,7 +134,7 @@ Final product output paths have the following structure
 
 ## Container processing location
 
-The location for where data is downloaded and written for processing in the container is specified in the [run_aws_pipeline.sh](../../scripts/run_aws_pipeline.sh) file. In the case of AWS processing, an EBS block may be mounted. The mount point must align to the paths specified in the run script for the EBS storage to be used. The hardcoded values are:
+The location for where data is downloaded and written for processing in the container is specified in the [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) file. In the case of AWS processing, an EBS block may be mounted. The mount point must align to the paths specified in the run script for the EBS storage to be used. The hardcoded values are:
 
 ```bash
 # set process folders for the container
@@ -147,7 +147,7 @@ scratch_folder="/home/rtc_user/working/scratch/$s3_project_folder/$collection_nu
 # Build the docker image
 
 ```bash
-docker build -t sar-pipeline -f Docker/Dockerfile .
+docker build -t sar-pipeline -f Docker/isce3_rtc/Dockerfile .
 ```
 
 ## Test image interactively
@@ -177,13 +177,13 @@ This will 1) build and tag the sar-pipeline docker image, 2) create static layer
 Output CRS should be polar stereographic 3031
 
 ```bash
-docker run --env-file env.secret -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products
+docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products
 ```
 
 For a single burst:
 
 ```bash
-docker run --env-file env.secret -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3_project_folder TMP --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products
+docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3_project_folder TMP --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products
 ```
 
 ### Australia (without linking RTC_S1_STATIC)
@@ -191,13 +191,13 @@ docker run --env-file env.secret -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220
 The output CRS will be the UTM zone corresponding to scene/burst centre. This is selected automatically and does not need to be specified.
 
 ```bash
-docker run --env-file env.secret -it sar-pipeline --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products
+docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products
 ```
 
 ## RTC_S1_STATIC - Static Layers for Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter
 
 ```bash
-docker run --env-file env.secret -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --output_crs 3031 --product RTC_S1_STATIC --collection s1_rtc_static_c1 --s3_project_folder "TMP" --skip_upload_to_s3 --make_existing_products
+docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --output_crs 3031 --product RTC_S1_STATIC --collection s1_rtc_static_c1 --s3_project_folder "TMP" --skip_upload_to_s3 --make_existing_products
 ```
 
 # Examples
@@ -211,7 +211,7 @@ docker run --env-file env.secret -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220
 
 
 ```bash
-docker run --env-file env.secret -it sar-pipeline \
+docker run --env-file .env -it sar-pipeline \
 --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD \
 --burst_id_list t070_149815_iw3 \
 --product RTC_S1_STATIC \
@@ -230,7 +230,7 @@ Once the workflow has been completed, you should be able to fine the static laye
 ### 2. Make the RTC Backscatter for the scene and link the metadata to the static layers
 
 ```bash
-docker run --env-file env.secret -it sar-pipeline \
+docker run --env-file .env -it sar-pipeline \
 --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD \
 --burst_id_list t070_149815_iw3 \
 --product RTC_S1 \
@@ -322,7 +322,7 @@ Development is best done from within the container where edited files are tracke
 # Start the container interactively and mount folders in the container so changes can be picked up
 # Here the /data/working volume is being mounted to the working directory of the container
 
-docker run --env-file env.secret -it --entrypoint /bin/bash -v $(pwd):/home/rtc_user/sar-pipeline -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline
+docker run --env-file .env -it --entrypoint /bin/bash -v $(pwd):/home/rtc_user/sar-pipeline -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline
 
 # activate environment and install code in editable mode
 
@@ -330,23 +330,23 @@ conda activate sar-pipeline
 
 pip install -e /home/rtc_user/sar-pipeline
 
-chmod +x /home/rtc_user/scripts/run_aws_pipeline.sh 
+chmod +x /home/rtc_user/scripts/run_isce3_rtc_pipeline.sh 
 
 # Antarctic scene (all bursts)
 
-/home/rtc_user/scripts/run_aws_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
+/home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
 
 # Antarctic scene (single burst)
 
-/home/rtc_user/scripts/run_aws_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
+/home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
 
 # Australia scene
 
-/home/rtc_user/scripts/run_aws_pipeline.sh --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
+/home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
 
 # Antarctica static layers
 
-/home/rtc_user/scripts/run_aws_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --product RTC_S1_STATIC --collection_number 1 --s3_project_folder "TMP" --skip_upload_to_s3 --make_existing_products
+/home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --product RTC_S1_STATIC --collection_number 1 --s3_project_folder "TMP" --skip_upload_to_s3 --make_existing_products
 
 
 ```
@@ -354,10 +354,10 @@ chmod +x /home/rtc_user/scripts/run_aws_pipeline.sh
 ### Mount files at runtime
 
 ```bash
-docker run --env-file env.secret -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
+docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
 
 ```
 
 ```bash
-docker run --env-file env.secret -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst_id_list t070_149815_iw3 t070_149821_iw1 --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products
+docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst_id_list t070_149815_iw3 t070_149821_iw1 --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products
 ```

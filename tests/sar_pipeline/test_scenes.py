@@ -1,4 +1,4 @@
-from sar_pipeline.aws.preparation.scenes import (
+from sar_pipeline.preparation.downloads.scenes import (
     query_scene_from_asf,
     query_scene_from_cdse,
 )

@@ -14,12 +14,12 @@ import os
 
 import dem_handler
 import sar_pipeline
-from sar_pipeline.aws.metadata.h5 import H5Manager
-from sar_pipeline.aws.metadata.odc import (
+from sar_pipeline.pipelines.isce3_rtc.metadata.h5 import H5Manager
+from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     get_odc_product_name,
     make_rtc_s1_static_s3_subpath,
 )
-from sar_pipeline.aws.preparation.burst_utils import (
+from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     make_rtc_s1_s3_subpath,
     make_rtc_s1_static_s3_subpath,
 )
@@ -28,7 +28,7 @@ from sar_pipeline.utils.spatial import (
     reproject_bbox_to_geometry,
 )
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
-from sar_pipeline.aws.metadata.filetypes import (
+from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import (
     RENAME_ASSET_FILETYPES,
     REQUIRED_ASSET_FILETYPES,
     ASSET_FILETYPE_TO_DESCRIPTION,

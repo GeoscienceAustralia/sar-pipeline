@@ -2,7 +2,7 @@ import os
 import logging
 from pathlib import Path
 
-from sar_pipeline.nci.submission.utils import populate_pbs_template
+from sar_pipeline.pipelines.pyrosar_gamma.submission.utils import populate_pbs_template
 
 logger = logging.getLogger(__name__)
 

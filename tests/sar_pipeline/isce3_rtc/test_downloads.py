@@ -8,11 +8,11 @@ import os
 import pytest
 import shutil
 
-from sar_pipeline.aws.preparation.scenes import (
+from sar_pipeline.preparation.downloads.scenes import (
     download_scene_from_preference_list,
     SceneDownloadError,
 )
-from sar_pipeline.aws.preparation.orbits import (
+from sar_pipeline.preparation.downloads.orbits import (
     download_orbits,
 )
 
@@ -24,14 +24,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 CURRENT_DIR = Path(__file__).parent.resolve()
-PROJECT_ROOT = CURRENT_DIR.parent.parent
-TEST_DOWNLOAD_WORKSPACE = CURRENT_DIR / Path("data/isce3_rtc/TMP/downloads")
+PROJECT_ROOT = CURRENT_DIR.parents[2]
+TEST_DOWNLOAD_WORKSPACE = CURRENT_DIR / Path("data/TMP/downloads")
 
 REQUIRED_ENV_VARIABLES = [
     "EARTHDATA_LOGIN",
     "EARTHDATA_PASSWORD",
     "CDSE_LOGIN",
     "CDSE_PASSWORD",
+    "AUS_COP_HUB_LOGIN",
+    "AUS_COP_HUB_PASSWORD",
+    "AUS_COP_HUB_CLIENT_ID",
+    "AUS_COP_HUB_CLIENT_SECRET",
 ]
 # check if the required env variables are set
 missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
@@ -44,23 +48,23 @@ if missing:
 
     # test may be run locally which requires a secret file to set the variables
     logger.info(
-        f"Attempting to load from env.secret file from the project root : {PROJECT_ROOT / "env.secret"}"
+        f"Attempting to load from .env file from the project root : {PROJECT_ROOT / ".env"}"
     )
 
     try:
         # load the environment secrets from a local file
         # see docs/workflows/aws.md for required variables
-        # store in project root in env.secret file
-        load_dotenv(PROJECT_ROOT / "env.secret")
+        # store in project root in .env file
+        load_dotenv(PROJECT_ROOT / ".env")
         missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
         if missing:
             raise ValueError(
-                f"env.secret was found but some variables are missing. The following environment variables must be set for test: {REQUIRED_ENV_VARIABLES}"
+                f".env was found but some variables are missing. The following environment variables must be set for test: {REQUIRED_ENV_VARIABLES}"
             )
 
     except:
         raise FileExistsError(
-            "Could not find env.secret file at project root containing required environment variables for run. "
+            "Could not find .env file at project root containing required environment variables for run. "
             "Create this file with required variables OR ensure environment is configured correctly "
             "(e.g. when running automated tests on GitHub)"
         )

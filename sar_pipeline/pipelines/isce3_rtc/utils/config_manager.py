@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 BaseConfigType = Literal["S1_RTC.yaml", "S1_RTC_STATIC.yaml"]
 VALID_BASE_CONFIGS = typing.get_args(BaseConfigType)
-BASE_CONFIGS_FOLDER = Path(__file__).parents[2] / "configs/ISCE3-RTC"
+BASE_CONFIGS_FOLDER = Path(__file__).parents[3] / "configs/isce3_rtc"
 
 
 class RTCConfigManager:

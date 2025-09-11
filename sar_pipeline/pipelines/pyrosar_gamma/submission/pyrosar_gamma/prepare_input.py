@@ -3,7 +3,7 @@ from pathlib import Path
 from pyroSAR import identify
 
 from sar_pipeline.preparation.nci.orbits import find_latest_orbit_covering_window
-from sar_pipeline.nci.filesystem import get_orbits_nci, get_dem_nci
+from sar_pipeline.pipelines.pyrosar_gamma.filesystem import get_orbits_nci, get_dem_nci
 
 
 def get_orbit_and_dem(

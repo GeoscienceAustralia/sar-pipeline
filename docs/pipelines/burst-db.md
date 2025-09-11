@@ -43,4 +43,4 @@ By default, the file will be uploaded to:
 
 The parameter `BURST_DB_URL` MUST be changed in the following files:
 
-- [Dockerfile](../../Docker/Dockerfile)
+- [Dockerfile](../../Docker/isce3_rtc/Dockerfile)

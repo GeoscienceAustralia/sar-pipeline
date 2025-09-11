@@ -2,7 +2,7 @@ from click.testing import CliRunner
 from dataclasses import dataclass
 from pathlib import Path
 import pytest
-from sar_pipeline.aws.preparation.burst_utils import (
+from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     check_burst_product_h5_exists_in_s3,
 )
 
@@ -17,8 +17,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 CURRENT_DIR = Path(__file__).parent.resolve()
-PROJECT_ROOT = CURRENT_DIR.parent.parent
-TEST_WORKSPACE = CURRENT_DIR / Path("data/isce3_rtc")
+PROJECT_ROOT = CURRENT_DIR.parents[2]
+TEST_WORKSPACE = CURRENT_DIR / Path("data")
 
 
 # NOTE - Existing products for testing are stored in the persistent folder of the deant-public-data-dev bucket
@@ -40,7 +40,7 @@ class BurstProduct:
 
 # test a non-existent RTC_S1 product
 S3_PROJECT_TEST_FOLDER = (
-    "persistent/repositories/sar-pipeline/tests/sar_pipeline/data/isce3_rtc/results"
+    "persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/data/results"
 )
 TEST_NON_EXISTING_RTC_S1 = BurstProduct(
     scene="S1A_IW_SLC__1SDV_20221202T104303_20221202T104332_046151_058667_0E6A",
