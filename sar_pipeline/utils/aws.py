@@ -3,7 +3,9 @@ import boto3
 import logging
 from botocore import UNSIGNED
 from botocore.config import Config
+from botocore.exceptions import ClientError
 import logging
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -82,3 +84,57 @@ def find_s3_filepaths_from_suffixes(
         suffix_to_s3path[s] = [f for f in existing_files if f.endswith(s)]
 
     return suffix_to_s3path
+
+
+class S3Util:
+    def __init__(
+        self,
+        aws_access_key_id: str,
+        aws_secret_access_key: str,
+        region_name: str = "ap-southeast-2",
+    ):
+        """
+        Utility class for S3 operations.
+
+        Parameters
+        ----------
+        aws_access_key_id : str
+            AWS access key ID.
+        aws_secret_access_key : str
+            AWS secret access key.
+        region_name : str, optional
+            AWS region name, by default "ap-southeast-2".
+        """
+        self.s3 = boto3.client(
+            "s3",
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            region_name=region_name,
+        )
+
+    def download_folder(self, bucket_name: str, s3_folder: str, local_dir: Path):
+        """
+        Download all objects from an S3 folder to a local directory.
+
+        Parameters
+        ----------
+        bucket_name : str
+            Name of the S3 bucket.
+        s3_folder : str
+            S3 folder (prefix) to download.
+        local_dir : Path
+            Local folder path to download files into.
+        """
+        s3_folder = s3_folder.rstrip("/") + "/"
+        paginator = self.s3.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=bucket_name, Prefix=s3_folder):
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                relative_path = Path(key).relative_to(s3_folder)
+                local_file_path = local_dir / relative_path
+                os.makedirs(local_file_path.parent, exist_ok=True)
+                try:
+                    self.s3.download_file(bucket_name, key, str(local_file_path))
+                    print(f"Downloaded: {key} -> {local_file_path}")
+                except ClientError as e:
+                    print(f"Failed to download {key}: {e}")

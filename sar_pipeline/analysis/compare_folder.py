@@ -1,0 +1,105 @@
+from pathlib import Path
+import pandas as pd
+
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+def check_exact_files(folder_1: Path, folder_2: Path) -> bool:
+    """
+    Check if two folders contain exactly the same files (recursively).
+
+    Parameters
+    ----------
+    folder_1, folder_2 : Path
+        Paths to the two folders to compare.
+
+    Returns
+    -------
+    bool
+        True if the folders contain exactly the same files, False otherwise.
+    """
+    folder_1_files = set(
+        f.relative_to(folder_1) for f in folder_1.rglob("*") if f.is_file()
+    )
+    folder_2_files = set(
+        f.relative_to(folder_2) for f in folder_2.rglob("*") if f.is_file()
+    )
+
+    return folder_1_files == folder_2_files
+
+
+def compare_product_folder_files(
+    folder_1: str | Path, folder_2: str | Path
+) -> pd.DataFrame:
+    """
+    Compare the counts of different file types between two folders.
+
+    This function scans both folders (recursively) and counts the number
+    of files by extension. The counts are then merged into a single
+    DataFrame for comparison.
+
+    Parameters
+    ----------
+    folder_1 : str or pathlib.Path
+        Path to the first folder.
+    folder_2 : str or pathlib.Path
+        Path to the second folder.
+
+    """
+    logger.info(f"Comparing product folders")
+    logger.info(f"folder_1 : {folder_1}")
+    logger.info(f"folder_2 : {folder_2}")
+
+    folder_1 = Path(folder_1)
+    folder_2 = Path(folder_2)
+
+    for i, folder in enumerate([folder_1, folder_2]):
+        logger.info(f"Files in folder {i+1}")
+        for f in sorted(folder.iterdir()):
+            logger.info(f"{f.name}")
+
+    def get_extension_counts(folder: Path) -> pd.Series:
+        files = [f.suffix.lower() for f in folder.glob("**/*") if f.is_file()]
+        return pd.Series(files).value_counts()
+
+    counts_1 = get_extension_counts(folder_1).rename("folder_1")
+    counts_2 = get_extension_counts(folder_2).rename("folder_2")
+
+    # Combine into DataFrame
+    df = pd.concat([counts_1, counts_2], axis=1)
+
+    # Add totals row
+    totals = df.sum().to_frame().T
+    totals.index = ["file count"]  # Name the totals row
+    df = pd.concat([df, totals], axis=0)
+    logger.info(f"\n{df}\n")
+
+    # get files in different folders
+    folder_1_files = set(folder_1.iterdir())  # all files in folder_1
+    folder_2_files = set(folder_2.iterdir())  # all files in folder_2
+
+    folders_have_same_files = check_exact_files(folder_1, folder_2)
+
+    diffs = {
+        "folder_1": str(folder_1),
+        "folder_2": str(folder_2),
+        "in_folder_1_missing_in_folder_2": [],
+        "in_folder_2_missing_in_folder_1": [],
+    }
+
+    if folders_have_same_files:
+        is_different = False
+        return is_different, [diffs]
+    else:
+        is_different = True
+        diffs["in_folder_2_missing_in_folder_1"] = [
+            f.name for f in folder_2_files if f not in folder_1_files
+        ]
+        diffs["in_folder_1_missing_in_folder_2"] = [
+            f.name for f in folder_1_files if f not in folder_2_files
+        ]
+
+        return is_different, diffs

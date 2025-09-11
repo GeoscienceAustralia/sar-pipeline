@@ -26,7 +26,7 @@ Steps:
 
 import pytest
 import json
-from sar_pipeline.aws.compare.metadata import compare_json
+from sar_pipeline.analysis.comparison import compare_json
 
 
 def test_compare_json():

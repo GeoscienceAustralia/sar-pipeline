@@ -816,7 +816,16 @@ def make_rtc_opera_stac_and_upload_bursts(
 
 from sar_pipeline import PROJECT_ROOT_PATH
 from sar_pipeline.utils.aws import S3Util
+from sar_pipeline.analysis.compare_folder import compare_product_folder_files
+from sar_pipeline.analysis.compare_metadata import (
+    compare_json,
+    compare_xml,
+    write_diffs_to_json,
+    write_diffs_to_xml,
+)
+from sar_pipeline.analysis.compare_cog import compare_cog_stats
 import os
+import json
 
 
 @click.command()
@@ -841,14 +850,14 @@ import os
 @click.option(
     "--s3-product-folder-1",
     required=False,
-    type=click.Path(file_okay=False, path_type=Path),
+    type=str,
     help="Path to the folder in s3 containing the first burst outputs from RTC/opera to compare."
     " Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required.",
 )
 @click.option(
     "--s3-product-folder-2",
     required=False,
-    type=click.Path(file_okay=False, path_type=Path),
+    type=str,
     help="Path to the folder in s3 containing the second burst outputs from RTC/opera to compare."
     "Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required.",
 )
@@ -856,7 +865,7 @@ import os
     "--s3-bucket",
     required=False,
     default="deant-data-public-dev",
-    type=click.Path(file_okay=False, path_type=Path),
+    type=str,
     help="S3 where outputs are being stored. Required if s3 folders are set as input",
 )
 @click.option(
@@ -866,7 +875,7 @@ import os
     type=click.Path(file_okay=False, path_type=Path),
     help="Folder to write the outputs of the comparison to",
 )
-def make_rtc_opera_stac_and_upload_bursts(
+def compare_products(
     product,
     local_product_folder_1,
     local_product_folder_2,
@@ -893,31 +902,112 @@ def make_rtc_opera_stac_and_upload_bursts(
         # set up the AWS download util
         S3Downloader = S3Util(
             aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key=os.getenv("AWS_ACCESS_KEY_SECRET"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
             region_name=os.getenv("AWS_DEFAULT_REGION") or "ap-southeast-2",
         )
 
     if s3_product_folder_1:
         # download product folder to local folder
-        local_product_folder_1 = out_folder / s3_product_folder_1
+        local_product_folder_1 = out_folder / "folder_1" / s3_product_folder_1
         os.makedirs(local_product_folder_1, exist_ok=True)
         S3Downloader.download_folder(
             s3_bucket, s3_product_folder_1, local_product_folder_1
         )
     if s3_product_folder_2:
         # download product folder to local folder
-        local_product_folder_2 = out_folder / s3_product_folder_2
+        local_product_folder_2 = out_folder / "folder_2" / s3_product_folder_2
         os.makedirs(local_product_folder_2, exist_ok=True)
         S3Downloader.download_folder(
             s3_bucket, s3_product_folder_2, local_product_folder_2
         )
 
     # compare count of files and filetypes in folder
+    files_are_different, file_differences = compare_product_folder_files(
+        local_product_folder_1, local_product_folder_2
+    )
+    file_differences_path = out_folder / "file_differences.json"
+    if files_are_different:
+        logging.warning(
+            f"Differences in product files found. Saving summary to : {file_differences_path}"
+        )
+    else:
+        logger.info(
+            f"No differences in product files identified. Saving summary to : {file_differences_path}"
+        )
+    write_diffs_to_json(file_differences, file_differences_path)
 
-    # compare the metadata files
+    # compare the json files
+    json_files_1 = list(local_product_folder_1.glob("*.json"))
+    json_files_2 = list(local_product_folder_2.glob("*.json"))
+    if len(json_files_1) > 1 or len(json_files_2) > 1:
+        logging.warning("multiple jsons found, comparing first")
 
-    # compare the processing config
+    json_differences = compare_json(str(json_files_1[0]), str(json_files_2[0]))
+    json_difference_path = out_folder / "json_differences.json"
+    if len(json_differences) > 0:
+        logging.warning(
+            f"Differences in json metadata found. Saving summary to : {json_difference_path}"
+        )
+    else:
+        logger.info(
+            f"No differences in json file identified. Saving summary to : {json_difference_path}"
+        )
+    write_diffs_to_json(json_differences, json_difference_path)
 
-    # compare the tifs
+    if product == "RTC_S1":
+        # compare the xml files - xml only exits for rtc_s1
+        xml_files_1 = list(local_product_folder_1.glob("*.xml"))
+        xml_files_2 = list(local_product_folder_2.glob("*.xml"))
+        if len(xml_files_1) > 1 or len(xml_files_1) > 1:
+            logging.warning("multiple xmls found, comparing first")
 
-    # summarise changes
+        xml_differences = compare_xml(str(xml_files_1[0]), str(xml_files_2[0]))
+        xml_difference_path = out_folder / "xml_differences.xml"
+        if len(xml_differences) > 0:
+
+            logging.warning(
+                f"Differences in xml metadata found. Saving summary to : {xml_difference_path}"
+            )
+        else:
+            logger.info(
+                f"No differences in XML file identified. Saving summary to : {xml_difference_path}"
+            )
+        write_diffs_to_xml(xml_differences, xml_difference_path)
+
+    # compare the like tifs. e.g. compare mask to mask, HH-gamma0 to HH-gamma0
+    logger.info("Comparing the tifs between products")
+    tif_files_1 = set(local_product_folder_1.glob("*.tif"))
+    tif_files_2 = set(local_product_folder_2.glob("*.tif"))
+    tif_comparison_stats = {}
+    tif_difference_path = out_folder / "tif_differences.json"
+    for tif_1 in tif_files_1:
+        filetype = tif_1.stem.split("_")[
+            -1
+        ]  # i.e. mask, HH-gamma0, local_incidence_angle
+        if not files_are_different:
+            # we have the exact same tif naming and can compare directly
+            tif_2 = local_product_folder_2 / tif_1.name
+            logger.info(f"Comparing tif statistics of filetype : {filetype}")
+            tifs_are_same, stats = compare_cog_stats(tif_1, tif_2)
+            tif_comparison_stats[filetype] = stats
+        else:
+            tif_2 = [x for x in tif_files_2 if filetype in x]
+            if not tif_2:
+                logger.warning(
+                    f'Could not find tif of same filetype "{filetype}" to compare with {tif_1}'
+                )
+                continue
+            else:
+                logger.info(f"Comparing tif statistics of filetype : {filetype}")
+                tifs_are_same, stats = compare_cog_stats(tif_1, tif_2)
+                tif_comparison_stats[filetype] = stats
+
+        if not tifs_are_same:
+            logging.warning(
+                f"Differences in tif statistics found. Saving summary to : {tif_difference_path}"
+            )
+        else:
+            logger.info(
+                f"No differences in tif statistics found. Saving summary to : {tif_difference_path}"
+            )
+        write_diffs_to_json(tif_comparison_stats, tif_difference_path)
