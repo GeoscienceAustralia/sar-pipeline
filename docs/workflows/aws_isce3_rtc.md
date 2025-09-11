@@ -83,7 +83,7 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_aws_
 --backscatter_convention=gamma0 # gamma0, sigma0 or beta0
 --s3_bucket="deant-data-public-dev"
 --s3_project_folder="baseline"
---collection_number=1
+--collection_number=0
 --make_existing_products=false
 --skip_upload_to_s3=false
 --scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
@@ -94,7 +94,7 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_aws_
 --link_static_layers=false           
 --linked_static_layers_s3_bucket="deant-data-public-dev"
 --linked_static_layers_s3_project_folder="baseline" 
---linked_static_layers_collection_number="s1_rtc_static_c1" 
+--linked_static_layers_collection_number=0 
 ```
 - `scene` -> A valid sentinel-1 IW scene (e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD)
 - `burst_id_list` -> A list of burst id's corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated .txt file.
@@ -109,8 +109,8 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_aws_
 - `make_existing_products` -> Whether to generate products even if they already exist in AWS S3 under the specified product folder path `s3_bucket/s3_project_folder/collection/...`. 
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
 - `skip_upload_to_s3` -> Make the products, but skip uploading them to S3.
-- `scene_data_source` -> Where to download the scene slc file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB` `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
-- `orbit_data_source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `ASF` or `CDSE`. The default is (`CDSE` `ASF`).
+- `scene_data_source` -> Where to download the scene slc file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
+- `orbit_data_source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `ASF` or `CDSE`. The default is (`ASF` `CDSE`).
 - `skip_validate_stac` -> To skip validation of the created STAC doc within the code. If the stac is invalid, products will not be uploaded.
 - `link_static_layers` -> Flag to link RTC_S1_STATIC to RTC_S1
 - `linked_static_layers_s3_bucket` -> bucket where RTC_S1_STATIC stored
@@ -125,11 +125,11 @@ Final product output paths have the following structure
 **RTC_S1**
 - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/*files
 - odc_product_name is determined by the polarisation and collection_number for RTC_S1 products.
-- It will be one of ga_s1_nrb_iw_vv_vh_cX, ga_s1_nrb_iw_vv_cX, ga_s1_nrb_iw_hh_hv_cX, ga_s1_nrb_iw_hh_cX, where X is the collection_number
+- It will be one of ga_s1_nrb_iw_vv_vh_X, ga_s1_nrb_iw_vv_X, ga_s1_nrb_iw_hh_hv_X, ga_s1_nrb_iw_hh_X, where X is the collection_number
 - example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_hh_c1/t070_149815_iw3/2022/1/1/
 **RTC_S1_STATIC**
 - e.g. s3_bucket/s3_project_folder/odc_product_name/burst_id/*files
-- odc_product_name = ga_s1_nrb_iw_static_cX, where X is the collection_number
+- odc_product_name = ga_s1_nrb_iw_static_X, where X is the collection_number
 - example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_static_c1/t070_149815_iw3/
 
 ## Container processing location

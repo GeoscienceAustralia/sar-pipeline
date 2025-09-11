@@ -11,7 +11,7 @@ product="RTC_S1"
 backscatter_convention=gamma0 # gamma0, sigma0 or beta0
 s3_bucket="deant-data-public-dev"
 s3_project_folder="baseline"
-collection_number=1
+collection_number=0
 make_existing_products=false
 skip_upload_to_s3=false
 scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
@@ -22,16 +22,16 @@ skip_validate_stac=false
 link_static_layers=false
 linked_static_layers_s3_bucket="deant-data-public-dev"
 linked_static_layers_s3_project_folder="baseline"
-linked_static_layers_collection_number=1
+linked_static_layers_collection_number=0
 
 # Final product output paths have the following structure
 # RTC_S1
 #   - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/*files
 #   - odc_product_name is determined by the polarisation and collection_number for RTC_S1 products.
-#   - It will be one of ga_s1_nrb_iw_vv_vh_cX, ga_s1_nrb_iw_vv_cX, ga_s1_nrb_iw_hh_hv_cX, ga_s1_nrb_iw_hh_cX, where X is the collection_number
+#   - It will be one of ga_s1_nrb_iw_vv_vh_X, ga_s1_nrb_iw_vv_X, ga_s1_nrb_iw_hh_hv_X, ga_s1_nrb_iw_hh_X, where X is the collection_number
 # RTC_S1_STATIC
 #   - e.g. s3_bucket/s3_project_folder/odc_product_name/burst_id/*files
-#   - odc_product_name = ga_s1_nrb_iw_static_cX, where X is the collection_number
+#   - odc_product_name = ga_s1_nrb_iw_static_X, where X is the collection_number
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
@@ -250,15 +250,15 @@ fi
 exit_code=$?
 
 if [ $exit_code -eq 100 ]; then
-    echo "Success: Early exit, products already exist for all bursts."
+    echo "Success (100): Early exit, products already exist for all bursts. Product: $product. Scene: $scene."
     exit 0  # Graceful exit with success code 0 
 fi
 if [ $exit_code -eq 101 ]; then
-    echo "Process failed (101): Static Layers are missing."
+    echo "Process failed (101): Required Static Layers are missing. Product: $product. Scene: $scene."
     exit 101
 fi
 if [ $exit_code -ne 0 ]; then
-    echo "Process failed: get-data-for-scene-and-make-run-config"
+    echo "Process failed (1): Error in get-data-for-scene-and-make-run-config process. Product: $product. Scene: $scene."
     exit 1
 fi
 
@@ -268,8 +268,8 @@ conda activate RTC
 rtc_s1.py $RUN_CONFIG_PATH
 
 if [ $? -ne 0 ]; then
-    echo "Process failed: rtc_s1.py $RUN_CONFIG_PATH"
-    exit 1
+    echo "Process failed (2): Error in rtc_s1.py $RUN_CONFIG_PATH process. Product: $product. Scene: $scene."
+    exit 2
 fi
 
 ## -- MAKE THE METADATA FOR PRODUCTS AND UPLOAD TO S3 --
@@ -310,9 +310,9 @@ fi
 exit_code=$?
 
 if [ $exit_code -ne 0 ]; then
-    echo "Process failed: make-rtc-opera-stac-and-upload-bursts"
-    exit 1
+    echo "Process failed (3): Error in make-rtc-opera-stac-and-upload-bursts process. Product: $product. Scene: $scene."
+    exit 3
 else
-    echo "Success: required burst products created."
+    echo "Success (0): Required burst products have been created. Product: $product. Scene: $scene."
     exit 0
 fi

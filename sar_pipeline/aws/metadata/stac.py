@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Literal
 import rasterio
+import pyproj
 import pystac
 from shapely.geometry import shape, box, mapping
 from dateutil.parser import isoparse
@@ -16,6 +17,7 @@ import sar_pipeline
 from sar_pipeline.aws.metadata.h5 import H5Manager
 from sar_pipeline.aws.metadata.odc import (
     get_odc_product_name,
+    make_rtc_s1_static_s3_subpath,
 )
 from sar_pipeline.aws.preparation.burst_utils import (
     make_rtc_s1_s3_subpath,
@@ -25,7 +27,9 @@ from sar_pipeline.utils.spatial import (
     polygon_str_to_geojson,
     reproject_bbox_to_geometry,
 )
+from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
 from sar_pipeline.aws.metadata.filetypes import (
+    RENAME_ASSET_FILETYPES,
     REQUIRED_ASSET_FILETYPES,
     ASSET_FILETYPE_TO_DESCRIPTION,
     ASSET_FILETYPE_TO_MEDIATYPE,
@@ -46,6 +50,7 @@ class BurstH5toStacManager:
         self,
         h5_filepath: Path,
         product: Literal["RTC_S1", "RTC_S1_STATIC"],
+        product_id: str,
         backscatter_convention: Literal["gamma0", "sigma0", "beta0"],
         collection_number: int,
         s3_bucket: str,
@@ -59,6 +64,9 @@ class BurstH5toStacManager:
             Local path to the .h5 file output from the opera/RTC process
         product: ["RTC_S1","RTC_S1_STATIC"]
             The product being made. RTC_S1 or RTC_S1_STATIC
+        product_id: str:
+            The product id for the burst run. This is common across files.
+            e.g. ga_s1_nrb-static_v0.1.0_T070-149815-IW3_20140403
         backscatter_convention: ["gamma0","sigma0","beta0"]
             normalisation convention of the backscatter product
         collection_number: int
@@ -73,7 +81,8 @@ class BurstH5toStacManager:
         """
         self.h5_filepath = h5_filepath
         self.h5 = H5Manager(self.h5_filepath)  # class to help get values from .h5 file
-        self.id = self.h5_filepath.stem
+        self.id = product_id
+        self.burst_folder = h5_filepath.parent
         self.product = self._check_valid_product(product)
         self.backscatter_convention = backscatter_convention
         self.burst_id = self.h5.search_value("burstID")
@@ -141,6 +150,10 @@ class BurstH5toStacManager:
         self.burst_s3_subfolder = self._make_s3_subfolder()
         self.bucket_href = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
         self.base_href = f"{self.bucket_href}/{self.burst_s3_subfolder}"
+        # browse link the view all product files in folder
+        self.browse_href = (
+            f"{self.bucket_href}/index.html?prefix={self.burst_s3_subfolder}"
+        )
 
     def _check_valid_product(self, product):
         "check the product is valid"
@@ -157,9 +170,7 @@ class BurstH5toStacManager:
                 collection_number=self.collection_number,
                 burst_polarisations=self.polarisations,
                 burst_id=self.burst_id,
-                year=self.start_dt.year,
-                month=self.start_dt.month,
-                day=self.start_dt.day,
+                burst_st=self.start_dt,
             )
 
         elif self.product == "RTC_S1_STATIC":
@@ -237,11 +248,15 @@ class BurstH5toStacManager:
         )  # this needs to  dynamic based on the pol files and match odc product
         self.item.properties["odc:product_family"] = "sar_ard"
         self.item.properties["odc:region_code"] = self.burst_id
+        self.item.properties["odc:producer"] = "ga.gov.au"
+        self.item.properties["odc:dataset_version"] = self.h5.search_value(
+            "identification/productVersion"
+        )
 
         # add product stac extension properties
         self.item.properties["product:type"] = self.product
         # remove timeliness as not required. May re-add if approach is determined.
-        # self.item.properties["product:timeliness"] = "TODO"
+        # self.item.properties["product:timeliness"] = ""
         # self.item.properties["product:timeliness_category"] = (
         #     self._get_product_timeliness_category(self.start_dt, self.processed_dt)
         # )
@@ -255,6 +270,9 @@ class BurstH5toStacManager:
         # add projection (proj) stac extension properties
         self.item.properties["proj:code"] = f"EPSG:{self.projection_epsg}"
         self.item.properties["proj:bbox"] = self.h5.search_value("boundingBox")
+        # self.item.properties["proj:wkt2"] = pyproj.CRS.from_epsg(
+        #     self.projection_epsg
+        # ).to_wkt() # causing issues in explorer, value set in XML
 
         # add the sar stac extension properties
         self.item.properties["sar:frequency_band"] = self.h5.search_value("radarBand")
@@ -284,9 +302,6 @@ class BurstH5toStacManager:
         )
         self.item.properties["sat:relative_orbit"] = self.h5.search_value("trackNumber")
         self.item.properties["sat:orbit_cycle"] = 12
-        # self.item.properties["sat:orbit_state_vectors"] = (
-        #     "TODO"  # TODO map this from .h5
-        # )
 
         # add sentinel-1 stac extension properties - https://github.com/stac-extensions/sentinel-1
         self.item.properties["s1:orbit_source"] = self.h5.search_value("orbitType")
@@ -305,21 +320,37 @@ class BurstH5toStacManager:
         self.item.properties["processing:software"] = {
             "isce3": self.h5.search_value("algorithms/isce3Version"),
             "s1Reader": self.h5.search_value("algorithms/s1ReaderVersion"),
-            "OPERA-adt/RTC": self.h5.search_value("algorithms/softwareVersion"),
+            "GeoscienceAustralia/RTC": self.h5.search_value(
+                "algorithms/softwareVersion"
+            ),
             "sar-pipeline": sar_pipeline.__version__,
             "dem-handler": dem_handler.__version__,
         }
 
         # proposed sarard stac extension properties
-        self.item.properties["sarard:source_id"] = self.h5.search_value("l1SlcGranules")
+        self.item.properties["sarard:source_id"] = self.h5.search_value(
+            "l1SlcGranules"
+        )[0]
         self.item.properties["sarard:source_geometry"] = "slant range"
         self.item.properties["sarard:scene_id"] = self.h5.search_value("l1SlcGranules")[
             0
         ].replace(".SAFE", "")
         self.item.properties["sarard:burst_id"] = self.burst_id
-        self.item.properties["sarard:orbit_files"] = self.h5.search_value(
-            "orbitFiles"
-        )  # Link to a file containing the orbit state vectors.
+        self.item.properties["sarard:beam_id"] = self.h5.search_value("subSwathID")
+        if self.product == "RTC_S1":
+            self.item.properties["sarard:near_range_incidence_angle"] = (
+                self.h5.search_value("nearRangeIncidenceAngle")
+            )
+            self.item.properties["sarard:far_range_incidence_angle"] = (
+                self.h5.search_value("farRangeIncidenceAngle")
+            )
+        self.item.properties["sarard:orbit_file"] = self.h5.search_value("orbitFiles")[
+            0
+        ]  # Link to a file containing the orbit state vectors.
+        self.item.properties["sarard:UL_longitude"] = self.bbox_4326[0]  # min_lon
+        self.item.properties["sarard:UL_latitude"] = self.bbox_4326[3]  # max_lat
+        self.item.properties["sarard:LR_longitude"] = self.bbox_4326[2]  # max_lon
+        self.item.properties["sarard:LR_latitude"] = self.bbox_4326[1]  # min_lat
         self.item.properties["sarard:pixel_spacing_x"] = abs(
             self.h5.search_value("xCoordinateSpacing")
         )
@@ -369,20 +400,22 @@ class BurstH5toStacManager:
         self.item.properties["sarard:ionospheric_correction_applied"] = False
 
         # TODO when official document, link the study supporting these values
-        self.item.properties["sarard:geometric_accuracy_ALE"] = 2.94
+        # Northing and Easting error is based on surat basin CR's
+        self.item.properties["sarard:geometric_accuracy_absolute"] = 2.93
         self.item.properties["sarard:geometric_accuracy_rmse"] = 3.08
-        self.item.properties["sarard:geometric_accuracy_range"] = 1.63
-        self.item.properties["sarard:geometric_accuracy_azimuth"] = 1.92
+        self.item.properties["sarard:geometric_accuracy_north_bias"] = 2.25
+        self.item.properties["sarard:geometric_accuracy_east_bias"] = 1.14
+        self.item.properties["sarard:geometric_accuracy_north_std"] = 1.30
+        self.item.properties["sarard:geometric_accuracy_east_std"] = 1.19
         self.item.properties["sarard:geometric_accuracy_unit"] = "metre"
 
         # add the storage stac extension properties
         self.item.properties["storage:schemes"] = {
-            "aws-std": {
+            "aws": {
                 "type": "aws-s3",
                 "platform": "https://{bucket}.s3.{region}.amazonaws.com",
                 "bucket": f"{self.s3_bucket}",
                 "region": f"{self.s3_region}",
-                "requester_pays": True,
             }
         }
 
@@ -394,6 +427,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="geoid-source",
                 target="https://aria-geoid.s3.us-west-2.amazonaws.com/us_nga_egm2008_1_4326__agisoft.tif",
+                media_type=pystac.media_type.MediaType.GEOTIFF,
             )
         )
 
@@ -414,7 +448,7 @@ class BurstH5toStacManager:
         # link to the source SLC
         self.item.add_link(
             pystac.Link(
-                rel="derived_from",
+                rel="derived-from",
                 target=self.h5.search_value("sourceData/dataAccess"),
             )
         )
@@ -424,6 +458,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="dem-source",
                 target=self._extract_http_link(self.h5.search_value("demSource")),
+                media_type=pystac.media_type.MediaType.HTML,
             )
         )
 
@@ -436,6 +471,7 @@ class BurstH5toStacManager:
                 pystac.Link(
                     rel="rtc-algorithm",
                     target=self._extract_doi_link(ref_text),
+                    media_type=pystac.media_type.MediaType.HTML,
                 )
             )
 
@@ -445,6 +481,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="geocoding-algorithm",
                 target=self._extract_doi_link(ref_text),
+                media_type=pystac.media_type.MediaType.HTML,
             )
         )
 
@@ -455,56 +492,137 @@ class BurstH5toStacManager:
                 pystac.Link(
                     rel="noise-correction",
                     target=self._extract_http_link(ref_text),
+                    media_type=pystac.media_type.MediaType.PDF,
                 )
             )
 
-        # link to the .h5 file containing additional metadata
-        self.item.add_link(
-            pystac.Link(
-                rel="additional-metadata",
-                target=f"{self.base_href}/{self.h5_filepath.name}",
-            )
-        )
+    def add_metadata_links(
+        self,
+        stac_filepath: Path | str,
+        h5_filepath: Path | str,
+        runconfig_filepath: Path | str,
+        xml_filepath: Path | str | None,
+    ):
+        """Add:
+            - Link to self / STAC metadata doc,
+            - Link to the h5 metadata file
+            - Link to the processing config yaml file
+            - Link to the xml metadata file (if provided)
+            - Link to the product folder in s3 that can be used for browsing
 
-    def add_self_link(self, filename: str | Path):
-        """Add the self / STAC metadata link to the stac item
+        This will be appended to the base_href for product.
 
         Parameters
         ----------
-        filename : str | Path
-            Filename of the STAC file. This will be appended to the
-            base_href for product.
+        stac_filepath : Path | str
+            Filepath of the stac file
+        h5_filepath: Path | str
+            Filepath of the .h5 file
+        runconfig_filepath: Path | str
+            Filepath of the config .yaml
+        xml_filepath : Path | str | None
+            Filepath of the xml file. If None, no file linked
         """
 
+        if not Path(h5_filepath).exists():
+            raise FileNotFoundError(
+                f"Error setting metadata stac links. The required metadata file does not exist : {h5_filepath}"
+            )
+        self.item.add_link(
+            pystac.Link(
+                rel="h5-metadata",
+                target=f"{self.base_href}/{Path(h5_filepath).name}",
+                media_type=pystac.media_type.MediaType.HDF5,
+            )
+        )
+
+        if not Path(runconfig_filepath).exists():
+            raise FileNotFoundError(
+                f"Error setting metadata stac links. The required metadata file does not exist : {runconfig_filepath}"
+            )
+        self.item.add_link(
+            pystac.Link(
+                rel="processing-config",
+                target=f"{self.base_href}/{Path(runconfig_filepath).name}",
+                media_type="application/yaml",
+            )
+        )
+
+        # link to product folder for browsing
+        self.item.add_link(
+            pystac.Link(
+                rel="browse",
+                target=f"{self.browse_href}",
+                media_type=pystac.media_type.MediaType.HTML,
+            )
+        )
+
+        if xml_filepath:
+            # link the xml file. We do not check if it exists yet as it is created
+            # after the stac file is saved. i.e. the xml file is built from the stac json
+            self.item.add_link(
+                pystac.Link(
+                    rel="xml-metadata",
+                    target=f"{self.base_href}/{Path(xml_filepath).name}",
+                    media_type=pystac.media_type.MediaType.XML,
+                )
+            )
+
+        # the stac file gets referenced as self. We do not check if it
+        # exists yet as it is saved after this process once all info as been added.
         self.item.add_link(
             pystac.Link(
                 rel="self",
-                target=f"{self.base_href}/{filename}",
-                media_type=pystac.media_type.MediaType.JSON,
+                target=f"{self.base_href}/{Path(stac_filepath).name}",
+                media_type=pystac.media_type.STAC_JSON,
             )
         )
 
-    def add_collection_link(self, target="./collection.json"):
-        """add link to the collection
+    def add_collection_link(
+        self,
+        prod_stac_href: str = "https://explorer.dea.ga.gov.au/stac/collections",
+        dev_stac_href: str = "https://explorer.dev.dea.ga.gov.au/stac/collections",
+        PRODUCTION: bool = True,
+    ):
+        """Add the link the the stac collection. The link is different pending
+        if the product is to be indexed into the dev or prod ODC. This is handled
+        as a downstream process and must be communicated to ensure this collection
+        link is correct.
 
         Parameters
         ----------
-        target : str, optional
-            Path to collection file. by default './collection.json'.
+        prod_stac_href : str, optional
+            Link to production collection, by default "https://explorer.dea.ga.gov.au/stac/collections"
+        dev_stac_href : str, optional
+            link to to development collection, by default "https://explorer.dev.dea.ga.gov.au/stac/collections"
+        PRODUCTION : bool, optional
+            Whether to use the production collection, by default True. Set False for testing in dev odc.
         """
 
-        # TODO placeholder
+        if PRODUCTION:
+            stac_href = f"{prod_stac_href}/{self.odc_product_name}"
+            logger.info(
+                f"STAC collection references the production environment: {stac_href}"
+            )
+        else:
+            stac_href = f"{dev_stac_href}/{self.odc_product_name}"
+            logger.warning(
+                f"STAC collection references the development environment: {stac_href}"
+            )
+
         self.item.add_link(
             pystac.Link(
                 rel="collection",
-                target=target,
-                media_type=pystac.media_type.MediaType.JSON,
+                target=stac_href,
+                media_type=pystac.media_type.STAC_JSON,
             )
         )
 
-    def rename_backscatter_assets(self, burst_folder: Path):
-        """Rename the backscatter assets in the burst folder to include the normalization convention
-        type in the filename. e.g. HH.tif -> HH_gamma0.tif
+    def rename_asset_files(self, burst_folder: Path):
+        """Rename the assets in the burst folder. Backscatter files will include the normalization
+        convention type in the filename. e.g. HH.tif -> HH_gamma0.tif and other filetypes will be
+        changed from '_' separated to '-' separated for consistency. e.g. incidence_angle.tif ->
+        incidence-angle.tif.
 
         Parameters
         ----------
@@ -517,24 +635,32 @@ class BurstH5toStacManager:
         burst_files = [x for x in burst_folder.iterdir()]
 
         for f in burst_files:
-            for pol in ("VV", "VH", "HH", "HV"):
-                old_suffix = f"{pol}.tif"
-                if f.name.endswith(old_suffix):
-                    new_name = f.name.replace(
-                        old_suffix, f"{pol}_{self.backscatter_convention}.tif"
-                    )
-                    new_path = f.with_name(new_name)
+            for old_suffix in RENAME_ASSET_FILETYPES.keys():
+                new_suffix = RENAME_ASSET_FILETYPES[old_suffix]
+                new_suffix = new_suffix.replace(
+                    "BACKSCATTER-CONVENTION", self.backscatter_convention
+                )
+                if str(f.name) == f"{self.id}{old_suffix}":
+                    # backscatter convention will be added here
+                    new_path = f.with_name(f.name.replace(old_suffix, new_suffix))
                     f.rename(new_path)
-                    break  # once renamed, no need to check other pols
+                    break  # once renamed, move to next file
 
-    def add_assets_from_folder(self, burst_folder: Path):
-        """Add the asset files from the burst folder
+    def add_assets_from_folder(
+        self, burst_folder: Path, add_shape_transform_to_properties: bool = True
+    ):
+        """Add the asset files from the local burst folder
 
         Parameters
         ----------
         burst_folder : Path
             path to the local folder containing output products for a single burst.
             e.g. /path/to/my/scene_burst/t070_149813_iw2
+        add_shape_transform_to_properties: bool
+            If true, shape and transform will be to the stac properties.
+            This is the top level of the document so therefore assumes these
+            values consistent across all tifs for the given burst. i.e. all
+            tifs have the same shape.
 
         Raises
         ------
@@ -552,12 +678,12 @@ class BurstH5toStacManager:
         if self.product == "RTC_S1":
             pols = self.polarisations
             ignore_assets = [
-                f"_{p}_{self.backscatter_convention}.tif"
+                f"_{p}-{self.backscatter_convention}.tif"
                 for p in ["HH", "HV", "VV", "VH"]
                 if p not in pols
             ]
             included_pol_assets = [
-                f"_{p}_{self.backscatter_convention}.tif" for p in pols
+                f"_{p}-{self.backscatter_convention}.tif" for p in pols
             ]
             required_asset_filetypes = REQUIRED_ASSET_FILETYPES[self.product][
                 self.backscatter_convention
@@ -566,7 +692,7 @@ class BurstH5toStacManager:
             # no pol for static products, only auxiliary files
             pols = []
             included_pol_assets = []
-            ignore_assets = []
+            ignore_assets = []  # pols already excluded from REQUIRED_ASSET_FILETYPES
             required_asset_filetypes = REQUIRED_ASSET_FILETYPES[self.product]
 
         included_asset_filetypes = [
@@ -583,6 +709,7 @@ class BurstH5toStacManager:
             asset_filepaths = [
                 x for x in burst_files if x.name == f"{self.id}{asset_filetype}"
             ]
+            logger.info(f"{self.id}{asset_filetype}")
             if len(asset_filepaths) == 0:
                 raise FileNotFoundError(
                     f'The required asset: "{asset_title}" is missing from burst folder: "{burst_folder}"'
@@ -597,9 +724,11 @@ class BurstH5toStacManager:
             if asset_filetype.endswith(".tif"):
                 with rasterio.open(asset_filepath) as r:
                     raster_sampling = r.tags().get("AREA_OR_POINT", "").lower()
+                    shape = r.shape
+                    transform = list(r.transform)
                     extra_fields = {
-                        "proj:shape": r.shape,
-                        "proj:transform": list(r.transform),
+                        "proj:shape": shape,
+                        "proj:transform": transform,
                         "proj:code": str(r.crs),
                         "raster:data_type": r.dtypes[0],
                         "raster:sampling": raster_sampling,
@@ -612,13 +741,6 @@ class BurstH5toStacManager:
                             else str(r.nodata)
                         ),
                     }
-                    # add pixel coordinate convention
-                    if "area" in raster_sampling:
-                        extra_fields["raster:pixel_coordinate_convention"] = "pixel ULC"
-                    elif "point" in raster_sampling:
-                        extra_fields["raster:pixel_coordinate_convention"] = (
-                            "pixel centre"
-                        )
 
                     if asset_filetype == "_mask.tif":
                         extra_fields["raster:values"] = {
@@ -633,6 +755,25 @@ class BurstH5toStacManager:
                         extra_fields["processing:level"] = self.item.properties[
                             "processing:level"
                         ]
+
+                    if add_shape_transform_to_properties:
+                        self.item.properties["proj:shape"] = shape
+                        self.item.properties["proj:transform"] = transform
+                        # add ones required for ceos ard
+                        self.item.properties["sarard:number_of_lines"] = shape[0]
+                        self.item.properties["sarard:number_of_pixels_per_line"] = (
+                            shape[1]
+                        )
+                        # add pixel coordinate convention
+                        if "area" in raster_sampling:
+                            self.item.properties[
+                                "sarard:pixel_coordinate_convention"
+                            ] = "pixel ULC"
+                        elif "point" in raster_sampling:
+                            self.item.properties[
+                                "sarard:pixel_coordinate_convention"
+                            ] = "pixel centre"
+
             else:
                 extra_fields = {}
 
@@ -649,17 +790,59 @@ class BurstH5toStacManager:
                 ),
             )
 
-    def add_linked_static_layer_assets_and_link(self):
+    def add_linked_static_layers_as_assets_to_stac(
+        self,
+        stac_suffix_string: str = "stac-item.json",
+        assets_to_link: str = [
+            "number_of_looks",
+            "gamma0_to_beta0_ratio",
+            "gamma0_to_sigma0_ratio",
+            "local_incidence_angle",
+            "incidence_angle",
+        ],
+    ):
         """add the static layer assets to the STAC metadata file. This is
         achieved by reading in the STAC metadata file associated with the
-        static layers themselves"""
+        static layers themselves
 
-        static_layer_root_url = self.h5.search_value("staticLayersDataAccess")
-        # remove the index string which is used for user visibility
-        static_layer_url = static_layer_root_url.replace("index.html?prefix=", "")
-        burst_static_layer_stac_url = os.path.join(
-            static_layer_url, self.burst_id, "metadata.json"
+        Parameters
+        ----------
+            stac_suffix_string : The 'endswith' file string to search for in the
+            static layers s3 bucket to find the stac item metadata file.
+            e.g. stac-item.json -> the following file will be found
+                ga_s1_nrb-static_v0.1.0_T070-149815-IW3_20140403.stac-item.json
+
+        """
+
+        # get the path to the static layer folder in AWS S3
+        burst_static_layer_s3_subpath = make_rtc_s1_static_s3_subpath(
+            self.s3_project_folder, self.collection_number, self.burst_id
         )
+
+        logger.info(
+            f"Searching for '{stac_suffix_string}' in AWS S3 burst static layer folder: {burst_static_layer_s3_subpath}"
+        )
+
+        # search for the stac-item in the burst folder
+        s3_static_layer_files = find_s3_filepaths_from_suffixes(
+            self.s3_bucket,
+            burst_static_layer_s3_subpath,
+            suffixes=[stac_suffix_string],
+        )
+
+        # get the keys containing the proposed suffix
+        s3_static_layer_files = s3_static_layer_files[stac_suffix_string]
+
+        if len(s3_static_layer_files) != 1:
+            raise ValueError(
+                f"Expecting 1 file containing '{stac_suffix_string}' in {burst_static_layer_s3_subpath}, found {len(s3_static_layer_files)}: {s3_static_layer_files} "
+            )
+        else:
+            static_layer_stac_file = s3_static_layer_files[0]
+            logger.info(f"Static layer stac item found: {static_layer_stac_file}")
+
+        burst_static_layer_stac_url = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com/{static_layer_stac_file}"
+
         logger.info(f"Static layer url: {burst_static_layer_stac_url}")
 
         try:
@@ -674,11 +857,26 @@ class BurstH5toStacManager:
                 f"Request error: {e}"
             ) from e
 
-        # add the link to the static layer metadatafile to the links
+        # add the link to the static layer metadata file to the links
         self.item.add_link(
             pystac.Link(
-                rel="static-layers",
+                rel="static-layers-stac-item",
                 target=burst_static_layer_stac_url,
+                media_type=pystac.media_type.STAC_JSON,
+            )
+        )
+
+        static_layer_browse_url = (
+            f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
+            f"/index.html?prefix={burst_static_layer_s3_subpath}"
+        )
+
+        # add link to browse the static layer folder
+        self.item.add_link(
+            pystac.Link(
+                rel="static-layers-browse",
+                target=static_layer_browse_url,
+                media_type=pystac.media_type.MediaType.HTML,
             )
         )
 
@@ -687,6 +885,10 @@ class BurstH5toStacManager:
 
         # iterate through the static layer assets and add them to the file
         for asset_title in burst_static_layer_stac["assets"].keys():
+
+            # only link the requested assets. e.g. ignore the thumbnail
+            if asset_title not in assets_to_link:
+                continue
 
             # data for each asset
             asset_data = burst_static_layer_stac["assets"][asset_title]

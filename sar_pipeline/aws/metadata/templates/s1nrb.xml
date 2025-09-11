@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Product type="Normalized Radar Backscatter" copyright="2025 Geoscience Australia. All rights reserved.">
+    <DocumentIdentifier name="CEOS-ARD for Synthetic Aperture Radar" version="1.2" type="URL">https://ceos.org/ard/files/PFS/SAR/v1.2/CEOS-ARD_PFS_Synthetic_Aperture_Radar_v1.2.pdf
+    </DocumentIdentifier>
+    <DataCollectionTime>
+        <NumberOfAcquisitions>
+        </NumberOfAcquisitions>
+        <FirstAcquisitionDate>
+        </FirstAcquisitionDate>
+        <LastAcquisitionDate>
+        </LastAcquisitionDate>
+    </DataCollectionTime>
+    <SourceAttributes acqID="1">
+        <SourceDataRepository type="URL">
+        </SourceDataRepository>
+        <Satellite>
+        </Satellite>
+        <Instrument>
+        </Instrument>
+        <SourceDataAcquisitionTime>
+            <StartTime>
+            </StartTime>
+            <EndTime>
+            </EndTime>
+        </SourceDataAcquisitionTime>
+        <SourceDataAcquisitionParameters>
+            <RadarBand>
+            </RadarBand>
+            <RadarCenterFrequency units="Hz">
+            </RadarCenterFrequency>
+            <ObservationMode>
+            </ObservationMode>
+            <Polarizations>
+            </Polarizations>
+            <AntennaPointing>
+            </AntennaPointing>
+            <BeamID>
+            </BeamID>
+            <AbsoluteOrbitNumber>
+            </AbsoluteOrbitNumber>
+            <RelativeOrbitNumber>
+            </RelativeOrbitNumber>
+        </SourceDataAcquisitionParameters>
+        <OrbitInformation>
+            <PassDirection>
+            </PassDirection>
+            <OrbitDataSource>
+            </OrbitDataSource>
+            <OrbitDataFileName>
+            </OrbitDataFileName>
+        </OrbitInformation>
+        <SourceProcParam>
+            <ProcessingFacility>
+            </ProcessingFacility>
+            <ProcessingDate>
+            </ProcessingDate>
+            <SoftwareVersion>
+            </SoftwareVersion>
+            <ProductID>
+            </ProductID>
+            <ProductLevel>
+            </ProductLevel>
+            <AzimuthNumberOfLooks>
+            </AzimuthNumberOfLooks>
+            <RangeNumberOfLooks>
+            </RangeNumberOfLooks>
+        </SourceProcParam>
+        <SourceDataImageAttributes>
+            <SourceDataGeometry>
+            </SourceDataGeometry>
+            <AzimuthPixelSpacing units="m">
+            </AzimuthPixelSpacing>
+            <RangePixelSpacing units="m">
+            </RangePixelSpacing>
+            <AzimuthResolution units="m">
+            </AzimuthResolution>
+            <RangeResolution units="m">
+            </RangeResolution>
+            <IncAngleNearRange units="deg">
+            </IncAngleNearRange>
+            <IncAngleFarRange units="deg">
+            </IncAngleFarRange>
+        </SourceDataImageAttributes>
+        <PerformanceIndicators pol="VV,VH,HH,HV">
+            <NoiseEquivalentIntensity type="Sigma0" units="dB">
+                <Estimates type="max">
+                </Estimates>
+            </NoiseEquivalentIntensity>
+        </PerformanceIndicators>
+    </SourceAttributes>
+    <CEOS-ARDProductAttributes>
+        <DataAccess>
+            <ProcessingFacility>
+            </ProcessingFacility>
+            <ProcessingTime>
+            </ProcessingTime>
+            <SoftwareVersion>
+            </SoftwareVersion>
+            <Repository type="URL">
+            </Repository>
+        </DataAccess>
+        <AuxiliaryData>
+            <GeoidSource type="URL"></GeoidSource>
+            <DemSource type="URL"></DemSource>
+        </AuxiliaryData>
+        <ProductSampleSpacing>
+            <ProductColumnSpacing units="m">
+            </ProductColumnSpacing>
+            <ProductRowSpacing units="m">
+            </ProductRowSpacing>
+        </ProductSampleSpacing>
+        <ProductResolution>
+            <ProductResolutionColumn unit="m"></ProductResolutionColumn>
+            <ProductResolutionRow unit="m"></ProductResolutionRow>
+        </ProductResolution>
+        <Filtering>
+            <FilterApplied>
+            </FilterApplied>
+        </Filtering>
+        <ProductBoundingBox Corner="UL">
+            <Longitude units="deg">
+            </Longitude>
+            <Latitude units="deg">
+            </Latitude>
+        </ProductBoundingBox>
+        <ProductBoundingBox Corner="LR">
+            <Longitude units="deg">
+            </Longitude>
+            <Latitude units="deg">
+            </Latitude>
+        </ProductBoundingBox>
+        <ProductGeographicalExtent order="EPSG:4326" type="WKT">
+        </ProductGeographicalExtent>
+        <ProductImageSize>
+            <NumberLines>
+            </NumberLines>
+            <NumPixelsPerLine>
+            </NumPixelsPerLine>
+            <HeaderSize>
+            </HeaderSize>
+        </ProductImageSize>
+        <PixelCoordinateConvention>
+        </PixelCoordinateConvention>
+        <CoordinateReferenceSystem type="EPSG">
+        </CoordinateReferenceSystem>
+        <CoordinateReferenceSystem type="WKT">
+        </CoordinateReferenceSystem>
+        <PerPixelMetadata>
+            <DataMask>
+                <FileName type="URL">
+                </FileName>
+                <SampleType>
+                </SampleType>
+                <DataFormat>
+                </DataFormat>
+                <NoDataValue>
+                </NoDataValue>
+                <DataType>
+                </DataType>
+                <BitsPerSample>
+                </BitsPerSample>
+                <ByteOrder>
+                </ByteOrder>
+                <BitValues>
+                    <NoData>
+                    </NoData>
+                    <ValidData>
+                    </ValidData>
+                    <InvalidData>
+                    </InvalidData>
+                    <Layover>
+                    </Layover>
+                    <Shadow>
+                    </Shadow>
+                    <LayoverandShadow>
+                    </LayoverandShadow>
+                </BitValues>
+            </DataMask>
+            <LocalIncAngle>
+                <FileName type="URL">
+                </FileName>
+                <SampleType units="deg">
+                </SampleType>
+                <DataFormat>
+                </DataFormat>
+                <DataType>
+                </DataType>
+                <BitsPerSample>
+                </BitsPerSample>
+                <ByteOrder>
+                </ByteOrder>
+            </LocalIncAngle>
+            <EllipsoidIncAngle>
+                <FileName type="URL">
+                </FileName>
+                <SampleType units="deg">
+                </SampleType>
+                <DataFormat>
+                </DataFormat>
+                <DataType>
+                </DataType>
+                <BitsPerSample>
+                </BitsPerSample>
+                <ByteOrder>
+                </ByteOrder>
+                <EllipsoidName>
+                </EllipsoidName>
+            </EllipsoidIncAngle>
+            <GammaToSigmaRatio>
+                <FileName type="URL">
+                </FileName>
+                <SampleType units="Ratio">
+                </SampleType>
+                <DataFormat>
+                </DataFormat>
+                <DataType>
+                </DataType>
+                <BitsPerSample>
+                </BitsPerSample>
+                <ByteOrder>
+                </ByteOrder>
+            </GammaToSigmaRatio>
+            <GammaToBetaRatio>
+                <FileName type="URL">
+                </FileName>
+                <SampleType units="Ratio">
+                </SampleType>
+                <DataFormat>
+                </DataFormat>
+                <DataType>
+                </DataType>
+                <BitsPerSample>
+                </BitsPerSample>
+                <ByteOrder>
+                </ByteOrder>
+            </GammaToBetaRatio>
+            <NumberOfLooks>
+                <FileName type="URL">
+                </FileName>
+                <SampleType units="Count">
+                </SampleType>
+                <DataFormat>
+                </DataFormat>
+                <DataType>
+                </DataType>
+                <BitsPerSample>
+                </BitsPerSample>
+                <ByteOrder>
+                </ByteOrder>
+            </NumberOfLooks>
+        </PerPixelMetadata>
+        <BackscatterMeasurementData>
+            <BackscatterMeasurement>
+            </BackscatterMeasurement>
+            <BackscatterConvention>
+            </BackscatterConvention>
+            <BackscatterConversionEq units="dB">
+            </BackscatterConversionEq>
+            <Polarization>
+            </Polarization>
+            <FileName type="URL">
+            </FileName>
+            <DataFormat>
+            </DataFormat>
+            <DataType>
+            </DataType>
+            <BitsPerSample>
+            </BitsPerSample>
+            <ByteOrder>
+            </ByteOrder>
+        </BackscatterMeasurementData>
+        <NoiseRemoval>
+            <NoiseRemovalApplied>
+            </NoiseRemovalApplied>
+            <NRAlgorithm type="URL">
+            </NRAlgorithm>
+        </NoiseRemoval>
+        <RadiometricTerrainCorrections>
+            <RTCAlgorithm type="DOI">
+            </RTCAlgorithm>
+        </RadiometricTerrainCorrections>
+        <GeometricCorrection>
+            <GeoCorrAlgorithm type="DOI">
+            </GeoCorrAlgorithm>
+            <GriddingConvention>
+                <BurstGeogridSnapX units="m">
+                </BurstGeogridSnapX>
+                <BurstGeogridSnapY units="m">
+                </BurstGeogridSnapY>
+                <GriddingConventionReference type="URL">
+                </GriddingConventionReference>
+            </GriddingConvention> 
+            <DigitalElevationModel dem="Surface">
+                <DEMReference type="URL">
+                </DEMReference>
+                <EGMReference type="URL">
+                </EGMReference>
+            </DigitalElevationModel>
+            <GeoCorrAccuracy type="GTC" ALESource="ARD">
+                <NorthernBias units="m">
+                </NorthernBias>
+                <NorthernSTDev units="m">
+                </NorthernSTDev>
+                <EasternBias units="m">
+                </EasternBias>
+                <EasternSTDev units="m">
+                </EasternSTDev>
+                <GeoAccuracyReference type="URL">
+                </GeoAccuracyReference>
+            </GeoCorrAccuracy>
+        </GeometricCorrection>
+    </CEOS-ARDProductAttributes>
+</Product>

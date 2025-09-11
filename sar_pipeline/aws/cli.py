@@ -25,8 +25,9 @@ from sar_pipeline.aws.preparation.burst_utils import (
 from sar_pipeline.aws.preparation.config import RTCConfigManager
 from sar_pipeline.aws.metadata.stac import BurstH5toStacManager
 from sar_pipeline.aws.metadata.odc import (
-    make_static_layer_base_url,
+    make_static_layer_browse_url,
 )
+from sar_pipeline.aws.metadata.xml import XMLMapper
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 from sar_pipeline.utils.general import log_timing
 from sar_pipeline.utils.spatial import write_burst_geometries_to_geojson
@@ -179,7 +180,7 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
     help="Where to download the scene from. "
     "Can be passed as a string or list of preferences separated by a space. "
     "If the scene cannot be found at the first preference, the next will be used. "
-    "E.g. `--scene-data-source AUS_COP_HUB ASF` will first try to download the scene from "
+    "E.g. `--scene-data-source AUS_COP_HUB CDSE` will first try to download the scene from "
     "The Copernicus Australasia Regional Data Hub before moving to try from the European CDSE. "
     "Credentials for the desired data source must be set as environment variables."
     f"Values must be one of {VALID_SCENE_DATA_SOURCES}",
@@ -192,7 +193,7 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
     help="Where to download the orbit files from. "
     "Can be passed as a string or list of preferences separated by a space. "
     "If the orbits files cannot be found at the first preference, the next will be used. "
-    "E.g. `--orbit-data-source ASF CDSE` will first try to download the orbit files from "
+    "E.g. `--orbit-data-source CDSE ASF` will first try to download the orbit files from "
     "The CDSE before moving to try from the ASF. "
     "Credentials for the desired data source must be set as environment variables."
     f"Values must be one of {VALID_ORBIT_DATA_SOURCES}",
@@ -293,7 +294,7 @@ def get_data_for_scene_and_make_run_config(
 
     # The burst ids and start-times can be acquired from the CDSE (origin of all S1 data)
     # We can therefore check if products already exist before needing to download the scene
-    logger.info(f"Querying CDSE for scene burst id's")
+    logger.info(f"Querying CDSE for scene burst ids")
     all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
     logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
 
@@ -497,15 +498,29 @@ def get_data_for_scene_and_make_run_config(
     # Update Outputs
     RTC_RUN_CONFIG.set(f"{gk}.product_group.output_dir", str(out_folder))
     RTC_RUN_CONFIG.set(f"{gk}.product_group.scratch_path", str(scratch_folder))
-    if product == "RTC_S1_STATIC":
-        # TODO YYYYMMDD
-        RTC_RUN_CONFIG.set(
-            f"{gk}.product_group.rtc_s1_static_validity_start_date", 20010101
+
+    # check if the collection_number passed in aligns with the
+    # product_version specified in the config
+    prod_version = RTC_RUN_CONFIG.get(f"{gk}.product_group.product_version")
+    prod_version_collection_number = int(re.split(r"[-.]", prod_version)[0])
+    if prod_version_collection_number != collection_number:
+        logger.warning(
+            f"The specified collection_number is {collection_number}. However, "
+            f"the product_version in the config template is : {prod_version}. "
+            f"The product_version format is <collection_number>.<minor_version>.<patch_version> "
+            f"and should align with the specified collection_number. One of these should be updated. "
+            f"The path to the config is {RTC_RUN_CONFIG.file_path}."
         )
+
+    # NOTE - In the future, we may want to make this dynamic. E.g. multi-temporal DEMS
+    # Currently set to a fixed value in the run config template.
+    # RTC_RUN_CONFIG.set(
+    #     f"{gk}.product_group.rtc_s1_static_validity_start_date", 20140403
+    # )
 
     if link_static_layers:
         # add the static layer base url
-        static_layer_base_url = make_static_layer_base_url(
+        static_layer_base_url = make_static_layer_browse_url(
             linked_static_layers_s3_bucket,
             linked_static_layers_collection_number,
             linked_static_layers_s3_project_folder,
@@ -635,13 +650,32 @@ def make_rtc_opera_stac_and_upload_bursts(
     """
 
     # iterate through the burst directory and create STAC metadata
+    logger.info(
+        f"Iterating through the burst folders to reformat files and create STAC metadata"
+    )
     burst_folders = [x for x in results_folder.iterdir() if x.is_dir()]
+
     for i, burst_folder in enumerate(burst_folders):
         logger.info(
             f"Making STAC metadata for burst {i+1} of {len(burst_folders)} : {burst_folder}"
         )
-        # copy the run config file to the burst folder
-        shutil.copy(run_config_path, burst_folder / run_config_path.name)
+
+        logger.info(
+            f"Renaming all files so 'v' is not in the product version number, version is '-' separated, and the platform name is lowercase (e.g s1a)."
+        )
+        for product_file in burst_folder.iterdir():
+            if product_file.is_file():
+                # step 1: remove 'v' before version numbers
+                name = re.sub(r"v(?=\d)", "", product_file.name)
+                # step 2: replace version pattern digits.digits.digits → digits-digits-digits
+                name = re.sub(r"(\d+)\.(\d+)\.(\d+)", r"\1-\2-\3", name)
+                # step 3: lowercase the platform (S1 + single letter, anywhere)
+                name = re.sub(r"S1[A-Z]", lambda m: m.group(0).lower(), name)
+                new_path = product_file.with_name(name)
+                if new_path != product_file:
+                    logger.info(f"Renaming: {product_file.name} -> {new_path.name}")
+                    product_file.rename(new_path)
+
         # load in the .h5 file containing metadata for each burst
         burst_h5_files = list(burst_folder.glob("*.h5"))
         if len(burst_h5_files) != 1:
@@ -650,12 +684,28 @@ def make_rtc_opera_stac_and_upload_bursts(
                 f"This error might be caused by repeat runs. Delete duplicate files or change run settings."
             )
         burst_h5_filepath = burst_folder / burst_h5_files[0]
+
+        # get the product name common to files from the .h5
+        # e.g. ga_s1_nrb-static_v0.1.0_T070-149815-IW3_20140403
+        burst_product_name = burst_h5_filepath.stem.replace("_metadata", "")
+
+        # rename the .h5 file to conform with ga naming conventions
+        burst_h5_filepath = burst_h5_filepath.rename(
+            burst_folder / f"{burst_product_name}_metadata.h5"
+        )
+        # copy the run config file to the burst folder and rename to conform with ga naming conventions
+        burst_run_config_filepath = (
+            burst_folder / f"{burst_product_name}_proc-config.yaml"
+        )
+        shutil.copy(run_config_path, burst_run_config_filepath)
+
         # make the stac metadata from the .h5 metadata
         logging.info(f"Making stac metadata from .h5 file")
         # initialise the class to convert data from the .h5 to a stac doc
         burst_stac_manager = BurstH5toStacManager(
             h5_filepath=burst_h5_filepath,
             product=product,
+            product_id=burst_product_name,
             backscatter_convention=backscatter_convention,
             collection_number=collection_number,
             s3_bucket=s3_bucket,
@@ -664,28 +714,42 @@ def make_rtc_opera_stac_and_upload_bursts(
         # make the stac item based
         burst_stac_manager.make_stac_item_from_h5()
         # add properties to the stac doc
+        logging.info(f"Adding properties from .h5 file")
         burst_stac_manager.add_properties_from_h5()
-        # rename the backscatter assets to include calibration
-        # i.e. HH.tif -> HH_gamma0.tif
-        burst_stac_manager.rename_backscatter_assets(burst_folder)
-        # add the assets to the stac doc
+        # rename the backscatter assets to include calibration and conform to ga naming conventions
+        logging.info(f"Renaming asset files")
+        burst_stac_manager.rename_asset_files(burst_folder)
+        logging.info(f"Adding assets to stac doc")
         burst_stac_manager.add_assets_from_folder(burst_folder)
         # add additional links that will rarely change
+        logging.info(f"Adding fixed links")
         burst_stac_manager.add_fixed_links()
-        # add links that can change
+        logging.info(f"Adding dynamic links from h5")
         burst_stac_manager.add_dynamic_links_from_h5()
-        # add the link to self/metadata
         if link_static_layers and product == "RTC_S1":
             # link to static layer metadata is in the .h5 file
             # use this to map assets to the file
             logger.info("Linking static layers to product")
-            burst_stac_manager.add_linked_static_layer_assets_and_link()
-        stac_filename = "metadata.json"
-        burst_stac_manager.add_self_link(filename=stac_filename)
-        # TODO add final link to the collection STAC
-        burst_stac_manager.add_collection_link()
+            burst_stac_manager.add_linked_static_layers_as_assets_to_stac()
+        logging.info(f"Adding links to metadata files and self")
+        # set the filepaths for stac and xml data if applicable
+        stac_filepath = burst_folder / f"{burst_product_name}_stac-item.json"
+        if product == "RTC_S1":
+            xml_filepath = burst_folder / f"{burst_product_name}_metadata.xml"
+        else:
+            xml_filepath = None  # no xml for static layers
+        # add additional links to metadata files. e.g. stac, xml, proc config
+        burst_stac_manager.add_metadata_links(
+            stac_filepath=stac_filepath,
+            h5_filepath=burst_h5_filepath,
+            runconfig_filepath=burst_run_config_filepath,
+            xml_filepath=xml_filepath,
+        )
+        # reference the production stac catalogue for collection number > 0
+        logging.info(f"Adding stac collection link")
+        burst_stac_manager.add_collection_link(PRODUCTION=collection_number > 0)
         # save the metadata
-        burst_stac_manager.save(burst_folder / stac_filename)
+        burst_stac_manager.save(stac_filepath)
         if validate_stac:
             logger.info("Validating STAC document")
             try:
@@ -700,13 +764,31 @@ def make_rtc_opera_stac_and_upload_bursts(
             logger.warning(
                 "STAC document is not being validated. set --validate-stac if required."
             )
+        # create the XML file from the existing metadata files
+        if xml_filepath:
+            logger.info("Creating the XML file from the stac and .h5 metadata files")
+            XML = XMLMapper(
+                stac_path=stac_filepath,
+                h5_path=burst_h5_filepath,
+                polarisations=burst_stac_manager.polarisations,
+                backscatter_convention=backscatter_convention,
+            )
+            logger.info("Populating the XML template using the mapping file")
+            XML.populate_xml()
+            logger.info(
+                f"Adding special mappings to XML template. e.g. multiple backscatter pols"
+            )
+            XML.populate_special_xml_mappings()
+            logger.info(f"Saving XML file to : {xml_filepath}")
+            XML.save_xml(xml_filepath)
+
         # push folder to S3
         if skip_upload_to_s3:
             logger.info(f"Skipping upload to S3.")
         else:
             # re-check that the files don't already exist in S3. This will help protect against
             # simultaneous runs of the same product. E.g. the product did not exist at the
-            # start of the run and was created by another process during this run
+            # start of the run and was created by another process during this runtime
             logger.info(
                 f"Checking if product already exist before uploading for burst : {burst_stac_manager.burst_id}"
             )
