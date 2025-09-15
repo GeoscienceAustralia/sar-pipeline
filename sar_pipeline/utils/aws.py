@@ -89,9 +89,6 @@ def find_s3_filepaths_from_suffixes(
 class S3Util:
     def __init__(
         self,
-        aws_access_key_id: str,
-        aws_secret_access_key: str,
-        region_name: str = "ap-southeast-2",
     ):
         """
         Utility class for S3 operations.
@@ -105,11 +102,11 @@ class S3Util:
         region_name : str, optional
             AWS region name, by default "ap-southeast-2".
         """
+
+        check_aws_environment_credentials()
+
         self.s3 = boto3.client(
             "s3",
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            region_name=region_name,
         )
 
     def download_folder(self, bucket_name: str, s3_folder: str, local_dir: Path):
