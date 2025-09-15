@@ -95,11 +95,8 @@ def compare_product_folder_files(
         return is_different, [diffs]
     else:
         is_different = True
-        diffs["in_folder_2_missing_in_folder_1"] = [
-            f.name for f in folder_2_files if f not in folder_1_files
-        ]
-        diffs["in_folder_1_missing_in_folder_2"] = [
-            f.name for f in folder_1_files if f not in folder_2_files
-        ]
-
+        folder_1_names = {f.name for f in folder_1_files}
+        folder_2_names = {f.name for f in folder_2_files}
+        diffs["in_folder_1_missing_in_folder_2"] = list(folder_1_names - folder_2_names)
+        diffs["in_folder_2_missing_in_folder_1"] = list(folder_2_names - folder_1_names)
         return is_different, diffs
