@@ -120,20 +120,23 @@ class BurstH5toStacManager:
             "data/projection"
         )  # code, e.g. 4326, 3031
         if self.product == "RTC_S1":
-            # NOTE - boundingPolygon does not correctly encompass the burst data
-            # We therefore use the boundingBox in native coords converted to 4326
-            # below can be uncommented to return to the boundingPolygon
-            # self.geometry_4326 = polygon_str_to_geojson(
-            #     self.h5.search_value("boundingPolygon")
-            # )
-
-            polygon_4326 = reproject_bbox_to_geometry(
-                self.h5.search_value("boundingBox"),
-                src_crs=self.projection_epsg,
-                trg_crs=4326,
-                n_segments=5,
+            # NOTE - boundingPolygon considers the burst data. There is
+            # additional nodata around the burst that can be included by
+            # uncommenting the block below
+            self.geometry_4326 = polygon_str_to_geojson(
+                self.h5.search_value("boundingPolygon")
             )
-            self.geometry_4326 = mapping(polygon_4326)
+
+            # NOTE - below will convert the bbox of the backscatter tif
+            # from the native CRS to 4326. This capture the large nodata
+            # portion surrounding the backscatter.
+            # polygon_4326 = reproject_bbox_to_geometry(
+            #     self.h5.search_value("boundingBox"),
+            #     src_crs=self.projection_epsg,
+            #     trg_crs=4326,
+            #     n_segments=5,
+            # )
+            # self.geometry_4326 = mapping(polygon_4326)
             self.bbox_4326 = polygon_4326.bounds
 
         elif self.product == "RTC_S1_STATIC":
@@ -794,11 +797,11 @@ class BurstH5toStacManager:
         self,
         stac_suffix_string: str = "stac-item.json",
         assets_to_link: str = [
-            "number_of_looks",
-            "gamma0_to_beta0_ratio",
-            "gamma0_to_sigma0_ratio",
-            "local_incidence_angle",
-            "incidence_angle",
+            "oa_number_of_looks",
+            "oa_gamma0_to_beta0_ratio",
+            "oa_gamma0_to_sigma0_ratio",
+            "oa_local_incidence_angle",
+            "oa_incidence_angle",
         ],
     ):
         """add the static layer assets to the STAC metadata file. This is
