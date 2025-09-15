@@ -126,12 +126,12 @@ def make_static_layer_browse_url(
         The url to the index file where static layers are stored for user
         visibility
     """
-    root_static_layer_path = make_rtc_s1_static_s3_subpath(
+    static_layer_path = make_rtc_s1_static_s3_subpath(
         s3_project_folder=static_layers_s3_project_folder,
         collection_number=static_layers_collection_number,
         burst_id=burst_id,
     )
     return (
         f"https://{static_layers_s3_bucket}.s3.{s3_region}.amazonaws.com"
-        f"/index.html?prefix={root_static_layer_path}"
+        f"/index.html?prefix={static_layer_path}"
     )
