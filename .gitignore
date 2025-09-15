@@ -26,6 +26,7 @@ tests/sar_pipeline/data/isce3_rtc/results/TMP/*
 
 # ignore secret files
 *.secret
+*.env
 
 # pixi environments
 .pixi
@@ -42,4 +43,4 @@ coverage*
 sar_pipeline/_version.py
 
 # ignore created test files
-tests/sar_pipeline/data/isce3_rtc/TMP/*
+tests/sar_pipeline/isce3_rtc/data/TMP/*

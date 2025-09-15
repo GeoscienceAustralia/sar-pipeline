@@ -34,14 +34,14 @@ Homepage = "https://github.com/GeoscienceAustralia/sar-pipleine.git"
 # Documentation = "XXX"
 
 [project.scripts]
-find-scene = "sar_pipeline.nci.cli:find_scene_file"
-find-orbits = "sar_pipeline.nci.cli:find_orbits_for_scene"
+find-scene = "sar_pipeline.pipelines.pyrosar_gamma.cli:find_scene_file"
+find-orbits = "sar_pipeline.pipelines.pyrosar_gamma.cli:find_orbits_for_scene"
 download-etad = "sar_pipeline.preparation.cli:download_etad"
-run-pyrosar-gamma-workflow = "sar_pipeline.nci.cli:run_pyrosar_gamma_workflow"
-submit-pyrosar-gamma-workflow = "sar_pipeline.nci.cli:submit_pyrosar_gamma_workflow"
-upload-files-in-folder-to-s3 = "sar_pipeline.nci.cli:upload_files_in_folder_to_s3"
-get-data-for-scene-and-make-run-config = "sar_pipeline.aws.cli:get_data_for_scene_and_make_run_config"
-make-rtc-opera-stac-and-upload-bursts = "sar_pipeline.aws.cli:make_rtc_opera_stac_and_upload_bursts"
+run-pyrosar-gamma-workflow = "sar_pipeline.pipelines.pyrosar_gamma.cli:run_pyrosar_gamma_workflow"
+submit-pyrosar-gamma-workflow = "sar_pipeline.pipelines.pyrosar_gamma.cli:submit_pyrosar_gamma_workflow"
+upload-files-in-folder-to-s3 = "sar_pipeline.pipelines.pyrosar_gamma.cli:upload_files_in_folder_to_s3"
+get-data-for-scene-and-make-run-config = "sar_pipeline.pipelines.isce3_rtc.cli:get_data_for_scene_and_make_run_config"
+make-rtc-opera-stac-and-upload-bursts = "sar_pipeline.pipelines.isce3_rtc.cli:make_rtc_opera_stac_and_upload_bursts"
 
 [tool.setuptools_scm]
 version_file = "sar_pipeline/_version.py"
@@ -88,13 +88,12 @@ dev = { features = ["dev"], solve-group = "default" }
 # run all tests
 test-all = "pytest"
 # pipeline related tests that do not require credentials - can currently be run locally and in github
-test-pipeline = "pytest tests/sar_pipeline/ --ignore=tests/sar_pipeline/test_aws_cli.py --ignore=tests/sar_pipeline/test_full_aws_docker_run.py --ignore=tests/sar_pipeline/test_downloads.py "
-test-aws-cli = "pytest tests/sar_pipeline/test_aws_cli.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
-# cli and e2e aws workflow tests that require credentials - not currently setup for github but should be run locally before PRs
-test-aws-functions = "pytest tests/sar_pipeline/test_aws_functions.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
-test-full-aws-docker-run = "pytest tests/sar_pipeline/test_full_aws_docker_run.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
-# test downloads from all providers. pyggsearch conda envrionment is required for the AUS_COP_HUB test
-test-downloads = "pixi run install-pygssearch-env && pytest tests/sar_pipeline/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+test-pipeline = "pytest tests/sar_pipeline/ --ignore=tests/sar_pipeline/isce3_rtc"
+# isce3-rtc tests that require credentials - not currently setup for github but should be run locally before PRs
+test-isc3-rtc = "pytest tests/sar_pipeline/isce3_rtc -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+test-isce3-rtc-full-docker-run = "pytest tests/sar_pipeline/isce3_rtc/test_full_docker_build_and_run.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+# test downloads from all providers. pygssearch conda environment is required for the AUS_COP_HUB test
+test-isce3-rtc-downloads= "pixi run install-pygssearch-env && pytest tests/sar_pipeline/isce3_rtc/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 # nci specific tests that should be run locally on the nci
 test-nci-filesystem = "pytest tests/filesystem"
 lint = "black sar_pipeline"
@@ -110,7 +109,7 @@ pixi workspace export conda-environment environment.yaml && \
 sed -ix "s/^name: default$/name: sar-pipeline/" environment.yaml; rm environment.yamlx
 """
 install-pygssearch-env = """
-conda env list | grep -q pygssearch-env || conda env create -f environment-pygssearch.yaml -n pygssearch-env
+conda env list | grep -q pygssearch-env || conda env create -f Conda/pygssearch/environment.yaml -n pygssearch-env
 """
 
 [dependency-groups]

@@ -4,14 +4,14 @@ This repository contains code for running SAR processing pipelines on the NCI an
 
 ## Environment set up
 
-For more information see [Setup](docs/setup/README.md)
+For more information see [Setup](docs/development/README.md)
 
-* [Cloning the project](docs/setup/README.md)
-* [Developer set up](docs/setup/developer_pixi.md)
-* [User set up](docs/setup/user_conda.md)
+* [Cloning the project](docs/development/README.md)
+* [Developer set up](docs/development/developer_pixi.md)
+* [User set up](docs/development/user_conda.md)
 
 ## Workflows
 
-For more information see [Workflows](docs/workflows/README.md)
-* [NCI (pyroSAR+GAMMA)](docs/workflows/pyrosar_gamma.md)
-* [AWS (ISCE3_RTC)](docs/workflows/aws_isce3_rtc.md)
+For more information see [Workflows](docs/pipelines/README.md)
+* [NCI (pyroSAR+GAMMA)](docs/pipelines/pyrosar_gamma.md)
+* [AWS (ISCE3_RTC)](docs/pipelines/aws_isce3_rtc.md)

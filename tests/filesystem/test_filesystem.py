@@ -1,5 +1,5 @@
-from sar_pipeline.nci.preparation.orbits import find_latest_orbit_for_scene
-from sar_pipeline.nci.preparation.scenes import find_scene_file_from_id
+from sar_pipeline.preparation.nci.orbits import find_latest_orbit_for_scene
+from sar_pipeline.preparation.nci.scenes import find_scene_file_from_id
 
 import dataclasses
 from datetime import datetime
