@@ -91,4 +91,4 @@ aws s3 cp $BURST_DB_FILE s3://$AWS_S3_BUCKET/$AWS_S3_FOLDER/$BURST_DB_VERSION_TA
 echo New database uploaded to bucket. Update BURST_DB_URL parameter in required scripts
 echo BURST_DB_URL=https://$AWS_S3_BUCKET.s3.ap-southeast-2.amazonaws.com/$AWS_S3_FOLDER/$BURST_DB_VERSION_TAG/$BURST_DB_FILE
 echo files to update:
-echo Docker/Dockerfile
+echo Docker/isce3_rtc/Dockerfile
