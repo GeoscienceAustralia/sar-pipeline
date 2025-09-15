@@ -47,7 +47,9 @@ def find_scene_file(scene):
 
 
 # Set up default configuration for use in CLI
-DEFAULT_CONFIGURATION = Path(__file__).resolve().parent / "configs/default.toml"
+DEFAULT_CONFIGURATION = (
+    Path(__file__).resolve().parents[2] / "configs/pyrosar_gamma/s1_rtc.toml"
+)
 
 
 def configure(ctx, param, filename):
