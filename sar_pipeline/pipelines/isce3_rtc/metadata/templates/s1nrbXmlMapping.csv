@@ -74,7 +74,7 @@ CEOS-ARDProductAttributes/PixelCoordinateConvention,TRUE,STAC,properties.sarard:
 <PerPixelMetadata>,,,,,
 <DataMask>,,,,,
 CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/FileName,TRUE,STAC,assets.mask.href,,
-CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/SampleType,TRUE,FIXED_VALUE,Classification,,
+CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/SampleType,TRUE,FIXED_VALUE,Mask,,
 CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/DataFormat,TRUE,FIXED_VALUE,GeoTIFF,,
 CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/DataType,TRUE,FIXED_VALUE,Byte,,
 CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/BitsPerSample,TRUE,FIXED_VALUE,8,,
