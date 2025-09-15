@@ -899,11 +899,7 @@ def compare_products(
 
     if s3_product_folder_1 or s3_product_folder_2:
         # set up the AWS download util
-        S3Downloader = S3Util(
-            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-            region_name=os.getenv("AWS_DEFAULT_REGION") or "ap-southeast-2",
-        )
+        S3Downloader = S3Util()
 
     if s3_product_folder_1:
         # download product folder to local folder
