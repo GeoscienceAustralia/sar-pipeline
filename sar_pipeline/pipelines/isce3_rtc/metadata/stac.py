@@ -4,6 +4,7 @@ from typing import Literal
 import rasterio
 import pyproj
 import pystac
+from shapely import wkt
 from shapely.geometry import shape, box, mapping
 from dateutil.parser import isoparse
 import requests
@@ -123,20 +124,21 @@ class BurstH5toStacManager:
             # NOTE - boundingPolygon considers the burst data. There is
             # additional nodata around the burst that can be included by
             # uncommenting the block below
-            self.geometry_4326 = polygon_str_to_geojson(
-                self.h5.search_value("boundingPolygon")
-            )
+            # self.geometry_4326 = polygon_str_to_geojson(
+            #     self.h5.search_value("boundingPolygon")
+            # )
+            # self.bbox_4326 = wkt.loads(self.h5.search_value("boundingPolygon")).bounds
 
             # NOTE - below will convert the bbox of the backscatter tif
             # from the native CRS to 4326. This capture the large nodata
             # portion surrounding the backscatter.
-            # polygon_4326 = reproject_bbox_to_geometry(
-            #     self.h5.search_value("boundingBox"),
-            #     src_crs=self.projection_epsg,
-            #     trg_crs=4326,
-            #     n_segments=5,
-            # )
-            # self.geometry_4326 = mapping(polygon_4326)
+            polygon_4326 = reproject_bbox_to_geometry(
+                self.h5.search_value("boundingBox"),
+                src_crs=self.projection_epsg,
+                trg_crs=4326,
+                n_segments=5,
+            )
+            self.geometry_4326 = mapping(polygon_4326)
             self.bbox_4326 = polygon_4326.bounds
 
         elif self.product == "RTC_S1_STATIC":

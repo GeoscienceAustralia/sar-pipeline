@@ -56,7 +56,7 @@ CEOS-ARDProductAttributes/ProductSampleSpacing/ProductRowSpacing,TRUE,STAC,prope
 <ProductResolution>,,,,,
 CEOS-ARDProductAttributes/ProductResolution/ProductResolutionColumn,TRUE,STAC,properties.sarard:resolution_y,meter,
 CEOS-ARDProductAttributes/ProductResolution/ProductResolutionRow,TRUE,STAC,properties.sarard:resolution_x,meter,
-CEOS-ARDProductAttributes/ProductGeographicalExtent,TRUE,SPECIAL,shapely.box(*bbox).wkt,"WTK, EPSG:3031","STAC bbox is a list, convert to wkt in xml.py"
+CEOS-ARDProductAttributes/ProductGeographicalExtent,TRUE,SPECIAL,shapely.box(*bbox).wkt,WKT,"STAC bbox is a list, convert to wkt in xml.py"
 <Filtering>,,,,,
 CEOS-ARDProductAttributes/Filtering/FilterApplied,TRUE,STAC,properties.sarard:speckle_filter_applied,,
 <ProductBoundingBox>,,,,,
@@ -73,7 +73,7 @@ CEOS-ARDProductAttributes/PixelCoordinateConvention,TRUE,STAC,properties.sarard:
 "CEOS-ARDProductAttributes/CoordinateReferenceSystem[@type=""WKT""]",TRUE,SPECIAL,pyproj.CRS.from_epsg(data/projection).to_wkt(),WKT,Handled in xml.py code
 <PerPixelMetadata>,,,,,
 <DataMask>,,,,,
-CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/FileName,TRUE,STAC,assets.mask.href,,
+CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/FileName,TRUE,STAC,assets.oa_layover_shadow_mask.href,,
 CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/SampleType,TRUE,FIXED_VALUE,Mask,,
 CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/DataFormat,TRUE,FIXED_VALUE,GeoTIFF,,
 CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/DataType,TRUE,FIXED_VALUE,Byte,,
@@ -87,14 +87,14 @@ CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/BitValues/Layover,TRUE,FIXED
 CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/BitValues/Shadow,TRUE,FIXED_VALUE,1,,
 CEOS-ARDProductAttributes/PerPixelMetadata/DataMask/BitValues/LayoverandShadow,TRUE,FIXED_VALUE,3,,
 <LocalIncAngle>,,,,,Only found when linking static layers
-CEOS-ARDProductAttributes/PerPixelMetadata/LocalIncAngle/FileName,FALSE,STAC,assets.local_incidence_angle.href,,
+CEOS-ARDProductAttributes/PerPixelMetadata/LocalIncAngle/FileName,FALSE,STAC,assets.oa_local_incidence_angle.href,,
 CEOS-ARDProductAttributes/PerPixelMetadata/LocalIncAngle/SampleType,FALSE,FIXED_VALUE,Angle,Deg,
 CEOS-ARDProductAttributes/PerPixelMetadata/LocalIncAngle/DataFormat,FALSE,FIXED_VALUE,GeoTIFF,,
 CEOS-ARDProductAttributes/PerPixelMetadata/LocalIncAngle/DataType,FALSE,FIXED_VALUE,Float,,
 CEOS-ARDProductAttributes/PerPixelMetadata/LocalIncAngle/BitsPerSample,FALSE,FIXED_VALUE,32,,
 CEOS-ARDProductAttributes/PerPixelMetadata/LocalIncAngle/ByteOrder,FALSE,FIXED_VALUE,Little Endian,,
 <EllipsoidIncAngle>,,,,,Only found when linking static layers
-CEOS-ARDProductAttributes/PerPixelMetadata/EllipsoidIncAngle/FileName,FALSE,STAC,assets.incidence_angle.href,,
+CEOS-ARDProductAttributes/PerPixelMetadata/EllipsoidIncAngle/FileName,FALSE,STAC,assets.oa_incidence_angle.href,,
 CEOS-ARDProductAttributes/PerPixelMetadata/EllipsoidIncAngle/SampleType,FALSE,FIXED_VALUE,Angle,Deg,
 CEOS-ARDProductAttributes/PerPixelMetadata/EllipsoidIncAngle/DataFormat,FALSE,FIXED_VALUE,GeoTIFF,,
 CEOS-ARDProductAttributes/PerPixelMetadata/EllipsoidIncAngle/DataType,FALSE,FIXED_VALUE,Float,,
@@ -102,21 +102,21 @@ CEOS-ARDProductAttributes/PerPixelMetadata/EllipsoidIncAngle/BitsPerSample,FALSE
 CEOS-ARDProductAttributes/PerPixelMetadata/EllipsoidIncAngle/ByteOrder,FALSE,FIXED_VALUE,Little Endian,,
 CEOS-ARDProductAttributes/PerPixelMetadata/EllipsoidIncAngle/EllipsoidName,FALSE,FIXED_VALUE,WGS84,,
 <GammaToSigmaRatio>,,,,,Only found when linking static layers
-CEOS-ARDProductAttributes/PerPixelMetadata/GammaToSigmaRatio/FileName,FALSE,STAC,assets.gamma0_to_sigma0_ratio.href,,
+CEOS-ARDProductAttributes/PerPixelMetadata/GammaToSigmaRatio/FileName,FALSE,STAC,assets.oa_gamma0_to_sigma0_ratio.href,,
 CEOS-ARDProductAttributes/PerPixelMetadata/GammaToSigmaRatio/SampleType,FALSE,FIXED_VALUE,Ratio,Ratio,
 CEOS-ARDProductAttributes/PerPixelMetadata/GammaToSigmaRatio/DataFormat,FALSE,FIXED_VALUE,GeoTIFF,,
 CEOS-ARDProductAttributes/PerPixelMetadata/GammaToSigmaRatio/DataType,FALSE,FIXED_VALUE,Float,,
 CEOS-ARDProductAttributes/PerPixelMetadata/GammaToSigmaRatio/BitsPerSample,FALSE,FIXED_VALUE,32,,
 CEOS-ARDProductAttributes/PerPixelMetadata/GammaToSigmaRatio/ByteOrder,FALSE,FIXED_VALUE,Little Endian,,
 <GammaToBetaRatio>,,,,,Only found when linking static layers
-CEOS-ARDProductAttributes/PerPixelMetadata/GammaToBetaRatio/FileName,FALSE,STAC,assets.gamma0_to_beta0_ratio.href,,
+CEOS-ARDProductAttributes/PerPixelMetadata/GammaToBetaRatio/FileName,FALSE,STAC,assets.oa_gamma0_to_beta0_ratio.href,,
 CEOS-ARDProductAttributes/PerPixelMetadata/GammaToBetaRatio/SampleType,FALSE,FIXED_VALUE,Ratio,Ratio,
 CEOS-ARDProductAttributes/PerPixelMetadata/GammaToBetaRatio/DataFormat,FALSE,FIXED_VALUE,GeoTIFF,,
 CEOS-ARDProductAttributes/PerPixelMetadata/GammaToBetaRatio/DataType,FALSE,FIXED_VALUE,Float,,
 CEOS-ARDProductAttributes/PerPixelMetadata/GammaToBetaRatio/BitsPerSample,FALSE,FIXED_VALUE,32,,
 CEOS-ARDProductAttributes/PerPixelMetadata/GammaToBetaRatio/ByteOrder,FALSE,FIXED_VALUE,Little Endian,,
 <NumberOfLooks>,,,,,Only found when linking static layers
-CEOS-ARDProductAttributes/PerPixelMetadata/NumberOfLooks/FileName,FALSE,STAC,assets.number_of_looks.href,,
+CEOS-ARDProductAttributes/PerPixelMetadata/NumberOfLooks/FileName,FALSE,STAC,assets.oa_number_of_looks.href,,
 CEOS-ARDProductAttributes/PerPixelMetadata/NumberOfLooks/SampleType,FALSE,FIXED_VALUE,Count,Count,
 CEOS-ARDProductAttributes/PerPixelMetadata/NumberOfLooks/DataFormat,FALSE,FIXED_VALUE,GeoTIFF,,
 CEOS-ARDProductAttributes/PerPixelMetadata/NumberOfLooks/DataType,FALSE,FIXED_VALUE,Float,,
