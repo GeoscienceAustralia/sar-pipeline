@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 from typing import Literal
 import rasterio
-import pyproj
 import pystac
 from shapely import wkt
 from shapely.geometry import shape, box, mapping
@@ -11,7 +10,6 @@ import requests
 import datetime
 import re
 import numpy as np
-import os
 
 import dem_handler
 import sar_pipeline
@@ -23,6 +21,7 @@ from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
 from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     make_rtc_s1_s3_subpath,
     make_rtc_s1_static_s3_subpath,
+    get_burst_info_for_scene_from_cdse,
 )
 from sar_pipeline.utils.spatial import (
     polygon_str_to_geojson,
@@ -121,25 +120,12 @@ class BurstH5toStacManager:
             "data/projection"
         )  # code, e.g. 4326, 3031
         if self.product == "RTC_S1":
-            # NOTE - boundingPolygon considers the burst data. There is
-            # additional nodata around the burst that can be included by
-            # uncommenting the block below
-            # self.geometry_4326 = polygon_str_to_geojson(
-            #     self.h5.search_value("boundingPolygon")
-            # )
-            # self.bbox_4326 = wkt.loads(self.h5.search_value("boundingPolygon")).bounds
-
-            # NOTE - below will convert the bbox of the backscatter tif
-            # from the native CRS to 4326. This capture the large nodata
-            # portion surrounding the backscatter.
-            polygon_4326 = reproject_bbox_to_geometry(
-                self.h5.search_value("boundingBox"),
-                src_crs=self.projection_epsg,
-                trg_crs=4326,
-                n_segments=5,
+            # NOTE - boundingPolygon considers the burst data taken from the .SAFE file
+            # This geometry is only an approximation.
+            self.geometry_4326 = polygon_str_to_geojson(
+                self.h5.search_value("boundingPolygon")
             )
-            self.geometry_4326 = mapping(polygon_4326)
-            self.bbox_4326 = polygon_4326.bounds
+            self.bbox_4326 = wkt.loads(self.h5.search_value("boundingPolygon")).bounds
 
         elif self.product == "RTC_S1_STATIC":
             # boundingPolygon is not included, set this to be bbox
