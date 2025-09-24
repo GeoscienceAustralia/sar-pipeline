@@ -27,6 +27,7 @@ from sar_pipeline.pipelines.isce3_rtc.utils.config_manager import RTCConfigManag
 from sar_pipeline.pipelines.isce3_rtc.metadata.stac import BurstH5toStacManager
 from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     make_static_layer_browse_url,
+    make_rtc_s1_burst_browse_url,
 )
 from sar_pipeline.pipelines.isce3_rtc.metadata.xml import XMLMapper
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
@@ -539,16 +540,41 @@ def get_data_for_scene_and_make_run_config(
     #     f"{gk}.product_group.rtc_s1_static_validity_start_date", 20140403
     # )
 
-    if link_static_layers:
+    if link_static_layers or (product == "RTC_S1_STATIC"):
         # add the static layer base url
-        static_layer_base_url = make_static_layer_browse_url(
+        # the '{burst_id}' string gets handled in the RTC process and ensures
+        # the burst id is appended to each .h5 and Geotiff file
+        static_layer_data_access = make_static_layer_browse_url(
             linked_static_layers_s3_bucket,
             linked_static_layers_collection_number,
             linked_static_layers_s3_project_folder,
+            burst_id="{burst_id}",
         )
-        logger.info(f"static layer base url : {static_layer_base_url}")
+        logger.info(f"static layer data access : {static_layer_data_access}")
         RTC_RUN_CONFIG.set(
-            f"{gk}.product_group.static_layers_data_access", str(static_layer_base_url)
+            f"{gk}.product_group.static_layers_data_access",
+            str(static_layer_data_access),
+        )
+
+    # add the link to access the product
+    # the '{burst_id}' string gets handled in the RTC process and ensures
+    # the burst id is appended to each .h5 and Geotiff file
+    if product == "RTC_S1_STATIC":
+        RTC_RUN_CONFIG.set(
+            f"{gk}.product_group.product_data_access",
+            str(static_layer_data_access),
+        )
+    else:
+        burst_product_data_access = make_rtc_s1_burst_browse_url(
+            s3_bucket=s3_bucket,
+            s3_project_folder=s3_project_folder,
+            collection_number=collection_number,
+            burst_polarisations=polarisation_list,
+            burst_id="{burst_id}",
+        )
+        RTC_RUN_CONFIG.set(
+            f"{gk}.product_group.product_data_access",
+            str(burst_product_data_access),
         )
 
     # set the polarisation
