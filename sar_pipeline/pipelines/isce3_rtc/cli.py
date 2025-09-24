@@ -748,7 +748,7 @@ def make_rtc_opera_stac_and_upload_bursts(
             s3_project_folder=s3_project_folder,
         )
 
-        # update the geometry with the correct burst geometry from the CDSE
+        # update the geometry with the correct burst geometry from the CDSE if provided
         if product == "RTC_S1" and burst_geoms_file:
             logger.info("Updating STAC geometry with correct CDSE geometry for burst")
             burst_geometry = load_burst_geometry_from_geojson(
@@ -757,7 +757,7 @@ def make_rtc_opera_stac_and_upload_bursts(
             burst_stac_manager.geometry_4326 = mapping(burst_geometry)
             burst_stac_manager.bbox_4326 = burst_geometry.bounds
 
-        # make the stac item based
+        # make the stac item from the .h5 file
         burst_stac_manager.make_stac_item_from_h5()
         # add properties to the stac doc
         logging.info(f"Adding properties from .h5 file")

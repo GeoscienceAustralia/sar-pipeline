@@ -21,7 +21,6 @@ from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
 from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     make_rtc_s1_s3_subpath,
     make_rtc_s1_static_s3_subpath,
-    get_burst_info_for_scene_from_cdse,
 )
 from sar_pipeline.utils.spatial import (
     polygon_str_to_geojson,
