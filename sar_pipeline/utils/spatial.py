@@ -210,4 +210,4 @@ def load_burst_geometry_from_geojson(geojson_path: Path, burst_id: str):
         if feature["properties"].get("burst_id") == burst_id:
             return shape(feature["geometry"])
 
-    raise KeyError(f"Burst ID {burst_id!r} not found in {geojson_path}")
+    raise KeyError(f"Burst ID {burst_id} not found in {geojson_path}")
