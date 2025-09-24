@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 import sys
 import shapely
+from shapely.geometry import mapping
 from s1reader import s1_info
 import re
 
@@ -19,17 +20,22 @@ from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     ensure_static_layers_in_s3,
     check_burst_product_h5_exists_in_s3,
     get_burst_info_for_scene_from_cdse,
+    get_burst_info_for_scene_from_asf,
 )
 
 from sar_pipeline.pipelines.isce3_rtc.utils.config_manager import RTCConfigManager
 from sar_pipeline.pipelines.isce3_rtc.metadata.stac import BurstH5toStacManager
 from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     make_static_layer_browse_url,
+    make_rtc_s1_burst_browse_url,
 )
 from sar_pipeline.pipelines.isce3_rtc.metadata.xml import XMLMapper
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 from sar_pipeline.utils.general import log_timing
-from sar_pipeline.utils.spatial import write_burst_geometries_to_geojson
+from sar_pipeline.utils.spatial import (
+    write_burst_geometries_to_geojson,
+    load_burst_geometry_from_geojson,
+)
 
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
@@ -201,7 +207,7 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
 @click.option(
     "--save-burst-geometries",
     required=False,
-    default=False,
+    default=True,
     is_flag=True,
     help="Save the burst geometries to a geojson",
 )
@@ -291,11 +297,28 @@ def get_data_for_scene_and_make_run_config(
         scratch_folder.mkdir(parents=True, exist_ok=True)
         run_config_save_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # The burst ids and start-times can be acquired from the CDSE (origin of all S1 data)
-    # We can therefore check if products already exist before needing to download the scene
-    logger.info(f"Querying CDSE for scene burst ids")
-    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
-    logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
+    # The burst ids, start-times and geometries can be acquired from the ASF/CDSE.
+    # We can therefore check if desired products already exist before needing to download the scene
+    try:
+        logger.info(f"Querying ASF for scene burst ids")
+        all_scene_burst_info = get_burst_info_for_scene_from_asf(scene)
+        logger.info(
+            f"{len(all_scene_burst_info)} burst ids found for scene from ASF API"
+        )
+    except Exception:
+        logger.info(f"Burst id's not found on ASF, trying the CDSE", exc_info=True)
+        try:
+            logger.info(f"Querying CDSE for scene burst ids")
+            all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
+            logger.info(
+                f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API"
+            )
+        except Exception:
+            logger.error(
+                f"Burst ids could not be found for scene on ASF or CDSE. Check input scene : {scene}",
+                exc_info=True,
+            )
+            raise
 
     # Limit the bursts to be processed if a list has been provided
     if burst_id_list:
@@ -517,16 +540,41 @@ def get_data_for_scene_and_make_run_config(
     #     f"{gk}.product_group.rtc_s1_static_validity_start_date", 20140403
     # )
 
-    if link_static_layers:
+    if link_static_layers or (product == "RTC_S1_STATIC"):
         # add the static layer base url
-        static_layer_base_url = make_static_layer_browse_url(
+        # the '{burst_id}' string gets handled in the RTC process and ensures
+        # the burst id is appended to each .h5 and Geotiff file
+        static_layer_data_access = make_static_layer_browse_url(
             linked_static_layers_s3_bucket,
             linked_static_layers_collection_number,
             linked_static_layers_s3_project_folder,
+            burst_id="{burst_id}",
         )
-        logger.info(f"static layer base url : {static_layer_base_url}")
+        logger.info(f"static layer data access : {static_layer_data_access}")
         RTC_RUN_CONFIG.set(
-            f"{gk}.product_group.static_layers_data_access", str(static_layer_base_url)
+            f"{gk}.product_group.static_layers_data_access",
+            str(static_layer_data_access),
+        )
+
+    # add the link to access the product
+    # the '{burst_id}' string gets handled in the RTC process and ensures
+    # the burst id is appended to each .h5 and Geotiff file
+    if product == "RTC_S1_STATIC":
+        RTC_RUN_CONFIG.set(
+            f"{gk}.product_group.product_data_access",
+            str(static_layer_data_access),
+        )
+    else:
+        burst_product_data_access = make_rtc_s1_burst_browse_url(
+            s3_bucket=s3_bucket,
+            s3_project_folder=s3_project_folder,
+            collection_number=collection_number,
+            burst_polarisations=polarisation_list,
+            burst_id="{burst_id}",
+        )
+        RTC_RUN_CONFIG.set(
+            f"{gk}.product_group.product_data_access",
+            str(burst_product_data_access),
         )
 
     # set the polarisation
@@ -654,6 +702,21 @@ def make_rtc_opera_stac_and_upload_bursts(
     )
     burst_folders = [x for x in results_folder.iterdir() if x.is_dir()]
 
+    # check if there is a burst_geoms.json file containing the correct burst geometries from the CDSE.
+    # This can be created in the get_data_for_scene_and_make_run_config function and will be used
+    # To accurately set the STAC geometries for RTC_S1 products. Not required for RTC_S1_STATIC.
+    burst_geoms_file = list(results_folder.glob("*burst_geoms.json"))
+    if not burst_geoms_file:
+        logger.warning(
+            f"Burst geometry file not found. STAC geometries will be set using value from the"
+            " .h5 metadata file which may not correctly cover the burst data"
+        )
+    else:
+        logger.info(
+            f"Burst geometry file found and will be used to set STAC geometries"
+        )
+        burst_geoms_file = burst_geoms_file[0]
+
     for i, burst_folder in enumerate(burst_folders):
         logger.info(
             f"Making STAC metadata for burst {i+1} of {len(burst_folders)} : {burst_folder}"
@@ -710,7 +773,17 @@ def make_rtc_opera_stac_and_upload_bursts(
             s3_bucket=s3_bucket,
             s3_project_folder=s3_project_folder,
         )
-        # make the stac item based
+
+        # update the geometry with the correct burst geometry from the CDSE if provided
+        if product == "RTC_S1" and burst_geoms_file:
+            logger.info("Updating STAC geometry with correct CDSE geometry for burst")
+            burst_geometry = load_burst_geometry_from_geojson(
+                burst_geoms_file, burst_folder.name
+            )
+            burst_stac_manager.geometry_4326 = mapping(burst_geometry)
+            burst_stac_manager.bbox_4326 = burst_geometry.bounds
+
+        # make the stac item from the .h5 file
         burst_stac_manager.make_stac_item_from_h5()
         # add properties to the stac doc
         logging.info(f"Adding properties from .h5 file")

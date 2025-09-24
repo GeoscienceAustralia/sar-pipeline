@@ -264,7 +264,7 @@ class XMLMapper:
                 )
             # set the filename tag which is the s3 link for the given file
             tag = "CEOS-ARDProductAttributes/BackscatterMeasurementData/FileName"
-            stac_tag = f"assets.{pol}_{self.backscatter_convention}.href"
+            stac_tag = f"assets.{pol.lower()}_{self.backscatter_convention}.href"
             value = self.get_nested_stac_values(stac_tag)
             try:
                 self.xml.getroot().findall(".//" + tag)[i].text = str(value)

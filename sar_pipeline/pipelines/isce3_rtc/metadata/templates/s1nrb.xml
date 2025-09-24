@@ -153,8 +153,6 @@
                 </SampleType>
                 <DataFormat>
                 </DataFormat>
-                <NoDataValue>
-                </NoDataValue>
                 <DataType>
                 </DataType>
                 <BitsPerSample>
@@ -305,8 +303,6 @@
                 </EasternBias>
                 <EasternSTDev units="m">
                 </EasternSTDev>
-                <GeoAccuracyReference type="URL">
-                </GeoAccuracyReference>
             </GeoCorrAccuracy>
         </GeometricCorrection>
     </CEOS-ARDProductAttributes>
