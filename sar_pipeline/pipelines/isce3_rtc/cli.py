@@ -20,6 +20,7 @@ from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     ensure_static_layers_in_s3,
     check_burst_product_h5_exists_in_s3,
     get_burst_info_for_scene_from_cdse,
+    get_burst_info_for_scene_from_asf,
 )
 
 from sar_pipeline.pipelines.isce3_rtc.utils.config_manager import RTCConfigManager
@@ -295,11 +296,28 @@ def get_data_for_scene_and_make_run_config(
         scratch_folder.mkdir(parents=True, exist_ok=True)
         run_config_save_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # The burst ids and start-times can be acquired from the CDSE (origin of all S1 data)
-    # We can therefore check if products already exist before needing to download the scene
-    logger.info(f"Querying CDSE for scene burst ids")
-    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
-    logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
+    # The burst ids, start-times and geometries can be acquired from the ASF/CDSE.
+    # We can therefore check if desired products already exist before needing to download the scene
+    try:
+        logger.info(f"Querying ASF for scene burst ids")
+        all_scene_burst_info = get_burst_info_for_scene_from_asf(scene)
+        logger.info(
+            f"{len(all_scene_burst_info)} burst ids found for scene from ASF API"
+        )
+    except Exception:
+        logger.info(f"Burst id's not found on ASF, trying the CDSE", exc_info=True)
+        try:
+            logger.info(f"Querying CDSE for scene burst ids")
+            all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
+            logger.info(
+                f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API"
+            )
+        except Exception:
+            logger.error(
+                f"Burst ids could not be found for scene on ASF or CDSE. Check input scene : {scene}",
+                exc_info=True,
+            )
+            raise
 
     # Limit the bursts to be processed if a list has been provided
     if burst_id_list:
