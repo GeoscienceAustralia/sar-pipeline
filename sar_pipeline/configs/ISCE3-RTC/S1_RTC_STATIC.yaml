@@ -73,7 +73,7 @@ runconfig:
             # `suffix` is only used when there are multiple output files.
             # `ext` is determined by geocoding_options.output_imagery_format.
             output_dir:
-            product_id: ga_s1_nrb-static_{product_version}_{burst_id}_20140403
+            product_id: ga_{sensor}_nrb-static_{product_version}_{burst_id}_20140403
 
             # Validity start date for RTC-S1-STATIC products in the format YYYYMMDD
             # Hard code into above as value cannot be set with curly braces
