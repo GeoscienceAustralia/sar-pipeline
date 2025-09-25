@@ -959,12 +959,17 @@ def compare_products(
     logger.info(f"The product being compared is : {product}")
     logger.info(f"The outputs will be written to : {out_folder}")
 
-    if not s3_product_folder_1 or local_product_folder_1:
+    if not out_folder.exists():
+        raise ValueError(
+            f"Specified --out-folder does not exist, please create: {out_folder}"
+        )
+
+    if not (s3_product_folder_1 or local_product_folder_1):
         logger.error(
             "Ensure either --local-product-folder-1 or --s3-product-folder-1 set"
         )
         raise ValueError
-    elif not s3_product_folder_2 or local_product_folder_2:
+    elif not (s3_product_folder_2 or local_product_folder_2):
         logger.error(
             "Ensure either --local-product-folder-2 or --s3-product-folder-2 set"
         )

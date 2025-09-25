@@ -23,6 +23,7 @@
 - [Development](#development)
   - [Development in the Container](#development-in-the-container)
     - [Mount files at runtime](#mount-files-at-runtime)
+- [Test Product Equivalence](#test-product-equivalence)
 
 
 ## About 
@@ -361,3 +362,30 @@ docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/wor
 ```bash
 docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst_id_list t070_149815_iw3 t070_149821_iw1 --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products
 ```
+
+# Test Product Equivalence
+
+Check how two different products have changed:
+
+```bash
+
+docker run --env-file .env -it --entrypoint /bin/bash -v $(pwd):/home/rtc_user/sar-pipeline -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline:0.4.1.dev33-g81b776ea9 
+  
+```
+
+```bash
+conda activate sar-pipeline
+
+pip install -e /home/rtc_user/sar-pipeline
+
+```
+
+```bash
+
+compare-isce3-rtc-products \
+--product RTC_S1 \
+--local-product-folder-1 "/home/rtc_user/sar-pipeline/tests/sar_pipeline/isce3_rtc/data/TMP/results/TMP/sar-pipeline/isce3_rtc/2025-09-24_07:14:19.364844/test_full_docker_build_and_run/1/RTC_S1/S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD/t070_149815_iw3" \
+--local-product-folder-2 "/home/rtc_user/sar-pipeline/tests/sar_pipeline/isce3_rtc/data/TMP/results/TMP/sar-pipeline/isce3_rtc/2025-09-24_07:14:19.364844/test_full_docker_build_and_run/1/RTC_S1/S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD/t070_149815_iw3"
+
+```
+
