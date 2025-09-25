@@ -116,7 +116,6 @@ def make_static_layer_browse_url(
     burst_id:
         burst id. If not supplied, the root browse link to all static
         layers is created.
-
     s3_region : str, optional
         aws region code, by default "ap-southeast-2"
 
@@ -126,12 +125,54 @@ def make_static_layer_browse_url(
         The url to the index file where static layers are stored for user
         visibility
     """
-    root_static_layer_path = make_rtc_s1_static_s3_subpath(
+    static_layer_path = make_rtc_s1_static_s3_subpath(
         s3_project_folder=static_layers_s3_project_folder,
         collection_number=static_layers_collection_number,
         burst_id=burst_id,
     )
     return (
         f"https://{static_layers_s3_bucket}.s3.{s3_region}.amazonaws.com"
-        f"/index.html?prefix={root_static_layer_path}"
+        f"/index.html?prefix={static_layer_path}"
+    )
+
+
+def make_rtc_s1_burst_browse_url(
+    s3_bucket: str,
+    s3_project_folder: str,
+    collection_number: int,
+    burst_polarisations: list,
+    burst_id: str,
+    s3_region: str = "ap-southeast-2",
+):
+    """Make the browse url for the burst product.
+
+    Parameters
+    ----------
+    s3_bucket : str
+        Bucket containing product
+    s3_project_folder : str
+        s3 project folder
+    collection_number : int
+        collection number as an integer
+    burst_polarisations: list
+        list of burst polarisations
+    burst_id : str
+        burst_id. e.g. t028_059507_iw2
+    s3_region : str, optional
+        aws region code, by default "ap-southeast-2"
+
+    Returns
+    -------
+    str
+        URL to the index file where burst products are stored for user
+        visibility
+    """
+
+    odc_product_name = get_odc_product_name(
+        "RTC_S1", collection_number, burst_polarisations
+    )
+    s3_subpath = f"{s3_project_folder}/{odc_product_name}/{burst_id}"
+    return (
+        f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com"
+        f"/index.html?prefix={s3_subpath}"
     )

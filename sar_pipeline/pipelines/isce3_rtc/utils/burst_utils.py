@@ -57,8 +57,8 @@ def get_burst_info_for_scene_from_asf(
         platform=[asf_search.PLATFORM.SENTINEL1],
         maxResults=100,
         processingLevel="BURST",
-        start=st - timedelta(seconds=1),
-        end=et + timedelta(seconds=1),
+        start=st - timedelta(seconds=2),
+        end=et + timedelta(seconds=2),
     )
 
     burst_info = {}
@@ -110,7 +110,7 @@ def get_burst_info_for_scene_from_cdse(
     Raises
     -------
     FileExistsError:
-        The scene does not exist on the ASF.
+        The scene does not exist on the CDSE.
 
     Returns
     -------

@@ -1,7 +1,7 @@
 import pyproj
 from pyproj import Transformer
 from shapely import wkt
-from shapely.geometry import mapping, box, Polygon
+from shapely.geometry import mapping, box, Polygon, shape
 from shapely import segmentize
 import json
 from pathlib import Path
@@ -180,3 +180,34 @@ def write_burst_geometries_to_geojson(burst_id_list, burst_geometry_list, save_p
     Path(save_path).parent.mkdir(parents=True, exist_ok=True)
     with open(save_path, "w", encoding="utf-8") as f:
         json.dump(geojson_obj, f, indent=2)
+
+
+def load_burst_geometry_from_geojson(geojson_path: Path, burst_id: str):
+    """
+    Load the geometry for a given burst_id from a GeoJSON file.
+
+    Parameters
+    ----------
+    geojson_path : Path
+        Path to the GeoJSON file written by write_burst_geometries_to_geojson.
+    burst_id : str
+        The burst identifier to look up.
+
+    Returns
+    -------
+    shapely.geometry.BaseGeometry
+        The geometry for the requested burst_id.
+
+    Raises
+    ------
+    KeyError
+        If the burst_id is not found in the file.
+    """
+    with open(geojson_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    for feature in data["features"]:
+        if feature["properties"].get("burst_id") == burst_id:
+            return shape(feature["geometry"])
+
+    raise KeyError(f"Burst ID {burst_id} not found in {geojson_path}")
