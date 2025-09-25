@@ -40,7 +40,7 @@ PROJECT_ROOT = CURRENT_DIR.parents[2]
 
 # shared test values
 DOCKER_TAG = re.sub(r"[^a-zA-Z0-9_.-]", "-", sar_pipeline.__version__)
-RUN_DATETIME = str(datetime.now()).replace(" ", "_")
+RUN_DATETIME = str(datetime.now()).replace(" ", "_").replace(":", "-")
 TEST_NAME = Path(__file__).stem
 TEST_S3_BUCKET = "deant-data-public-dev"
 TEST_S3_PROJECT_FOLDER = f"TMP/sar-pipeline/isce3_rtc/{RUN_DATETIME}/{TEST_NAME}"
