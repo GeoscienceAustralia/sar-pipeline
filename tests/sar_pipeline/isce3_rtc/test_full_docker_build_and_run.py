@@ -5,14 +5,24 @@ It should be completed prior to every PR and release. A local run is generally
 required, given the need for credentials, sufficient CPU, RAM and Disk Memory.
 Recommend minimum of 4 CPU and 16 GB RAM.
 
-Steps:
+Test steps:
 1.  Required environment variables are set.
 2.  The docker image for the current state is built and tagged.
 3.  The container is run, creating static layers (RTC_S1_STATIC) and uploading them to a
     temporary folder in the AWS `TEST_S3_BUCKET` and `TEST_S3_PROJECT_FOLDER` set below
 4. The container is run again for the backscatter products (RTC_S1), linking them to the
     RTC_S1_STATIC products made in the above step. The results are similarly uploaded to AWS.
-5. Steps 3 and 4 are completed for a single pol (HH) and dual pol (VV+VH) scene burst.
+5. The newly created products are compared to those stored at the COMPARE_S3_PROJECT_FOLDER to understand
+    any differences that have been made.
+6. Steps 3, 4 and 5 are completed for a single pol (HH) and dual pol (VV+VH) scene burst.
+
+Creating new test data:
+1. In step 5 above, the created products are compared to existing products that are stored
+   in the COMPARE_S3_PROJECT_FOLDER below. If intentional product changes have been made,
+   these comparison products should be updated for future tests. These can be replaced by new
+   products by uncommenting the line TEST_S3_PROJECT_FOLDER = COMPARE_S3_PROJECT_FOLDER below
+   and re-running the tests
+
 """
 
 import subprocess
@@ -24,6 +34,7 @@ from dotenv import load_dotenv
 import sys
 from datetime import datetime
 import sar_pipeline
+from sar_pipeline.pipelines.isce3_rtc.cli import compare_products
 import re
 
 logging.basicConfig(
@@ -36,6 +47,7 @@ logger = logging.getLogger(__name__)
 # Directories
 CURRENT_DIR = Path(__file__).parent.resolve()
 TEST_OUTPUTS_DIR = f"{CURRENT_DIR}/data/TMP/results"
+COMPARISON_OUTPUTS_DIR = f"{CURRENT_DIR}/data/TMP/compare"
 PROJECT_ROOT = CURRENT_DIR.parents[2]
 
 # shared test values
@@ -44,6 +56,12 @@ RUN_DATETIME = str(datetime.now()).replace(" ", "_").replace(":", "-")
 TEST_NAME = Path(__file__).stem
 TEST_S3_BUCKET = "deant-data-public-dev"
 TEST_S3_PROJECT_FOLDER = f"TMP/sar-pipeline/isce3_rtc/{RUN_DATETIME}/{TEST_NAME}"
+COMPARE_S3_PROJECT_FOLDER = (
+    f"persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/{TEST_NAME}"
+)
+
+# UNCOMMENT THIS LINE TO UPDATE TEST PRODUCTS
+# TEST_S3_PROJECT_FOLDER = COMPARE_S3_PROJECT_FOLDER
 
 REQUIRED_ENV_VARIABLES = [
     "EARTHDATA_LOGIN",
@@ -168,6 +186,20 @@ def test_docker_single_pol_with_args():
     assert (
         result.returncode == 0
     ), f"Non-zero exit code: {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+
+    logging.info(
+        f"COMPARE 1: Comparing created Static Layers with Existing Accepted Product"
+    )
+
+    # compare_products(
+    #     product="RTC_S1_STATIC",
+    #     local_product_folder_1=None,
+    #     local_product_folder_2=None,
+    #     s3_product_folder_1=TEST_S3_PROJECT_FOLDER,
+    #     s3_product_folder_2=COMPARE_S3_PROJECT_FOLDER,
+    #     s3_bucket=TEST_S3_BUCKET,
+    #     out_folder=COMPARISON_OUTPUTS_DIR,
+    # )
 
     logging.info(f"RUN 2: Producing Backscatter and Linking to Static Layers")
     cmd = [
