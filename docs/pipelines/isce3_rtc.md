@@ -1,58 +1,80 @@
 # AWS ISCE3 RTC Pipeline (Sentinel-1 IW NRB)
 
 - [AWS ISCE3 RTC Pipeline (Sentinel-1 IW NRB)](#aws-isce3-rtc-pipeline-sentinel-1-iw-nrb)
-  - [About](#about)
-  - [Example outputs](#example-outputs)
-  - [Pipeline Overview](#pipeline-overview)
-    - [Environment Variables](#environment-variables)
-    - [Creating Products](#creating-products)
-  - [Container processing location](#container-processing-location)
-- [Build the docker image](#build-the-docker-image)
-  - [Test image interactively](#test-image-interactively)
-- [Quick Start](#quick-start)
-- [Running the workflow](#running-the-workflow)
-  - [RTC\_S1 - Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter](#rtc_s1---sentinel-1-radiometrically-terrain-corrected-rtc-backscatter)
-    - [Antarctica (without linking RTC\_S1\_STATIC)](#antarctica-without-linking-rtc_s1_static)
-    - [Australia (without linking RTC\_S1\_STATIC)](#australia-without-linking-rtc_s1_static)
-  - [RTC\_S1\_STATIC - Static Layers for Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter](#rtc_s1_static---static-layers-for-sentinel-1-radiometrically-terrain-corrected-rtc-backscatter)
-- [Examples](#examples)
-  - [Make static layers (RTC\_S1\_STATIC) and link it to a backscatter product (RTC\_S1)](#make-static-layers-rtc_s1_static-and-link-it-to-a-backscatter-product-rtc_s1)
-    - [1. Make the static layers to link to each product:](#1-make-the-static-layers-to-link-to-each-product)
-    - [2. Make the RTC Backscatter for the scene and link the metadata to the static layers](#2-make-the-rtc-backscatter-for-the-scene-and-link-the-metadata-to-the-static-layers)
-    - [3. Ensure the files are linked in the STAC metadata](#3-ensure-the-files-are-linked-in-the-stac-metadata)
-- [Development](#development)
-  - [Development in the Container](#development-in-the-container)
-    - [Mount files at runtime](#mount-files-at-runtime)
-- [Test Product Equivalence](#test-product-equivalence)
+  - [1. About](#1-about)
+  - [2. Example Products](#2-example-products)
+  - [3. Running the Pipeline](#3-running-the-pipeline)
+    - [3.1. Overview](#31-overview)
+    - [3.2. Environment Variables](#32-environment-variables)
+    - [3.3. Pipeline Arguments](#33-pipeline-arguments)
+  - [4. Project Setup](#4-project-setup)
+  - [5. Running Tests](#5-running-tests)
+  - [6. Examples](#6-examples)
+    - [6.1 Create RTC Backscatter (RTC\_S1) Without Linking Static Layers](#61-create-rtc-backscatter-rtc_s1-without-linking-static-layers)
+    - [6.2. Create Static Layers (RTC\_S1\_STATIC)](#62-create-static-layers-rtc_s1_static)
+    - [6.3. Create Static Layers (RTC\_S1\_STATIC) and Link them to a RTC Backscatter Product (RTC\_S1)](#63-create-static-layers-rtc_s1_static-and-link-them-to-a-rtc-backscatter-product-rtc_s1)
+      - [6.3.1. Make Static Layers (RTC\_S1\_STATIC)](#631-make-static-layers-rtc_s1_static)
+      - [6.3.2. Make RTC Backscatter (RTC\_S1) and Link it to the Static Layers (RTC\_S1\_STATIC)](#632-make-rtc-backscatter-rtc_s1-and-link-it-to-the-static-layers-rtc_s1_static)
+      - [6.3.3. Check Metadata Outputs to Ensure They are Linked](#633-check-metadata-outputs-to-ensure-they-are-linked)
+    - [6.4 Production Runs](#64-production-runs)
+  - [7. Setting Up a Development Environment](#7-setting-up-a-development-environment)
+  - [8. Comparing Products and Making Changes](#8-comparing-products-and-making-changes)
+  - [9. Mounting Filesystem at Runtime](#9-mounting-filesystem-at-runtime)
 
 
-## About 
+## 1. About 
 
-The AWS sar-pipeline can be used to create two products using the OPERA ISCE3 based workflows. These are:
+The isce3_rtc pipeline can be used to create Sentinel-1 Normalised Radar Backscatter (NRB) for data captured in the IW mode. The dependant codebases managed by GA used in the pipeline are:
+
+- [RTC](https://github.com/GeoscienceAustralia/RTC)
+- [dem-handler](https://github.com/GeoscienceAustralia/dem-handler)
+- [sar-pipeline](https://github.com/GeoscienceAustralia/sar-pipeline/tree/main/sar_pipeline)
+
+Using the isce3_rtc pipeline, two main products can be created. These are:
+
 - **RTC_S1** -> Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter [(Specification doc)](https://d2pn8kiwq2w21t.cloudfront.net/documents/ProductSpec_RTC-S1-STATIC.pdf)
-- **RTC_S1_STATIC** -> Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter [(Specification doc)](https://d2pn8kiwq2w21t.cloudfront.net/documents/ProductSpec_RTC-S1.pdf)
+- **RTC_S1_STATIC** -> Sentinel-1 (RTC) Static Layers [(Specification doc)](https://d2pn8kiwq2w21t.cloudfront.net/documents/ProductSpec_RTC-S1.pdf)
 
-**RTC_S1** products are unique to each acquisition. **RTC_S1_STATIC** products are ancillary layers that can be shared across the same burst_id.
+These products are created at the burst-level to enable the use of static layers that reduce the overall storage footprint of the product. Bursts are repeatable units that a sentinel-1 satellite captures every 12 days. A typical sentinel-1 scene consists of ~20-30 bursts. **RTC_S1** products are unique to each acquisition. **RTC_S1_STATIC** products are ancillary layers that can be shared across the same burst id.
+
+## 2. Example Products
+
+The following is en example of **RTC_S1_STATIC** outputs for the t007_014545_iw2 burst id - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/CEOS-ARD/data/example_2/ga_s1_nrb_iw_static_0/t007_014545_iw2/
+
+```text
+ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_gamma0-to-beta0-ratio.tif
+ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_gamma0-to-sigma0-ratio.tif
+ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_incidence-angle.tif
+ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_local-incidence-angle.tif
+ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_metadata.h5
+ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_number-of-looks.tif
+ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_proc-config.yaml
+ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_stac-item.json
+ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_thumbnail.png
+```
+
+The following is an example of **RTC_S1** outputs for a given acquisition that corresponds to the above t007_014545_iw2 static layers - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/CEOS-ARD/data/example_2/ga_s1_nrb_iw_hh_0/t007_014545_iw2/2025/01/29/20250129T050922/
+
+```text
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_HH-gamma0.tif
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_mask.tif
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_metadata.h5
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_metadata.xml
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_proc-config.yaml
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_stac-item.json
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_thumbnail.png
+```
+
+## 3. Running the Pipeline
+
+### 3.1. Overview
+
+The following diagram displays the overall architecture of the pipeline. Docker is highly recommended to ensure the required environments are correctly configured. The full pipeline run is controlled by the workflow script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) that accepts command-line arguments and passes them to the appropriate process. The main functions used to download, process and upload can be found in the [isce3_rtc cli.py script](../../sar_pipeline/pipelines/isce3_rtc/cli.py). 
 
 
-The **RTC_S1** pipeline must be run for every new scene acquired by Sentinel-1. The **RTC_S1_STATIC** product only needs to be run a single time to create static layers that are fixed for each burst. These layers only need to be recreated if the acquisition scenario or DEM changes. OR if the area of interest for the DE-Australia and DE-Antarctica project changes (either of these is not expected to happen often). Examples of static layers include `local_incidence_angles` and `gamma_to_beta0` files. Given the highly stable orbital tube of sentinel-1, these layers can be considered STATIC for a given burst.
+### 3.2. Environment Variables
 
-For example, every 12 days Sentinel-1A will capture the burst `t070_149815_iw3`. The same single `local_incidence_angles.tif` can be used for each repeat pass, as only the dielectric properties of the surface will change over time, and the angle at which the satellite observes the terrain will be the same. The static layer is therefore *linked* to a given **RTC_S1** product in the STAC metadata. To link a **RTC_S1** product to the corresponding **RTC_S1_STATIC** layers, the **RTC_S1_STATIC** products **must** be created first. 
-
-After each run is completed, the files will be uploaded to a specified S3 bucket location. A unique subpath for each product is created in the workflow.
-
-## Example outputs
-
-Example outputs of the **RTC_S1** and **RTC_S1_STATIC** workflows can be found at the links below. If you look at the assets of metadata.json file, you can see the static layers have been linked.
-- **RTC_S1** -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_hh_c1/t070_149815_iw3/2022/1/1/
-- **RTC_S1_STATIC** -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_static_c1/t070_149815_iw3/
-
-
-## Pipeline Overview
-
-### Environment Variables
-
-At runtime, the pipeline expects the following environment variables to be set. These can be passed in using an environment file. NASA earthdata credentials can be created here - https://urs.earthdata.nasa.gov/. Credentials for the Copernicus Data Space Ecosystem (CDSE) can be created here - https://dataspace.copernicus.eu/. The AWS credentials must have write access to the specified bucket location.
+At runtime, the pipeline expects the following environment variables to be set. These can be passed in using an environment file (`.env`). NASA earthdata credentials can be created here - https://urs.earthdata.nasa.gov/. Credentials for the Copernicus Data Space Ecosystem (CDSE) can be created here - https://dataspace.copernicus.eu/. Credentials for the Copernicus Australasian Datahub (AUS_COP_HUB) were provided internally.
 
 [.env.example](../../.env.example)
 
@@ -70,8 +92,8 @@ AUS_COP_HUB_CLIENT_ID=odata
 AUS_COP_HUB_CLIENT_SECRET=
 ```
 
-### Creating Products 
-The AWS pipeline runs using a docker container. At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) is run. The arguments that can be passed to the container are as follows:
+### 3.3. Pipeline Arguments 
+At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) is run. The arguments that can be passed to the container are as follows:
 
 ```bash
 # Basic input for product creation
@@ -87,8 +109,8 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_isce
 --collection_number=0
 --make_existing_products=false
 --skip_upload_to_s3=false
---scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
---orbit_data_source=("ASF" "CDSE")
+--scene_data_source=("AUS_COP_HUB" "ASF" "CDSE") # order of preference
+--orbit_data_source=("ASF" "CDSE")  # order of preference
 --skip_validate_stac=false
 # Required inputs for linking RTC_S1_STATIC to RTC_S1
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
@@ -96,30 +118,29 @@ The AWS pipeline runs using a docker container. At runtime, the script [run_isce
 --linked_static_layers_s3_bucket="deant-data-public-dev"
 --linked_static_layers_s3_project_folder="baseline" 
 --linked_static_layers_collection_number=0 
+
 ```
 - `scene` -> A valid sentinel-1 IW scene (e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD)
-- `burst_id_list` -> A list of burst id's corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated .txt file.
+- `burst_id_list` -> A list of burst id's corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated.txt file.
 - `resolution` -> The target resolution of the products. Default is 20m.
 - `output_crs` -> The target crs of the products. If not specified, the UTM of the scene center will be used or polar stereographic coordinates will be used for high latitudes above 60 degrees. Expects integer values (e.g. `3031`)
 - `dem_type` -> The preference of digital elevation model (DEM) to download and use for processing. Can be passed as a string or list of preferences separated by a space. If DEM data does not exist in the area of the first preference, the next will be used. E.g. `--dem-type REMA_32 cop_glo30` will first look for the Antarctic specific REMA DEM @32m before settling on the cop_glo30. Values must be one of: `cop_glo30`, `REMA_32`, `REMA_10`, `REMA_2`.
 - `product` -> The product being created with the workflow. Must be `RTC_S1` or `RTC_S1_STATIC`.
-- `backscatter_convention` -> the output backscatter convention from the workflow. Note sigma0 data is referenced to the DEM. To create sigma0 ellipsoid referenced data, the beta0 layer and static incidence_angle layer is required; sigma0_ellipsoid = beta0*sin(incidence_angle).
-- `s3_bucket` -> the bucket to upload the products
-- `s3_project_folder` -> The project folder to upload to.
+- `backscatter_convention` -> the output backscatter convention from the workflow. Allowed values are [`beta0`,`sigma0`,`gamma0`] Note sigma0 data is referenced to the DEM. To create sigma0 ellipsoid referenced data, the beta0 layer and static incidence_angle layer is required; sigma0_ellipsoid = beta0*sin(incidence_angle).
+- `s3_bucket` -> the AWS S3bucket to upload the products
+- `s3_project_folder` -> The AWS S3 project folder to upload to.
 - `collection_number` -> The collection number of the product as an integer.
 - `make_existing_products` -> Whether to generate products even if they already exist in AWS S3 under the specified product folder path `s3_bucket/s3_project_folder/collection/...`. 
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
-- `skip_upload_to_s3` -> Make the products, but skip uploading them to S3.
-- `scene_data_source` -> Where to download the scene slc file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
+- `skip_upload_to_s3` -> Make the products, but skip uploading them to AWS S3.
+- `scene_data_source` -> Where to download the scene SLC file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
 - `orbit_data_source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `ASF` or `CDSE`. The default is (`ASF` `CDSE`).
-- `skip_validate_stac` -> To skip validation of the created STAC doc within the code. If the stac is invalid, products will not be uploaded.
+- `skip_validate_stac` -> To skip validation of the created STAC doc within the code. If this is not set and the stac is invalid, products will not be uploaded. By default we want to validate the stac.
 - `link_static_layers` -> Flag to link RTC_S1_STATIC to RTC_S1
 - `linked_static_layers_s3_bucket` -> bucket where RTC_S1_STATIC stored
 - `linked_static_layers_s3_project_folder` -> folder within bucket where RTC_S1_STATIC stored
 - `linked_static_layers_collection_number` -> The collection number of the linked RTC_S1_STATIC product.
 
-
-**Final Paths of Products**:
 
 Final product output paths have the following structure
 
@@ -128,36 +149,26 @@ Final product output paths have the following structure
 - odc_product_name is determined by the polarisation and collection_number for RTC_S1 products.
 - It will be one of ga_s1_nrb_iw_vv_vh_X, ga_s1_nrb_iw_vv_X, ga_s1_nrb_iw_hh_hv_X, ga_s1_nrb_iw_hh_X, where X is the collection_number
 - example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_hh_c1/t070_149815_iw3/2022/1/1/
+
 **RTC_S1_STATIC**
 - e.g. s3_bucket/s3_project_folder/odc_product_name/burst_id/*files
 - odc_product_name = ga_s1_nrb_iw_static_X, where X is the collection_number
 - example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_static_c1/t070_149815_iw3/
 
-## Container processing location
 
-The location for where data is downloaded and written for processing in the container is specified in the [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) file. In the case of AWS processing, an EBS block may be mounted. The mount point must align to the paths specified in the run script for the EBS storage to be used. The hardcoded values are:
-
-```bash
-# set process folders for the container
-download_folder="/home/rtc_user/working/downloads"
-out_folder="/home/rtc_user/working/results/$s3_project_folder/$collection_number/$product/$scene"
-scratch_folder="/home/rtc_user/working/scratch/$s3_project_folder/$collection_number/$product/$scene"
-```
-
-
-# Build the docker image
+## 4. Project Setup
 
 ```bash
 docker build -t sar-pipeline -f Docker/isce3_rtc/Dockerfile .
 ```
 
-## Test image interactively
-
 ```bash
  docker run -it --entrypoint /bin/bash sar-pipeline
 ```
 
-# Quick Start
+type `exit` to exit the container
+
+## 5. Running Tests
 
 Build and test the docker image using pixi:
 
@@ -167,58 +178,47 @@ pixi run test-full-aws-docker-run
 
 This will 1) build and tag the sar-pipeline docker image, 2) create static layers (RTC_S1_STATIC) and 3) create backscatter (RTC_S1) and link the products to the static layers. Outputs will be generated locally to `../../tests/sar_pipeline/data/isce3_rtc/results`
 
-# Running the workflow
+## 6. Examples
 
-## RTC_S1 - Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter
+### 6.1 Create RTC Backscatter (RTC_S1) Without Linking Static Layers
 
-- Note, the `--skip_upload_to_s3` and `--make_existing_products` flags are set so existing products will be made, and no uploads to S3 will occur. 
+- Note, the `--skip_upload_to_s3` and `--make_existing_products` flags are set so existing products will be made, and no uploads to AWS S3 will occur. 
 
-### Antarctica (without linking RTC_S1_STATIC)
-
-Output CRS should be polar stereographic 3031
+**Antarctica (single burst)**
 
 ```bash
-docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products
+docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3_project_folder TMP --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products --collection_number 0
 ```
 
-For a single burst:
+**Australia (all bursts)**
+
 
 ```bash
-docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3_project_folder TMP --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products
+docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products --collection_number 0
 ```
 
-### Australia (without linking RTC_S1_STATIC)
-
-The output CRS will be the UTM zone corresponding to scene/burst centre. This is selected automatically and does not need to be specified.
+### 6.2. Create Static Layers (RTC_S1_STATIC)
 
 ```bash
-docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products
+docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --product RTC_S1_STATIC --s3_project_folder "TMP" --skip_upload_to_s3 --make_existing_products --collection_number 0
 ```
 
-## RTC_S1_STATIC - Static Layers for Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter
+### 6.3. Create Static Layers (RTC_S1_STATIC) and Link them to a RTC Backscatter Product (RTC_S1)
 
-```bash
-docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --output_crs 3031 --product RTC_S1_STATIC --collection s1_rtc_static_c1 --s3_project_folder "TMP" --skip_upload_to_s3 --make_existing_products
-```
-
-# Examples
-
-## Make static layers (RTC_S1_STATIC) and link it to a backscatter product (RTC_S1)
-
-**Context** - The incoming scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD is a repeat pass acquisition over the burst `t070_149815_iw3`. We want to link the backscatter product (HH.tif) for the given acquisition to the static layers for burst `t070_149815_iw3`. We first begin by creating the static layers for the given burst if they do not exist.
+**Context** - The incoming scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD is a repeat pass acquisition over the burst `t070_149815_iw3`. We want to link the backscatter product for the given acquisition to the static layers for burst `t070_149815_iw3`. We first begin by creating the static layers for the given burst if they do not exist.
 
 
-### 1. Make the static layers to link to each product:
+#### 6.3.1. Make Static Layers (RTC_S1_STATIC)
 
 
 ```bash
-docker run --env-file .env -it sar-pipeline \
+docker run --env-file .env -it sar-pipeline\
 --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD \
 --burst_id_list t070_149815_iw3 \
 --product RTC_S1_STATIC \
 --s3_bucket deant-data-public-dev \
---collection_number 1 \
---s3_project_folder TMP/static-layers \
+--collection_number 0 \
+--s3_project_folder TMP/RTC_S1_STATIC \
 --make_existing_products
 ```
 
@@ -226,28 +226,30 @@ Note, any scene that covers the given burst could be used. For example, the foll
 
 Once the workflow has been completed, you should be able to fine the static layers at:
 
-`https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=TMP/ga_s1_nrb_iw_static_c1/t070_149815_iw3/`
+`https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=TMP/RTC_S1_STATIC/ga_s1_nrb_iw_static_c1/t070_149815_iw3/`
 
-### 2. Make the RTC Backscatter for the scene and link the metadata to the static layers
+#### 6.3.2. Make RTC Backscatter (RTC_S1) and Link it to the Static Layers (RTC_S1_STATIC)
 
 ```bash
 docker run --env-file .env -it sar-pipeline \
---scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD \
+--scene S1A_IW_SLC__1SSH_20211220T124745_20211220T124815_041092_04E1C2_0475 \
 --burst_id_list t070_149815_iw3 \
 --product RTC_S1 \
 --s3_bucket deant-data-public-dev \
 --collection_number 1 \
---s3_project_folder TMP/gamma0 \
+--s3_project_folder TMP/RTC_S1 \
 --link_static_layers \
 --linked_static_layers_s3_bucket deant-data-public-dev \
---linked_static_layers_collection_number 1 \
---linked_static_layers_s3_project_folder TMP/static-layers
+--linked_static_layers_collection_number 0 \
+--linked_static_layers_s3_project_folder TMP/RTC_S1_STATIC
 --make_existing_products
 ```
 
-### 3. Ensure the files are linked in the STAC metadata
+#### 6.3.3. Check Metadata Outputs to Ensure They are Linked
 
-By opening the metadata file and checking the assets links, you should see the links for auxiliary products reference the static layers. For example, compare the href in the product metadata below. HH data belongs to `RTC_S1` and number_of_looks belongs to `RTC_S1_STATIC`
+Check the stac metadata file ()[]
+
+By opening the stac metadata file and checking the assets links, you should see the links for auxiliary products reference the static layers. For example, compare the href in the product metadata below. HH data belongs to the `RTC_S1` folder and number_of_looks belongs to the `RTC_S1_STATIC` folder. We can therefore re-use the Static Layers across multiple RTC_S1 products
 
 ```json
  "assets": {
@@ -312,47 +314,61 @@ By opening the metadata file and checking the assets links, you should see the l
  }
 ```
 
+### 6.4 Production Runs
 
-# Development
+Production runs are detailed in the official run-book, but follow a similar pattern to the above example linking static layers: 
 
-## Development in the Container
+1. A bulk run is completed using a month-or-so of scenes in a region of interest to create RTC_S1_STATIC layers.
+2. A timeseries over the same region of interest is run for RTC_S1, linking to the above static layers.
 
-Development is best done from within the container where edited files are tracked and can be run without a new installation. To do this, the sar-pipeline project and run scripts must be mounted at the appropriate location within the container.
+The result is a complete timeseries where products are linked to their correct static layers. 
+
+## 7. Setting Up a Development Environment
+
+Development is best done from within the container where edited files are tracked and can tested without needing to rebuild the project. To do this, the sar-pipeline project and run scripts must be mounted at the appropriate location within the container.
 
 ```bash
 # Start the container interactively and mount folders in the container so changes can be picked up
-# Here the /data/working volume is being mounted to the working directory of the container
+# Here the /data/working volume is being mounted to the working directory of the container,
+# The sar-pipeline directory is being mounted in the container to track changes as we go
+# The script is being mounted to the specific script folder from where it is run
 
-docker run --env-file .env -it --entrypoint /bin/bash -v $(pwd):/home/rtc_user/sar-pipeline -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline
+docker run --env-file .env -it --entrypoint /bin/bash \
+-v $(pwd):/home/rtc_user/sar-pipeline \
+-v $(pwd)/scripts:/home/rtc_user/scripts \
+-v /data/working:/home/rtc_user/working \
+sar-pipeline
+```
 
-# activate environment and install code in editable mode
+```bash
+# activate sar-pipeline environment and install code in editable mode
+# Change permissions on the run_script in-case we make changes there
 
 conda activate sar-pipeline
-
 pip install -e /home/rtc_user/sar-pipeline
-
 chmod +x /home/rtc_user/scripts/run_isce3_rtc_pipeline.sh 
+```
 
-# Antarctic scene (all bursts)
+Some examples of running the pipeline with changed being implemented
 
-/home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
-
+```bash 
 # Antarctic scene (single burst)
-
 /home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
 
 # Australia scene
-
 /home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
-
-# Antarctica static layers
-
-/home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --product RTC_S1_STATIC --collection_number 1 --s3_project_folder "TMP" --skip_upload_to_s3 --make_existing_products
-
-
 ```
 
-### Mount files at runtime
+## 8. Comparing Products and Making Changes
+
+Once production begins, the generated must have consistent metadata, and the data of the products should be consistent. If changes are made, for example updating a metadata field of installing a new package, we need to ensure the changes are not breaking and the produced data is consistent with existing products. To do this, we can use the `compare-isce3-rtc-products` utility in sar-pipeline. This can be run from within the container, or alternatively using conda or the pixi task.
+
+<TODO>
+
+
+## 9. Mounting Filesystem at Runtime
+
+We may also want to run the docker container directly but mount useful directories to keep track of outputs.
 
 ```bash
 docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
@@ -362,30 +378,3 @@ docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/wor
 ```bash
 docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst_id_list t070_149815_iw3 t070_149821_iw1 --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products
 ```
-
-# Test Product Equivalence
-
-Check how two different products have changed:
-
-```bash
-
-docker run --env-file .env -it --entrypoint /bin/bash -v $(pwd):/home/rtc_user/sar-pipeline -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline:0.4.1.dev33-g81b776ea9 
-  
-```
-
-```bash
-conda activate sar-pipeline
-
-pip install -e /home/rtc_user/sar-pipeline
-
-```
-
-```bash
-
-compare-isce3-rtc-products \
---product RTC_S1 \
---local-product-folder-1 "/home/rtc_user/sar-pipeline/tests/sar_pipeline/isce3_rtc/data/TMP/results/TMP/sar-pipeline/isce3_rtc/2025-09-24_07:14:19.364844/test_full_docker_build_and_run/1/RTC_S1/S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD/t070_149815_iw3" \
---local-product-folder-2 "/home/rtc_user/sar-pipeline/tests/sar_pipeline/isce3_rtc/data/TMP/results/TMP/sar-pipeline/isce3_rtc/2025-09-24_07:14:19.364844/test_full_docker_build_and_run/1/RTC_S1/S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD/t070_149815_iw3"
-
-```
-
