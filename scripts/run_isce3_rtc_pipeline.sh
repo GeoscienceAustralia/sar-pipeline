@@ -297,8 +297,12 @@ if [ "$make_existing_products" = true ] ; then
 fi
 if [ "$link_static_layers" = true ] ; then
     # Static layers are to be linked to RTC_S1 in the stac metadata
-    # The url link to static layers is read in from results .h5 file
-    cmd+=( --link-static-layers)
+    cmd+=(
+        --link-static-layers \
+        --linked-static-layers-s3-bucket "$linked_static_layers_s3_bucket" \
+        --linked-static-layers-collection-number "$linked_static_layers_collection_number" \
+        --linked-static-layers-s3-project-folder "$linked_static_layers_s3_project_folder" 
+    )
 fi
 if [ "$skip_validate_stac" != true ] ; then
     # validate the stac doc within the code

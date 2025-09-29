@@ -666,6 +666,24 @@ def get_data_for_scene_and_make_run_config(
     "be read in from the .h5 output from the rtc_s1.py process.",
 )
 @click.option(
+    "--linked-static-layers-s3-bucket",
+    required=False,
+    type=str,
+    help="S3 bucket containing the RTC_S1_STATIC data that will be linked to the RTC_S1 bursts.",
+)
+@click.option(
+    "--linked-static-layers-collection-number",
+    required=False,
+    type=str,
+    help="Collection number of RTC_S1_STATIC data that will be linked to the RTC_S1 bursts.",
+)
+@click.option(
+    "--linked-static-layers-s3-project-folder",
+    required=False,
+    type=str,
+    help="Project folder containing the RTC_S1_STATIC data that will be linked to the RTC_S1 bursts. ",
+)
+@click.option(
     "--validate-stac",
     required=False,
     is_flag=True,
@@ -686,6 +704,9 @@ def make_rtc_opera_stac_and_upload_bursts(
     skip_upload_to_s3,
     make_existing_products,
     link_static_layers,
+    linked_static_layers_s3_bucket,
+    linked_static_layers_collection_number,
+    linked_static_layers_s3_project_folder,
     validate_stac,
 ):
     """makes STAC metadata for opera-rtc and uploads them to a desired s3 bucket.
@@ -802,7 +823,11 @@ def make_rtc_opera_stac_and_upload_bursts(
             # link to static layer metadata is in the .h5 file
             # use this to map assets to the file
             logger.info("Linking static layers to product")
-            burst_stac_manager.add_linked_static_layers_as_assets_to_stac()
+            burst_stac_manager.add_linked_static_layers_as_assets_to_stac(
+                linked_static_layers_s3_bucket=linked_static_layers_s3_bucket,
+                linked_static_layers_collection_number=linked_static_layers_collection_number,
+                linked_static_layers_s3_project_folder=linked_static_layers_s3_project_folder,
+            )
         logging.info(f"Adding links to metadata files and self")
         # set the filepaths for stac and xml data if applicable
         stac_filepath = burst_folder / f"{burst_product_name}_stac-item.json"
