@@ -12,17 +12,17 @@ Test steps:
     temporary folder in the AWS `TEST_S3_BUCKET` and `TEST_S3_PROJECT_FOLDER` set below
 4. The container is run again for the backscatter products (RTC_S1), linking them to the
     RTC_S1_STATIC products made in the above step. The results are similarly uploaded to AWS.
-5. The newly created products are compared to those stored at the COMPARE_S3_PROJECT_FOLDER to understand
+5. The newly created products are compared to those stored at the PERSISTENT_S3_PROJECT_FOLDER to understand
     any differences that have been made.
 6. Steps 3, 4 and 5 are completed for a single pol (HH) and dual pol (VV+VH) scene burst.
 
 Creating / updating new test data:
 1. In step 5 above, the created products are compared to existing products that are stored
-   in the COMPARE_S3_PROJECT_FOLDER below. If planned product changes have been made,
+   in the PERSISTENT_S3_PROJECT_FOLDER below. If planned product changes have been made,
    these comparison products should be updated for future tests. These can be replaced by new
-   products by uncommenting the line TEST_S3_PROJECT_FOLDER = COMPARE_S3_PROJECT_FOLDER below
+   products by uncommenting the line TEST_S3_PROJECT_FOLDER = PERSISTENT_S3_PROJECT_FOLDER below
    and re-running the tests. This will upload the products created in the tests to the
-   COMPARE_S3_PROJECT_FOLDER
+   PERSISTENT_S3_PROJECT_FOLDER, and replace what is there.
 
 """
 
@@ -49,30 +49,32 @@ logger = logging.getLogger(__name__)
 
 # Directories
 CURRENT_DIR = Path(__file__).parent.resolve()
-TEST_OUTPUTS_DIR = f"{CURRENT_DIR}/data/TMP/results"
-COMPARISON_OUTPUTS_DIR = f"{CURRENT_DIR}/data/TMP/compare"
+LOCAL_TEST_OUTPUTS_DIR = f"{CURRENT_DIR}/data/TMP/results"
+LOCAL_COMPARISON_OUTPUTS_DIR = f"{CURRENT_DIR}/data/TMP/compare"
 PROJECT_ROOT = CURRENT_DIR.parents[2]
 
 # shared test values
 DOCKER_TAG = re.sub(r"[^a-zA-Z0-9_.-]", "-", sar_pipeline.__version__)
 RUN_DATETIME = str(datetime.now()).replace(" ", "_").replace(":", "-")
 TEST_NAME = Path(__file__).stem
-TEST_S3_BUCKET = "deant-data-public-dev"
 TEST_S3_PROJECT_FOLDER = f"TMP/sar-pipeline/isce3_rtc/{RUN_DATETIME}/{TEST_NAME}"
-COMPARE_S3_PROJECT_FOLDER = (
-    f"persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/{TEST_NAME}"
+
+# test information
+from settings import (
+    TEST_1_SCENE,
+    TEST_1_BURST,
+    TEST_1_S3_RTC_S1_STATIC_PRODUCT_SUBPATH,
+    TEST_1_S3_RTC_S1_PRODUCT_SUBPATH,
+    TEST_2_SCENE,
+    TEST_2_BURST,
+    TEST_2_S3_RTC_S1_STATIC_PRODUCT_SUBPATH,
+    TEST_2_S3_RTC_S1_PRODUCT_SUBPATH,
+    TEST_S3_BUCKET,
+    PERSISTENT_S3_PROJECT_FOLDER,
 )
 
 # UNCOMMENT THIS LINE TO UPDATE TEST PRODUCTS WITH NEW PRODUCTS
-# TEST_S3_PROJECT_FOLDER = COMPARE_S3_PROJECT_FOLDER
-
-# single pol test scene
-TEST_1_SCENE = "S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD"
-TEST_1_BURST = "t070_149815_iw3"
-
-# dual pol test scene
-TEST_2_SCENE = "S1A_IW_SLC__1SDV_20201129T192619_20201129T192647_035467_042557_D8B8"
-TEST_2_BURST = "t045_095837_iw1"
+# TEST_S3_PROJECT_FOLDER = PERSISTENT_S3_PROJECT_FOLDER
 
 REQUIRED_ENV_VARIABLES = [
     "EARTHDATA_LOGIN",
@@ -189,20 +191,20 @@ def build_image():
 def test_docker_single_pol_with_args():
     logging.info(f"Running full process for single pol (HH), this may take a while...")
     logging.info(f"Static layers will be produced and linked to backscatter data.")
-    if not Path(TEST_OUTPUTS_DIR).exists():
-        os.makedirs(TEST_OUTPUTS_DIR)
-    logging.info(f"Saving test outputs locally to : {TEST_OUTPUTS_DIR}")
+    if not Path(LOCAL_TEST_OUTPUTS_DIR).exists():
+        os.makedirs(LOCAL_TEST_OUTPUTS_DIR)
+    logging.info(f"Saving test outputs locally to : {LOCAL_TEST_OUTPUTS_DIR}")
     logging.info(f"Uploading outputs to : {TEST_S3_BUCKET}/{TEST_S3_PROJECT_FOLDER}")
     logging.info(f"RUN 1: Producing Static Layers")
     logging.info(
         "Mounting test data directory for results: "
-        f"{TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
+        f"{LOCAL_TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
     )
     cmd = [
         "docker",
         "run",
         "-v",
-        f"{TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
+        f"{LOCAL_TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
         "--rm",
         *ENV_VARS,
         f"sar-pipeline:{DOCKER_TAG}",
@@ -236,7 +238,7 @@ def test_docker_single_pol_with_args():
         "docker",
         "run",
         "-v",
-        f"{TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
+        f"{LOCAL_TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
         "--rm",
         *ENV_VARS,
         f"sar-pipeline:{DOCKER_TAG}",
@@ -272,14 +274,15 @@ def test_docker_single_pol_with_args():
     ), f"Non-zero exit code: {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
 
 
+# folders for products to compare
 TEST_1_RTC_S1_STATIC_S3_PROJECT_FOLDER = (
-    f"{TEST_S3_PROJECT_FOLDER}/ga_s1_nrb_iw_static_1/{TEST_1_BURST}"
+    f"{TEST_S3_PROJECT_FOLDER}/{TEST_1_S3_RTC_S1_STATIC_PRODUCT_SUBPATH}"
 )
 TEST_1_COMPARE_RTC_S1_STATIC_S3_PROJECT_FOLDER = (
-    f"{COMPARE_S3_PROJECT_FOLDER}/ga_s1_nrb_iw_static_1/{TEST_1_BURST}"
+    f"{PERSISTENT_S3_PROJECT_FOLDER}/{TEST_1_S3_RTC_S1_STATIC_PRODUCT_SUBPATH}"
 )
-TEST_1_RTC_S1_STATIC_COMPARISON_OUTPUTS_DIR = (
-    f"{COMPARISON_OUTPUTS_DIR}/TEST_1_RTC_S1_STATIC"
+TEST_1_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR = (
+    f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_1_RTC_S1_STATIC"
 )
 
 
@@ -295,16 +298,16 @@ def test_compare_single_pol_rtc_s1_static_product_outputs():
     )
 
     logging.info(
-        f"Creating comparison outputs directory : {TEST_1_RTC_S1_STATIC_COMPARISON_OUTPUTS_DIR}"
+        f"Creating comparison outputs directory : {TEST_1_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR}"
     )
-    os.makedirs(TEST_1_RTC_S1_STATIC_COMPARISON_OUTPUTS_DIR, exist_ok=True)
+    os.makedirs(TEST_1_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR, exist_ok=True)
 
     runner = CliRunner()
     args = ["--product", "RTC_S1_STATIC"]
     args += ["--s3-product-folder-1", TEST_1_RTC_S1_STATIC_S3_PROJECT_FOLDER]
     args += ["--s3-product-folder-2", TEST_1_COMPARE_RTC_S1_STATIC_S3_PROJECT_FOLDER]
     args += ["--s3-bucket", TEST_S3_BUCKET]
-    args += ["--out-folder", TEST_1_RTC_S1_STATIC_COMPARISON_OUTPUTS_DIR]
+    args += ["--out-folder", TEST_1_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR]
 
     result = runner.invoke(compare_products, args, catch_exceptions=False)
     if result.exception:
@@ -316,12 +319,12 @@ def test_compare_single_pol_rtc_s1_static_product_outputs():
     assert result.exit_code == 0
 
     # ensure that the files and tif values have not changed. If so, these are breaking changes to the
-    # product, and the comparison products must be updated - see description at top
+    # product, and the persistent comparison products must be updated - see description at top
     file_differences = (
-        f"{TEST_1_RTC_S1_STATIC_COMPARISON_OUTPUTS_DIR}/file_differences.json"
+        f"{TEST_1_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR}/file_differences.json"
     )
     tif_differences = (
-        f"{TEST_1_RTC_S1_STATIC_COMPARISON_OUTPUTS_DIR}/tif_differences.json"
+        f"{TEST_1_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR}/tif_differences.json"
     )
     assert not _files_have_changed(
         file_differences
@@ -333,9 +336,16 @@ def test_compare_single_pol_rtc_s1_static_product_outputs():
     Check {tif_differences} and update comparison products if needed."
 
 
-TEST_1_RTC_S1_S3_PROJECT_FOLDER = f"{TEST_S3_PROJECT_FOLDER}/ga_s1_nrb_iw_hh_1/{TEST_1_BURST}/2022/01/01/20220101T124752"
-TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER = f"{COMPARE_S3_PROJECT_FOLDER}/ga_s1_nrb_iw_hh_1/{TEST_1_BURST}/2022/01/01/20220101T124752"
-TEST_1_RTC_S1_COMPARISON_OUTPUTS_DIR = f"{COMPARISON_OUTPUTS_DIR}/TEST_1_RTC_S1"
+# folders for products to compare
+TEST_1_RTC_S1_S3_PROJECT_FOLDER = (
+    f"{TEST_S3_PROJECT_FOLDER}/{TEST_1_S3_RTC_S1_PRODUCT_SUBPATH}"
+)
+TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER = (
+    f"{PERSISTENT_S3_PROJECT_FOLDER}/{TEST_1_S3_RTC_S1_PRODUCT_SUBPATH}"
+)
+TEST_1_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR = (
+    f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_1_RTC_S1"
+)
 
 
 def test_compare_single_pol_rtc_s1_product_outputs():
@@ -350,16 +360,16 @@ def test_compare_single_pol_rtc_s1_product_outputs():
         f"COMPARE 2: Comparing created Backscatter Product with Existing Accepted Product"
     )
     logging.info(
-        f"Creating comparison outputs directory : {TEST_1_RTC_S1_COMPARISON_OUTPUTS_DIR}"
+        f"Creating comparison outputs directory : {TEST_1_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR}"
     )
-    os.makedirs(TEST_1_RTC_S1_COMPARISON_OUTPUTS_DIR, exist_ok=True)
+    os.makedirs(TEST_1_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR, exist_ok=True)
 
     runner = CliRunner()
     args = ["--product", "RTC_S1"]
     args += ["--s3-product-folder-1", TEST_1_RTC_S1_S3_PROJECT_FOLDER]
     args += ["--s3-product-folder-2", TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER]
     args += ["--s3-bucket", TEST_S3_BUCKET]
-    args += ["--out-folder", TEST_1_RTC_S1_COMPARISON_OUTPUTS_DIR]
+    args += ["--out-folder", TEST_1_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR]
 
     result = runner.invoke(compare_products, args, catch_exceptions=False)
     if result.exception:
@@ -371,9 +381,13 @@ def test_compare_single_pol_rtc_s1_product_outputs():
     assert result.exit_code == 0
 
     # ensure that the files and tif values have not changed. If so, these are breaking changes to the
-    # product, and the comparison products must be updated - see description at top
-    file_differences = f"{TEST_1_RTC_S1_COMPARISON_OUTPUTS_DIR}/file_differences.json"
-    tif_differences = f"{TEST_1_RTC_S1_COMPARISON_OUTPUTS_DIR}/tif_differences.json"
+    # product, and the persistent comparison products must be updated - see description at top
+    file_differences = (
+        f"{TEST_1_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR}/file_differences.json"
+    )
+    tif_differences = (
+        f"{TEST_1_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR}/tif_differences.json"
+    )
     assert not _files_have_changed(
         file_differences
     ), f"Error, there are breaking changes in the test files compared to the comparison product. \
@@ -387,20 +401,20 @@ def test_compare_single_pol_rtc_s1_product_outputs():
 def test_docker_dual_pol_with_args():
     logging.info(f"Running full process for dual pol (VV+VH), this may take a while...")
     logging.info(f"Static layers will be produced and linked to backscatter data.")
-    if not Path(TEST_OUTPUTS_DIR).exists():
-        os.makedirs(TEST_OUTPUTS_DIR)
-    logging.info(f"Saving test outputs locally to : {TEST_OUTPUTS_DIR}")
+    if not Path(LOCAL_TEST_OUTPUTS_DIR).exists():
+        os.makedirs(LOCAL_TEST_OUTPUTS_DIR)
+    logging.info(f"Saving test outputs locally to : {LOCAL_TEST_OUTPUTS_DIR}")
     logging.info(f"Uploading outputs to : {TEST_S3_BUCKET}/{TEST_S3_PROJECT_FOLDER}")
     logging.info(f"RUN 1: Producing Static Layers")
     logging.info(
         "Mounting test data directory for results: "
-        f"{TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
+        f"{LOCAL_TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
     )
     cmd = [
         "docker",
         "run",
         "-v",
-        f"{TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
+        f"{LOCAL_TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
         "--rm",
         *ENV_VARS,
         f"sar-pipeline:{DOCKER_TAG}",
@@ -434,7 +448,7 @@ def test_docker_dual_pol_with_args():
         "docker",
         "run",
         "-v",
-        f"{TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
+        f"{LOCAL_TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
         "--rm",
         *ENV_VARS,
         f"sar-pipeline:{DOCKER_TAG}",
@@ -470,14 +484,15 @@ def test_docker_dual_pol_with_args():
     ), f"Non-zero exit code: {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
 
 
+# folders for products to compare
 TEST_2_RTC_S1_STATIC_S3_PROJECT_FOLDER = (
-    f"{TEST_S3_PROJECT_FOLDER}/ga_s1_nrb_iw_static_1/{TEST_2_BURST}"
+    f"{TEST_S3_PROJECT_FOLDER}/{TEST_2_S3_RTC_S1_STATIC_PRODUCT_SUBPATH}"
 )
 TEST_2_COMPARE_RTC_S1_STATIC_S3_PROJECT_FOLDER = (
-    f"{COMPARE_S3_PROJECT_FOLDER}/ga_s1_nrb_iw_static_1/{TEST_2_BURST}"
+    f"{PERSISTENT_S3_PROJECT_FOLDER}/{TEST_2_S3_RTC_S1_STATIC_PRODUCT_SUBPATH}"
 )
-TEST_2_RTC_S1_STATIC_COMPARISON_OUTPUTS_DIR = (
-    f"{COMPARISON_OUTPUTS_DIR}/TEST_2_RTC_S1_STATIC"
+TEST_2_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR = (
+    f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_2_RTC_S1_STATIC"
 )
 
 
@@ -493,16 +508,16 @@ def test_compare_dual_pol_rtc_s1_static_product_outputs():
         f"COMPARE 1: Comparing created Static Layers with Existing Accepted Product"
     )
     logging.info(
-        f"Creating comparison outputs directory : {TEST_2_RTC_S1_STATIC_COMPARISON_OUTPUTS_DIR}"
+        f"Creating comparison outputs directory : {TEST_2_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR}"
     )
-    os.makedirs(TEST_2_RTC_S1_STATIC_COMPARISON_OUTPUTS_DIR, exist_ok=True)
+    os.makedirs(TEST_2_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR, exist_ok=True)
 
     runner = CliRunner()
     args = ["--product", "RTC_S1_STATIC"]
     args += ["--s3-product-folder-1", TEST_2_RTC_S1_STATIC_S3_PROJECT_FOLDER]
     args += ["--s3-product-folder-2", TEST_2_COMPARE_RTC_S1_STATIC_S3_PROJECT_FOLDER]
     args += ["--s3-bucket", TEST_S3_BUCKET]
-    args += ["--out-folder", TEST_2_RTC_S1_STATIC_COMPARISON_OUTPUTS_DIR]
+    args += ["--out-folder", TEST_2_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR]
 
     result = runner.invoke(compare_products, args, catch_exceptions=False)
     if result.exception:
@@ -514,12 +529,12 @@ def test_compare_dual_pol_rtc_s1_static_product_outputs():
     assert result.exit_code == 0
 
     # ensure that the files and tif values have not changed. If so, these are breaking changes to the
-    # product, and the comparison products must be updated - see description at top
+    # product, and the persistent comparison products must be updated - see description at top
     file_differences = (
-        f"{TEST_2_RTC_S1_STATIC_COMPARISON_OUTPUTS_DIR}/file_differences.json"
+        f"{TEST_2_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR}/file_differences.json"
     )
     tif_differences = (
-        f"{TEST_2_RTC_S1_STATIC_COMPARISON_OUTPUTS_DIR}/tif_differences.json"
+        f"{TEST_2_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR}/tif_differences.json"
     )
     assert not _files_have_changed(
         file_differences
@@ -531,9 +546,16 @@ def test_compare_dual_pol_rtc_s1_static_product_outputs():
     Check {tif_differences} and update comparison products if needed."
 
 
-TEST_2_RTC_S1_S3_PROJECT_FOLDER = f"{TEST_S3_PROJECT_FOLDER}/ga_s1_nrb_iw_vv_vh_1/{TEST_2_BURST}/2020/11/29/20201129T192619/"
-TEST_2_COMPARE_RTC_S1_S3_PROJECT_FOLDER = f"{COMPARE_S3_PROJECT_FOLDER}/ga_s1_nrb_iw_vv_vh_1/{TEST_2_BURST}/2020/11/29/20201129T192619"
-TEST_2_RTC_S1_COMPARISON_OUTPUTS_DIR = f"{COMPARISON_OUTPUTS_DIR}/TEST_2_RTC_S1"
+# folders for products to compare
+TEST_2_RTC_S1_S3_PROJECT_FOLDER = (
+    f"{TEST_S3_PROJECT_FOLDER}/{TEST_2_S3_RTC_S1_PRODUCT_SUBPATH}"
+)
+TEST_2_COMPARE_RTC_S1_S3_PROJECT_FOLDER = (
+    f"{PERSISTENT_S3_PROJECT_FOLDER}/{TEST_2_S3_RTC_S1_PRODUCT_SUBPATH}"
+)
+TEST_2_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR = (
+    f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_2_RTC_S1"
+)
 
 
 def test_compare_dual_pol_rtc_s1_product_outputs():
@@ -548,16 +570,16 @@ def test_compare_dual_pol_rtc_s1_product_outputs():
         f"COMPARE 2: Comparing created Backscatter Product with Existing Accepted Product"
     )
     logging.info(
-        f"Creating comparison outputs directory : {TEST_2_RTC_S1_COMPARISON_OUTPUTS_DIR}"
+        f"Creating comparison outputs directory : {TEST_2_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR}"
     )
-    os.makedirs(TEST_2_RTC_S1_COMPARISON_OUTPUTS_DIR, exist_ok=True)
+    os.makedirs(TEST_2_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR, exist_ok=True)
 
     runner = CliRunner()
     args = ["--product", "RTC_S1"]
     args += ["--s3-product-folder-1", TEST_2_RTC_S1_S3_PROJECT_FOLDER]
     args += ["--s3-product-folder-2", TEST_2_COMPARE_RTC_S1_S3_PROJECT_FOLDER]
     args += ["--s3-bucket", TEST_S3_BUCKET]
-    args += ["--out-folder", TEST_2_RTC_S1_COMPARISON_OUTPUTS_DIR]
+    args += ["--out-folder", TEST_2_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR]
 
     result = runner.invoke(compare_products, args, catch_exceptions=False)
     if result.exception:
@@ -569,9 +591,13 @@ def test_compare_dual_pol_rtc_s1_product_outputs():
     assert result.exit_code == 0
 
     # ensure that the files and tif values have not changed. If so, these are breaking changes to the
-    # product, and the comparison products must be updated - see description at top
-    file_differences = f"{TEST_2_RTC_S1_COMPARISON_OUTPUTS_DIR}/file_differences.json"
-    tif_differences = f"{TEST_2_RTC_S1_COMPARISON_OUTPUTS_DIR}/tif_differences.json"
+    # product, and the persistent comparison products must be updated - see description at top
+    file_differences = (
+        f"{TEST_2_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR}/file_differences.json"
+    )
+    tif_differences = (
+        f"{TEST_2_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR}/tif_differences.json"
+    )
     assert not _files_have_changed(
         file_differences
     ), f"Error, there are breaking changes in the test files compared to the comparison product. \
