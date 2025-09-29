@@ -18,11 +18,11 @@ Test steps:
 
 Creating / updating new test data:
 1. In step 5 above, the created products are compared to existing products that are stored
-   in the PERSISTENT_S3_PROJECT_FOLDER below. If planned product changes have been made,
-   these comparison products should be updated for future tests. These can be replaced by new
-   products by uncommenting the line TEST_S3_PROJECT_FOLDER = PERSISTENT_S3_PROJECT_FOLDER below
-   and re-running the tests. This will upload the products created in the tests to the
-   PERSISTENT_S3_PROJECT_FOLDER, and replace what is there.
+   in the PERSISTENT_S3_PROJECT_FOLDER. If planned product changes have been made, these
+   comparison products should be updated for future tests. These can be replaced by new products
+   by setting the UPDATE_PERSISTENT_TEST_DATA to True in the settings.py file and re-running the tests.
+   This will set TEST_S3_PROJECT_FOLDER = PERSISTENT_S3_PROJECT_FOLDER below. This will upload the
+   products created in the tests to the PERSISTENT_S3_PROJECT_FOLDER, and replace what is there.
 
 """
 
@@ -71,10 +71,11 @@ from settings import (
     TEST_2_S3_RTC_S1_PRODUCT_SUBPATH,
     TEST_S3_BUCKET,
     PERSISTENT_S3_PROJECT_FOLDER,
+    UPDATE_PERSISTENT_TEST_DATA,
 )
 
-# UNCOMMENT THIS LINE TO UPDATE TEST PRODUCTS WITH NEW PRODUCTS
-# TEST_S3_PROJECT_FOLDER = PERSISTENT_S3_PROJECT_FOLDER
+if UPDATE_PERSISTENT_TEST_DATA:
+    TEST_S3_PROJECT_FOLDER = PERSISTENT_S3_PROJECT_FOLDER
 
 REQUIRED_ENV_VARIABLES = [
     "EARTHDATA_LOGIN",

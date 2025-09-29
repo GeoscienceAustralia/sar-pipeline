@@ -23,3 +23,7 @@ TEST_2_S3_RTC_S1_PRODUCT_SUBPATH = (
     f"ga_s1_nrb_iw_vv_vh_1/{TEST_2_BURST}/2020/11/29/20201129T192619/"
 )
 TEST_2_S3_RTC_S1_STATIC_PRODUCT_SUBPATH = f"ga_s1_nrb_iw_static_1/{TEST_2_BURST}"
+
+# Set this to true to update the above products in the AWS S3 folder
+# See docs in test_full_docker_build_and_run.py for more information
+UPDATE_PERSISTENT_TEST_DATA = False
