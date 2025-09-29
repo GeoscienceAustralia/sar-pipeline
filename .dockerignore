@@ -2,4 +2,4 @@
 .pytest_cache
 *.secret
 *.env
-tests/sar_pipeline/data/isce3_rtc/TMP/*
+tests/sar_pipeline/isce3_rtc/data/TMP/*
