@@ -9,17 +9,18 @@
     - [3.3. Pipeline Arguments](#33-pipeline-arguments)
   - [4. Project Setup](#4-project-setup)
   - [5. Running Tests](#5-running-tests)
-  - [6. Examples](#6-examples)
-    - [6.1 Create RTC Backscatter (RTC\_S1) Without Linking Static Layers](#61-create-rtc-backscatter-rtc_s1-without-linking-static-layers)
-    - [6.2. Create Static Layers (RTC\_S1\_STATIC)](#62-create-static-layers-rtc_s1_static)
-    - [6.3. Create Static Layers (RTC\_S1\_STATIC) and Link them to a RTC Backscatter Product (RTC\_S1)](#63-create-static-layers-rtc_s1_static-and-link-them-to-a-rtc-backscatter-product-rtc_s1)
-      - [6.3.1. Make Static Layers (RTC\_S1\_STATIC)](#631-make-static-layers-rtc_s1_static)
-      - [6.3.2. Make RTC Backscatter (RTC\_S1) and Link it to the Static Layers (RTC\_S1\_STATIC)](#632-make-rtc-backscatter-rtc_s1-and-link-it-to-the-static-layers-rtc_s1_static)
-      - [6.3.3. Check Metadata Outputs to Ensure They are Linked](#633-check-metadata-outputs-to-ensure-they-are-linked)
-    - [6.4 Production Runs](#64-production-runs)
-  - [7. Setting Up a Development Environment](#7-setting-up-a-development-environment)
-  - [8. Comparing Products and Making Changes](#8-comparing-products-and-making-changes)
-  - [9. Mounting Filesystem at Runtime](#9-mounting-filesystem-at-runtime)
+  - [6. Release Guide](#6-release-guide)
+  - [7. Examples](#7-examples)
+    - [7.1 Create RTC Backscatter (RTC\_S1) Without Linking Static Layers](#71-create-rtc-backscatter-rtc_s1-without-linking-static-layers)
+    - [7.2. Create Static Layers (RTC\_S1\_STATIC)](#72-create-static-layers-rtc_s1_static)
+    - [7.3. Create Static Layers (RTC\_S1\_STATIC) and Link them to a RTC Backscatter Product (RTC\_S1)](#73-create-static-layers-rtc_s1_static-and-link-them-to-a-rtc-backscatter-product-rtc_s1)
+      - [7.3.1. Make Static Layers (RTC\_S1\_STATIC)](#731-make-static-layers-rtc_s1_static)
+      - [7.3.2. Make RTC Backscatter (RTC\_S1) and Link it to the Static Layers (RTC\_S1\_STATIC)](#732-make-rtc-backscatter-rtc_s1-and-link-it-to-the-static-layers-rtc_s1_static)
+      - [7.3.3. Check Backscatter Metadata Outputs to Ensure They are Linked](#733-check-backscatter-metadata-outputs-to-ensure-they-are-linked)
+    - [7.4 Production Runs](#74-production-runs)
+  - [8. Setting Up a Development Environment](#8-setting-up-a-development-environment)
+  - [9. Comparing Products and Making Changes](#9-comparing-products-and-making-changes)
+  - [10. Mounting Filesystem at Runtime](#10-mounting-filesystem-at-runtime)
 
 
 ## 1. About 
@@ -170,17 +171,31 @@ type `exit` to exit the container
 
 ## 5. Running Tests
 
-Build and test the docker image using pixi:
+Testing of the `isce3_rtc` code is facilitated by the pixi package manager (see [Developer Docs](../development/developer_pixi.md)) for details. To effectively test the pipeline, all the environment credentials listed in [3.2. Environment Variables](#32-environment-variables) must be set. Read/write access to the AWS S3 bucket and credentials to download from all of the providers is needed. The tests are defined in the project [pyproject.toml](../../pyproject.toml).
+
+To run all [isce3_rtc related tests](../../tests/sar_pipeline/isce3_rtc), the following can be used:
 
 ```bash
-pixi run test-full-aws-docker-run
+pixi run test-isce3-rtc
 ```
 
-This will 1) build and tag the sar-pipeline docker image, 2) create static layers (RTC_S1_STATIC) and 3) create backscatter (RTC_S1) and link the products to the static layers. Outputs will be generated locally to `../../tests/sar_pipeline/data/isce3_rtc/results`
+The following test is a complete test of the image build and run for two products. It will compare the products made in the test to accepted products stored on AWS S3 to ensure no breaking changes have been made. It must be run before updates to the main branch.
 
-## 6. Examples
+```bash
+pixi run test-isce3-rtc-full-docker-run
+```
 
-### 6.1 Create RTC Backscatter (RTC_S1) Without Linking Static Layers
+To test downloads from all data providers.
+
+```bash
+pixi run test-isce3-rtc-downloads
+```
+
+## 6. Release Guide
+
+## 7. Examples
+
+### 7.1 Create RTC Backscatter (RTC_S1) Without Linking Static Layers
 
 - Note, the `--skip_upload_to_s3` and `--make_existing_products` flags are set so existing products will be made, and no uploads to AWS S3 will occur. 
 
@@ -197,18 +212,18 @@ docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T12
 docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products --collection_number 0
 ```
 
-### 6.2. Create Static Layers (RTC_S1_STATIC)
+### 7.2. Create Static Layers (RTC_S1_STATIC)
 
 ```bash
 docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --product RTC_S1_STATIC --s3_project_folder "TMP" --skip_upload_to_s3 --make_existing_products --collection_number 0
 ```
 
-### 6.3. Create Static Layers (RTC_S1_STATIC) and Link them to a RTC Backscatter Product (RTC_S1)
+### 7.3. Create Static Layers (RTC_S1_STATIC) and Link them to a RTC Backscatter Product (RTC_S1)
 
 **Context** - The incoming scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD is a repeat pass acquisition over the burst `t070_149815_iw3`. We want to link the backscatter product for the given acquisition to the static layers for burst `t070_149815_iw3`. We first begin by creating the static layers for the given burst if they do not exist.
 
 
-#### 6.3.1. Make Static Layers (RTC_S1_STATIC)
+#### 7.3.1. Make Static Layers (RTC_S1_STATIC)
 
 
 ```bash
@@ -224,19 +239,19 @@ docker run --env-file .env -it sar-pipeline\
 
 Note, any scene that covers the given burst could be used. For example, the following scene captured 12 days earlier on the same repeat orbit could be used `S1A_IW_SLC__1SSH_20211220T124745_20211220T124815_041092_04E1C2_0475`
 
-Once the workflow has been completed, you should be able to fine the static layers at:
+Once the workflow has been completed, you should be able to find the static layers at:
 
-`https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=TMP/RTC_S1_STATIC/ga_s1_nrb_iw_static_c1/t070_149815_iw3/`
+https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=TMP/RTC_S1_STATIC/ga_s1_nrb_iw_static_0/t070_149815_iw3/
 
-#### 6.3.2. Make RTC Backscatter (RTC_S1) and Link it to the Static Layers (RTC_S1_STATIC)
+#### 7.3.2. Make RTC Backscatter (RTC_S1) and Link it to the Static Layers (RTC_S1_STATIC)
 
 ```bash
-docker run --env-file .env -it sar-pipeline \
+docker run --env-file .env -it sar-pipeline:v0.5 \
 --scene S1A_IW_SLC__1SSH_20211220T124745_20211220T124815_041092_04E1C2_0475 \
 --burst_id_list t070_149815_iw3 \
 --product RTC_S1 \
 --s3_bucket deant-data-public-dev \
---collection_number 1 \
+--collection_number 0 \
 --s3_project_folder TMP/RTC_S1 \
 --link_static_layers \
 --linked_static_layers_s3_bucket deant-data-public-dev \
@@ -245,76 +260,56 @@ docker run --env-file .env -it sar-pipeline \
 --make_existing_products
 ```
 
-#### 6.3.3. Check Metadata Outputs to Ensure They are Linked
+Once the workflow has been completed, you should be able to find the backscatter data at:
 
-Check the stac metadata file ()[]
+https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=TMP/RTC_S1/ga_s1_nrb_iw_hh_0/t070_149815_iw3/2021/12/20/20211220T124752/
 
-By opening the stac metadata file and checking the assets links, you should see the links for auxiliary products reference the static layers. For example, compare the href in the product metadata below. HH data belongs to the `RTC_S1` folder and number_of_looks belongs to the `RTC_S1_STATIC` folder. We can therefore re-use the Static Layers across multiple RTC_S1 products
+
+#### 7.3.3. Check Backscatter Metadata Outputs to Ensure They are Linked
+
+Check the [stac metadata file](https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/TMP/RTC_S1_STATIC/ga_s1_nrb_iw_static_0/t070_149815_iw3/ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_stac-item.json)
+
+By opening the stac metadata file and checking the assets links, you should see the links for auxiliary products reference the static layers. For example, compare the href in the product metadata below. `hh_gamma0` data belongs to the `RTC_S1` folder and `oa_number_of_looks` belongs to the `RTC_S1_STATIC` folder. We can therefore re-use the Static Layers across multiple RTC_S1 products
 
 ```json
  "assets": {
-        "HH": {
-            "href": "https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/nrb/s1_rtc_c1/t070_149815_iw3/2022/1/1/OPERA_L2_RTC-S1_T070-149815-IW3_20220101T124752Z_20250408T025401Z_S1A_20_v0.1_HH.tif",
-            "type": "image/tiff; application=geotiff; profile=cloud-optimized",
-            "title": "HH",
-            "description": "HH polarised backscatter",
-            "proj:shape": [
-                4539,
-                2387
-            ],
-            "proj:transform": [
-                20.0,
-                0.0,
-                241320.0,
-                0.0,
-                -20.0,
-                -1373780.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "proj:epsg": 3031,
-            "raster:data_type": "float32",
-            "raster:sampling": "Area",
-            "raster:nodata": "nan",
-            "roles": [
-                "data",
-                "backscatter"
-            ]
-        },
-        "number_of_looks": {
-            "href": "https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/static-layers/s1_rtc_static_c1/t070_149815_iw3/OPERA_L2_RTC-S1-STATIC_T070-149815-IW3_20010101_20250408T012421Z_S1A_20_v1.0.2_number_of_looks.tif",
-            "type": "image/tiff; application=geotiff; profile=cloud-optimized",
-            "title": "number_of_looks",
-            "description": "number of looks",
-            "proj:shape": [
-                4539,
-                2387
-            ],
-            "proj:transform": [
-                20.0,
-                0.0,
-                241320.0,
-                0.0,
-                -20.0,
-                -1373780.0,
-                0.0,
-                0.0,
-                1.0
-            ],
-            "proj:epsg": 3031,
-            "raster:data_type": "float32",
-            "raster:sampling": "Area",
-            "raster:nodata": "nan",
-            "roles": [
-                "data",
-                "auxiliary"
-            ]
-        },
- }
+    "hh_gamma0": {
+      "href": "https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/TMP/RTC_S1/ga_s1_nrb_iw_hh_0/t070_149815_iw3/2021/12/20/20211220T124752/ga_s1a_nrb_0-1-0_T070-149815-IW3_20211220T124752Z_HH-gamma0.tif",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "title": "hh_gamma0",
+      "description": "HH polarised gamma0 linear backscatter",
+      "proj:shape": [4539, 2387],
+      "proj:transform": [20, 0, 241320, 0, -20, -1373780, 0, 0, 1],
+      "proj:code": "EPSG:3031",
+      "raster:data_type": "float32",
+      "raster:sampling": "area",
+      "raster:nodata": "nan",
+      "processing:level": "L2",
+      "roles": [
+        "data",
+        "backscatter"
+      ]
+    },
+    "oa_number_of_looks": {
+      "href": "https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/TMP/RTC_S1_STATIC/ga_s1_nrb_iw_static_0/t070_149815_iw3/ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_number-of-looks.tif",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "title": "oa_number_of_looks",
+      "description": "number of looks",
+      "proj:shape": [4539, 2387],
+      "proj:transform": [20, 0, 241320, 0, -20, -1373780, 0, 0, 1],
+      "proj:code": "EPSG:3031",
+      "raster:data_type": "float32",
+      "raster:sampling": "area",
+      "raster:nodata": "nan",
+      "roles": [
+        "data",
+        "auxiliary"
+      ]
+    },
+
 ```
 
-### 6.4 Production Runs
+### 7.4 Production Runs
 
 Production runs are detailed in the official run-book, but follow a similar pattern to the above example linking static layers: 
 
@@ -323,7 +318,7 @@ Production runs are detailed in the official run-book, but follow a similar patt
 
 The result is a complete timeseries where products are linked to their correct static layers. 
 
-## 7. Setting Up a Development Environment
+## 8. Setting Up a Development Environment
 
 Development is best done from within the container where edited files are tracked and can tested without needing to rebuild the project. To do this, the sar-pipeline project and run scripts must be mounted at the appropriate location within the container.
 
@@ -359,14 +354,73 @@ Some examples of running the pipeline with changed being implemented
 /home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
 ```
 
-## 8. Comparing Products and Making Changes
+## 9. Comparing Products and Making Changes
 
-Once production begins, the generated must have consistent metadata, and the data of the products should be consistent. If changes are made, for example updating a metadata field of installing a new package, we need to ensure the changes are not breaking and the produced data is consistent with existing products. To do this, we can use the `compare-isce3-rtc-products` utility in sar-pipeline. This can be run from within the container, or alternatively using conda or the pixi task.
+Once production begins, the generated must have consistent metadata, and the data of the products should be consistent. If changes are made, for example updating a metadata field of installing a new package, we need to ensure the changes are not breaking and the produced data is consistent with existing products. To do this, we can use the `compare-isce3-rtc-products` cli utility in sar-pipeline. This can be run from within the container, or alternatively using conda.
+
+```text
+(sar-pipeline) [rtc_user@3d73a09e51fe working]$ compare-isce3-rtc-products --help
+Usage: compare-isce3-rtc-products [OPTIONS]
+
+Options:
+  --product [RTC_S1|RTC_S1_STATIC]
+                                  The product type being compared  [required]
+  --local-product-folder-1 DIRECTORY
+                                  Path to the local folder containing the
+                                  first burst outputs from RTC/opera to
+                                  compare
+  --local-product-folder-2 DIRECTORY
+                                  Path to the local folder containing the
+                                  second burst outputs from RTC/opera to
+                                  compare
+  --s3-product-folder-1 TEXT      Path to the folder in s3 containing the
+                                  first burst outputs from RTC/opera to
+                                  compare. Ensure AWS_ACCESS_KEY_ID,
+                                  AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION
+                                  environment variables set if required.
+  --s3-product-folder-2 TEXT      Path to the folder in s3 containing the
+                                  second burst outputs from RTC/opera to
+                                  compare.Ensure AWS_ACCESS_KEY_ID,
+                                  AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION
+                                  environment variables set if required.
+  --s3-bucket TEXT                S3 where outputs are being stored. Required
+                                  if s3 folders are set as input
+  --out-folder DIRECTORY          Folder to write the outputs of the
+                                  comparison to
+  --help                          Show this message and exit.
+```
+
+For example, comparing the same product from two different runs (Docker image):
+
+```bash
+docker run --env-file .env -it --entrypoint /bin/bash -v $(pwd):/home/rtc_user/sar-pipeline sar-pipeline:v0.5
+conda activate sar-pipeline
+```
+
+```bash
+
+mkdir /home/rtc_user/sar-pipeline/compare 
+
+compare-isce3-rtc-products --product RTC_S1 \
+--s3-product-folder-1 TMP/sar-pipeline/isce3_rtc/2025-09-26_01-00-25.078178/test_full_docker_build_and_run/ga_s1_nrb_iw_vv_vh_1/t045_095837_iw1/2020/11/29/20201129T192619/ \
+--s3-product-folder-2 TMP/sar-pipeline/isce3_rtc/2025-09-26_01-00-25.078178/test_full_docker_build_and_run/ga_s1_nrb_iw_vv_vh_1/t045_095837_iw1/2020/11/29/20201129T192619/ \
+--s3-bucket deant-data-public-dev \
+--out-folder /home/rtc_user/sar-pipeline/compare 
+```
+
+Several outputs describing the differences in the files are then output to the local `compare` folder:
+
+```bash
+ls compare/
+>>> file_differences.json  folder_1  folder_2  json_differences.json  tif_differences.json  xml_differences.xml
+```
+
+
 
 <TODO>
 
 
-## 9. Mounting Filesystem at Runtime
+## 10. Mounting Filesystem at Runtime
 
 We may also want to run the docker container directly but mount useful directories to keep track of outputs.
 
