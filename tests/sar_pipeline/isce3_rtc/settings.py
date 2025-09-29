@@ -25,5 +25,6 @@ TEST_2_S3_RTC_S1_PRODUCT_SUBPATH = (
 TEST_2_S3_RTC_S1_STATIC_PRODUCT_SUBPATH = f"ga_s1_nrb_iw_static_1/{TEST_2_BURST}"
 
 # Set this to True to update the above products in the AWS S3 folder
+# Existing products will need to be deleted, otherwise the process will exit early
 # See docs in test_full_docker_build_and_run.py for more information
 UPDATE_PERSISTENT_TEST_DATA = False

@@ -21,9 +21,8 @@ Creating / updating new test data:
    in the PERSISTENT_S3_PROJECT_FOLDER. If planned product changes have been made, these
    comparison products should be updated for future tests. These can be replaced by new products
    by setting the UPDATE_PERSISTENT_TEST_DATA to True in the settings.py file and re-running the tests.
-   This will set TEST_S3_PROJECT_FOLDER = PERSISTENT_S3_PROJECT_FOLDER below. This will upload the
-   products created in the tests to the PERSISTENT_S3_PROJECT_FOLDER, and replace what is there.
-
+   NOTE - existing products should be manually deleted from the PERSISTENT_S3_PROJECT_FOLDER, otherwise
+   The run may exit early as the products already exist.
 """
 
 import subprocess
@@ -75,6 +74,9 @@ from settings import (
 )
 
 if UPDATE_PERSISTENT_TEST_DATA:
+    logger.warning(
+        f"Updating persistent data. Ensure existing products are deleted otherwise the run may exit early"
+    )
     TEST_S3_PROJECT_FOLDER = PERSISTENT_S3_PROJECT_FOLDER
 
 REQUIRED_ENV_VARIABLES = [
