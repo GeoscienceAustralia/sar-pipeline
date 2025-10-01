@@ -7,7 +7,10 @@
     - [3.1. Overview](#31-overview)
     - [3.2. Environment Variables](#32-environment-variables)
     - [3.3. Pipeline Arguments](#33-pipeline-arguments)
+    - [3.4. Example Product Outputs](#34-example-product-outputs)
   - [4. Project Setup](#4-project-setup)
+    - [4.1. Docker Image](#41-docker-image)
+    - [4.2. Build the Docker Image](#42-build-the-docker-image)
   - [5. Running Tests](#5-running-tests)
   - [6. Release Guide](#6-release-guide)
   - [7. Examples](#7-examples)
@@ -36,9 +39,21 @@ Using the isce3_rtc pipeline, two main products can be created. These are:
 - **RTC_S1** -> Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter [(Specification doc)](https://d2pn8kiwq2w21t.cloudfront.net/documents/ProductSpec_RTC-S1-STATIC.pdf)
 - **RTC_S1_STATIC** -> Sentinel-1 (RTC) Static Layers [(Specification doc)](https://d2pn8kiwq2w21t.cloudfront.net/documents/ProductSpec_RTC-S1.pdf)
 
-These products are created at the burst-level to enable the use of static layers that reduce the overall storage footprint of the product. Bursts are repeatable units that a sentinel-1 satellite captures every 12 days. A typical sentinel-1 scene consists of ~20-30 bursts. **RTC_S1** products are unique to each acquisition. **RTC_S1_STATIC** products are ancillary layers that can be shared across the same burst id.
+These products are created at the burst-level to enable the use of static layers that reduce the overall storage footprint of the product. Bursts are repeatable units that a sentinel-1 satellite captures every 12 days. A typical sentinel-1 scene consists of ~20-30 bursts. **RTC_S1** is the analysis ready data (ARD) product are unique to each acquisition; for example a gamma0 backscatter geotiff. **RTC_S1_STATIC** products are ancillary layers that can be shared across the same burst id. For example, the local incidence angle. The blank config file used for each run can be found [here](../../sar_pipeline/configs/isce3_rtc/).
 
 ## 2. Example Products
+
+The following is an example of **RTC_S1** outputs for a given acquisition. This product corresponds with the t007_014545_iw2 static layers below. The analysis ready data product is the `HH-gamma0.tif` - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/CEOS-ARD/data/example_2/ga_s1_nrb_iw_hh_0/t007_014545_iw2/2025/01/29/20250129T050922/
+
+```text
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_HH-gamma0.tif
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_mask.tif
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_metadata.h5
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_metadata.xml
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_proc-config.yaml
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_stac-item.json
+ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_thumbnail.png
+```
 
 The following is en example of **RTC_S1_STATIC** outputs for the t007_014545_iw2 burst id - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/CEOS-ARD/data/example_2/ga_s1_nrb_iw_static_0/t007_014545_iw2/
 
@@ -54,23 +69,13 @@ ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_stac-item.json
 ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_thumbnail.png
 ```
 
-The following is an example of **RTC_S1** outputs for a given acquisition that corresponds to the above t007_014545_iw2 static layers - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/CEOS-ARD/data/example_2/ga_s1_nrb_iw_hh_0/t007_014545_iw2/2025/01/29/20250129T050922/
-
-```text
-ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_HH-gamma0.tif
-ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_mask.tif
-ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_metadata.h5
-ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_metadata.xml
-ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_proc-config.yaml
-ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_stac-item.json
-ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_thumbnail.png
-```
-
 ## 3. Running the Pipeline
 
 ### 3.1. Overview
 
-The following diagram displays the overall architecture of the pipeline. Docker is highly recommended to ensure the required environments are correctly configured. The full pipeline run is controlled by the workflow script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) that accepts command-line arguments and passes them to the appropriate process. The main functions used to download, process and upload can be found in the [isce3_rtc cli.py script](../../sar_pipeline/pipelines/isce3_rtc/cli.py). 
+The following diagram displays the overall architecture of the pipeline. Docker is highly recommended to ensure the required environments are correctly configured. The full pipeline run is controlled by the workflow script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) that accepts command-line arguments, and passes them to the appropriate process. The main functions used to download, process and upload can be found in the [isce3_rtc cli.py script](../../sar_pipeline/pipelines/isce3_rtc/cli.py). 
+
+![isce3_rtc Pipeline Overview](../images/isce3_rtc_architecture_overview.png)
 
 
 ### 3.2. Environment Variables
@@ -142,6 +147,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 - `linked_static_layers_s3_project_folder` -> folder within bucket where RTC_S1_STATIC stored
 - `linked_static_layers_collection_number` -> The collection number of the linked RTC_S1_STATIC product.
 
+### 3.4. Example Product Outputs
 
 Final product output paths have the following structure
 
@@ -149,15 +155,29 @@ Final product output paths have the following structure
 - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/*files
 - odc_product_name is determined by the polarisation and collection_number for RTC_S1 products.
 - It will be one of ga_s1_nrb_iw_vv_vh_X, ga_s1_nrb_iw_vv_X, ga_s1_nrb_iw_hh_hv_X, ga_s1_nrb_iw_hh_X, where X is the collection_number
-- example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_hh_c1/t070_149815_iw3/2022/1/1/
+- example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/results/ga_s1_nrb_iw_hh_1/t070_149815_iw3/2022/01/01/20220101T124752/
 
 **RTC_S1_STATIC**
 - e.g. s3_bucket/s3_project_folder/odc_product_name/burst_id/*files
 - odc_product_name = ga_s1_nrb_iw_static_X, where X is the collection_number
-- example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/examples/gamma0/ga_s1_nrb_iw_static_c1/t070_149815_iw3/
+- example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/results/ga_s1_nrb_iw_static_1/t045_095837_iw1/
 
 
 ## 4. Project Setup
+
+### 4.1. Docker Image
+
+The workflow is best run using the docker image as multiple conda environments are required. The docker file can be found at [Docker/isce3_rtc/Dockerfile](../../Docker/isce3_rtc/Dockerfile). As can be seen in the Dockerfile, the image utilises 3 conda environment:
+
+- [sar-pipeline](../../environment.yaml) - The main environment for downloading data and creating metadata
+- [pygssearch-env](../../Conda/pygssearch/) - An isolated environment for downloading data from the Copernicus Australasia DataHub
+- [RTC](https://github.com/GeoscienceAustralia/RTC/blob/main/Docker/lockfile.lock) - The Geoscience Australia opera-adt/RTC fork that handles the radiometric terrain correction of data.
+
+The Dockerfile also downloads a burst-db file for reference in the workflow. Creating this file is described in the [burst-db docs](.burst-db.md).
+
+The entrypoint of the Docker image is the workflow script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh). This is the script that orchestrates the activation of the correct environments and ensuring arguments are passed correctly to each stage of the process. 
+
+### 4.2. Build the Docker Image
 
 ```bash
 docker build -t sar-pipeline -f Docker/isce3_rtc/Dockerfile .
@@ -192,6 +212,39 @@ pixi run test-isce3-rtc-downloads
 ```
 
 ## 6. Release Guide
+
+1. Create a new branch and make the required changes.
+
+2. Run the pipeline-tests on the current branch.
+
+```bash
+pixi run test-isce3-rtc
+```
+
+3. Ensure all tests pass and inspect the comparison outputs from the `pixi run test-isce3-rtc-full-docker-run` test. These should be saved into a folder named `compare` at the root of the project. The files describe the changes to the product and metadata.
+
+4. Raise a PR and merge the branch into main after review.
+
+5. Create a new Git Release on the main branch and tag the version appropriately.
+
+6. The release should trigger the workflow [push-image-to-ecr](../../.github/workflows/push-image-to-ecr.yaml) that will build and push the updated image to the AWS ECR repository.
+
+7. If the automated build and push fails, manually tag and upload the docker image to the ECR repository:
+
+```bash
+# Ensure AWS Environment Credentials with access to the ECR repository are set
+
+# tag the local image with the appropriate ECR account tag
+docker tag sar-pipeline:vX-X-X 451924316694.dkr.ecr.ap-southeast-2.amazonaws.com/dea-dev-s1-nrb-pipeline:vX-X-X
+
+aws ecr get-login-password \
+    --region ap-southeast-2 | docker login \
+    --username AWS \
+    --password-stdin 451924316694.dkr.ecr.ap-southeast-2.amazonaws.com
+
+docker push 451924316694.dkr.ecr.ap-southeast-2.amazonaws.com/dea-dev-s1-nrb-pipeline:vX.X.X
+```
+
 
 ## 7. Examples
 
