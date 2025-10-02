@@ -507,7 +507,7 @@ def get_data_for_scene_and_make_run_config(
     elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
         dem_res = dem_type.split("_")[-1]
         demSource = (
-            f"https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/latest/{dem_res}m"
+            f"https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/{dem_res}m"
         )
         demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM at {dem_res}m - {demSource}"
         RTC_RUN_CONFIG.set(
