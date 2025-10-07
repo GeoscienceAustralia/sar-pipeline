@@ -7,6 +7,7 @@ import zipfile
 import subprocess
 import shapely
 import ast
+import tempfile
 from cdsetool.query import query_features, FeatureQuery
 from cdsetool.credentials import Credentials
 from cdsetool.download import download_features
@@ -37,6 +38,31 @@ class NonSingleSceneResultError(Exception):
     """Exception raised 0, or more than one SLC result is found."""
 
     pass
+
+
+def create_asf_netrc_file():
+
+    # create a .netrc file if the ASF is a desired data source
+    # avoid the error with ASF authentication through .auth_with_creds(asf_login, asf_pass)
+    logger.info(f"Creating temporary .netrc file with ASF/Earthdata credentials")
+    asf_login = os.getenv("EARTHDATA_LOGIN")
+    asf_pass = os.getenv("EARTHDATA_PASSWORD")
+    with tempfile.NamedTemporaryFile("w", delete=False) as f:
+        f.write(
+            f"""machine urs.earthdata.nasa.gov
+        login {asf_login}
+        password {asf_pass}
+        """
+        )
+        netrc_path = f.name
+
+    logger.info(f"Temporary .netrc created at {netrc_path}")
+
+    # Set file permissions to 600 (required)
+    os.chmod(netrc_path, 0o600)
+
+    # Optional: tell requests/netrc-aware tools to use this file
+    os.environ["NETRC"] = netrc_path
 
 
 def query_scene_from_asf(scene: str) -> ASFSearchResults:
@@ -149,6 +175,8 @@ def download_scene_from_asf(
                 "or set the EARTHDATA_LOGIN and EARTHDATA_PASSWORD environment variables"
             )
             MissingCredentialsError(err_string)
+        if not os.getenv("NETRC"):
+            create_asf_netrc_file()
 
     session = asf_search.ASFSession()
     session.auth_with_creds(asf_login, asf_pass)

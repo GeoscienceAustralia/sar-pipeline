@@ -9,6 +9,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from sar_pipeline.utils.general import log_timing
+from sar_pipeline.aws.preparation.scenes import create_asf_netrc_file
 
 VALID_ORBIT_DATA_SOURCES = ["ASF", "CDSE"]
 
@@ -113,6 +114,8 @@ def download_orbits(
                     "ASF credentials are not set. Provide them as arguments or set EARTHDATA_LOGIN and EARTHDATA_PASSWORD as environment variables."
                 )
             cdse_user, cdse_password = None, None
+            if not os.getenv("NETRC"):
+                create_asf_netrc_file()
 
         else:
             raise ValueError(f"Source must be either 'CDSE' or 'ASF', got '{source}'.")
