@@ -127,7 +127,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 
 ```
 - `scene` -> A valid sentinel-1 IW scene (e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD)
-- `burst_id_list` -> A list of burst id's corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated.txt file.
+- `burst_id_list` -> A list of burst ids corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated.txt file.
 - `resolution` -> The target resolution of the products. Default is 20m.
 - `output_crs` -> The target crs of the products. If not specified, the UTM of the scene center will be used or polar stereographic coordinates will be used for high latitudes above 60 degrees. Expects integer values (e.g. `3031`)
 - `dem_type` -> The preference of digital elevation model (DEM) to download and use for processing. Can be passed as a string or list of preferences separated by a space. If DEM data does not exist in the area of the first preference, the next will be used. E.g. `--dem-type REMA_32 cop_glo30` will first look for the Antarctic specific REMA DEM @32m before settling on the cop_glo30. Values must be one of: `cop_glo30`, `REMA_32`, `REMA_10`, `REMA_2`.
