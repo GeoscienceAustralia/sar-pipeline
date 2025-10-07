@@ -178,8 +178,15 @@ def download_scene_from_asf(
         if not os.getenv("NETRC"):
             create_asf_netrc_file()
 
-    session = asf_search.ASFSession()
-    session.auth_with_creds(asf_login, asf_pass)
+    try:
+        logger.info("Attempting to authenticate with ASF session")
+        session = asf_search.ASFSession()
+        session.auth_with_creds(asf_login, asf_pass)
+    except:
+        logger.error(
+            "ASF session authentication failed. Attempting fo fall back to .netrc file.",
+            exc_info=True,
+        )
 
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
@@ -627,5 +634,5 @@ def download_scene_from_preference_list(
                     f"Scene could not be downloaded from any data source provided : {scene_data_source_preferences}"
                 ) from e
 
-    logger.info(f"Scene successfully downloaded from: {data_source}")
+    logger.info(f"Scene {scene} successfully downloaded from: {data_source}")
     return SCENE_PATH, scene_polygon, scene_url
