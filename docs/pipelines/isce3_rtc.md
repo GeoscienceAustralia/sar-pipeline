@@ -136,7 +136,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 - `product` -> The product being created with the workflow. Must be `RTC_S1` or `RTC_S1_STATIC`.
 - `backscatter_convention` -> the output backscatter convention from the workflow. Allowed values are [`beta0`,`sigma0`,`gamma0`] Note sigma0 data is referenced to the DEM. To create sigma0 ellipsoid referenced data, the beta0 layer and static incidence_angle layer is required; sigma0_ellipsoid = beta0*sin(incidence_angle).
 - `s3_bucket` -> the AWS S3 bucket to upload the products
-- `s3_project_folder` -> The AWS S3 project folder to upload to.
+- `s3_project_folder` -> The AWS S3 project folder within the bucket to upload to. This is often referred to as a prefix by AWS.
 - `collection_number` -> The collection number of the product as an integer.
 - `make_existing_products` -> Whether to generate products even if they already exist in AWS S3 under the specified product folder path `s3_bucket/s3_project_folder/collection/...`. 
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
