@@ -169,7 +169,7 @@ Final product output paths have the following structure
 
 ### 4.1. Docker Image
 
-The workflow is best run using the docker image as multiple conda environments are required. The docker file can be found at [Docker/isce3_rtc/Dockerfile](../../Docker/isce3_rtc/Dockerfile). As can be seen in the Dockerfile, the image utilises 3 conda environment:
+The workflow is best run using the docker image as multiple conda environments are required. The docker file can be found at [Docker/isce3_rtc/Dockerfile](../../Docker/isce3_rtc/Dockerfile). As can be seen in the Dockerfile, the image utilises 3 conda environments:
 
 - [sar-pipeline](../../environment.yaml) - The main environment for downloading data and creating metadata
 - [pygssearch-env](../../Conda/pygssearch/) - An isolated environment for downloading data from the Copernicus Australasia DataHub
