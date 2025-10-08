@@ -182,11 +182,13 @@ def download_scene_from_asf(
         logger.info("Attempting to authenticate with ASF session")
         session = asf_search.ASFSession()
         session.auth_with_creds(asf_login, asf_pass)
+        use_session = True
     except:
         logger.error(
             "ASF session authentication failed. Attempting fo fall back to .netrc file.",
             exc_info=True,
         )
+        use_session = False
 
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
@@ -201,7 +203,10 @@ def download_scene_from_asf(
         logger.info(f"Skipping download, zipped scene exists at : {scene_zip_path}")
     else:
         try:
-            asf_scene_metadata.download(path=download_folder, session=session)
+            if use_session:
+                asf_scene_metadata.download(path=download_folder, session=session)
+            else:
+                asf_scene_metadata.download(path=download_folder)
         except:
             logger.error(
                 "An error occurred while running the download command",
