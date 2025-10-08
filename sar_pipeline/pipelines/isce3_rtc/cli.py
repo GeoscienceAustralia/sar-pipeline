@@ -1037,8 +1037,12 @@ def compare_products(
     # compare the json files
     json_files_1 = list(local_product_folder_1.glob("*.json"))
     json_files_2 = list(local_product_folder_2.glob("*.json"))
-    if len(json_files_1) > 1 or len(json_files_2) > 1:
-        logging.warning("multiple jsons found, comparing first")
+    if len(json_files_1) > 1:
+        logging.error("Multiple jsons found for product 1, expecting 1 per product")
+        raise ValueError
+    if len(json_files_2) > 1:
+        logging.error("Multiple jsons found for product 2, expecting 1 per product")
+        raise ValueError
 
     json_differences = compare_json(str(json_files_1[0]), str(json_files_2[0]))
     json_difference_path = out_folder / "json_differences.json"
@@ -1056,13 +1060,16 @@ def compare_products(
         # compare the xml files - xml only exits for rtc_s1
         xml_files_1 = list(local_product_folder_1.glob("*.xml"))
         xml_files_2 = list(local_product_folder_2.glob("*.xml"))
-        if len(xml_files_1) > 1 or len(xml_files_1) > 1:
-            logging.warning("multiple xmls found, comparing first")
+        if len(xml_files_1) > 1:
+            logging.error("Multiple xmls found in product 1, expecting 1")
+            raise ValueError
+        if len(xml_files_2) > 1:
+            logging.error("Multiple xmls found in product 2, expecting 1")
+            raise ValueError
 
         xml_differences = compare_xml(str(xml_files_1[0]), str(xml_files_2[0]))
         xml_difference_path = out_folder / "xml_differences.xml"
         if len(xml_differences) > 0:
-
             logging.warning(
                 f"Differences in xml metadata found. Saving summary to : {xml_difference_path}"
             )
@@ -1073,6 +1080,8 @@ def compare_products(
         write_diffs_to_xml(xml_differences, xml_difference_path)
 
     # compare the like tifs. e.g. compare mask to mask, HH-gamma0 to HH-gamma0
+    # e.g. tif_1 = ga_s1a_nrb_0-1-0_T070-149815-IW3_20211220T124752Z_HH-gamma0.tif # new product created now
+    # e.g. tif_2 = ga_s1a_nrb_0-1-0_T070-149815-IW3_20211220T124752Z_HH-gamma0.tif # existing to compare
     logger.info("Comparing the tifs between products")
     tif_files_1 = set(local_product_folder_1.glob("*.tif"))
     tif_files_2 = set(local_product_folder_2.glob("*.tif"))
@@ -1095,9 +1104,14 @@ def compare_products(
                     f'Could not find tif of same filetype "{filetype}" to compare with {tif_1}'
                 )
                 continue
+            elif len(tif_2) > 1:
+                logger.error(
+                    f'Multiple tif files found for file type "{filetype}", expecting 1. Skipping comparison'
+                )
+                continue
             else:
                 logger.info(f"Comparing tif statistics of filetype : {filetype}")
-                tifs_are_same, stats = compare_cog_stats(tif_1, tif_2)
+                tifs_are_same, stats = compare_cog_stats(tif_1, tif_2[0])
                 tif_comparison_stats[filetype] = stats
 
         if not tifs_are_same:

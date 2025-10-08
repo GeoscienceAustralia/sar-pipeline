@@ -35,6 +35,8 @@ import sys
 from datetime import datetime
 import sar_pipeline
 from sar_pipeline.pipelines.isce3_rtc.cli import compare_products
+from sar_pipeline.analysis.compare_cog import check_tifs_have_changed
+from sar_pipeline.analysis.compare_folder import check_files_have_changed
 from click.testing import CliRunner
 import re
 import json
@@ -75,7 +77,7 @@ from settings import (
 
 if UPDATE_PERSISTENT_TEST_DATA:
     logger.warning(
-        f"Updating persistent data. Ensure existing products are deleted otherwise the run may exit early"
+        f"Updating persistent data used for comparisons. Ensure existing products are deleted otherwise the run may exit early"
     )
     TEST_S3_PROJECT_FOLDER = PERSISTENT_S3_PROJECT_FOLDER
 
@@ -134,41 +136,9 @@ if missing:
         )
 
 
-def _files_have_changed(file_difference_json_path) -> bool:
-    """checks the outputs of the file difference json to see if
-    the files have changed"""
-    with open(file_difference_json_path, "r") as f:
-        data = json.load(f)
-
-    # Loop through each entry and check
-    for entry in data:
-        missing_1 = entry["in_folder_1_missing_in_folder_2"]
-        missing_2 = entry["in_folder_2_missing_in_folder_1"]
-        if missing_1 or missing_2:
-            # we have file differences
-            return True
-    return False
-
-
-def _tifs_have_changed(tif_difference_json_path) -> bool:
-    """checks the outputs of the tif difference json to see if
-    the tif values have changed"""
-    with open(tif_difference_json_path, "r") as f:
-        data = json.load(f)
-
-    # Loop through the assets that are being compared to see if
-    # Any of the tif statistics have changed
-    for asset in data.keys():
-        stats_are_equal = data[asset]["stats_are_equal"]
-        # get the list of equalities (i.e. True or False)
-        stats_are_equal = [stats_are_equal[k] for k in stats_are_equal.keys()]
-        if any(x is False for x in stats_are_equal):
-            return True
-    return False
-
-
 @pytest.fixture(scope="module", autouse=True)
 def build_image():
+    """build and tag the docker image for the current codebase to be used in tests"""
     logging.info(
         f"Building docker image sar-pipeline:{DOCKER_TAG} for testing, this may take a few minutes..."
     )
@@ -192,6 +162,10 @@ def build_image():
 
 
 def test_docker_single_pol_with_args():
+    """Run the docker image and create a burst product for a single pol SLC. First,
+    static layers (RTC_S1_STATIC) are created. Then, NRB (RTC_S1) products are created
+    that get linked to the previous static layers.
+    """
     logging.info(f"Running full process for single pol (HH), this may take a while...")
     logging.info(f"Static layers will be produced and linked to backscatter data.")
     if not Path(LOCAL_TEST_OUTPUTS_DIR).exists():
@@ -291,10 +265,10 @@ TEST_1_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR = (
 
 def test_compare_single_pol_rtc_s1_static_product_outputs():
     """
-    This function will compare the outputs created in the test_docker_single_pol_with_args
+    This function will compare the static layer outputs (RTC_S1_STATIC) created in the test_docker_single_pol_with_args
     function with existing outputs in AWS. The output of this are data that describe
-    the differences in product files, metadata (.json and xml) and in the tifs themselves.
-    These outputs can be used to understand if the changes made are acceptable.
+    the differences in product files, metadata (.json and xml) and in the GeoTiffs themselves.
+    These outputs can be used to understand if the changes made are planned and acceptable.
     """
     logging.info(
         f"COMPARE 1: Comparing created Static Layers with Existing Accepted Product"
@@ -329,11 +303,11 @@ def test_compare_single_pol_rtc_s1_static_product_outputs():
     tif_differences = (
         f"{TEST_1_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR}/tif_differences.json"
     )
-    assert not _files_have_changed(
+    assert not check_files_have_changed(
         file_differences
     ), f"Error, there are breaking changes in the test files compared to the comparison product. \
     Check {file_differences} and update comparison products if needed."
-    assert not _tifs_have_changed(
+    assert not check_tifs_have_changed(
         tif_differences
     ), f"Error, the created tif values have changed compared to the comparison product. \
     Check {tif_differences} and update comparison products if needed."
@@ -353,10 +327,10 @@ TEST_1_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR = (
 
 def test_compare_single_pol_rtc_s1_product_outputs():
     """
-    This function will compare the outputs created in the test_docker_single_pol_with_args
+    This function will compare the RTC_S1 outputs created in the test_docker_single_pol_with_args
     function with existing outputs in AWS. The output of this are data that describe
-    the differences in product files, metadata (.json and xml) and in the tifs themselves.
-    These outputs can be used to understand if the changes made are acceptable.
+    the differences in product files, metadata (.json and xml) and in the GeoTiffs themselves.
+    These outputs can be used to understand if the changes made are planned and acceptable.
     """
 
     logging.info(
@@ -391,17 +365,21 @@ def test_compare_single_pol_rtc_s1_product_outputs():
     tif_differences = (
         f"{TEST_1_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR}/tif_differences.json"
     )
-    assert not _files_have_changed(
+    assert not check_files_have_changed(
         file_differences
     ), f"Error, there are breaking changes in the test files compared to the comparison product. \
     Check {file_differences} and update comparison products if needed."
-    assert not _tifs_have_changed(
+    assert not check_tifs_have_changed(
         tif_differences
     ), f"Error, the created tif values have changed compared to the comparison product. \
     Check {tif_differences} and update comparison products if needed."
 
 
 def test_docker_dual_pol_with_args():
+    """Run the docker image and create a burst product for a dual pol SLC. First,
+    static layers (RTC_S1_STATIC) are created. Then, NRB (RTC_S1) products are created
+    that get linked to the previous static layers.
+    """
     logging.info(f"Running full process for dual pol (VV+VH), this may take a while...")
     logging.info(f"Static layers will be produced and linked to backscatter data.")
     if not Path(LOCAL_TEST_OUTPUTS_DIR).exists():
@@ -501,10 +479,10 @@ TEST_2_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR = (
 
 def test_compare_dual_pol_rtc_s1_static_product_outputs():
     """
-    This function will compare the outputs created in the test_docker_single_pol_with_args
+    This function will compare the RTC_S1_STATIC outputs created in the test_docker_dual_pol_with_args
     function with existing outputs in AWS. The output of this are data that describe
-    the differences in product files, metadata (.json and xml) and in the tifs themselves.
-    These outputs can be used to understand if the changes made are acceptable.
+    the differences in product files, metadata (.json and xml) and in the GeoTiffs themselves.
+    These outputs can be used to understand if the changes made are planned and acceptable.
     """
 
     logging.info(
@@ -539,11 +517,11 @@ def test_compare_dual_pol_rtc_s1_static_product_outputs():
     tif_differences = (
         f"{TEST_2_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR}/tif_differences.json"
     )
-    assert not _files_have_changed(
+    assert not check_files_have_changed(
         file_differences
     ), f"Error, there are breaking changes in the test files compared to the comparison product. \
     Check {file_differences} and update comparison products if needed."
-    assert not _tifs_have_changed(
+    assert not check_tifs_have_changed(
         tif_differences
     ), f"Error, the created tif values have changed compared to the comparison product. \
     Check {tif_differences} and update comparison products if needed."
@@ -563,10 +541,10 @@ TEST_2_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR = (
 
 def test_compare_dual_pol_rtc_s1_product_outputs():
     """
-    This function will compare the outputs created in the test_docker_single_pol_with_args
+    This function will compare the RTC_S1 outputs created in the test_docker_dual_pol_with_args
     function with existing outputs in AWS. The output of this are data that describe
-    the differences in product files, metadata (.json and xml) and in the tifs themselves.
-    These outputs can be used to understand if the changes made are acceptable.
+    the differences in product files, metadata (.json and xml) and in the GeoTiffs themselves.
+    These outputs can be used to understand if the changes made are planned and acceptable.
     """
 
     logging.info(
@@ -601,11 +579,11 @@ def test_compare_dual_pol_rtc_s1_product_outputs():
     tif_differences = (
         f"{TEST_2_RTC_S1_LOCAL_COMPARISON_OUTPUTS_DIR}/tif_differences.json"
     )
-    assert not _files_have_changed(
+    assert not check_files_have_changed(
         file_differences
     ), f"Error, there are breaking changes in the test files compared to the comparison product. \
     Check {file_differences} and update comparison products if needed."
-    assert not _tifs_have_changed(
+    assert not check_tifs_have_changed(
         tif_differences
     ), f"Error, the created tif values have changed compared to the comparison product. \
     Check {tif_differences} and update comparison products if needed."

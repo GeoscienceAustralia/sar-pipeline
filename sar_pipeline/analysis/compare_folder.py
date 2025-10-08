@@ -112,3 +112,19 @@ def compare_product_folder_files(folder_1: str | Path, folder_2: str | Path) -> 
         diffs["in_folder_1_missing_in_folder_2"] = list(folder_1_names - folder_2_names)
         diffs["in_folder_2_missing_in_folder_1"] = list(folder_2_names - folder_1_names)
         return is_different, diffs
+
+
+def check_files_have_changed(file_difference_json_path) -> bool:
+    """checks the outputs of the file difference json to see if
+    the files have changed"""
+    with open(file_difference_json_path, "r") as f:
+        data = json.load(f)
+
+    # Loop through each entry and check
+    for entry in data:
+        missing_1 = entry["in_folder_1_missing_in_folder_2"]
+        missing_2 = entry["in_folder_2_missing_in_folder_1"]
+        if missing_1 or missing_2:
+            # we have file differences
+            return True
+    return False

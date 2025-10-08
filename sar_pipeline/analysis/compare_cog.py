@@ -126,3 +126,20 @@ def compare_cog_stats(tif_1, tif_2):
     }
 
     return tifs_are_same, comparison_stats
+
+
+def check_tifs_have_changed(tif_difference_json_path) -> bool:
+    """checks the outputs of the tif difference json to see if
+    the tif values have changed"""
+    with open(tif_difference_json_path, "r") as f:
+        data = json.load(f)
+
+    # Loop through the assets that are being compared to see if
+    # Any of the tif statistics have changed
+    for asset in data.keys():
+        stats_are_equal = data[asset]["stats_are_equal"]
+        # get the list of equalities (i.e. True or False)
+        stats_are_equal = [stats_are_equal[k] for k in stats_are_equal.keys()]
+        if any(x is False for x in stats_are_equal):
+            return True
+    return False
