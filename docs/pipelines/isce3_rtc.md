@@ -28,22 +28,24 @@
 
 ## 1. About 
 
-The isce3_rtc pipeline can be used to create Sentinel-1 Normalised Radar Backscatter (NRB) for data captured in the IW mode. The dependant codebases managed by GA used in the pipeline are:
+The isce3_rtc pipeline can be used to create Sentinel-1 Normalised Radar Backscatter (NRB) for data captured in the IW mode. These products are often referred to Radiometric Terrain Corrected (RTC) data. **NRB** and **RTC** are treated as interchangeable terms.
 
-- [RTC](https://github.com/GeoscienceAustralia/RTC)
+The dependant codebases managed by GA used in the pipeline are:
+
+- [RTC](https://github.com/GeoscienceAustralia/RTC) (this is a fork of the NASA JPL [opera-adt/RTC](https://github.com/opera-adt/RTC))
 - [dem-handler](https://github.com/GeoscienceAustralia/dem-handler)
 - [sar-pipeline](https://github.com/GeoscienceAustralia/sar-pipeline/tree/main/sar_pipeline)
 
 Using the isce3_rtc pipeline, two main products can be created. These are:
 
-- **RTC_S1** -> Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter [(Specification doc)](https://d2pn8kiwq2w21t.cloudfront.net/documents/ProductSpec_RTC-S1-STATIC.pdf)
+- **RTC_S1** -> Sentinel-1 Radiometrically Terrain Corrected (RTC) / Normalised Radar Backscatter (NRB) [(Specification doc)](https://d2pn8kiwq2w21t.cloudfront.net/documents/ProductSpec_RTC-S1-STATIC.pdf)
 - **RTC_S1_STATIC** -> Sentinel-1 (RTC) Static Layers [(Specification doc)](https://d2pn8kiwq2w21t.cloudfront.net/documents/ProductSpec_RTC-S1.pdf)
 
-These products are created at the burst-level to enable the use of static layers that reduce the overall storage footprint of the product. Bursts are repeatable units that a Sentinel-1 satellite captures every 12 days. A typical Sentinel-1 scene consists of ~20-30 bursts. **RTC_S1** is the analysis ready data (ARD) product are unique to each acquisition; for example a gamma0 backscatter geotiff. **RTC_S1_STATIC** products are ancillary layers that can be shared across the same burst id. For example, the local incidence angle. The blank config file used for each run can be found [here](../../sar_pipeline/configs/isce3_rtc/).
+These products are created at the burst-level to enable the use of static layers that reduce the overall storage footprint of the product. Bursts are repeatable units that a Sentinel-1 satellite captures every 12 days. A typical Sentinel-1 scene consists of ~20-30 bursts. **RTC_S1** is the analysis ready data (ARD) NRB product are unique to each acquisition; for example a gamma0 backscatter geotiff. **RTC_S1_STATIC** products are ancillary layers that can be shared across the same burst id. For example, the local incidence angle. The blank config file used for each run can be found [here](../../sar_pipeline/configs/isce3_rtc/).
 
 ## 2. Example Products
 
-The following is an example of **RTC_S1** outputs for a given acquisition. This product corresponds with the t007_014545_iw2 static layers below. The analysis ready data product is the `HH-gamma0.tif` - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/CEOS-ARD/data/example_2/ga_s1_nrb_iw_hh_0/t007_014545_iw2/2025/01/29/20250129T050922/
+The following is an example of **RTC_S1** outputs for a given acquisition. The analysis ready NRB data product is the `HH-gamma0.tif`. Note, This product corresponds with the t007_014545_iw2 static layers below. - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/CEOS-ARD/data/example_2/ga_s1_nrb_iw_hh_0/t007_014545_iw2/2025/01/29/20250129T050922/
 
 ```text
 ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_HH-gamma0.tif
@@ -73,14 +75,14 @@ ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_thumbnail.png
 
 ### 3.1. Overview
 
-The following diagram displays the overall architecture of the pipeline. Docker is highly recommended to ensure the required environments are correctly configured. The full pipeline run is controlled by the workflow script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) that accepts command-line arguments, and passes them to the appropriate process. The main functions used to download, process and upload can be found in the [isce3_rtc cli.py script](../../sar_pipeline/pipelines/isce3_rtc/cli.py). 
+The following diagram displays the overall architecture of the pipeline. Docker is highly recommended to ensure the required environments are correctly configured. The full pipeline run is controlled by the workflow script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) that accepts command-line arguments, and passes them to the appropriate process. The main functions used to download, process and upload can be found in the isce3_rtc [cli.py](../../sar_pipeline/pipelines/isce3_rtc/cli.py) script. 
 
 ![isce3_rtc Pipeline Overview](../images/isce3_rtc_architecture_overview.png)
 
 
 ### 3.2. Environment Variables
 
-At runtime, the pipeline expects the following environment variables to be set. These can be passed in using an environment file (`.env`). NASA earthdata credentials can be created here - https://urs.earthdata.nasa.gov/. Credentials for the Copernicus Data Space Ecosystem (CDSE) can be created here - https://dataspace.copernicus.eu/. Credentials for the Copernicus Australasian Datahub (AUS_COP_HUB) were provided internally.
+At runtime, the pipeline expects the following environment variables to be set. These can be passed in using an environment file (`.env`). NASA earthdata credentials can be created here - https://urs.earthdata.nasa.gov/. Credentials for the Copernicus Data Space Ecosystem (CDSE) can be created here - https://dataspace.copernicus.eu/. Credentials for the Copernicus Australasian Datahub (AUS_COP_HUB) were provided internally. The AUS_COP_HUB can be contacted at CopernicusAustralasia@ga.gov.au or via the [website](https://www.copernicus.gov.au/).
 
 [.env.example](../../.env.example)
 
