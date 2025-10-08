@@ -8,6 +8,7 @@
     - [3.2. Environment Variables](#32-environment-variables)
     - [3.3. Pipeline Arguments](#33-pipeline-arguments)
     - [3.4. Example Product Outputs](#34-example-product-outputs)
+    - [3.5 Error and Success Codes](#35-error-and-success-codes)
   - [4. Project Setup](#4-project-setup)
     - [4.1. Docker Image](#41-docker-image)
     - [4.2. Build the Docker Image](#42-build-the-docker-image)
@@ -164,6 +165,18 @@ Final product output paths have the following structure
 - odc_product_name = ga_s1_nrb_iw_static_X, where X is the collection_number
 - example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/results/ga_s1_nrb_iw_static_1/t045_095837_iw1/
 
+
+### 3.5 Error and Success Codes
+
+**Success Codes**
+* **0** - Success (0): Required burst products have been created.
+* **100** - Success (100): Early exit, products already exist for all bursts
+
+**Error Codes**
+* **101** - Process failed (101): Required Static Layers are missing.
+* **1** - Process failed (1): Error in get-data-for-scene-and-make-run-config process.
+* **2** - Process failed (2): Error in rtc_s1.py $RUN_CONFIG_PATH process
+* **3** - Process failed (3): Error in make-rtc-opera-stac-and-upload-bursts process
 
 ## 4. Project Setup
 
