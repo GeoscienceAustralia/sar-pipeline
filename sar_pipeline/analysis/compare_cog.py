@@ -20,18 +20,25 @@ def get_tif_stats(
     5th percentile, 95th percentile, and fraction of NoData pixels. Optionally, metrics
     can be computed only within a specified mask region.
 
-    Args:
-        tif (str): Path to the GeoTIFF file.
-        stats_dict (dict, optional): Dictionary to store the computed metrics.
-            Defaults to an empty dictionary.
-        stat_prefix (str, optional): Prefix to prepend to metric keys in the output
-            dictionary (e.g., "rtc_db_1_"). Defaults to an empty string.
-        mask (optional): Geometry (e.g., shapely polygon) used to mask the raster.
-            If provided, statistics are computed only within this region.
-        verbose (bool, optional): If True, prints the computed metrics. Defaults to False.
+    Parameters
+    ----------
+    tif (str):
+        Path to the GeoTIFF file.
+    stats_dict (dict, optional):
+        Dictionary to store the computed metrics.Defaults to an empty dictionary.
+    stat_prefix (str, optional):
+        Prefix to prepend to metric keys in the output dictionary (e.g., "rtc_db_1_").
+        Defaults to an empty string.
+    mask (optional):
+        Geometry (e.g., shapely polygon) used to mask the raster. If provided, statistics
+        are computed only within this region.
+    verbose (bool, optional):
+        If True, logs the computed metrics. Defaults to False.
 
-    Returns:
-        dict: A dictionary containing the computed statistics with key names
+    Returns
+    -------
+    dict:
+        A dictionary containing the computed statistics with key names
         formatted as `<stat_prefix><metric_name>`.
     """
 
@@ -73,21 +80,25 @@ def compare_cog_stats(tif_1, tif_2):
     Calculates key statistics for each input COG using `get_tif_stats`, compares them
     metric-by-metric, and reports both equality and numerical differences.
 
-    Args:
-        tif_1 (str): Path to the first GeoTIFF file.
-        tif_2 (str): Path to the second GeoTIFF file.
+    Parameters
+    ----------
+    tif_1 (str):
+        Path to the first GeoTIFF file.
+    tif_2 (str):
+        Path to the second GeoTIFF file.
 
-    Returns:
-        tuple:
-            bool: True if all corresponding statistics between the two files are equal,
-                otherwise False.
-            dict: A dictionary containing:
-                - "tif_1" (str): Path to the first file.
-                - "tif_2" (str): Path to the second file.
-                - "tif_1_stats" (dict): Calculated statistics for the first file.
-                - "tif_2_stats" (dict): Calculated statistics for the second file.
-                - "stats_are_equal" (dict): Boolean equality results for each metric.
-                - "stat_differences" (dict): Numeric differences (`tif_1 - tif_2`) for each metric.
+    Returns
+    -------
+    tuple, dict:
+        bool: True if all corresponding statistics between the two files are equal,
+            otherwise False.
+        dict: A dictionary containing:
+            - "tif_1" (str): Path to the first file.
+            - "tif_2" (str): Path to the second file.
+            - "tif_1_stats" (dict): Calculated statistics for the first file.
+            - "tif_2_stats" (dict): Calculated statistics for the second file.
+            - "stats_are_equal" (dict): Boolean equality results for each metric.
+            - "stat_differences" (dict): Numeric differences (`tif_1 - tif_2`) for each metric.
     """
 
     tif_1_stats = get_tif_stats(tif_1)

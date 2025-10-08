@@ -31,23 +31,35 @@ def check_exact_files(folder_1: Path, folder_2: Path) -> bool:
     return folder_1_files == folder_2_files
 
 
-def compare_product_folder_files(
-    folder_1: str | Path, folder_2: str | Path
-) -> pd.DataFrame:
-    """
-    Compare the counts of different file types between two folders.
+def compare_product_folder_files(folder_1: str | Path, folder_2: str | Path) -> dict:
+    """Compare file contents and file type distributions between two product folders.
 
-    This function scans both folders (recursively) and counts the number
-    of files by extension. The counts are then merged into a single
-    DataFrame for comparison.
+    Scans both folders recursively, counting files by extension and comparing
+    the presence of files between directories. Produces a summary of file
+    type counts, total files, and lists of missing files in each folder.
 
     Parameters
     ----------
     folder_1 : str or pathlib.Path
-        Path to the first folder.
+        Path to the first product folder.
     folder_2 : str or pathlib.Path
-        Path to the second folder.
+        Path to the second product folder.
 
+    Returns
+    -------
+    tuple
+        bool
+            True if the folders differ in file content or file types, otherwise False.
+        dict
+            Dictionary containing:
+                - folder_1 : str
+                    Path to the first folder.
+                - folder_2 : str
+                    Path to the second folder.
+                - in_folder_1_missing_in_folder_2 : list of str
+                    Files present in folder_1 but missing in folder_2.
+                - in_folder_2_missing_in_folder_1 : list of str
+                    Files present in folder_2 but missing in folder_1.
     """
     logger.info(f"Comparing product folders")
     logger.info(f"folder_1 : {folder_1}")
@@ -92,7 +104,7 @@ def compare_product_folder_files(
 
     if folders_have_same_files:
         is_different = False
-        return is_different, [diffs]
+        return is_different, diffs
     else:
         is_different = True
         folder_1_names = {f.name for f in folder_1_files}
