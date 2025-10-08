@@ -7,6 +7,7 @@ import zipfile
 import subprocess
 import shapely
 import ast
+import re
 from cdsetool.query import query_features, FeatureQuery
 from cdsetool.credentials import Credentials
 from cdsetool.download import download_features
@@ -489,16 +490,19 @@ def download_scene_from_aus_cop_hub(
             # Given command is run in a conda environment,
             # progress logs may not be returned until completion
             for line in process.stdout:
-                logger.info(line.strip())
+                line = line.strip()
+                # remove sensitive info from logs
+                sanitised_line = re.sub(
+                    r"(--?(client_secret|password)[=\s]+)\S+", r"\1****", line
+                )
+                logger.info(sanitised_line)
 
             return_code = process.wait()
             if return_code != 0:
                 raise RuntimeError(f"Download failed with return code {return_code}")
 
         except Exception as e:
-            logger.error(
-                "An error occurred while running the download command", exc_info=True
-            )
+            logger.error("An error occurred while running the download command")
             raise SceneDownloadError
 
     # construct the download url and add it to the metadata
