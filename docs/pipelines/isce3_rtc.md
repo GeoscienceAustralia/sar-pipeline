@@ -254,7 +254,7 @@ docker push 451924316694.dkr.ecr.ap-southeast-2.amazonaws.com/dea-dev-s1-nrb-pip
 
 - Note, the `--skip_upload_to_s3` and `--make_existing_products` flags are set so existing products will be made, and no uploads to AWS S3 will occur. 
 
-**Antarctica (single burst)**
+**Antarctica (single aquisition, single burst)**
 
 ```bash
 docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3_project_folder TMP --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products --collection_number 0
