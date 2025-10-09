@@ -79,5 +79,5 @@ def push_files_in_folder_to_s3(
                 str(s3_bucket),
                 str(s3_key),
                 ExtraArgs={"ContentType": file_mime_type},
-            )                                                                     )
+            )
             logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
