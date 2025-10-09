@@ -9,6 +9,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from sar_pipeline.utils.general import log_timing
+from sar_pipeline.preparation.downloads.scenes import create_asf_netrc_file
 
 VALID_ORBIT_DATA_SOURCES = ["ASF", "CDSE"]
 
@@ -113,6 +114,9 @@ def download_orbits(
                     "ASF credentials are not set. Provide them as arguments or set EARTHDATA_LOGIN and EARTHDATA_PASSWORD as environment variables."
                 )
             cdse_user, cdse_password = None, None
+            if not os.getenv("NETRC"):
+                # create the netrc if not existing for authentication
+                create_asf_netrc_file(asf_user, asf_password)
 
         else:
             raise ValueError(f"Source must be either 'CDSE' or 'ASF', got '{source}'.")
@@ -122,15 +126,29 @@ def download_orbits(
         # The logic in eof.download.main() tries CDSE first by default. set force_asf by source
         try:
             force_asf = source == "ASF"
-            orbit_paths = eof.download.main(
-                sentinel_file=scene_safe_file,
-                save_dir=save_dir,
-                cdse_user=cdse_user,
-                cdse_password=cdse_password,
-                force_asf=force_asf,
-                asf_user=asf_user,
-                asf_password=asf_password,
-            )
+            try:
+                orbit_paths = eof.download.main(
+                    sentinel_file=scene_safe_file,
+                    save_dir=save_dir,
+                    cdse_user=cdse_user,
+                    cdse_password=cdse_password,
+                    force_asf=force_asf,
+                    asf_user=asf_user,
+                    asf_password=asf_password,
+                )
+            except:
+                if force_asf:
+                    # remove asf credentials to read from .netrc
+                    logger.info(
+                        "ASF credentials failed. Falling back to .netrc authentication"
+                    )
+                    orbit_paths = eof.download.main(
+                        sentinel_file=scene_safe_file,
+                        save_dir=save_dir,
+                        cdse_user=cdse_user,
+                        cdse_password=cdse_password,
+                        force_asf=force_asf,
+                    )
 
             if len(orbit_paths) == 1:
                 break
