@@ -1,6 +1,7 @@
 import rasterio
 import numpy as np
 import logging
+import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

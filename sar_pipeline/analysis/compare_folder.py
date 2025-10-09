@@ -1,5 +1,6 @@
 from pathlib import Path
 import pandas as pd
+import json
 
 import logging
 
@@ -104,14 +105,14 @@ def compare_product_folder_files(folder_1: str | Path, folder_2: str | Path) -> 
 
     if folders_have_same_files:
         is_different = False
-        return is_different, diffs
+        return is_different, [diffs]
     else:
         is_different = True
         folder_1_names = {f.name for f in folder_1_files}
         folder_2_names = {f.name for f in folder_2_files}
         diffs["in_folder_1_missing_in_folder_2"] = list(folder_1_names - folder_2_names)
         diffs["in_folder_2_missing_in_folder_1"] = list(folder_2_names - folder_1_names)
-        return is_different, diffs
+        return is_different, [diffs]
 
 
 def check_files_have_changed(file_difference_json_path) -> bool:
