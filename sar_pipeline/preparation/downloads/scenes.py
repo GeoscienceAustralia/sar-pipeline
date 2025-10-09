@@ -458,6 +458,7 @@ def download_scene_from_aus_cop_hub(
         )
     else:
         aus_cophub_scene_metadata = aus_cophub_scenes_metadata[0]
+        logger.info(f"Scene metadata found")
 
     # create query for download
     download_cmd = base_query + "--download " + f"--output {download_folder}"
