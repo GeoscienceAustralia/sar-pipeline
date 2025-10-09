@@ -1,5 +1,9 @@
 import rasterio
 import numpy as np
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def get_tif_stats(
@@ -9,19 +13,33 @@ def get_tif_stats(
     mask=False,
     verbose: bool = False,
 ) -> dict:
-    """helper function to save metrics. metrics calculated are :
-            min, max, mean, median, std, 5th percentile,
-            95th percentile, fraction of nodata.
-            Use a mask to only calculate metrics in specific region of tif
-    Args:
-        tif (str): path to file
-        stats_dict (dict): dictionary to save the metrics to
-        stat_prefix (str): prefix for metrics in dict e.g. 'rtc_db_1_'
-        mask (optional) : shapefile mask, calculate metrics within the mask (e.g. scene bounds)
-        verbose (bool) : print the calculated metrics
+    """
+    Calculate basic statistics for a GeoTIFF file.
 
-    Returns:
-        dict: returns the
+    Computes the following metrics: minimum, maximum, mean, median, standard deviation,
+    5th percentile, 95th percentile, and fraction of NoData pixels. Optionally, metrics
+    can be computed only within a specified mask region.
+
+    Parameters
+    ----------
+    tif (str):
+        Path to the GeoTIFF file.
+    stats_dict (dict, optional):
+        Dictionary to store the computed metrics.Defaults to an empty dictionary.
+    stat_prefix (str, optional):
+        Prefix to prepend to metric keys in the output dictionary (e.g., "rtc_db_1_").
+        Defaults to an empty string.
+    mask (optional):
+        Geometry (e.g., shapely polygon) used to mask the raster. If provided, statistics
+        are computed only within this region.
+    verbose (bool, optional):
+        If True, logs the computed metrics. Defaults to False.
+
+    Returns
+    -------
+    dict:
+        A dictionary containing the computed statistics with key names
+        formatted as `<stat_prefix><metric_name>`.
     """
 
     with rasterio.open(tif) as src:
@@ -50,12 +68,38 @@ def get_tif_stats(
     if verbose:
         for metric in stats_dict.keys():
             if stat_prefix in metric:
-                print(f"{metric} : {stats_dict[metric]}")
+                logger.info(f"{metric} : {stats_dict[metric]}")
 
     return stats_dict
 
 
 def compare_cog_stats(tif_1, tif_2):
+    """
+    Compare statistical metrics between two Cloud Optimized GeoTIFF (COG) files.
+
+    Calculates key statistics for each input COG using `get_tif_stats`, compares them
+    metric-by-metric, and reports both equality and numerical differences.
+
+    Parameters
+    ----------
+    tif_1 (str):
+        Path to the first GeoTIFF file.
+    tif_2 (str):
+        Path to the second GeoTIFF file.
+
+    Returns
+    -------
+    tuple, dict:
+        bool: True if all corresponding statistics between the two files are equal,
+            otherwise False.
+        dict: A dictionary containing:
+            - "tif_1" (str): Path to the first file.
+            - "tif_2" (str): Path to the second file.
+            - "tif_1_stats" (dict): Calculated statistics for the first file.
+            - "tif_2_stats" (dict): Calculated statistics for the second file.
+            - "stats_are_equal" (dict): Boolean equality results for each metric.
+            - "stat_differences" (dict): Numeric differences (`tif_1 - tif_2`) for each metric.
+    """
 
     tif_1_stats = get_tif_stats(tif_1)
     tif_2_stats = get_tif_stats(tif_2)
@@ -82,3 +126,20 @@ def compare_cog_stats(tif_1, tif_2):
     }
 
     return tifs_are_same, comparison_stats
+
+
+def check_tifs_have_changed(tif_difference_json_path) -> bool:
+    """checks the outputs of the tif difference json to see if
+    the tif values have changed"""
+    with open(tif_difference_json_path, "r") as f:
+        data = json.load(f)
+
+    # Loop through the assets that are being compared to see if
+    # Any of the tif statistics have changed
+    for asset in data.keys():
+        stats_are_equal = data[asset]["stats_are_equal"]
+        # get the list of equalities (i.e. True or False)
+        stats_are_equal = [stats_are_equal[k] for k in stats_are_equal.keys()]
+        if any(x is False for x in stats_are_equal):
+            return True
+    return False

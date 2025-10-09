@@ -8,6 +8,7 @@
     - [3.2. Environment Variables](#32-environment-variables)
     - [3.3. Pipeline Arguments](#33-pipeline-arguments)
     - [3.4. Example Product Outputs](#34-example-product-outputs)
+    - [3.5 Error and Success Codes](#35-error-and-success-codes)
   - [4. Project Setup](#4-project-setup)
     - [4.1. Docker Image](#41-docker-image)
     - [4.2. Build the Docker Image](#42-build-the-docker-image)
@@ -28,22 +29,24 @@
 
 ## 1. About 
 
-The isce3_rtc pipeline can be used to create Sentinel-1 Normalised Radar Backscatter (NRB) for data captured in the IW mode. The dependant codebases managed by GA used in the pipeline are:
+The isce3_rtc pipeline can be used to create Sentinel-1 Normalised Radar Backscatter (NRB) for data captured in the IW mode. These products are often referred to Radiometric Terrain Corrected (RTC) data. **NRB** and **RTC** are treated as interchangeable terms.
 
-- [RTC](https://github.com/GeoscienceAustralia/RTC)
+The dependant codebases managed by GA used in the pipeline are:
+
+- [RTC](https://github.com/GeoscienceAustralia/RTC) (this is a fork of the NASA JPL [opera-adt/RTC](https://github.com/opera-adt/RTC))
 - [dem-handler](https://github.com/GeoscienceAustralia/dem-handler)
 - [sar-pipeline](https://github.com/GeoscienceAustralia/sar-pipeline/tree/main/sar_pipeline)
 
 Using the isce3_rtc pipeline, two main products can be created. These are:
 
-- **RTC_S1** -> Sentinel-1 Radiometrically Terrain Corrected (RTC) Backscatter [(Specification doc)](https://d2pn8kiwq2w21t.cloudfront.net/documents/ProductSpec_RTC-S1-STATIC.pdf)
+- **RTC_S1** -> Sentinel-1 Radiometrically Terrain Corrected (RTC) / Normalised Radar Backscatter (NRB) [(Specification doc)](https://d2pn8kiwq2w21t.cloudfront.net/documents/ProductSpec_RTC-S1-STATIC.pdf)
 - **RTC_S1_STATIC** -> Sentinel-1 (RTC) Static Layers [(Specification doc)](https://d2pn8kiwq2w21t.cloudfront.net/documents/ProductSpec_RTC-S1.pdf)
 
-These products are created at the burst-level to enable the use of static layers that reduce the overall storage footprint of the product. Bursts are repeatable units that a sentinel-1 satellite captures every 12 days. A typical sentinel-1 scene consists of ~20-30 bursts. **RTC_S1** is the analysis ready data (ARD) product are unique to each acquisition; for example a gamma0 backscatter geotiff. **RTC_S1_STATIC** products are ancillary layers that can be shared across the same burst id. For example, the local incidence angle. The blank config file used for each run can be found [here](../../sar_pipeline/configs/isce3_rtc/).
+These products are created at the burst-level to enable the use of static layers that reduce the overall storage footprint of the product. Bursts are repeatable units that a Sentinel-1 satellite captures every 12 days. A typical Sentinel-1 scene consists of ~20-30 bursts. **RTC_S1** is the analysis ready data (ARD) NRB product are unique to each acquisition; for example a gamma0 backscatter geotiff. **RTC_S1_STATIC** products are ancillary layers that can be shared across the same burst id. For example, the local incidence angle. The blank config file used for each run can be found [here](../../sar_pipeline/configs/isce3_rtc/).
 
 ## 2. Example Products
 
-The following is an example of **RTC_S1** outputs for a given acquisition. This product corresponds with the t007_014545_iw2 static layers below. The analysis ready data product is the `HH-gamma0.tif` - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/CEOS-ARD/data/example_2/ga_s1_nrb_iw_hh_0/t007_014545_iw2/2025/01/29/20250129T050922/
+The following is an example of **RTC_S1** outputs for a given acquisition. The analysis ready NRB data product is the `HH-gamma0.tif`. Note, This product corresponds with the t007_014545_iw2 static layers below. - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/CEOS-ARD/data/example_2/ga_s1_nrb_iw_hh_0/t007_014545_iw2/2025/01/29/20250129T050922/
 
 ```text
 ga_s1a_nrb_0-1-0_T007-014545-IW2_20250129T050922Z_HH-gamma0.tif
@@ -73,14 +76,14 @@ ga_s1_nrb-static_0-1-0_T007-014545-IW2_20140403_thumbnail.png
 
 ### 3.1. Overview
 
-The following diagram displays the overall architecture of the pipeline. Docker is highly recommended to ensure the required environments are correctly configured. The full pipeline run is controlled by the workflow script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) that accepts command-line arguments, and passes them to the appropriate process. The main functions used to download, process and upload can be found in the [isce3_rtc cli.py script](../../sar_pipeline/pipelines/isce3_rtc/cli.py). 
+The following diagram displays the overall architecture of the pipeline. Docker is highly recommended to ensure the required environments are correctly configured. The full pipeline run is controlled by the workflow script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) that accepts command-line arguments, and passes them to the appropriate process. The main functions used to download, process and upload can be found in the isce3_rtc [cli.py](../../sar_pipeline/pipelines/isce3_rtc/cli.py) script. 
 
 ![isce3_rtc Pipeline Overview](../images/isce3_rtc_architecture_overview.png)
 
 
 ### 3.2. Environment Variables
 
-At runtime, the pipeline expects the following environment variables to be set. These can be passed in using an environment file (`.env`). NASA earthdata credentials can be created here - https://urs.earthdata.nasa.gov/. Credentials for the Copernicus Data Space Ecosystem (CDSE) can be created here - https://dataspace.copernicus.eu/. Credentials for the Copernicus Australasian Datahub (AUS_COP_HUB) were provided internally.
+At runtime, the pipeline expects the following environment variables to be set. These can be passed in using an environment file (`.env`). NASA earthdata credentials can be created here - https://urs.earthdata.nasa.gov/. Credentials for the Copernicus Data Space Ecosystem (CDSE) can be created here - https://dataspace.copernicus.eu/. Credentials for the Copernicus Australasian Datahub (AUS_COP_HUB) were provided internally. The AUS_COP_HUB can be contacted at CopernicusAustralasia@ga.gov.au or via the [website](https://www.copernicus.gov.au/).
 
 [.env.example](../../.env.example)
 
@@ -127,14 +130,14 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 
 ```
 - `scene` -> A valid sentinel-1 IW scene (e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD)
-- `burst_id_list` -> A list of burst id's corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated.txt file.
+- `burst_id_list` -> A list of burst ids corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated.txt file.
 - `resolution` -> The target resolution of the products. Default is 20m.
 - `output_crs` -> The target crs of the products. If not specified, the UTM of the scene center will be used or polar stereographic coordinates will be used for high latitudes above 60 degrees. Expects integer values (e.g. `3031`)
 - `dem_type` -> The preference of digital elevation model (DEM) to download and use for processing. Can be passed as a string or list of preferences separated by a space. If DEM data does not exist in the area of the first preference, the next will be used. E.g. `--dem-type REMA_32 cop_glo30` will first look for the Antarctic specific REMA DEM @32m before settling on the cop_glo30. Values must be one of: `cop_glo30`, `REMA_32`, `REMA_10`, `REMA_2`.
 - `product` -> The product being created with the workflow. Must be `RTC_S1` or `RTC_S1_STATIC`.
 - `backscatter_convention` -> the output backscatter convention from the workflow. Allowed values are [`beta0`,`sigma0`,`gamma0`] Note sigma0 data is referenced to the DEM. To create sigma0 ellipsoid referenced data, the beta0 layer and static incidence_angle layer is required; sigma0_ellipsoid = beta0*sin(incidence_angle).
-- `s3_bucket` -> the AWS S3bucket to upload the products
-- `s3_project_folder` -> The AWS S3 project folder to upload to.
+- `s3_bucket` -> the AWS S3 bucket to upload the products
+- `s3_project_folder` -> The AWS S3 project folder within the bucket to upload to. This is often referred to as a prefix by AWS.
 - `collection_number` -> The collection number of the product as an integer.
 - `make_existing_products` -> Whether to generate products even if they already exist in AWS S3 under the specified product folder path `s3_bucket/s3_project_folder/collection/...`. 
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
@@ -163,11 +166,23 @@ Final product output paths have the following structure
 - example -> https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/results/ga_s1_nrb_iw_static_1/t045_095837_iw1/
 
 
+### 3.5 Error and Success Codes
+
+**Success Codes**
+* **0** - Success (0): Required burst products have been created.
+* **100** - Success (100): Early exit, products already exist for all bursts
+
+**Error Codes**
+* **101** - Process failed (101): Required Static Layers are missing.
+* **1** - Process failed (1): Error in get-data-for-scene-and-make-run-config process.
+* **2** - Process failed (2): Error in rtc_s1.py $RUN_CONFIG_PATH process
+* **3** - Process failed (3): Error in make-rtc-opera-stac-and-upload-bursts process
+
 ## 4. Project Setup
 
 ### 4.1. Docker Image
 
-The workflow is best run using the docker image as multiple conda environments are required. The docker file can be found at [Docker/isce3_rtc/Dockerfile](../../Docker/isce3_rtc/Dockerfile). As can be seen in the Dockerfile, the image utilises 3 conda environment:
+The workflow is best run using the docker image as multiple conda environments are required. The docker file can be found at [Docker/isce3_rtc/Dockerfile](../../Docker/isce3_rtc/Dockerfile). As can be seen in the Dockerfile, the image utilises 3 conda environments:
 
 - [sar-pipeline](../../environment.yaml) - The main environment for downloading data and creating metadata
 - [pygssearch-env](../../Conda/pygssearch/) - An isolated environment for downloading data from the Copernicus Australasia DataHub
@@ -252,13 +267,13 @@ docker push 451924316694.dkr.ecr.ap-southeast-2.amazonaws.com/dea-dev-s1-nrb-pip
 
 - Note, the `--skip_upload_to_s3` and `--make_existing_products` flags are set so existing products will be made, and no uploads to AWS S3 will occur. 
 
-**Antarctica (single burst)**
+**Antarctica (single aquisition, single burst)**
 
 ```bash
 docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3_project_folder TMP --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products --collection_number 0
 ```
 
-**Australia (all bursts)**
+**Australia (single aquisition, all bursts)**
 
 
 ```bash
