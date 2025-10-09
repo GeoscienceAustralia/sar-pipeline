@@ -450,7 +450,6 @@ def download_scene_from_aus_cop_hub(
     except Exception as e:
         logger.error(
             "Could not convert Aus Cop Hub query response to list of JSON data. Check credentials and request.",
-            # exc_info=True,
         )
         raise
 
