@@ -443,11 +443,14 @@ def download_scene_from_aus_cop_hub(
         # convert the pygssearch result to a python object
         # an emtpy list is returned if no results found, else list of jsons
         output, _ = process.communicate()
-        aus_cophub_scenes_metadata = ast.literal_eval(output)
+        sanitised_output = re.sub(
+            r"(--?(client_secret|password)[=\s]+)\S+", r"\1****", output
+        )
+        aus_cophub_scenes_metadata = ast.literal_eval(sanitised_output)
     except Exception as e:
         logger.error(
-            "Could not convert Aus Cop Hub query response to list of JSON data",
-            exc_info=True,
+            "Could not convert Aus Cop Hub query response to list of JSON data. Check credentials and request.",
+            # exc_info=True,
         )
         raise
 
