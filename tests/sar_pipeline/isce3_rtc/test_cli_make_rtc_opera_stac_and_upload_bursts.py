@@ -89,9 +89,9 @@ from settings import (
     CURRENT_DIR,
     TEST_S3_BUCKET,
     TEST_1_COLLECTION_NUMBER,
+    TEST_1_BURST,
     TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER,
-    TEST_1_COMPARE_RTC_S1_STATIC_S3_PROJECT_FOLDER,
-    TEST_1_S3_RTC_S1_PRODUCT_SUBPATH,
+    PERSISTENT_S3_PROJECT_FOLDER,
 )
 
 ORIGINAL_PRODUCT_RESULTS_DIR = f"{CURRENT_DIR}/data/TMP/test_metadata/original"
@@ -101,20 +101,20 @@ COMPARE_PRODUCT_FOLDER = f"{CURRENT_DIR}/data/TMP/test_metadata/compare"
 TEST_1 = RunConfig(
     test_product_s3_bucket=TEST_S3_BUCKET,
     test_product_s3_folder=TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER,
-    original_local_product_folder=f"{ORIGINAL_PRODUCT_RESULTS_DIR}/{TEST_1_S3_RTC_S1_PRODUCT_SUBPATH}",
-    new_local_product_folder=f"{NEW_PRODUCT_RESULTS_DIR}/{TEST_1_S3_RTC_S1_PRODUCT_SUBPATH}",
-    compare_product_folder=f"{COMPARE_PRODUCT_FOLDER}/{TEST_1_S3_RTC_S1_PRODUCT_SUBPATH}",
+    original_local_product_folder=f"{ORIGINAL_PRODUCT_RESULTS_DIR}/TEST_1/RTC_S1/{TEST_1_BURST}",
+    new_local_product_folder=f"{NEW_PRODUCT_RESULTS_DIR}/TEST_1/RTC_S1/{TEST_1_BURST}",
+    compare_product_folder=f"{COMPARE_PRODUCT_FOLDER}/TEST_1/RTC_S1/{TEST_1_BURST}",
     product="RTC_S1",
     backscatter_convention="gamma0",
     collection_number=TEST_1_COLLECTION_NUMBER,
     s3_bucket=TEST_S3_BUCKET,
-    s3_project_folder=TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER,
+    s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
     skip_upload_to_s3=True,
     make_existing_products=True,
     link_static_layers=True,
     linked_static_layers_s3_bucket=TEST_S3_BUCKET,
     linked_static_layers_collection_number=TEST_1_COLLECTION_NUMBER,
-    linked_static_layers_s3_project_folder=TEST_1_COMPARE_RTC_S1_STATIC_S3_PROJECT_FOLDER,
+    linked_static_layers_s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
     validate_stac=True,
 )
 
@@ -126,11 +126,13 @@ def test_cli_make_rtc_opera_stac_and_upload_bursts(test_run):
     logger.info(
         f"Downloading test product to local folder : {test_run.original_local_product_folder}"
     )
+    if Path(test_run.original_local_product_folder).exists():
+        shutil.rmtree(test_run.original_local_product_folder)
     os.makedirs(test_run.original_local_product_folder, exist_ok=True)
     S3Downloader = S3Util()
     S3Downloader.download_folder(
         test_run.s3_bucket,
-        test_run.s3_project_folder,
+        test_run.test_product_s3_folder,
         test_run.original_local_product_folder,
     )
 
@@ -144,9 +146,14 @@ def test_cli_make_rtc_opera_stac_and_upload_bursts(test_run):
 
     # get the run-config
     run_config = list(Path(test_run.new_local_product_folder).glob("*config.yaml"))[0]
+    # runs are at the scene level, so the results folder is the parent of the burst folder
+    results_folder = Path(test_run.new_local_product_folder).parent
+    # copy the run config to the parent
+    shutil.copy(run_config, results_folder / run_config.name)
+    run_config = results_folder / run_config.name
 
     runner = CliRunner()
-    args = ["--results-folder", test_run.new_local_product_folder]
+    args = ["--results-folder", results_folder]
     args += ["--run-config-path", run_config]
     args += ["--product", test_run.product]
     args += ["--backscatter-convention", test_run.backscatter_convention]
@@ -175,7 +182,7 @@ def test_cli_make_rtc_opera_stac_and_upload_bursts(test_run):
         f"Creating new metadata for the product stored at : {test_run.new_local_product_folder}."
     )
     result = runner.invoke(
-        make_rtc_opera_stac_and_upload_bursts, args, catch_exceptions=False
+        make_rtc_opera_stac_and_upload_bursts, args, catch_exceptions=True
     )
     if result.exception:
         logging.exception(
