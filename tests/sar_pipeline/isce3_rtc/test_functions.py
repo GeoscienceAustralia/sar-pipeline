@@ -21,7 +21,16 @@ PROJECT_ROOT = CURRENT_DIR.parents[2]
 TEST_WORKSPACE = CURRENT_DIR / Path("data")
 
 
-# NOTE - Existing products for testing are stored in the persistent folder of the deant-public-data-dev bucket
+# Existing products for testing are stored in the persistent folder of the deant-public-data-dev bucket
+# These area created in the test_full_docker_build_and_run.py script
+from settings import (
+    TEST_1_SCENE,
+    TEST_1_BURST,
+    TEST_1_BURST_ST,
+    TEST_1_POLS,
+    TEST_S3_BUCKET,
+    PERSISTENT_S3_PROJECT_FOLDER,
+)
 
 
 @dataclass
@@ -38,10 +47,6 @@ class BurstProduct:
     EXISTS: bool
 
 
-# test a non-existent RTC_S1 product
-S3_PROJECT_TEST_FOLDER = (
-    "persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/data/results"
-)
 TEST_NON_EXISTING_RTC_S1 = BurstProduct(
     scene="S1A_IW_SLC__1SDV_20221202T104303_20221202T104332_046151_058667_0E6A",
     product="RTC_S1",
@@ -50,23 +55,21 @@ TEST_NON_EXISTING_RTC_S1 = BurstProduct(
         datetime.strptime("2022-12-02T10:43:11.380294Z", "%Y-%m-%dT%H:%M:%S.%fZ")
     ],
     burst_polarisations=["VV", "VH"],
-    s3_bucket="deant-data-public-dev",
-    s3_project_folder=S3_PROJECT_TEST_FOLDER,
+    s3_bucket=TEST_S3_BUCKET,
+    s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
     collection_number=1,
     make_existing_products=False,
     EXISTS=False,
 )
 
 TEST_EXISTING_RTC_S1 = BurstProduct(
-    scene="S1A_IW_SLC__1SDV_20221202T104303_20221202T104332_046151_058667_0E6A",
+    scene=TEST_1_SCENE,
     product="RTC_S1",
-    burst_id_list=["t054_115778_iw2"],
-    burst_st_list=[
-        datetime.strptime("2022-12-02T10:43:15.082351Z", "%Y-%m-%dT%H:%M:%S.%fZ")
-    ],
-    burst_polarisations=["VV", "VH"],
-    s3_bucket="deant-data-public-dev",
-    s3_project_folder=S3_PROJECT_TEST_FOLDER,
+    burst_id_list=[TEST_1_BURST],
+    burst_st_list=[datetime.strptime(TEST_1_BURST_ST, "%Y-%m-%dT%H:%M:%S.%fZ")],
+    burst_polarisations=TEST_1_POLS,
+    s3_bucket=TEST_S3_BUCKET,
+    s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
     collection_number=1,
     make_existing_products=False,
     EXISTS=True,
@@ -80,23 +83,21 @@ TEST_NON_EXISTING_RTC_S1_STATIC = BurstProduct(
         datetime.strptime("2022-12-02T10:43:11.380294Z", "%Y-%m-%dT%H:%M:%S.%fZ")
     ],
     burst_polarisations=["VV", "VH"],
-    s3_bucket="deant-data-public-dev",
-    s3_project_folder=S3_PROJECT_TEST_FOLDER,
+    s3_bucket=TEST_S3_BUCKET,
+    s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
     collection_number=1,
     make_existing_products=False,
     EXISTS=False,
 )
 
 TEST_EXISTING_RTC_S1_STATIC = BurstProduct(
-    scene="S1A_IW_SLC__1SDV_20221202T104303_20221202T104332_046151_058667_0E6A",
+    scene=TEST_1_SCENE,
     product="RTC_S1_STATIC",
-    burst_id_list=["t054_115778_iw2"],
-    burst_st_list=[
-        datetime.strptime("2022-12-02T10:43:15.082351Z", "%Y-%m-%dT%H:%M:%S.%fZ")
-    ],
-    burst_polarisations=["VV", "VH"],
-    s3_bucket="deant-data-public-dev",
-    s3_project_folder=S3_PROJECT_TEST_FOLDER,
+    burst_id_list=[TEST_1_BURST],
+    burst_st_list=[datetime.strptime(TEST_1_BURST_ST, "%Y-%m-%dT%H:%M:%S.%fZ")],
+    burst_polarisations=TEST_1_POLS,
+    s3_bucket=TEST_S3_BUCKET,
+    s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
     collection_number=1,
     make_existing_products=False,
     EXISTS=True,

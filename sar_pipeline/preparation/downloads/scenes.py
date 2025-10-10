@@ -7,6 +7,7 @@ import zipfile
 import subprocess
 import shapely
 import ast
+import re
 from cdsetool.query import query_features, FeatureQuery
 from cdsetool.credentials import Credentials
 from cdsetool.download import download_features
@@ -442,11 +443,13 @@ def download_scene_from_aus_cop_hub(
         # convert the pygssearch result to a python object
         # an emtpy list is returned if no results found, else list of jsons
         output, _ = process.communicate()
-        aus_cophub_scenes_metadata = ast.literal_eval(output)
+        sanitised_output = re.sub(
+            r"(--?(client_secret|password)[=\s]+)\S+", r"\1****", output
+        )
+        aus_cophub_scenes_metadata = ast.literal_eval(sanitised_output)
     except Exception as e:
         logger.error(
-            "Could not convert Aus Cop Hub query response to list of JSON data",
-            exc_info=True,
+            "Could not convert Aus Cop Hub query response to list of JSON data. Check credentials and request.",
         )
         raise
 
@@ -457,6 +460,7 @@ def download_scene_from_aus_cop_hub(
         )
     else:
         aus_cophub_scene_metadata = aus_cophub_scenes_metadata[0]
+        logger.info(f"Scene metadata found")
 
     # create query for download
     download_cmd = base_query + "--download " + f"--output {download_folder}"
@@ -489,16 +493,19 @@ def download_scene_from_aus_cop_hub(
             # Given command is run in a conda environment,
             # progress logs may not be returned until completion
             for line in process.stdout:
-                logger.info(line.strip())
+                line = line.strip()
+                # remove sensitive info from logs
+                sanitised_line = re.sub(
+                    r"(--?(client_secret|password)[=\s]+)\S+", r"\1****", line
+                )
+                logger.info(sanitised_line)
 
             return_code = process.wait()
             if return_code != 0:
                 raise RuntimeError(f"Download failed with return code {return_code}")
 
         except Exception as e:
-            logger.error(
-                "An error occurred while running the download command", exc_info=True
-            )
+            logger.error("An error occurred while running the download command")
             raise SceneDownloadError
 
     # construct the download url and add it to the metadata

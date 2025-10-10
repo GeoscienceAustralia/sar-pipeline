@@ -782,6 +782,9 @@ class BurstH5toStacManager:
 
     def add_linked_static_layers_as_assets_to_stac(
         self,
+        linked_static_layers_s3_bucket: str,
+        linked_static_layers_collection_number: str,
+        linked_static_layers_s3_project_folder: str,
         stac_suffix_string: str = "stac-item.json",
         assets_to_link: str = [
             "oa_number_of_looks",
@@ -797,6 +800,9 @@ class BurstH5toStacManager:
 
         Parameters
         ----------
+            linked_static_layers_s3_bucket : Static layers bucket.
+            linked_static_layers_collection_number : Static layers collection number.
+            linked_static_layers_s3_project_folder : Static layers AWS S3 project folder
             stac_suffix_string : The 'endswith' file string to search for in the
             static layers s3 bucket to find the stac item metadata file.
             e.g. stac-item.json -> the following file will be found
@@ -806,7 +812,9 @@ class BurstH5toStacManager:
 
         # get the path to the static layer folder in AWS S3
         burst_static_layer_s3_subpath = make_rtc_s1_static_s3_subpath(
-            self.s3_project_folder, self.collection_number, self.burst_id
+            linked_static_layers_s3_project_folder,
+            linked_static_layers_collection_number,
+            self.burst_id,
         )
 
         logger.info(
@@ -815,7 +823,7 @@ class BurstH5toStacManager:
 
         # search for the stac-item in the burst folder
         s3_static_layer_files = find_s3_filepaths_from_suffixes(
-            self.s3_bucket,
+            linked_static_layers_s3_bucket,
             burst_static_layer_s3_subpath,
             suffixes=[stac_suffix_string],
         )
@@ -831,7 +839,7 @@ class BurstH5toStacManager:
             static_layer_stac_file = s3_static_layer_files[0]
             logger.info(f"Static layer stac item found: {static_layer_stac_file}")
 
-        burst_static_layer_stac_url = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com/{static_layer_stac_file}"
+        burst_static_layer_stac_url = f"https://{linked_static_layers_s3_bucket}.s3.{self.s3_region}.amazonaws.com/{static_layer_stac_file}"
 
         logger.info(f"Static layer url: {burst_static_layer_stac_url}")
 

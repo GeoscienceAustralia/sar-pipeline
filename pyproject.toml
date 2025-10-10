@@ -42,6 +42,7 @@ submit-pyrosar-gamma-workflow = "sar_pipeline.pipelines.pyrosar_gamma.cli:submit
 upload-files-in-folder-to-s3 = "sar_pipeline.pipelines.pyrosar_gamma.cli:upload_files_in_folder_to_s3"
 get-data-for-scene-and-make-run-config = "sar_pipeline.pipelines.isce3_rtc.cli:get_data_for_scene_and_make_run_config"
 make-rtc-opera-stac-and-upload-bursts = "sar_pipeline.pipelines.isce3_rtc.cli:make_rtc_opera_stac_and_upload_bursts"
+compare-isce3-rtc-products = "sar_pipeline.pipelines.isce3_rtc.cli:compare_products"
 
 [tool.setuptools_scm]
 version_file = "sar_pipeline/_version.py"
@@ -90,7 +91,7 @@ test-all = "pytest"
 # pipeline related tests that do not require credentials - can currently be run locally and in github
 test-pipeline = "pytest tests/sar_pipeline/ --ignore=tests/sar_pipeline/isce3_rtc"
 # isce3-rtc tests that require credentials - not currently setup for github but should be run locally before PRs
-test-isc3-rtc = "pytest tests/sar_pipeline/isce3_rtc -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+test-isce3-rtc = "pytest tests/sar_pipeline/isce3_rtc -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-full-docker-run = "pytest tests/sar_pipeline/isce3_rtc/test_full_docker_build_and_run.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 # test downloads from all providers. pygssearch conda environment is required for the AUS_COP_HUB test
 test-isce3-rtc-downloads= "pixi run install-pygssearch-env && pytest tests/sar_pipeline/isce3_rtc/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
