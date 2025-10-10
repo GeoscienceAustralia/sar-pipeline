@@ -1,12 +1,15 @@
 import pyproj
 from pyproj import Transformer
 from shapely import wkt
-from shapely.geometry import mapping, box, Polygon, shape
+from shapely.geometry import mapping, box, Polygon, shape, MultiPolygon
 from shapely import segmentize
+from shapely.ops import unary_union, orient
+import numpy as np
+import rasterio
+from rasterio.features import shapes
 import json
 from pathlib import Path
 import logging
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -211,3 +214,81 @@ def load_burst_geometry_from_geojson(geojson_path: Path, burst_id: str):
             return shape(feature["geometry"])
 
     raise KeyError(f"Burst ID {burst_id} not found in {geojson_path}")
+
+
+def get_valid_data_min_rect_polygon_from_tif(
+    tif_path: Path,
+    n_segments: int = 5,
+) -> Polygon:
+    """
+    Extract an approximate (rotated) rectangular boundary polygon
+    around valid (non-nodata) data in a GeoTIFF, ignoring NoData areas.
+    Additional segments are added to the polygon based on the n_segments
+    setting. This ensures that re-projections are handled correctly, as these
+    can be problematic using a simple rectangle as the shape is not preserved.
+
+    Parameters
+    ----------
+    tif_path : Path
+        Path to the GeoTIFF file.
+    n_segments : int, optional
+        The number of segments/points to add along each side of the
+        minimum bounding rectangle.
+
+    Returns
+    -------
+    shapely.geometry.Polygon or None
+        Polygon representing the outer boundary of valid data.
+        Returns None if no valid pixels are found.
+    """
+    with rasterio.open(tif_path) as ds:
+        data = ds.read(1)
+        nodata = ds.nodata
+
+        # Build mask where True = valid data
+        if nodata is None:
+            # No explicit nodata, assume NaNs mark invalid
+            mask = ~np.isnan(data)
+        elif np.isnan(nodata):
+            # nodata is NaN
+            mask = ~np.isnan(data)
+        else:
+            # normal numeric nodata value
+            mask = data != nodata
+
+        if not np.any(mask):
+            return None
+
+        # Extract shapes of valid data
+        results = (
+            {"properties": {"val": v}, "geometry": s}
+            for i, (s, v) in enumerate(
+                shapes(mask.astype(np.uint8), mask=mask, transform=ds.transform)
+            )
+            if v == 1
+        )
+
+        polys = [shape(feat["geometry"]) for feat in results]
+        if not polys:
+            return None
+
+        # merge the polygons
+        merged = unary_union(polys)
+        if isinstance(merged, MultiPolygon):
+            merged = unary_union(merged)
+
+        # Approximate with minimum rotated rectangle
+        rect = merged.minimum_rotated_rectangle
+
+        # Ensure consistent orientation (CCW)
+        rect = orient(rect, sign=1.0)
+
+        if n_segments:
+            coords = np.array(rect.exterior.coords)
+            # Compute pairwise edge lengths
+            edge_lengths = np.sqrt(np.sum(np.diff(coords, axis=0) ** 2, axis=1))
+            segment_length = np.min(edge_lengths)
+            segmentized_geometry = segmentize(rect, max_segment_length=segment_length)
+            return segmentized_geometry
+        else:
+            return rect

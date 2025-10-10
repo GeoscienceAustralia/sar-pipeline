@@ -723,21 +723,6 @@ def make_rtc_opera_stac_and_upload_bursts(
     )
     burst_folders = [x for x in results_folder.iterdir() if x.is_dir()]
 
-    # check if there is a burst_geoms.json file containing the correct burst geometries from the CDSE.
-    # This can be created in the get_data_for_scene_and_make_run_config function and will be used
-    # To accurately set the STAC geometries for RTC_S1 products. Not required for RTC_S1_STATIC.
-    burst_geoms_file = list(results_folder.glob("*burst_geoms.json"))
-    if not burst_geoms_file:
-        logger.warning(
-            f"Burst geometry file not found. STAC geometries will be set using value from the"
-            " .h5 metadata file which may not correctly cover the burst data"
-        )
-    else:
-        logger.info(
-            f"Burst geometry file found and will be used to set STAC geometries"
-        )
-        burst_geoms_file = burst_geoms_file[0]
-
     for i, burst_folder in enumerate(burst_folders):
         logger.info(
             f"Making STAC metadata for burst {i+1} of {len(burst_folders)} : {burst_folder}"
@@ -795,15 +780,8 @@ def make_rtc_opera_stac_and_upload_bursts(
             s3_project_folder=s3_project_folder,
         )
 
-        # update the geometry with the correct burst geometry from the CDSE if provided
-        if product == "RTC_S1" and burst_geoms_file:
-            logger.info("Updating STAC geometry with correct CDSE geometry for burst")
-            burst_geometry = load_burst_geometry_from_geojson(
-                burst_geoms_file, burst_folder.name
-            )
-            burst_stac_manager.geometry_4326 = mapping(burst_geometry)
-            burst_stac_manager.bbox_4326 = burst_geometry.bounds
-
+        if product == "RTC_S1":
+            burst_stac_manager._update_geometry_using_valid_data()
         # make the stac item from the .h5 file
         burst_stac_manager.make_stac_item_from_h5()
         # add properties to the stac doc
