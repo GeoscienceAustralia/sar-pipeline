@@ -306,7 +306,7 @@ def get_data_for_scene_and_make_run_config(
             f"{len(all_scene_burst_info)} burst ids found for scene from ASF API"
         )
     except Exception:
-        logger.info(f"Burst id's not found on ASF, trying the CDSE", exc_info=True)
+        logger.info(f"Burst ids not found on ASF, trying the CDSE", exc_info=True)
         try:
             logger.info(f"Querying CDSE for scene burst ids")
             all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
