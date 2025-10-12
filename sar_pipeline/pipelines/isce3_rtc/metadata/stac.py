@@ -210,10 +210,19 @@ class BurstH5toStacManager:
     def _update_geometry_using_valid_data(self):
         """The geometries provided in the .h5 are only approximations from
         the burst data in radar coordinates. Update these geometries using
-        the minimum rotated rectangle that encloses the valid data in a
-        given tif. For RTC_S1 products, the first backscatter layer is used.
-        For RTC_S1_STATIC products, the local incidence angle is used
+        the minimum rotated rectangle that encloses the valid data from an actual
+        tif. This ensures the geometry correctly encloses the data and
+        search results using the geometry are accurate. For RTC_S1 products,
+        the first backscatter layer is used. For RTC_S1_STATIC products,
+        the local incidence angle is used. Note, RTC_S1_STATIC geometries are
+        already accurate as they utilise the burst grid.
         """
+
+        if hasattr(self, "item"):
+            raise ValueError(
+                "The STAC item already exists, geometry cannot be updated. Edit "
+                "the geometry before creating the file with `make_stac_item_from_h5`."
+            )
 
         if self.product == "RTC_S1":
             # update using a valid data in a backscatter tif
@@ -233,19 +242,6 @@ class BurstH5toStacManager:
             )
             self.geometry_4326 = mapping(valid_data_geometry_4326)
             self.bbox_4326 = valid_data_geometry_4326.bounds
-
-            # gdf = gpd.GeoDataFrame(
-            #     [{"geometry": valid_data_geometry}], crs=self.projection_epsg
-            # )
-            # gdf.to_file(
-            #     self.burst_folder.parent / f"min_geom_{self.projection_epsg}.json",
-            #     driver="GeoJSON",
-            # )
-            # gdf = gpd.GeoDataFrame([{"geometry": valid_data_geometry_4326}], crs=4326)
-            # gdf.to_file(
-            #     self.burst_folder.parent / f"min_geom_4326.json",
-            #     driver="GeoJSON",
-            # )
 
     def make_stac_item_from_h5(self):
         """Make a pystac.item.Item for the given burst using key properties

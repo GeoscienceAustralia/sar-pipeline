@@ -781,6 +781,9 @@ def make_rtc_opera_stac_and_upload_bursts(
         )
 
         if product == "RTC_S1":
+            logger.info(
+                "Updating STAC geometry using valid data from a product GeoTiff"
+            )
             burst_stac_manager._update_geometry_using_valid_data()
         # make the stac item from the .h5 file
         burst_stac_manager.make_stac_item_from_h5()
