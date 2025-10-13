@@ -218,7 +218,7 @@ def load_burst_geometry_from_geojson(geojson_path: Path, burst_id: str):
 
 def get_valid_data_min_rect_polygon_from_tif(
     tif_path: Path,
-    n_segments: int = 5,
+    n_segments: int = 4,
 ) -> Polygon:
     """
     Extract an approximate (rotated) rectangular boundary polygon
@@ -287,7 +287,7 @@ def get_valid_data_min_rect_polygon_from_tif(
             coords = np.array(rect.exterior.coords)
             # Compute pairwise edge lengths
             edge_lengths = np.sqrt(np.sum(np.diff(coords, axis=0) ** 2, axis=1))
-            segment_length = np.min(edge_lengths)
+            segment_length = np.min(edge_lengths) / n_segments
             segmentized_geometry = segmentize(rect, max_segment_length=segment_length)
             return segmentized_geometry
         else:

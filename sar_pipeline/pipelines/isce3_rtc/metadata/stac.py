@@ -207,7 +207,7 @@ class BurstH5toStacManager:
         else:
             return "NTC"
 
-    def _update_geometry_using_valid_data(self):
+    def update_geometry_using_valid_data(self):
         """The geometries provided in the .h5 are only approximations from
         the burst data in radar coordinates. Update these geometries using
         the minimum rotated rectangle that encloses the valid data from an actual
@@ -230,18 +230,20 @@ class BurstH5toStacManager:
             for f in self.burst_folder.iterdir():
                 if any([pol in f.name for pol in self.polarisations]):
                     geometry_tif = f
-        elif self.product == "RTC_S1":
+        elif self.product == "RTC_S1_STATIC":
             # use the local incidence angle layer
             for f in self.burst_folder.iterdir():
                 if "local" in f.name and "incidence" in f.name:
                     geometry_tif = f
 
-            valid_data_geometry = get_valid_data_min_rect_polygon_from_tif(geometry_tif)
-            valid_data_geometry_4326 = transform_polygon(
-                valid_data_geometry, self.projection_epsg, 4326
-            )
-            self.geometry_4326 = mapping(valid_data_geometry_4326)
-            self.bbox_4326 = valid_data_geometry_4326.bounds
+        valid_data_geometry = get_valid_data_min_rect_polygon_from_tif(
+            geometry_tif, n_segments=4
+        )
+        valid_data_geometry_4326 = transform_polygon(
+            valid_data_geometry, self.projection_epsg, 4326
+        )
+        self.geometry_4326 = mapping(valid_data_geometry_4326)
+        self.bbox_4326 = valid_data_geometry_4326.bounds
 
     def make_stac_item_from_h5(self):
         """Make a pystac.item.Item for the given burst using key properties
