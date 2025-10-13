@@ -97,6 +97,15 @@ from settings import (
 ORIGINAL_PRODUCT_RESULTS_DIR = f"{CURRENT_DIR}/data/TMP/test_metadata/original"
 NEW_PRODUCT_RESULTS_DIR = f"{CURRENT_DIR}/data/TMP/test_metadata/new"
 COMPARE_PRODUCT_FOLDER = f"{CURRENT_DIR}/data/TMP/test_metadata/compare"
+PRODUCT = "RTC_S1"
+
+# custom test against another product by changing these values
+# TEST_1_COLLECTION_NUMBER = 0
+# TEST_1_BURST = "t085_182158_iw2"
+# TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER = (
+#     "experimental/baseline/antarctica/ga_s1_nrb_iw_hh_0/t085_182158_iw2/2021/04/25"
+# )
+# PERSISTENT_S3_PROJECT_FOLDER = "experimental/baseline/antarctica"
 
 TEST_1 = RunConfig(
     test_product_s3_bucket=TEST_S3_BUCKET,
@@ -104,7 +113,7 @@ TEST_1 = RunConfig(
     original_local_product_folder=f"{ORIGINAL_PRODUCT_RESULTS_DIR}/TEST_1/RTC_S1/{TEST_1_BURST}",
     new_local_product_folder=f"{NEW_PRODUCT_RESULTS_DIR}/TEST_1/RTC_S1/{TEST_1_BURST}",
     compare_product_folder=f"{COMPARE_PRODUCT_FOLDER}/TEST_1/RTC_S1/{TEST_1_BURST}",
-    product="RTC_S1",
+    product=PRODUCT,
     backscatter_convention="gamma0",
     collection_number=TEST_1_COLLECTION_NUMBER,
     s3_bucket=TEST_S3_BUCKET,
