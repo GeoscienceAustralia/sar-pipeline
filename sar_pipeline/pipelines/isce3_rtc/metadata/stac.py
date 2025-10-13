@@ -124,7 +124,7 @@ class BurstH5toStacManager:
         if self.product == "RTC_S1":
             # NOTE - boundingPolygon considers the burst geometry taken from the .SAFE file
             # This geometry is only an approximation. The geometry can be updated using
-            # The valid data within a file using the update_stac_geometry_using_valid_data method
+            # The valid data within a file using the update_geometry_using_valid_data method
             self.geometry_4326 = polygon_str_to_geojson(
                 self.h5.search_value("boundingPolygon")
             )
