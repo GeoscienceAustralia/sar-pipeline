@@ -44,6 +44,28 @@ TEST_2_COMPARE_RTC_S1_S3_PROJECT_FOLDER = (
     f"{PERSISTENT_S3_PROJECT_FOLDER}/{TEST_2_S3_RTC_S1_PRODUCT_SUBPATH}"
 )
 
+
+# Antimeridian test scene
+TEST_3_SCENE = ""
+TEST_3_BURST = ""
+TEST_3_POLS = ["VV"]
+TEST_3_BURST_ST = ""
+TEST_3_COLLECTION_NUMBER = 1
+TEST_3_S3_RTC_S1_PRODUCT_SUBPATH = f""
+TEST_3_S3_RTC_S1_STATIC_PRODUCT_SUBPATH = f"ga_s1_nrb_iw_static_1/{TEST_3_BURST}"
+TEST_3_COMPARE_RTC_S1_STATIC_S3_PROJECT_FOLDER = (
+    f"{PERSISTENT_S3_PROJECT_FOLDER}/{TEST_3_S3_RTC_S1_STATIC_PRODUCT_SUBPATH}"
+)
+TEST_3_COMPARE_RTC_S1_S3_PROJECT_FOLDER = (
+    f"{PERSISTENT_S3_PROJECT_FOLDER}/{TEST_3_S3_RTC_S1_PRODUCT_SUBPATH}"
+)
+
+# Set this to True to update the above products in the AWS S3 folder
+# Existing products will need to be deleted, otherwise the process will exit early
+# See docs in test_full_docker_build_and_run.py for more information
+UPDATE_PERSISTENT_TEST_DATA = False
+
+
 # Set this to True to update the above products in the AWS S3 folder
 # Existing products will need to be deleted, otherwise the process will exit early
 # See docs in test_full_docker_build_and_run.py for more information
