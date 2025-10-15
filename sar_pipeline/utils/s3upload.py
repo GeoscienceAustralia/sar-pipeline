@@ -71,6 +71,13 @@ def push_files_in_folder_to_s3(
                         "\\", "/"
                     )
                 )
-            file_mime_type, _ = mimetypes.guess_type(local_path) or "binary/octet-stream"  # fallback if unknown
-            S3_CLIENT.upload_file(str(local_path), str(s3_bucket), str(s3_key), ExtraArgs={"ContentType": file_mime_type})
+            file_mime_type, _ = (
+                mimetypes.guess_type(local_path) or "binary/octet-stream"
+            )  # fallback if unknown
+            S3_CLIENT.upload_file(
+                str(local_path),
+                str(s3_bucket),
+                str(s3_key),
+                ExtraArgs={"ContentType": file_mime_type},
+            )
             logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
