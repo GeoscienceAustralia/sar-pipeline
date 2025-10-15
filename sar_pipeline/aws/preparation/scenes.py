@@ -1,3 +1,4 @@
+import sys
 import asf_search
 from asf_search import ASFSearchResults
 import os
@@ -9,6 +10,7 @@ import shapely
 import ast
 import re
 import tempfile
+import multiprocessing
 from cdsetool.query import query_features, FeatureQuery
 from cdsetool.credentials import Credentials
 from cdsetool.download import download_features
@@ -37,6 +39,12 @@ class SceneDownloadError(Exception):
 
 class NonSingleSceneResultError(Exception):
     """Exception raised 0, or more than one SLC result is found."""
+
+    pass
+
+
+class SceneDownloadTimeoutError(TimeoutError):
+    """Raised when the scene download exceeds the allowed time limit."""
 
     pass
 
@@ -587,12 +595,6 @@ def download_scene_from_preference_list(
     -------
     tuple[Path, shapely.geometry.shape, str]
         The Path to the downloaded scene, the scene geometry and scene url
-
-    Raises
-    ------
-    ValueError
-        The list of preferences is not valid
-    e
         
     """
     if not all(
@@ -647,3 +649,49 @@ def download_scene_from_preference_list(
 
     logger.info(f"Scene {scene} successfully downloaded from: {data_source}")
     return SCENE_PATH, scene_polygon, scene_url
+
+
+def download_scene_from_preference_list_with_timeout(
+    timeout_mins: int = 60,
+    early_exit_code: int | None = 102,
+    *args,
+    **kwargs,
+):
+    """
+    Run `download_scene_from_preference_list` with a timeout.
+
+    Parameters
+    ----------
+    timeout_mins : int
+        Maximum number of minutes before timing out.
+    early_exit_code:
+        If a specific exit code should be raised on timout
+    *args, **kwargs
+        Passed directly to `download_scene_from_preference_list`.
+
+    Raises
+    ------
+    SceneDownloadTimeoutError
+        If the download takes longer than the timeout.
+    """
+    timeout_seconds = timeout_mins * 60
+
+    with multiprocessing.Pool(processes=1) as pool:
+        async_result = pool.apply_async(
+            download_scene_from_preference_list, args, kwargs
+        )
+        try:
+            return async_result.get(timeout=timeout_seconds)
+        except multiprocessing.context.TimeoutError:
+            msg = f"Scene download timed out after {timeout_mins} minutes."
+            error = SceneDownloadTimeoutError(msg)
+            logger.exception(error)
+
+            # Forcefully terminate the pool and its worker
+            pool.terminate()
+            pool.join()
+
+            if early_exit_code is not None:
+                sys.exit(early_exit_code)
+            else:
+                raise error

@@ -9,7 +9,7 @@ from s1reader import s1_info
 import re
 
 from sar_pipeline.aws.preparation.scenes import (
-    download_scene_from_preference_list,
+    download_scene_from_preference_list_with_timeout,
     VALID_SCENE_DATA_SOURCES,
 )
 from sar_pipeline.aws.preparation.orbits import (
@@ -371,11 +371,15 @@ def get_data_for_scene_and_make_run_config(
         )
 
     # iterate through the preferences for the scene data source and download the scene
-    SCENE_PATH, scene_polygon, input_scene_url = download_scene_from_preference_list(
-        scene_data_source_preferences=scene_data_sources,
-        scene=scene,
-        download_folder=scene_folder,
-        unzip=True,
+    SCENE_PATH, scene_polygon, input_scene_url = (
+        download_scene_from_preference_list_with_timeout(
+            timeout_mins=60,
+            early_exit_code=102,
+            scene_data_source_preferences=scene_data_sources,
+            scene=scene,
+            download_folder=scene_folder,
+            unzip=True,
+        )
     )
 
     # # download the orbits

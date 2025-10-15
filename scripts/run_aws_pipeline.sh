@@ -257,6 +257,10 @@ if [ $exit_code -eq 101 ]; then
     echo "Process failed (101): Required Static Layers are missing. Product: $product. Scene: $scene."
     exit 101
 fi
+if [ $exit_code -eq 102 ]; then
+    echo "Process failed (102): SceneDownloadTimeout. Scene could not be downloaded in allowed time. Check "--scene_data_source" preferences. Product: $product. Scene: $scene."
+    exit 102
+fi
 if [ $exit_code -ne 0 ]; then
     echo "Process failed (1): Error in get-data-for-scene-and-make-run-config process. Product: $product. Scene: $scene."
     exit 1
