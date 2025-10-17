@@ -665,7 +665,7 @@ def download_scene_from_preference_list_with_timeout(
     timeout_mins : int
         Maximum number of minutes before timing out.
     early_exit_code:
-        If a specific exit code should be raised on timout
+        If a specific exit code should be raised on timeout
     *args, **kwargs
         Passed directly to `download_scene_from_preference_list`.
 
