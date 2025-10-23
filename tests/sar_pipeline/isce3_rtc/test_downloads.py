@@ -36,6 +36,8 @@ REQUIRED_ENV_VARIABLES = [
     "AUS_COP_HUB_PASSWORD",
     "AUS_COP_HUB_CLIENT_ID",
     "AUS_COP_HUB_CLIENT_SECRET",
+    "PYGSSEARCH_ENV_EXECUTABLE",
+    "PYGSSEARCH_ENV_NAME",
 ]
 # check if the required env variables are set
 missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
@@ -165,14 +167,6 @@ TEST_CASES = [
 
 @pytest.mark.parametrize("test_case", TEST_CASES)
 def test_product_downloads(test_case):
-
-    # if AUS_COP_HUB is selected, set the required environment variable'
-    # pygssearch conda env is installed via pixi task in pyproject.toml
-    if "AUS_COP_HUB" in test_case.scene_data_sources:
-        os.environ["PYGSSEARCH_CONDA_ENV"] = str(
-            Path(os.getenv("CONDA_EXE")).parent.parent / "envs" / "pygssearch-env"
-        )
-        logger.info(f"PYGSSEARCH_CONDA_ENV : {os.getenv("PYGSSEARCH_CONDA_ENV")}")
 
     # test casses we expect to pass
     if test_case.passes:
