@@ -327,9 +327,9 @@ def download_scene_from_cdse(
 
 def query_scene_from_aus_cop_hub(
     scene: str,
+    pygssearch_env_executable: Union[str, Path],
+    pygssearch_env_name: Union[str, Path],
     service: str = "https://catalogue.copernicus.gov.au/odata/v1",
-    pygssearch_env_executable: Union[str, Path] = "conda",
-    pygssearch_env_name: Union[str, Path] = "pygssearch-env",
 ) -> tuple[str, dict]:
     """Query the scene and retrieve associated metadata from the Copernicus
     Australasia Regional Data Hub. Function makes use of pygssearch -
@@ -341,16 +341,15 @@ def query_scene_from_aus_cop_hub(
     ----------
     scene : str
         scene name. e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
+    pygssearch_env_executable : Union[str, Path]
+        Executable for running commands with the environment manager containing the
+        pygssearch environment. Can be an alias for the executable (e.g. micromamba)
+        or a path to the executable (e.g. /path/to/micromamba/bin/micromamba).
+    pygssearch_env_name : Union[str, Path]
+        Name of the environment containing an installation of pygssearch that
+        will be called in a subprocess.
     service : str, optional
         Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
-    pygssearch_env_executable : Union[str, Path], optional
-        Executable for running commands with the environment manager containing the
-        pygssearch environment, by default "conda".
-        Can be an alias for the executable (e.g. micromamba) or a path to the executable
-        (e.g. /path/to/micromamba/bin/micromamba)
-    pygssearch_env_name : Union[str, Path], optional
-        Name of the environment containing an installation of pygssearch that will be called in a
-        subprocess, by default "pygssearch-env"
 
     Returns
     -------
@@ -384,7 +383,7 @@ def query_scene_from_aus_cop_hub(
 
     # Set the query for the scene -- no credentials required when querying
     pygss_cmd = (
-        f"pygssearch --service {service} " f"--name {scene} --format _ --attributes "
+        f"pygssearch --service {service} --name {scene} --format _ --attributes "
     )
 
     # Construct the command to run for subprocess
@@ -436,7 +435,7 @@ def download_scene_from_aus_cop_hub(
     service: str = "https://catalogue.copernicus.gov.au/odata/v1",
     token_url: str = "https://auth.copernicus.gov.au/realms/gss/protocol/openid-connect/token",
     pygssearch_env_executable: Optional[Union[str, Path]] = None,
-    pygssearch_env_name: Optional[Union[str, Path]] = None,
+    pygssearch_env_name: Optional[str] = None,
 ) -> tuple[Path, dict]:
     """Download the scene and query associated metadata from the Copernicus
     Australasia Regional Data Hub. Function makes use of pygssearch -
@@ -471,10 +470,10 @@ def download_scene_from_aus_cop_hub(
     token_url : str, optional
         URL to validate token, by default "https://auth.copernicus.gov.au/realms/gss/protocol/openid-connect/token"
     pygssearch_env_executable: str | Path, optional
-        Path or command line alias for the environment manager (conda/mamba) used to run the pygssearch environment.
-        If not specified, env variable PYGSSEARCH_ENV_MANAGER will be used.
-    pygssearch_conda_env_path: str | Path, optional
-        Path to the conda/mamba environment containing an installation of pygssearch that will be called in a
+        Path or command line alias for the environment manager executable (conda/mamba) used to run the pygssearch environment.
+        If not specified, env variable PYGSSEARCH_ENV_EXECUTABLE will be used.
+    pygssearch_conda_env_path: str, optional
+        Name of the conda/mamba environment containing an installation of pygssearch that will be called in a
         subprocess. If not specified, env variable PYGSSEARCH_ENV_NAME will be used.
 
     Returns
@@ -526,7 +525,8 @@ def download_scene_from_aus_cop_hub(
     # Check for missing pygssearch environment manager parameters
     if not (pygssearch_env_executable and pygssearch_env_name):
         err_string = (
-            "Environment manager or environment name were not provided. Please provide pygssearch_env_executable and pygssearch_env_name "
+            "Environment manager or environment name were not provided. Please provide "
+            "the pygssearch_env_executable and pygssearch_env_name arguments "
             "or set the PYGSSEARCH_ENV_EXECUTABLE and PYGSSEARCH_ENV_NAME environment variables"
         )
         raise MissingEnvironmentManagerError(err_string)
