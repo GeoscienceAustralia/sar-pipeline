@@ -24,7 +24,7 @@ dependencies = [
     "ruamel-yaml>=0.18.10", 
     "s1-orbits>=0.1.3", 
     "cdsetool>=0.2.13",
-    "dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.3", 
+    "dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@fix/antimeridian", 
     "python-dotenv>=1.1.1,<2", 
     "pystac[validation]==1.13.0", 
 ]
