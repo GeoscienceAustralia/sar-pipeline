@@ -229,6 +229,7 @@ def download_scene_from_asf(
             if use_session:
                 asf_scene_metadata.download(path=download_folder, session=session)
             else:
+                # Default to looking for the .netrc file for authentication if no session is provided.
                 asf_scene_metadata.download(path=download_folder)
         except:
             logger.error(

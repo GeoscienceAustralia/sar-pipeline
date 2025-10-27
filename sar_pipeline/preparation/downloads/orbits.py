@@ -123,7 +123,7 @@ def download_orbits(
 
         logger.info(f"Starting EOF download from {source}...")
 
-        # The logic in eof.download.main() tries CDSE first by default. set force_asf by source
+        # The logic in eof.download.main() tries CDSE by default. set force_asf if the source is ASF
         try:
             force_asf = source == "ASF"
             try:
@@ -138,7 +138,8 @@ def download_orbits(
                 )
             except:
                 if force_asf:
-                    # remove asf credentials to read from .netrc
+                    # authentication through session credentials may have failed (ASF bug)
+                    # remove explicit credentials to read tem from from .netrc
                     logger.info(
                         "ASF credentials failed. Falling back to .netrc authentication"
                     )
