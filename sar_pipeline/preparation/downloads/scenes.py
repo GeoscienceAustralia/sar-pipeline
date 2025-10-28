@@ -327,8 +327,8 @@ def download_scene_from_cdse(
 
 def query_scene_from_aus_cop_hub(
     scene: str,
-    pygssearch_env_executable: Union[str, Path],
-    pygssearch_env_name: Union[str, Path],
+    pygssearch_env_executable: Optional[Union[str, Path]] = None,
+    pygssearch_env_name: Optional[Union[str, Path]] = None,
     service: str = "https://catalogue.copernicus.gov.au/odata/v1",
 ) -> tuple[str, dict]:
     """Query the scene and retrieve associated metadata from the Copernicus
@@ -341,11 +341,11 @@ def query_scene_from_aus_cop_hub(
     ----------
     scene : str
         scene name. e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
-    pygssearch_env_executable : Union[str, Path]
+    pygssearch_env_executable : Optional[Union[str, Path]]
         Executable for running commands with the environment manager containing the
         pygssearch environment. Can be an alias for the executable (e.g. micromamba)
         or a path to the executable (e.g. /path/to/micromamba/bin/micromamba).
-    pygssearch_env_name : Union[str, Path]
+    pygssearch_env_name : Optional[Union[str, Path]]
         Name of the environment containing an installation of pygssearch that
         will be called in a subprocess.
     service : str, optional
@@ -501,10 +501,6 @@ def download_scene_from_aus_cop_hub(
     aus_cop_hub_client_secret = aus_cop_hub_client_secret or os.getenv(
         "AUS_COP_HUB_CLIENT_SECRET"
     )
-    pygssearch_env_executable = pygssearch_env_executable or os.getenv(
-        "PYGSSEARCH_ENV_EXECUTABLE"
-    )
-    pygssearch_env_name = pygssearch_env_name or os.getenv("PYGSSEARCH_ENV_NAME")
 
     # Check for any missing credentials
     missing_vars = []
@@ -522,22 +518,16 @@ def download_scene_from_aus_cop_hub(
             f"Missing credentials: {', '.join(missing_vars)}. Please pass them as arguments or set them as environment variables."
         )
 
-    # Check for missing pygssearch environment manager parameters
-    if not (pygssearch_env_executable and pygssearch_env_name):
-        err_string = (
-            "Environment manager or environment name were not provided. Please provide "
-            "the pygssearch_env_executable and pygssearch_env_name arguments "
-            "or set the PYGSSEARCH_ENV_EXECUTABLE and PYGSSEARCH_ENV_NAME environment variables"
-        )
-        raise MissingEnvironmentManagerError(err_string)
-
     # Create a folder for download if requested
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
 
     # Run the initial query to get the base run command plus scene metadata
     base_cmd, aus_cophub_scene_metadata = query_scene_from_aus_cop_hub(
-        scene, service, pygssearch_env_executable, pygssearch_env_name
+        scene=scene,
+        pygssearch_env_executable=pygssearch_env_executable,
+        pygssearch_env_name=pygssearch_env_name,
+        service=service,
     )
 
     # Add additional query parameters to the base command to enable downloading
