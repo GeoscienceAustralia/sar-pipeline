@@ -8,6 +8,7 @@ import subprocess
 import shapely
 import ast
 import re
+import tempfile
 from cdsetool.query import query_features, FeatureQuery
 from cdsetool.credentials import Credentials
 from cdsetool.download import download_features
@@ -23,8 +24,8 @@ logger = logging.getLogger(__name__)
 VALID_SCENE_DATA_SOURCES = ["AUS_COP_HUB", "CDSE", "ASF"]
 
 
-class MissingEnvironmentManagerError(Exception):
-    """Exception raised when no environment manager setttings are supplied."""
+class MissingEnvironmentError(Exception):
+    """Exception raised when no conda environment is supplied."""
 
     pass
 
@@ -89,6 +90,50 @@ def query_scene_from_asf(scene: str) -> ASFSearchResults:
     )
 
     return search_results
+
+
+def create_asf_netrc_file(asf_login: str, asf_pass: str) -> Path:
+    """
+    Create a temporary `.netrc` file containing ASF/Earthdata login credentials.
+
+    This function generates a temporary `.netrc` file to authenticate with the
+    Alaska Satellite Facility (ASF) or NASA Earthdata services. The file is
+    written to a secure temporary location, assigned appropriate file permissions
+    (`chmod 600`), and its path is set as the `NETRC` environment variable so that
+    tools using `requests` or other netrc-aware libraries can locate it.
+
+    Parameters
+    ----------
+    asf_login : str
+        The username associated with the ASF/NASA Earthdata account.
+    asf_pass : str
+        The password associated with the ASF/NASA Earthdata account.
+
+    Returns
+    -------
+    Path
+        The filesystem path to the created temporary `.netrc` file.
+    """
+
+    logger.info(f"Creating temporary .netrc file with ASF/Earthdata credentials")
+    with tempfile.NamedTemporaryFile("w", delete=False) as f:
+        f.write(
+            f"""machine urs.earthdata.nasa.gov
+        login {asf_login}
+        password {asf_pass}
+        """
+        )
+        netrc_path = f.name
+
+    logger.info(f"Temporary .netrc created at {netrc_path}")
+
+    # Set file permissions to 600 (required)
+    os.chmod(netrc_path, 0o600)
+
+    # Optional: tell requests/netrc-aware tools to use this file
+    os.environ["NETRC"] = netrc_path
+
+    return netrc_path
 
 
 @log_timing
@@ -158,8 +203,22 @@ def download_scene_from_asf(
             )
             MissingCredentialsError(err_string)
 
-    session = asf_search.ASFSession()
-    session.auth_with_creds(asf_login, asf_pass)
+    # create the NETRC file if it doesn't exist
+    # this is a fallback if auth_with_creds fails
+    if not os.getenv("NETRC"):
+        create_asf_netrc_file(asf_login, asf_pass)
+
+    try:
+        logger.info("Attempting to authenticate with ASF session")
+        session = asf_search.ASFSession()
+        session.auth_with_creds(asf_login, asf_pass)
+        use_session = True
+    except:
+        logger.error(
+            "ASF session authentication failed. Attempting fo fall back to .netrc file.",
+            exc_info=True,
+        )
+        use_session = False
 
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
@@ -174,7 +233,11 @@ def download_scene_from_asf(
         logger.info(f"Skipping download, zipped scene exists at : {scene_zip_path}")
     else:
         try:
-            asf_scene_metadata.download(path=download_folder, session=session)
+            if use_session:
+                asf_scene_metadata.download(path=download_folder, session=session)
+            else:
+                # Default to looking for the .netrc file for authentication if no session is provided.
+                asf_scene_metadata.download(path=download_folder)
         except:
             logger.error(
                 "An error occurred while running the download command",
@@ -327,8 +390,7 @@ def download_scene_from_cdse(
 
 def query_scene_from_aus_cop_hub(
     scene: str,
-    pygssearch_env_executable: Optional[Union[str, Path]] = None,
-    pygssearch_env_name: Optional[Union[str, Path]] = None,
+    pygssearch_conda_env_path: Optional[Union[str, Path]],
     service: str = "https://catalogue.copernicus.gov.au/odata/v1",
 ) -> tuple[str, dict]:
     """Query the scene and retrieve associated metadata from the Copernicus
@@ -341,13 +403,9 @@ def query_scene_from_aus_cop_hub(
     ----------
     scene : str
         scene name. e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
-    pygssearch_env_executable : Optional[Union[str, Path]]
-        Executable for running commands with the environment manager containing the
-        pygssearch environment. Can be an alias for the executable (e.g. micromamba)
-        or a path to the executable (e.g. /path/to/micromamba/bin/micromamba).
-    pygssearch_env_name : Optional[Union[str, Path]]
-        Name of the environment containing an installation of pygssearch that
-        will be called in a subprocess.
+    pygssearch_conda_env_path: Optional[Union[str, Path]]
+        Path to the conda environment containing an installation of pygssearch that will be called in a
+        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used
     service : str, optional
         Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
 
@@ -358,28 +416,29 @@ def query_scene_from_aus_cop_hub(
 
     Raises
     ------
-    ValueError
-        Supplied environment executable contains neither "conda" or "mamba"
+    MissingEnvironmentError
+        Neither of pygssearch_conda_env_path and PYGSSEARCH_CONDA_ENV environment variable were set
     NonSingleSceneResultError
         0, or more than one SLC result is found
     """
 
     logger.info("Using pygssearch to query Aus Cop Hub for scene metadata")
 
-    # Set up the run command with the provided environment manager path and environment name
-    if "conda" in str(pygssearch_env_executable):
-        env_name_cli_arg = "-p"
-    elif "mamba" in str(pygssearch_env_executable):
-        env_name_cli_arg = "-n"
-    else:
-        raise ValueError(
-            f"Supported environment managers are conda or mamba (including micromamba). Supplied environment manager executable was {pygssearch_env_executable}"
-        )
-
-    # Set the command to use conda or mamba to execute a command using the pygss envrionemnt
-    environment_cmd = (
-        f"{pygssearch_env_executable} run {env_name_cli_arg} {pygssearch_env_name} "
+    # Check for pygssearch_conda_env_path, and import from environment if not available
+    pygssearch_conda_env_path = pygssearch_conda_env_path or os.getenv(
+        "PYGSSEARCH_CONDA_ENV"
     )
+
+    if not pygssearch_conda_env_path:
+        err_string = (
+            "Path to conda environment for pygssearch is missing. "
+            "Please provide the pygssearch_conda_env_path argument "
+            "or set the PYGSSEARCH_CONDA_ENV environment variable."
+        )
+        raise MissingEnvironmentError(err_string)
+
+    # Set the command to use conda to execute a command using the pygssearch environment
+    environment_cmd = f"conda run -p {pygssearch_conda_env_path} "
 
     # Set the query for the scene -- no credentials required when querying
     pygss_cmd = (
@@ -434,8 +493,7 @@ def download_scene_from_aus_cop_hub(
     aus_cop_hub_client_secret: Optional[str] = None,
     service: str = "https://catalogue.copernicus.gov.au/odata/v1",
     token_url: str = "https://auth.copernicus.gov.au/realms/gss/protocol/openid-connect/token",
-    pygssearch_env_executable: Optional[Union[str, Path]] = None,
-    pygssearch_env_name: Optional[str] = None,
+    pygssearch_conda_env_path: Optional[Union[str, Path]] = None,
 ) -> tuple[Path, dict]:
     """Download the scene and query associated metadata from the Copernicus
     Australasia Regional Data Hub. Function makes use of pygssearch -
@@ -469,12 +527,9 @@ def download_scene_from_aus_cop_hub(
         Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
     token_url : str, optional
         URL to validate token, by default "https://auth.copernicus.gov.au/realms/gss/protocol/openid-connect/token"
-    pygssearch_env_executable: str | Path, optional
-        Path or command line alias for the environment manager executable (conda/mamba) used to run the pygssearch environment.
-        If not specified, env variable PYGSSEARCH_ENV_EXECUTABLE will be used.
-    pygssearch_conda_env_path: str, optional
-        Name of the conda/mamba environment containing an installation of pygssearch that will be called in a
-        subprocess. If not specified, env variable PYGSSEARCH_ENV_NAME will be used.
+    pygssearch_conda_env_path: Optional[Union[str, Path]]
+        Path to the conda environment containing an installation of pygssearch that will be called in a
+        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used
 
     Returns
     -------
@@ -485,8 +540,8 @@ def download_scene_from_aus_cop_hub(
     ------
     MissingCredentialsError
         Required credentials are not set
-    MissingEnvironmentManagerError
-        Required environment manager (conda/mamba) variables are not set
+    MissingEnvironmentError
+        Neither of pygssearch_conda_env_path and PYGSSEARCH_CONDA_ENV environment variable were set
     NonSingleSceneResultError
         Could not find exactly 1 scene
     RuntimeError
@@ -500,6 +555,9 @@ def download_scene_from_aus_cop_hub(
     aus_cop_hub_client_id = aus_cop_hub_client_id or os.getenv("AUS_COP_HUB_CLIENT_ID")
     aus_cop_hub_client_secret = aus_cop_hub_client_secret or os.getenv(
         "AUS_COP_HUB_CLIENT_SECRET"
+    )
+    pygssearch_conda_env_path = pygssearch_conda_env_path or os.getenv(
+        "PYGSSEARCH_CONDA_ENV"
     )
 
     # Check for any missing credentials
@@ -518,16 +576,22 @@ def download_scene_from_aus_cop_hub(
             f"Missing credentials: {', '.join(missing_vars)}. Please pass them as arguments or set them as environment variables."
         )
 
+    # Check for missing pygssearch environment manager parameters
+    if not pygssearch_conda_env_path:
+        err_string = (
+            "Path to conda environment for pygssearch is missing. "
+            "Please provide the pygssearch_conda_env_path argument "
+            "or set the PYGSSEARCH_CONDA_ENV environment variable."
+        )
+        raise MissingEnvironmentError(err_string)
+
     # Create a folder for download if requested
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
 
     # Run the initial query to get the base run command plus scene metadata
     base_cmd, aus_cophub_scene_metadata = query_scene_from_aus_cop_hub(
-        scene=scene,
-        pygssearch_env_executable=pygssearch_env_executable,
-        pygssearch_env_name=pygssearch_env_name,
-        service=service,
+        scene, pygssearch_conda_env_path=pygssearch_conda_env_path, service=service
     )
 
     # Add additional query parameters to the base command to enable downloading
