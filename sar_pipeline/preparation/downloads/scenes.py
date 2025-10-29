@@ -8,6 +8,7 @@ import subprocess
 import shapely
 import ast
 import re
+import tempfile
 from cdsetool.query import query_features, FeatureQuery
 from cdsetool.credentials import Credentials
 from cdsetool.download import download_features
@@ -84,6 +85,50 @@ def query_scene_from_asf(scene: str) -> ASFSearchResults:
     return search_results
 
 
+def create_asf_netrc_file(asf_login: str, asf_pass: str) -> Path:
+    """
+    Create a temporary `.netrc` file containing ASF/Earthdata login credentials.
+
+    This function generates a temporary `.netrc` file to authenticate with the
+    Alaska Satellite Facility (ASF) or NASA Earthdata services. The file is
+    written to a secure temporary location, assigned appropriate file permissions
+    (`chmod 600`), and its path is set as the `NETRC` environment variable so that
+    tools using `requests` or other netrc-aware libraries can locate it.
+
+    Parameters
+    ----------
+    asf_login : str
+        The username associated with the ASF/NASA Earthdata account.
+    asf_pass : str
+        The password associated with the ASF/NASA Earthdata account.
+
+    Returns
+    -------
+    Path
+        The filesystem path to the created temporary `.netrc` file.
+    """
+
+    logger.info(f"Creating temporary .netrc file with ASF/Earthdata credentials")
+    with tempfile.NamedTemporaryFile("w", delete=False) as f:
+        f.write(
+            f"""machine urs.earthdata.nasa.gov
+        login {asf_login}
+        password {asf_pass}
+        """
+        )
+        netrc_path = f.name
+
+    logger.info(f"Temporary .netrc created at {netrc_path}")
+
+    # Set file permissions to 600 (required)
+    os.chmod(netrc_path, 0o600)
+
+    # Optional: tell requests/netrc-aware tools to use this file
+    os.environ["NETRC"] = netrc_path
+
+    return netrc_path
+
+
 @log_timing
 def download_scene_from_asf(
     scene: str,
@@ -151,8 +196,22 @@ def download_scene_from_asf(
             )
             MissingCredentialsError(err_string)
 
-    session = asf_search.ASFSession()
-    session.auth_with_creds(asf_login, asf_pass)
+    # create the NETRC file if it doesn't exist
+    # this is a fallback if auth_with_creds fails
+    if not os.getenv("NETRC"):
+        create_asf_netrc_file(asf_login, asf_pass)
+
+    try:
+        logger.info("Attempting to authenticate with ASF session")
+        session = asf_search.ASFSession()
+        session.auth_with_creds(asf_login, asf_pass)
+        use_session = True
+    except:
+        logger.error(
+            "ASF session authentication failed. Attempting fo fall back to .netrc file.",
+            exc_info=True,
+        )
+        use_session = False
 
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
@@ -167,7 +226,11 @@ def download_scene_from_asf(
         logger.info(f"Skipping download, zipped scene exists at : {scene_zip_path}")
     else:
         try:
-            asf_scene_metadata.download(path=download_folder, session=session)
+            if use_session:
+                asf_scene_metadata.download(path=download_folder, session=session)
+            else:
+                # Default to looking for the .netrc file for authentication if no session is provided.
+                asf_scene_metadata.download(path=download_folder)
         except:
             logger.error(
                 "An error occurred while running the download command",
