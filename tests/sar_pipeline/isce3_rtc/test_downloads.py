@@ -36,8 +36,7 @@ REQUIRED_ENV_VARIABLES = [
     "AUS_COP_HUB_PASSWORD",
     "AUS_COP_HUB_CLIENT_ID",
     "AUS_COP_HUB_CLIENT_SECRET",
-    "PYGSSEARCH_ENV_EXECUTABLE",
-    "PYGSSEARCH_ENV_NAME",
+    "PYGSSEARCH_CONDA_ENV",
 ]
 # check if the required env variables are set
 missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
