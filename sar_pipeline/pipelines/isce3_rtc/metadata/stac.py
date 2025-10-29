@@ -10,6 +10,7 @@ import requests
 import datetime
 import re
 import numpy as np
+import geopandas as gpd
 
 import dem_handler
 import sar_pipeline
@@ -25,6 +26,8 @@ from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
 from sar_pipeline.utils.spatial import (
     polygon_str_to_geojson,
     reproject_bbox_to_geometry,
+    get_valid_data_min_rect_polygon_from_tif,
+    transform_polygon,
 )
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
 from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import (
@@ -119,8 +122,9 @@ class BurstH5toStacManager:
             "data/projection"
         )  # code, e.g. 4326, 3031
         if self.product == "RTC_S1":
-            # NOTE - boundingPolygon considers the burst data taken from the .SAFE file
-            # This geometry is only an approximation.
+            # NOTE - boundingPolygon considers the burst geometry taken from the .SAFE file
+            # This geometry is only an approximation. The geometry can be updated using
+            # The valid data within a file using the update_geometry_using_valid_data method
             self.geometry_4326 = polygon_str_to_geojson(
                 self.h5.search_value("boundingPolygon")
             )
@@ -202,6 +206,48 @@ class BurstH5toStacManager:
             return "STC"
         else:
             return "NTC"
+
+    def update_geometry_using_valid_data(self):
+        """The geometries provided in the .h5 are only approximations from
+        the burst data in radar coordinates. Update these geometries using
+        the minimum rotated rectangle that encloses the valid data from an actual
+        tif. This ensures the geometry correctly encloses the data and
+        search results using the geometry are accurate. For RTC_S1 products,
+        the first backscatter layer is used. For RTC_S1_STATIC products,
+        the local incidence angle is used. Note, RTC_S1_STATIC geometries are
+        already accurate as they utilise the burst grid.
+        """
+
+        if hasattr(self, "item"):
+            raise ValueError(
+                "The STAC item already exists, geometry cannot be updated. Edit "
+                "the geometry before creating the file with `make_stac_item_from_h5`."
+            )
+
+        if self.product == "RTC_S1":
+            # update using a valid data in a backscatter tif
+            # take the tif for the first polarisation
+            for f in self.burst_folder.iterdir():
+                if any([pol in f.name for pol in self.polarisations]):
+                    geometry_tif = f
+                    break
+        elif self.product == "RTC_S1_STATIC":
+            # use the local incidence angle layer
+            for f in self.burst_folder.iterdir():
+                if "local" in f.name and "incidence" in f.name:
+                    geometry_tif = f
+
+        # get the minimum rotated rectangle in native CRS
+        valid_data_geometry = get_valid_data_min_rect_polygon_from_tif(
+            geometry_tif, n_segments=4
+        )
+        # convert points to 4326 lat lon
+        valid_data_geometry_4326 = transform_polygon(
+            valid_data_geometry, self.projection_epsg, 4326
+        )
+        # create valid json geometry
+        self.geometry_4326 = mapping(valid_data_geometry_4326)
+        self.bbox_4326 = valid_data_geometry_4326.bounds
 
     def make_stac_item_from_h5(self):
         """Make a pystac.item.Item for the given burst using key properties
