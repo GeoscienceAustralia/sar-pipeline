@@ -230,18 +230,22 @@ class BurstH5toStacManager:
             for f in self.burst_folder.iterdir():
                 if any([pol in f.name for pol in self.polarisations]):
                     geometry_tif = f
+                    break
         elif self.product == "RTC_S1_STATIC":
             # use the local incidence angle layer
             for f in self.burst_folder.iterdir():
                 if "local" in f.name and "incidence" in f.name:
                     geometry_tif = f
 
+        # get the minimum rotated rectangle in native CRS
         valid_data_geometry = get_valid_data_min_rect_polygon_from_tif(
             geometry_tif, n_segments=4
         )
+        # convert points to 4326 lat lon
         valid_data_geometry_4326 = transform_polygon(
             valid_data_geometry, self.projection_epsg, 4326
         )
+        # create valid json geometry
         self.geometry_4326 = mapping(valid_data_geometry_4326)
         self.bbox_4326 = valid_data_geometry_4326.bounds
 
