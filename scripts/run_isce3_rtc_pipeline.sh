@@ -17,6 +17,7 @@ skip_upload_to_s3=false
 scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
 orbit_data_source=("ASF" "CDSE")
 skip_validate_stac=false
+skip_rtc=false
 ## -- WORKFLOW INPUTS TO LINK RTC_S1_STATIC in RTC_S1 metadata--
 # if link_static_layers, RTC_S1_STATIC products must exist for all RTC_S1 bursts being processed
 link_static_layers=false
@@ -90,6 +91,7 @@ while [[ "$#" -gt 0 ]]; do
             fi
             ;;
         --skip_validate_stac) skip_validate_stac=true; shift ;;
+        --skip_rtc) skip_rtc=true; shift ;;
         --burst_id_list)
             shift
             if [[ $# -eq 1 && -f "$1" ]]; then
@@ -156,6 +158,7 @@ echo skip_upload_to_s3 : "$skip_upload_to_s3"
 echo scene_data_source : ${scene_data_source[*]}
 echo orbit_data_source : ${orbit_data_source[*]}
 echo skip_validate_stac : "$skip_validate_stac"
+echo skip_rtc : "$skip_rtc"
 
 # warn the user about linking static layers
 if [[ "$link_static_layers" = true && "$product" = "RTC_S1" ]]; then
@@ -264,12 +267,16 @@ fi
 
 ## -- RUN THE WORKFLOW TO PRODUCE RTC_S1 or RTC_S1_STATIC --
 
-conda activate RTC
-rtc_s1.py $RUN_CONFIG_PATH
+if [ "$skip_rtc" = true ]; then
+    echo "Skipping RTC step as skip_rtc=true"
+else
+    conda activate RTC
+    rtc_s1.py "$RUN_CONFIG_PATH"
 
-if [ $? -ne 0 ]; then
-    echo "Process failed (2): Error in rtc_s1.py $RUN_CONFIG_PATH process. Product: $product. Scene: $scene."
-    exit 2
+    if [ $? -ne 0 ]; then
+        echo "Process failed (2): Error in rtc_s1.py $RUN_CONFIG_PATH process. Product: $product. Scene: $scene."
+        exit 2
+    fi
 fi
 
 ## -- MAKE THE METADATA FOR PRODUCTS AND UPLOAD TO S3 --
