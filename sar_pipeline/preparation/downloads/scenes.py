@@ -529,7 +529,7 @@ def download_scene_from_aus_cop_hub(
         URL to validate token, by default "https://auth.copernicus.gov.au/realms/gss/protocol/openid-connect/token"
     pygssearch_conda_env_path: Optional[Union[str, Path]]
         Path to the conda environment containing an installation of pygssearch that will be called in a
-        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used
+        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used. e.g. /path/to/anaconda3/envs/pygssearch-env
 
     Returns
     -------
