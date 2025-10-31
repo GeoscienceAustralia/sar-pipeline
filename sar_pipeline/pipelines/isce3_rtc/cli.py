@@ -416,7 +416,6 @@ def get_data_for_scene_and_make_run_config(
             f"Getting the corrected scene bounds crossing the antimeridian : {bounds}"
         )
         logger.info("Using the bounds for complete scene over the antimeridian.")
-        bounds = bounds[2], bounds[1], bounds[0], bounds[3]  # reshuffle to get DEM
         cop30_buffer_degrees = 0.5  # slighly bigger buffer
     else:
         # reduce the DEM download by considering only the required bursts geometries
