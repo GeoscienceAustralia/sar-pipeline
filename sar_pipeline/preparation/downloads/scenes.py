@@ -465,7 +465,7 @@ def query_scene_from_aus_cop_hub(
         aus_cophub_scenes_metadata: list[dict] = ast.literal_eval(output)
     except Exception as e:
         logger.error(
-            "Could not convert Aus Cop Hub query response to list of JSON data. Check service and requested scene",
+            f"Failed to convert Aus Cop Hub metadata response to list of dictionaries. Response: {output}",
         )
         raise
 
