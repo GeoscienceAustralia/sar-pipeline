@@ -589,7 +589,8 @@ def download_scene_from_aus_cop_hub(
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
 
-    # Run the initial query to get the base run command plus scene metadata
+    # Run the initial query to get the base run command plus scene metadata.
+    # The base run command contains query information for the scene of interest.
     base_cmd, aus_cophub_scene_metadata = query_scene_from_aus_cop_hub(
         scene, pygssearch_conda_env_path=pygssearch_conda_env_path, service=service
     )
