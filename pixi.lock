@@ -256,6 +256,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-hb9d3cd8_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstandard-0.23.0-py312h66e93f0_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb8e6e7a_2.conda
+      - pypi: https://files.pythonhosted.org/packages/d7/fe/dcaa1c91a561c582afe815bdf01e482fb892c901867a36020cbab54c71d1/antimeridian-0.4.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/72/16/eb619e84edf7510b0f8464f2134f666ec9681f55df802694587a742fa5e6/asf_search-9.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
@@ -509,6 +510,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zlib-1.3.1-h8359307_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstandard-0.23.0-py312hea69d52_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-h6491c7d_2.conda
+      - pypi: https://files.pythonhosted.org/packages/d7/fe/dcaa1c91a561c582afe815bdf01e482fb892c901867a36020cbab54c71d1/antimeridian-0.4.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/72/16/eb619e84edf7510b0f8464f2134f666ec9681f55df802694587a742fa5e6/asf_search-9.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
@@ -802,6 +804,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-hb9d3cd8_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstandard-0.23.0-py312h66e93f0_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb8e6e7a_2.conda
+      - pypi: https://files.pythonhosted.org/packages/d7/fe/dcaa1c91a561c582afe815bdf01e482fb892c901867a36020cbab54c71d1/antimeridian-0.4.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/72/16/eb619e84edf7510b0f8464f2134f666ec9681f55df802694587a742fa5e6/asf_search-9.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6f/22/b99efca33f1f3a1d2552c714b1e1b5ae92efac6c43e790ad539a163d1754/black-25.1.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
@@ -1073,6 +1076,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zlib-1.3.1-h8359307_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstandard-0.23.0-py312hea69d52_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-h6491c7d_2.conda
+      - pypi: https://files.pythonhosted.org/packages/d7/fe/dcaa1c91a561c582afe815bdf01e482fb892c901867a36020cbab54c71d1/antimeridian-0.4.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/72/16/eb619e84edf7510b0f8464f2134f666ec9681f55df802694587a742fa5e6/asf_search-9.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/13/f3/89aac8a83d73937ccd39bbe8fc6ac8860c11cfa0af5b1c96d081facac844/black-25.1.0-cp312-cp312-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
@@ -1254,6 +1258,15 @@ packages:
   - pkg:pypi/aiosignal?source=hash-mapping
   size: 13229
   timestamp: 1734342253061
+- pypi: https://files.pythonhosted.org/packages/d7/fe/dcaa1c91a561c582afe815bdf01e482fb892c901867a36020cbab54c71d1/antimeridian-0.4.3-py3-none-any.whl
+  name: antimeridian
+  version: 0.4.3
+  sha256: 296fd75f7c5785c2112eb247ee847458e6940ee9ff9f099d85cf3bc2a61c629d
+  requires_dist:
+  - numpy>=1.22.4
+  - shapely>=2.0
+  - click>=8.1.6 ; extra == 'cli'
+  requires_python: '>=3.10'
 - conda: https://conda.anaconda.org/conda-forge/linux-64/aom-3.9.1-hac33072_0.conda
   sha256: b08ef033817b5f9f76ce62dfcac7694e7b6b4006420372de22494503decac855
   md5: 346722a0be40f6edc53f12640d301338
@@ -5973,8 +5986,8 @@ packages:
   timestamp: 1740681675666
 - pypi: .
   name: sar-pipeline
-  version: 0.4.1.dev70+ged98aa15b.d20251010
-  sha256: 1902578c726d1637275b275994aa9a3b31e11fc0cc1edf3dc4928df8de51a761
+  version: 0.4.1.dev91+g03b4038af.d20251030
+  sha256: 9c8446632b2c1fbe606ea68f36b12f28f8aba212ff909504a90d69a0917a9c6d
   requires_dist:
   - asf-search>=9.0.9
   - boto3>=1.37.1
@@ -5986,6 +5999,7 @@ packages:
   - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.3
   - python-dotenv>=1.1.1,<2
   - pystac[validation]==1.13.0
+  - antimeridian>=0.4.3,<0.5
   requires_python: '>=3.8'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.6.1-py312h7a48858_0.conda

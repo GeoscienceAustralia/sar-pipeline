@@ -35,12 +35,14 @@ from sar_pipeline.utils.general import log_timing
 from sar_pipeline.utils.spatial import (
     write_burst_geometries_to_geojson,
 )
+from sar_pipeline.utils.antimeridian import (
+    check_shape_crosses_antimeridian,
+    get_bounds_for_antimeridian_shape,
+)
 
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
 from dem_handler.utils.spatial import (
-    check_shape_crosses_antimeridian,
-    get_bounds_for_shape_crossing_antimeridian,
     check_dem_type_in_bounds,
 )
 
@@ -404,18 +406,18 @@ def get_data_for_scene_and_make_run_config(
             out_folder / f"{scene}_burst_geoms.json",
         )
 
-    # check if the scene polygon crosses the antimeridian (AM)
-    # different antimeridian scene shapes are returned from the CDSE (Polygon)
-    # and ASF (multipolygon) the below logic can handle both to detect an AM crossing
+    # check if the scene shape crosses the antimeridian
+    # different antimeridian shapes are returned from the CDSE (Polygon) and ASF (multipolygon)
     if check_shape_crosses_antimeridian(scene_polygon):
         logger.warning("The scene crosses the antimeridian")
         # use the full scene bounds for an antimeridian scene
-        bounds = get_bounds_for_shape_crossing_antimeridian(scene_polygon)
+        bounds = get_bounds_for_antimeridian_shape(scene_polygon)
         logger.info(
             f"Getting the corrected scene bounds crossing the antimeridian : {bounds}"
         )
         logger.info("Using the bounds for complete scene over the antimeridian.")
-        cop30_buffer_degrees = 0.8
+        bounds = bounds[2], bounds[1], bounds[0], bounds[3]  # reshuffle to get DEM
+        cop30_buffer_degrees = 0.5  # slighly bigger buffer
     else:
         # reduce the DEM download by considering only the required bursts geometries
         # if all bursts are considered, this will be close to the scene bounds
@@ -432,7 +434,6 @@ def get_data_for_scene_and_make_run_config(
         cop30_buffer_degrees = 0.3
 
     logger.info(f"Finding the best DEM in order of preference: {dem_types}")
-
     for dem_type in dem_types:
         if dem_type == "cop_glo30":
             dem_resolution = 30
@@ -777,21 +778,25 @@ def make_rtc_opera_stac_and_upload_bursts(
         # make the stac metadata from the .h5 metadata
         logging.info(f"Making stac metadata from .h5 file")
         # initialise the class to convert data from the .h5 to a stac doc
+        if product == "RTC_S1":
+            logger.info(
+                "STAC geometry will be set using valid data from a product GeoTiff"
+            )
+            update_geometry_using_valid_data = True
+        else:
+            update_geometry_using_valid_data = False
+            logger.info("STAC geometry will be set using data from the .h5 file")
         burst_stac_manager = BurstH5toStacManager(
             h5_filepath=burst_h5_filepath,
             product=product,
             product_id=burst_product_name,
             backscatter_convention=backscatter_convention,
+            update_geometry_using_valid_data=update_geometry_using_valid_data,
             collection_number=collection_number,
             s3_bucket=s3_bucket,
             s3_project_folder=s3_project_folder,
         )
 
-        if product == "RTC_S1":
-            logger.info(
-                "Updating STAC geometry using valid data from a product GeoTiff"
-            )
-            burst_stac_manager.update_geometry_using_valid_data()
         # make the stac item from the .h5 file
         burst_stac_manager.make_stac_item_from_h5()
         # add properties to the stac doc

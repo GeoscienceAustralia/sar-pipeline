@@ -4,7 +4,7 @@ from typing import Literal
 import rasterio
 import pystac
 from shapely import wkt
-from shapely.geometry import shape, box, mapping
+from shapely.geometry import shape, box, mapping, Polygon, MultiPolygon
 from dateutil.parser import isoparse
 import requests
 import datetime
@@ -28,6 +28,11 @@ from sar_pipeline.utils.spatial import (
     reproject_bbox_to_geometry,
     get_valid_data_min_rect_polygon_from_tif,
     transform_polygon,
+)
+from sar_pipeline.utils.antimeridian import (
+    check_shape_crosses_antimeridian,
+    get_bounds_for_antimeridian_shape,
+    convert_antimeridian_polygon_to_multipolygon,
 )
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
 from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import (
@@ -58,6 +63,8 @@ class BurstH5toStacManager:
         s3_bucket: str,
         s3_project_folder: str,
         s3_region: str = "ap-southeast-2",
+        update_geometry_using_valid_data: bool = False,
+        correct_antimeridian_geometry: bool = True,
     ):
         """
         Parameters
@@ -80,6 +87,14 @@ class BurstH5toStacManager:
             the odc_product_name will be appended to this folder path.
         s3_region : str, optional
             The region of the S3 bucket, by default "ap-southeast-2"
+        update_geometry_using_valid_data: bool.
+            Whether to update the geometry in the STAC file using valid data
+            from a product tif. This ensures the geometry in the metadata actually
+            represents the data. RECOMMENDED for RTC_S1 products as the geometries
+            from the .SAFE file can be off.
+        correct_antimeridian_geometry: bool.
+            Correct geometries for shapes crossing the antimeridian, as
+            they may be mis-formatted
         """
         self.h5_filepath = h5_filepath
         self.h5 = H5Manager(self.h5_filepath)  # class to help get values from .h5 file
@@ -121,7 +136,12 @@ class BurstH5toStacManager:
         self.projection_epsg = self.h5.search_value(
             "data/projection"
         )  # code, e.g. 4326, 3031
-        if self.product == "RTC_S1":
+
+        if update_geometry_using_valid_data:
+            # get the geometry from the tif data
+            self._update_geometry_using_valid_data()
+
+        elif self.product == "RTC_S1":
             # NOTE - boundingPolygon considers the burst geometry taken from the .SAFE file
             # This geometry is only an approximation. The geometry can be updated using
             # The valid data within a file using the update_geometry_using_valid_data method
@@ -140,6 +160,13 @@ class BurstH5toStacManager:
             )
             self.geometry_4326 = mapping(polygon_4326)
             self.bbox_4326 = polygon_4326.bounds
+
+        if correct_antimeridian_geometry:
+            # check if the geometry crosses the antimeridian and reformatting the
+            # geometry and bbox accordingly
+            if check_shape_crosses_antimeridian(shape(self.geometry_4326)):
+                logger.warning(f"STAC geometry crosses the antimeridian. reformatting")
+                self._handle_antimeridian_crossing()
 
         self.burst_s3_subfolder = self._make_s3_subfolder()
         self.bucket_href = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
@@ -207,7 +234,7 @@ class BurstH5toStacManager:
         else:
             return "NTC"
 
-    def update_geometry_using_valid_data(self):
+    def _update_geometry_using_valid_data(self):
         """The geometries provided in the .h5 are only approximations from
         the burst data in radar coordinates. Update these geometries using
         the minimum rotated rectangle that encloses the valid data from an actual
@@ -248,6 +275,24 @@ class BurstH5toStacManager:
         # create valid json geometry
         self.geometry_4326 = mapping(valid_data_geometry_4326)
         self.bbox_4326 = valid_data_geometry_4326.bounds
+
+    def _handle_antimeridian_crossing(self):
+        """Correct the geometries for STAC at the antimeridian"""
+        corrected_bounds = get_bounds_for_antimeridian_shape(shape(self.geometry_4326))
+        logger.info(f"Old bounds : {self.bbox_4326}")
+        logger.info(f"New bounds : {corrected_bounds}")
+        self.bbox_4326 = corrected_bounds
+        if isinstance(shape(self.geometry_4326), Polygon):
+            corrected_geometry = convert_antimeridian_polygon_to_multipolygon(
+                shape(self.geometry_4326)
+            )
+            logger.info(f"Old geometry : {shape(self.geometry_4326)}")
+            logger.info(f"New geometry : {corrected_geometry}")
+            self.geometry_4326 = mapping(corrected_geometry)
+        elif isinstance(shape(self.geometry_4326), MultiPolygon):
+            logger.info(
+                f"Antimeridian geometry is already multipolygon, assuming correct : {shape(self.geometry_4326)}"
+            )
 
     def make_stac_item_from_h5(self):
         """Make a pystac.item.Item for the given burst using key properties
@@ -383,10 +428,10 @@ class BurstH5toStacManager:
         self.item.properties["sarard:orbit_file"] = self.h5.search_value("orbitFiles")[
             0
         ]  # Link to a file containing the orbit state vectors.
-        self.item.properties["sarard:UL_longitude"] = self.bbox_4326[0]  # min_lon
-        self.item.properties["sarard:UL_latitude"] = self.bbox_4326[3]  # max_lat
-        self.item.properties["sarard:LR_longitude"] = self.bbox_4326[2]  # max_lon
-        self.item.properties["sarard:LR_latitude"] = self.bbox_4326[1]  # min_lat
+        self.item.properties["sarard:UL_longitude"] = self.bbox_4326[0]  # left
+        self.item.properties["sarard:UL_latitude"] = self.bbox_4326[3]  # bottom
+        self.item.properties["sarard:LR_longitude"] = self.bbox_4326[2]  # right
+        self.item.properties["sarard:LR_latitude"] = self.bbox_4326[1]  # top
         self.item.properties["sarard:pixel_spacing_x"] = abs(
             self.h5.search_value("xCoordinateSpacing")
         )
