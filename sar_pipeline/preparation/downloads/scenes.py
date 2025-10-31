@@ -405,7 +405,7 @@ def query_scene_from_aus_cop_hub(
         scene name. e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
     pygssearch_conda_env_path: Optional[Union[str, Path]]
         Path to the conda environment containing an installation of pygssearch that will be called in a
-        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used
+        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used. e.g. /path/to/anaconda3/envs/pygssearch-env
     service : str, optional
         Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
 
