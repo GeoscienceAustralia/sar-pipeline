@@ -1,5 +1,6 @@
 import click
 from pathlib import Path, PurePath
+from tests.sar_pipeline.test_scenes import REQUIRED_ENV_VARIABLES
 import tomli
 import logging
 from typing import Literal
@@ -41,6 +42,13 @@ logging.basicConfig(level=logging.INFO)
 @click.argument("scene", type=str)
 def find_scene_file(scene):
     """This will identify the path to a given SCENE on the NCI"""
+
+    REQUIRED_ENV_VARIABLES = [
+        "NCI_API_FILE_LOCATION",
+        "NCI_FILESYSTEM_FILE_LOCATION",
+        "PYGSSEARCH_CONDA_ENV",
+    ]
+
     scene_file = find_scene_file_from_id(scene)
 
     click.echo(scene_file)

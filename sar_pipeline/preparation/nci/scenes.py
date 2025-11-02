@@ -25,8 +25,7 @@ class NCIMissingSceneError(Exception):
 
 def find_scene_file_from_api(
     scene: str,
-    pygssearch_env_executable: Optional[Union[str, Path]] = None,
-    pygssearch_env_name: Optional[Union[str, Path]] = None,
+    pygssearch_conda_env: Optional[Union[str, Path]] = None,
     service: str = "https://catalogue.copernicus.gov.au/odata/v1",
 ) -> Path:
 
@@ -35,8 +34,7 @@ def find_scene_file_from_api(
 
     _, metadata = query_scene_from_aus_cop_hub(
         scene,
-        pygssearch_env_executable,
-        pygssearch_env_name,
+        pygssearch_conda_env,
         service,
     )
 
@@ -53,12 +51,12 @@ def find_scene_file_from_api(
     return scene_path
 
 
-def find_scene_file_from_id(scene_id: str) -> Path:
+def find_scene_file_from_id(scene: str) -> Path:
     """Finds the path to the scene on GADI based on the scene ID
 
     Parameters
     ----------
-    scene_id : str
+    scene : str
         Sentinel-1 scene ID
         e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
 
@@ -78,10 +76,10 @@ def find_scene_file_from_id(scene_id: str) -> Path:
     # Hard code the path on NCI
     SCENE_DIR = Path("/g/data/fj7/Copernicus/Sentinel-1/C-SAR/")
 
-    scene_product = get_product_type_from_scene_id(scene_id)
+    scene_product = get_product_type_from_scene_id(scene)
 
     # Parse the scene dates -- only start date is needed for search
-    scene_start, _ = get_dates_from_scene_id(scene_id)
+    scene_start, _ = get_dates_from_scene_id(scene)
 
     # Extract year and month of first path to provide for file search
     year = scene_start.strftime("%Y")
@@ -89,7 +87,7 @@ def find_scene_file_from_id(scene_id: str) -> Path:
 
     # Set path on GADI and search
     search_path = SCENE_DIR.joinpath(f"{scene_product}/{year}/{year}-{month}/")
-    file_path = list(search_path.rglob(f"{scene_id}.zip"))
+    file_path = list(search_path.rglob(f"{scene}.zip"))
 
     # Identify file
     if len(file_path) == 1:
@@ -106,7 +104,7 @@ def find_scene_file_from_id(scene_id: str) -> Path:
     return scene_path
 
 
-def find_scene_file(scene: str):
+def find_scene_file_from_id(scene: str):
 
     try:
         logger.info("Searching Australian Copernicus Hub API for scene.")
