@@ -16,6 +16,8 @@ from sar_pipeline.preparation.downloads.scenes import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+VALID_SCENE_DATA_SOURCES = ["API", "FILESYSTEM"]
+
 
 class NCIMissingSceneError(Exception):
     """Exception raised when scenes cannot be found on NCI"""
@@ -28,6 +30,8 @@ def find_scene_file_from_api(
     pygssearch_conda_env: Optional[Union[str, Path]] = None,
     service: str = "https://catalogue.copernicus.gov.au/odata/v1",
 ) -> Path:
+
+    logger.info("Searching Australian Copernicus Hub API for scene.")
 
     # Hard code the path on NCI
     SCENE_DIR = Path("/g/data/fj7/DEAnt/Sentinel-1")
@@ -51,8 +55,8 @@ def find_scene_file_from_api(
     return scene_path
 
 
-def find_scene_file_from_id(scene: str) -> Path:
-    """Finds the path to the scene on GADI based on the scene ID
+def find_scene_file_from_filesystem(scene: str) -> Path:
+    """Finds the path to the scene in the older AusCopHub filesystem based on the scene ID
 
     Parameters
     ----------
@@ -72,6 +76,8 @@ def find_scene_file_from_id(scene: str) -> Path:
     RuntimeError
         Found no files -- expects one. Or another Error
     """
+
+    logger.info("Searching NCI filesystem for scene.")
 
     # Hard code the path on NCI
     SCENE_DIR = Path("/g/data/fj7/Copernicus/Sentinel-1/C-SAR/")
@@ -104,20 +110,45 @@ def find_scene_file_from_id(scene: str) -> Path:
     return scene_path
 
 
-def find_scene_file_from_id(scene: str):
+def find_scene_file_from_id(
+    scene: str, scene_data_source_preferences: list = ["API", "FILESYSTEM"]
+):
 
-    try:
-        logger.info("Searching Australian Copernicus Hub API for scene.")
-        scene_path = find_scene_file_from_api(scene)
-    except FileNotFoundError as api_error:
-        logger.warning("Unable to identify path to scene from API.")
+    # Check that provided preference list is valid
+    if not all(
+        [
+            data_source in VALID_SCENE_DATA_SOURCES
+            for data_source in scene_data_source_preferences
+        ]
+    ):
+        raise ValueError(
+            f"scene_data_source_preferences valid values are {VALID_SCENE_DATA_SOURCES}"
+        )
 
+    # Define variables prior to loop -- avoids variables being unbounded
+    scene_path = None
+    data_source = None
+
+    for i, data_source in enumerate(scene_data_source_preferences):
+        logger.info(
+            f"Attempting to find scene on NCI from preference {i+1} of {len(scene_data_source_preferences)} : {data_source}"
+        )
         try:
-            logger.info("Searching NCI filesystem for scene.")
-            scene_path = find_scene_file_from_id(scene)
-        except NonSingleSceneResultError as filesystem_error:
-            logger.warning("Unable to identify path to single scene on NCI filesystem.")
+            if data_source == "API":
+                scene_path = find_scene_file_from_api(scene)
+                break
+            elif data_source == "FILESYSTEM":
+                scene_path = find_scene_file_from_filesystem(scene)
+                break
+        except Exception as e:
+            logger.error(
+                f"Could not find scene on NCI using preference {i+1} of {len(scene_data_source_preferences)} : {data_source}",
+                exc_info=True,
+            )
+            if data_source == scene_data_source_preferences[-1]:
+                raise NCIMissingSceneError(
+                    f"Unable to find requested scene on NCI from any data source provided : {scene_data_source_preferences}"
+                ) from e
 
-            raise NCIMissingSceneError(
-                "Unable to find requested scene on NCI"
-            ) from filesystem_error
+    logger.info(f"Scene successfully identified from: {data_source}")
+    return scene_path
