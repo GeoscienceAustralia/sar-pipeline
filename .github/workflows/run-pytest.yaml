@@ -3,6 +3,9 @@ name: Run Tests with Pytest
 on:
   pull_request:
 
+env:
+  PYGSSEARCH_CONDA_ENV: $CONDA/envs/pygssearch-env
+
 jobs:
   run-tests:
     runs-on: ubuntu-latest
@@ -14,4 +17,9 @@ jobs:
       with:
         pixi-version: v0.59.0
         cache: true
+    - uses: goanpeca/setup-miniconda@v1
+      with:
+        miniconda-version: "latest"
+        environment-file: Conda/pygssearch/environment.yaml
+        auto-activate-base: false
     - run: pixi run test-pipeline
