@@ -1,6 +1,7 @@
 from click.testing import CliRunner
 from dataclasses import dataclass
 from sar_pipeline.pipelines.isce3_rtc.cli import get_data_for_scene_and_make_run_config
+from sar_pipeline.utils.environment_variables import identify_and_load_missing_env_vars
 from pathlib import Path
 from dotenv import load_dotenv
 import os
@@ -28,40 +29,10 @@ REQUIRED_ENV_VARIABLES = [
     "CDSE_LOGIN",
     "CDSE_PASSWORD",
 ]
-
 # check if the required env variables are set
-missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
-
-if missing:
-    logger.warning(f"Missing required environment variables: {', '.join(missing)}")
-    logger.info(
-        f"The following environment variables must be set for test: {REQUIRED_ENV_VARIABLES}"
-    )
-
-    # test may be run locally which requires a secret file to set the variables
-    logger.info(
-        f"Attempting to load from .env file from the project root : {PROJECT_ROOT / ".env"}"
-    )
-
-    try:
-        # load the environment secrets from a local file
-        # see docs/workflows/aws.md for required variables
-        # store in project root in .env file
-        load_dotenv(PROJECT_ROOT / ".env")
-        missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
-        if missing:
-            raise ValueError(
-                ".env was found but some variables are missing. Add the required variables."
-            )
-        else:
-            logging.info("Environment variables loaded from .env successfully.")
-
-    except:
-        raise FileExistsError(
-            "Could not find .env file at project root containing required environment variables for run. "
-            "Create this file with required variables or ensure environment is configured correctly "
-            "(for example when running automated tests on GitHub)"
-        )
+identify_and_load_missing_env_vars(
+    required_env_vars=REQUIRED_ENV_VARIABLES, dotenv_location=PROJECT_ROOT
+)
 
 
 @dataclass

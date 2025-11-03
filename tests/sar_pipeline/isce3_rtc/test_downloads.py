@@ -15,6 +15,7 @@ from sar_pipeline.preparation.downloads.scenes import (
 from sar_pipeline.preparation.downloads.orbits import (
     download_orbits,
 )
+from sar_pipeline.utils.environment_variables import identify_and_load_missing_env_vars
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -38,36 +39,9 @@ REQUIRED_ENV_VARIABLES = [
     "AUS_COP_HUB_CLIENT_SECRET",
 ]
 # check if the required env variables are set
-missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
-
-if missing:
-    logger.warning(f"Missing required environment variables: {', '.join(missing)}")
-    logger.info(
-        f"The following environment variables must be set for test: {REQUIRED_ENV_VARIABLES}"
-    )
-
-    # test may be run locally which requires a secret file to set the variables
-    logger.info(
-        f"Attempting to load from .env file from the project root : {PROJECT_ROOT / ".env"}"
-    )
-
-    try:
-        # load the environment secrets from a local file
-        # see docs/workflows/aws.md for required variables
-        # store in project root in .env file
-        load_dotenv(PROJECT_ROOT / ".env")
-        missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
-        if missing:
-            raise ValueError(
-                f".env was found but some variables are missing. The following environment variables must be set for test: {REQUIRED_ENV_VARIABLES}"
-            )
-
-    except:
-        raise FileExistsError(
-            "Could not find .env file at project root containing required environment variables for run. "
-            "Create this file with required variables OR ensure environment is configured correctly "
-            "(e.g. when running automated tests on GitHub)"
-        )
+identify_and_load_missing_env_vars(
+    required_env_vars=REQUIRED_ENV_VARIABLES, dotenv_location=PROJECT_ROOT
+)
 
 
 @dataclass
