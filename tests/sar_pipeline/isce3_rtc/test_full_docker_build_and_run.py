@@ -30,13 +30,13 @@ import pytest
 import os
 import logging
 from pathlib import Path
-from dotenv import load_dotenv
 import sys
 from datetime import datetime
 import sar_pipeline
 from sar_pipeline.pipelines.isce3_rtc.cli import compare_products
 from sar_pipeline.analysis.compare_cog import check_tifs_have_changed
 from sar_pipeline.analysis.compare_folder import check_files_have_changed
+from sar_pipeline.utils.environment_variables import identify_and_load_missing_env_vars
 from click.testing import CliRunner
 import re
 import json
@@ -94,46 +94,24 @@ REQUIRED_ENV_VARIABLES = [
     "AUS_COP_HUB_CLIENT_ID",
     "AUS_COP_HUB_CLIENT_SECRET",
 ]
+# optional env variables to be passed to docker run if existing
+OPTIONAL_ENV_VARIABLES = [
+    "AWS_SESSION_TOKEN",
+    "AWS_CREDENTIAL_EXPIRATION",
+    "AWS_SESSION_EXPIRATION",
+]
 # check if the required env variables are set
-missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
+identify_and_load_missing_env_vars(
+    required_env_vars=REQUIRED_ENV_VARIABLES, dotenv_location=PROJECT_ROOT
+)
 
-if not missing:
-    ENV_VARS = []
-    for var in REQUIRED_ENV_VARIABLES:
+# set the environment variables as string for docker
+# missing optional vars will not be added
+ENV_VARS = []
+for var in REQUIRED_ENV_VARIABLES + OPTIONAL_ENV_VARIABLES:
+    if os.getenv(var):
         ENV_VARS.append("-e")
         ENV_VARS.append(f"{var}={os.getenv(var)}")
-
-if missing:
-    logger.warning(f"Missing required environment variables: {', '.join(missing)}")
-    logger.info(
-        f"The following environment variables must be set for test: {REQUIRED_ENV_VARIABLES}"
-    )
-
-    # test may be run locally which requires a secret file to set the variables
-    logger.info(
-        f"Attempting to load from .env file from the project root : {PROJECT_ROOT / ".env"}"
-    )
-
-    try:
-        # load the environment secrets from a local file
-        # see docs/workflows/aws.md for required variables
-        # store in project root in .env file
-        load_dotenv(PROJECT_ROOT / ".env")
-        missing = [var for var in REQUIRED_ENV_VARIABLES if not os.getenv(var)]
-        if missing:
-            raise ValueError(
-                ".env was found but some variables are missing. Add the required variables."
-            )
-        else:
-            logging.info("Environment variables loaded from .env successfully.")
-            ENV_VARS = ["--env-file", f'{PROJECT_ROOT / ".env"}']
-
-    except:
-        raise FileExistsError(
-            "Could not find .env file at project root containing required environment variables for run. "
-            "Create this file with required variables OR ensure environment is configured correctly "
-            "(e.g. when running automated tests on GitHub)"
-        )
 
 
 @pytest.fixture(scope="module", autouse=True)
