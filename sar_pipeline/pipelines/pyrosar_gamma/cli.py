@@ -32,21 +32,36 @@ from sar_pipeline.utils.post_processing import (
     gdal_update_nodata,
     gdal_add_overviews,
 )
+from sar_pipeline.utils.environment_variables import identify_and_load_missing_env_vars
 
 logging.basicConfig(level=logging.INFO)
+
+CURRENT_DIR = Path(__file__).parent.resolve()
+PROJECT_ROOT = CURRENT_DIR.parents[2]
 
 
 # find_scene_file
 @click.command()
 @click.argument("scene", type=str)
-def find_scene_file(scene):
+@click.option(
+    "dotenv-location",
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        path_type=Path,
+    ),
+)
+def find_scene_file(scene, dotenv_location):
     """This will identify the path to a given SCENE on the NCI"""
 
     REQUIRED_ENV_VARIABLES = [
-        "NCI_API_FILE_LOCATION",
-        "NCI_FILESYSTEM_FILE_LOCATION",
+        "NCI_API_FILES",
+        "NCI_FILESYSTEM_FILES",
+        "CONDA_EXE",
         "PYGSSEARCH_CONDA_ENV",
     ]
+
+    identify_and_load_missing_env_vars(REQUIRED_ENV_VARIABLES, dotenv_location)
 
     scene_file = find_scene_file_from_id(scene)
 
