@@ -31,7 +31,6 @@ import pytest
 import os
 import logging
 from pathlib import Path
-from dotenv import load_dotenv
 import sys
 from datetime import datetime
 import sar_pipeline
@@ -96,13 +95,27 @@ REQUIRED_ENV_VARIABLES = [
     "AUS_COP_HUB_CLIENT_ID",
     "AUS_COP_HUB_CLIENT_SECRET",
 ]
+# optional env variables to be passed to docker run if existing
+OPTIONAL_ENV_VARIABLES = [
+    "AWS_SESSION_TOKEN",
+    "AWS_CREDENTIAL_EXPIRATION",
+    "AWS_SESSION_EXPIRATION",
+]
 # check if the required env variables are set
 identify_and_load_missing_env_vars(
     required_env_vars=REQUIRED_ENV_VARIABLES, dotenv_location=PROJECT_ROOT
 )
 
+# set the environment variables as string for docker
+# missing optional vars will not be added
+ENV_VARS = []
+for var in REQUIRED_ENV_VARIABLES + OPTIONAL_ENV_VARIABLES:
+    if os.getenv(var):
+        ENV_VARS.append("-e")
+        ENV_VARS.append(f"{var}={os.getenv(var)}")
 
-@pytest.fixture(scope="module", autouse=True)
+
+# @pytest.fixture(scope="module", autouse=True)
 def build_image():
     """build and tag the docker image for the current codebase to be used in tests"""
     logging.info(
