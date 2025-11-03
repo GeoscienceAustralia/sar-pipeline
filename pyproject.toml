@@ -26,7 +26,8 @@ dependencies = [
     "cdsetool>=0.2.13", 
     "python-dotenv>=1.1.1,<2", 
     "pystac[validation]==1.13.0", 
-    "antimeridian>=0.4.3,<0.5", "dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@upgrade/improved_antimeridian_logic", 
+    "antimeridian>=0.4.3,<0.5", 
+    "dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@upgrade/improved_antimeridian_logic", 
 ]
 
 [project.urls]
@@ -56,7 +57,7 @@ where = ["."]
 [tool.setuptools.package-data]
 sar_pipeline = ["**/*.yaml", "**/*.yml", "**/*.gpkg", "**/*.json"]
 
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["conda-forge", "avalentino", "s1-etad"]
 platforms = ["linux-64", "osx-arm64"]
 
