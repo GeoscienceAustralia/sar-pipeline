@@ -1,6 +1,5 @@
 import click
 from pathlib import Path, PurePath
-from tests.sar_pipeline.test_scenes import REQUIRED_ENV_VARIABLES
 import tomli
 import logging
 from typing import Literal
