@@ -11,6 +11,7 @@ from sar_pipeline.utils.sentinel1 import (
 from sar_pipeline.preparation.downloads.scenes import (
     query_scene_from_aus_cop_hub,
     NonSingleSceneResultError,
+    MissingEnvironmentError,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -25,44 +26,33 @@ class NCIMissingSceneError(Exception):
     pass
 
 
+class NCIMissingFilePathVariableError(Exception):
+    """Exception raised when a required filepath on NCI has not been provided"""
+
+
 def find_scene_file_from_api(
     scene: str,
     pygssearch_conda_env: Optional[Union[str, Path]] = None,
+    api_scene_directory: Optional[Union[str, Path]] = None,
     service: str = "https://catalogue.copernicus.gov.au/odata/v1",
 ) -> Path:
-
-    logger.info("Searching Australian Copernicus Hub API for scene.")
-
-    # Hard code the path on NCI
-    SCENE_DIR = Path("/g/data/fj7/DEAnt/Sentinel-1")
-
-    _, metadata = query_scene_from_aus_cop_hub(
-        scene,
-        pygssearch_conda_env,
-        service,
-    )
-
-    scene_uuid = metadata["Id"]
-    scene_path = (
-        SCENE_DIR / scene_uuid[0:2] / scene_uuid[2:4] / scene_uuid / f"{scene}.zip"
-    )
-
-    if not scene_path.is_file():
-        raise FileNotFoundError(
-            f"Unable to locate scene through API based on retrieved UUID {scene_uuid}. Expected path is {scene_path}"
-        )
-
-    return scene_path
-
-
-def find_scene_file_from_filesystem(scene: str) -> Path:
-    """Finds the path to the scene in the older AusCopHub filesystem based on the scene ID
+    """Finds the path to the scene on the NCI using the pygssearch API for AusCopHub based on the scene ID
 
     Parameters
     ----------
     scene : str
         Sentinel-1 scene ID
         e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
+    pygssearch_conda_env : Optional[Union[str, Path]], optional
+        Path to the conda environment containing an installation of pygssearch that
+        will be called in a subprocess. If not specified, the env variable
+        PYGSSEARCH_CONDA_ENV will be used. By default None
+    api_scene_directory : Optional[Union[str, Path]], optional
+        Directory on NCI that contains scene files for the pygssearch AusCopHub API.
+        If not specified, the env variable NCI_API_FILES will be used.
+        By default None
+    service : _type_, optional
+        Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
 
     Returns
     -------
@@ -71,16 +61,106 @@ def find_scene_file_from_filesystem(scene: str) -> Path:
 
     Raises
     ------
-    RuntimeError
-        Found more than one file -- expects one
-    RuntimeError
-        Found no files -- expects one. Or another Error
+    MissingEnvironmentError
+        Neither of pygssearch_conda_env and PYGSSEARCH_CONDA_ENV environment variable were set
+    NCIMissingFilePathVariableError
+        Neither of api_scene_directory and NCI_API_FILES environment variable were set
+    NCIMissingSceneError
+        No valid filepath was found for the scene
+
+    """
+
+    logger.info("Searching Australian Copernicus Hub API for scene.")
+
+    # Get pygssearch conda environment path if not passed to function
+    pygssearch_conda_env = pygssearch_conda_env or os.getenv("PYGSSEARCH_CONDA_ENV")
+    if not pygssearch_conda_env:
+        raise MissingEnvironmentError(
+            "Path to conda environment for pygssearch is missing. "
+            "Please provide the pygssearch_conda_env argument "
+            "or set the PYGSSEARCH_CONDA_ENV environment variable."
+        )
+
+    # Get directory on NCI that hosts the file system for the Aus Cop Hub API
+    api_scene_directory = api_scene_directory or os.getenv("NCI_API_FILES")
+    if not api_scene_directory:
+        raise NCIMissingFilePathVariableError(
+            "Path to Aus Cop Hub API filesystem on NCI is missing. "
+            "Please provide the api_scene_directory argument "
+            "Or set the NCI_API_FILES environment variable."
+        )
+
+    # Get metadata by querying the scene ID using the API
+    _, metadata = query_scene_from_aus_cop_hub(
+        scene,
+        pygssearch_conda_env,
+        service,
+    )
+
+    # Extract the scene UUID from the metadata, which informs the file path
+    scene_uuid = metadata["Id"]
+
+    # Convert api_scene_directory to path, then append location of scene as dictated by API
+    api_scene_directory = Path(api_scene_directory)
+    scene_path = (
+        api_scene_directory
+        / scene_uuid[0:2]
+        / scene_uuid[2:4]
+        / scene_uuid
+        / f"{scene}.zip"
+    )
+
+    # Raise an error if the file does not exist
+    if not scene_path.is_file():
+        raise NCIMissingSceneError(
+            f"Unable to locate scene through API based on retrieved UUID {scene_uuid}. Expected path is {scene_path}."
+        )
+
+    return scene_path
+
+
+def find_scene_file_from_filesystem(
+    scene: str,
+    filesystem_scene_directory: Optional[Union[str, Path]] = None,
+) -> Path:
+    """Finds the path to the scene in the older AusCopHub filesystem based on the scene ID
+
+    Parameters
+    ----------
+    scene : str
+        Sentinel-1 scene ID
+        e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
+    filesystem_scene_directory : Optional[Union[str, Path]], optional
+        Directory on NCI that contains scene files for the older AusCopHub filesystem.
+        If not specified, the env variable NCI_FILESYSTEM_FILES will be used.
+        By default None
+
+    Returns
+    -------
+    Path
+        Location of scene on NCI GADI
+
+    Raises
+    ------
+    NCIMissingFilePathError
+        No valid filepath was found for the scene
+    NonSingleSceneResultError
+        0, or more than one SLC result is found
     """
 
     logger.info("Searching NCI filesystem for scene.")
 
-    # Hard code the path on NCI
-    SCENE_DIR = Path("/g/data/fj7/Copernicus/Sentinel-1/C-SAR/")
+    # Get directory on NCI that hosts the original filesystem for Aus Cop Hub
+    # This directory ceased to be updated after mid-2025
+    filesystem_scene_directory = filesystem_scene_directory or os.getenv(
+        "NCI_FILESYSTEM_FILES"
+    )
+    if not filesystem_scene_directory:
+        raise NCIMissingFilePathVariableError(
+            "Path to original Aus Cop Hub filesystem on NCI is missing. "
+            "Please provide the filesystem_scene_directory argument "
+            "Or set the NCI_FILESYSTEM_FILES environment variable."
+        )
 
     scene_product = get_product_type_from_scene_id(scene)
 
@@ -92,7 +172,10 @@ def find_scene_file_from_filesystem(scene: str) -> Path:
     month = scene_start.strftime("%m")
 
     # Set path on GADI and search
-    search_path = SCENE_DIR.joinpath(f"{scene_product}/{year}/{year}-{month}/")
+    filesystem_scene_directory = Path(filesystem_scene_directory)
+    search_path = filesystem_scene_directory.joinpath(
+        f"{scene_product}/{year}/{year}-{month}/"
+    )
     file_path = list(search_path.rglob(f"{scene}.zip"))
 
     # Identify file
