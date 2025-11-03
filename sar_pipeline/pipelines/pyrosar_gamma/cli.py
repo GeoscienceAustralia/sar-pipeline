@@ -50,6 +50,7 @@ PROJECT_ROOT = CURRENT_DIR.parents[2]
         file_okay=False,
         path_type=Path,
     ),
+    default=PROJECT_ROOT,
 )
 def find_scene_file(scene, dotenv_location):
     """This will identify the path to a given SCENE on the NCI"""
