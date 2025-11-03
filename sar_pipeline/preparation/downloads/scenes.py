@@ -465,7 +465,7 @@ def query_scene_from_aus_cop_hub(
         aus_cophub_scenes_metadata: list[dict] = ast.literal_eval(output)
     except Exception as e:
         logger.error(
-            "Could not convert Aus Cop Hub query response to list of JSON data. Check service and requested scene",
+            f"Failed to convert Aus Cop Hub metadata response to list of dictionaries. Response: {output}",
         )
         raise
 
@@ -529,7 +529,7 @@ def download_scene_from_aus_cop_hub(
         URL to validate token, by default "https://auth.copernicus.gov.au/realms/gss/protocol/openid-connect/token"
     pygssearch_conda_env_path: Optional[Union[str, Path]]
         Path to the conda environment containing an installation of pygssearch that will be called in a
-        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used
+        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used. e.g. /path/to/anaconda3/envs/pygssearch-env
 
     Returns
     -------
@@ -589,7 +589,8 @@ def download_scene_from_aus_cop_hub(
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
 
-    # Run the initial query to get the base run command plus scene metadata
+    # Run the initial query to get the base run command plus scene metadata.
+    # The base run command contains query information for the scene of interest.
     base_cmd, aus_cophub_scene_metadata = query_scene_from_aus_cop_hub(
         scene, pygssearch_conda_env_path=pygssearch_conda_env_path, service=service
     )
