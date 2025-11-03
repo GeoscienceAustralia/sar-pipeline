@@ -26,7 +26,6 @@ Creating / updating new test data:
 """
 
 import subprocess
-from turtle import dot
 import pytest
 import os
 import logging
@@ -115,7 +114,7 @@ for var in REQUIRED_ENV_VARIABLES + OPTIONAL_ENV_VARIABLES:
         ENV_VARS.append(f"{var}={os.getenv(var)}")
 
 
-# @pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def build_image():
     """build and tag the docker image for the current codebase to be used in tests"""
     logging.info(
