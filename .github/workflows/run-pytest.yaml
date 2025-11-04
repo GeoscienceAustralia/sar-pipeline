@@ -4,7 +4,7 @@ on:
   pull_request:
 
 env:
-  PYGSSEARCH_CONDA_ENV: /home/runner/miniconda3/envs/pygssearch-env
+  PYGSSEARCH_CONDA_ENV: /home/runner/miniconda3/envs/pygssearch
 
 jobs:
   run-tests:
@@ -15,10 +15,16 @@ jobs:
     # Set up conda
     - name: Set up conda
       uses: conda-incubator/setup-miniconda@v3
-      with: 
+      with:
+        activate-environment: pygssearch 
         miniconda-version: "latest"
         environment-file: Conda/pygssearch/environment.yaml
         auto-activate: false
+        conda-remove-defaults: "true"
+
+    # Verify conda envs
+    - name: Verify Conda environment
+      run: conda info --envs
 
     # Set up pixi
     - name: Set up pixi
