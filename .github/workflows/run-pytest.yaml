@@ -14,11 +14,11 @@ jobs:
 
     # Set up conda
     - name: Set up conda
-      uses: goanpeca/setup-miniconda@v1
+      uses: conda-incubator/setup-miniconda@v3
       with: 
         miniconda-version: "latest"
         environment-file: Conda/pygssearch/environment.yaml
-        auto-activate-base: false
+        auto-activate: false
 
     # Set up pixi
     - name: Set up pixi
