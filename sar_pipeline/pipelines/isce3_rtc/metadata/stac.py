@@ -318,6 +318,10 @@ class BurstH5toStacManager:
             )  # GHz
             self.item.properties["sarard:center_frequency_unit"] = "GHz"
             self.item.properties["sar:polarizations"] = self.polarisations
+            # add as a string for odc explorer
+            self.item.properties["sarard:polarization_mode"] = "+".join(
+                self.polarisations
+            )
         else:
             # add all to static layer
             self.item.properties["sar:polarizations"] = ["HH", "VV", "HV", "VH"]
@@ -780,6 +784,7 @@ class BurstH5toStacManager:
 
                     if asset_filetype == "_mask.tif":
                         extra_fields["raster:values"] = {
+                            "valid": 1,
                             "shadow": 1,
                             "layover": 2,
                             "shadow_and_layover": 3,
