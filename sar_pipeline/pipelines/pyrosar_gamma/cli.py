@@ -39,6 +39,14 @@ logging.basicConfig(level=logging.INFO)
 CURRENT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = CURRENT_DIR.parents[2]
 
+# set NCI required env variables
+REQUIRED_ENV_VARIABLES = [
+    "NCI_API_FILES",
+    "NCI_FILESYSTEM_FILES",
+    "CONDA_EXE",
+    "PYGSSEARCH_CONDA_ENV",
+]
+
 
 # find_scene_file
 @click.command()
@@ -54,13 +62,6 @@ PROJECT_ROOT = CURRENT_DIR.parents[2]
 )
 def find_scene_file(scene, dotenv_location):
     """This will identify the path to a given SCENE on the NCI"""
-
-    REQUIRED_ENV_VARIABLES = [
-        "NCI_API_FILES",
-        "NCI_FILESYSTEM_FILES",
-        "CONDA_EXE",
-        "PYGSSEARCH_CONDA_ENV",
-    ]
 
     identify_and_load_missing_env_vars(REQUIRED_ENV_VARIABLES, dotenv_location)
 
@@ -177,6 +178,15 @@ def configure(ctx, param, filename):
     default=False,
     help="Flag for dry-run. Produces the submission script without launching it.",
 )
+@click.option(
+    "dotenv-location",
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        path_type=Path,
+    ),
+    default=PROJECT_ROOT,
+)
 def submit_pyrosar_gamma_workflow(
     scene: str,
     spacing: int,
@@ -194,8 +204,11 @@ def submit_pyrosar_gamma_workflow(
     project: str,
     walltime: str,
     dry_run: bool,
+    dotenv_location: Path,
 ):
     """Submit a job to the NCI job queue to run the pyroSAR+GAMMA workflow to process SCENE with given options."""
+
+    identify_and_load_missing_env_vars(REQUIRED_ENV_VARIABLES, dotenv_location)
 
     if not output_dir.exists():
         click.echo(f"Creating output directory: {output_dir}")
@@ -213,14 +226,16 @@ def submit_pyrosar_gamma_workflow(
         if is_s1_id(input):
             click.echo(f"A Sentinel-1 id was passed: {input}")
             filepath = find_scene_file_from_id(input)
-            return [filepath]
+            if filepath is not None:
+                return [filepath]
 
         # Check if input string is a Sentinel-1 filename
         elif is_s1_filename(input):
             click.echo(f"A Sentinel-1 filename was passed: {input}")
             scene_id = PurePath(input).stem
             filepath = find_scene_file_from_id(scene_id)
-            return [filepath]
+            if filepath is not None:
+                return [filepath]
 
         # Check if the input string is a file
         elif input_as_path.is_file():
@@ -230,7 +245,8 @@ def submit_pyrosar_gamma_workflow(
                     click.echo(
                         f"A zipped Sentinel-1 file path was passed: {input_as_path}"
                     )
-                return [input_as_path]
+                if input_as_path is not None:
+                    return [input_as_path]
 
             # Otherwise, open the file and process the content line-by-line, using the same
             # logic above (ID, filename, or path)
@@ -241,7 +257,8 @@ def submit_pyrosar_gamma_workflow(
                     for line in f:
                         line_path = _get_nci_s1_filepath(line.rstrip())
                         filepaths.extend(line_path)
-                return filepaths
+                if filepaths is not None:
+                    return filepaths
 
         # If unsuccessful, raise an error for the user.
         else:
@@ -285,6 +302,7 @@ def submit_pyrosar_gamma_workflow(
                 gamma_lib_dir=gamma_lib_dir,
                 gamma_env_var=gamma_env_var,
                 pbs_parameters=pbs_parameters,
+                conda_exe=None,
                 dry_run=dry_run,
             )
 
