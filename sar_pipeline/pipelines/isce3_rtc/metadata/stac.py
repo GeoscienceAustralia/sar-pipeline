@@ -784,7 +784,7 @@ class BurstH5toStacManager:
 
                     if asset_filetype == "_mask.tif":
                         extra_fields["raster:values"] = {
-                            "valid": 1,
+                            "valid": 0,
                             "shadow": 1,
                             "layover": 2,
                             "shadow_and_layover": 3,
