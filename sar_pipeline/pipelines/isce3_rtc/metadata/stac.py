@@ -965,4 +965,4 @@ class BurstH5toStacManager:
             Path to save the file. default 'metadata.json'.
         """
         with open(save_path, "w") as fp:
-            json.dump(self.item.to_dict(), fp)
+            json.dump(self.item.to_dict(), fp, indent=4)
