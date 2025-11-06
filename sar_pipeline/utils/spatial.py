@@ -292,3 +292,78 @@ def get_valid_data_min_rect_polygon_from_tif(
             return segmentized_geometry
         else:
             return rect
+
+
+def get_all_lat_lon_coords(
+    geom: Polygon | MultiPolygon,
+) -> tuple[list, list]:
+    """
+    Extract all longitude (x) and latitude (y) coordinates from a Shapely Polygon or MultiPolygon.
+    This function gathers coordinates from both the exterior boundary and any interior rings
+    (holes) of each polygon in the input geometry.
+
+    Parameters
+    ----------
+    geom : Polygon or MultiPolygon
+        The input geometry to extract coordinates from.
+
+    Returns
+    -------
+    longitudes : list
+        list of x-coordinates (longitude values).
+    latitudes : list
+        list array of y-coordinates (latitude values).
+
+    Raises
+    ------
+    TypeError
+        If the input geometry is not a Polygon or MultiPolygon.
+    """
+
+    def coords_from_polygon(polygon):
+        exterior = list(polygon.exterior.coords)
+        interiors = [pt for interior in polygon.interiors for pt in interior.coords]
+        return exterior + interiors
+
+    if isinstance(geom, Polygon):
+        coords = coords_from_polygon(geom)
+    elif isinstance(geom, MultiPolygon):
+        coords = [pt for poly in geom.geoms for pt in coords_from_polygon(poly)]
+    else:
+        raise TypeError("Geometry must be a Polygon or MultiPolygon")
+
+    longitudes, latitudes = zip(*coords) if coords else ([], [])
+    return list(longitudes), list(latitudes)
+
+
+def write_shape_to_geojson(
+    in_shape: Polygon | MultiPolygon, filename: str | Path, indent=True
+):
+    """save a shape to a file
+
+    Parameters
+    ----------
+    in_shape : Polygon | MultiPolygon
+        Shape to save
+    filename : str | Path
+        file save location
+    """
+
+    # Convert to GeoJSON-like dict
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": mapping(in_shape),  # or mapping(multi_poly)
+                "properties": {"name": f"{Path(filename).name}"},
+            }
+        ],
+    }
+
+    # Write to file
+    with open(f"{filename}", "w") as f:
+        if indent:
+            json.dump(geojson, f, indent=4)
+        else:
+            json.dump(geojson, f)
