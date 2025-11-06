@@ -260,7 +260,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/72/16/eb619e84edf7510b0f8464f2134f666ec9681f55df802694587a742fa5e6/asf_search-9.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
-      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=upgrade%2Fimproved_antimeridian_logic#ecc78c7792aed90f1b7951808e15e404a6011f0c
+      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=v0.2.4#747cf32b2b774bbbc489c728e806e2db0e789422
       - pypi: https://files.pythonhosted.org/packages/a2/3d/023389198f69c722d039351050738d6755376c8fd343e91dc493ea485905/jsonschema-4.24.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/01/0e/b27cdbaccf30b890c40ed1da9fd4a3593a5cf94dae54fb34f8a4b74fcd3f/jsonschema_specifications-2025.4.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/42/d7/1ec15b46af6af88f19b8e5ffea08fa375d433c998b8a7639e76935c14f1f/markdown_it_py-3.0.0-py3-none-any.whl
@@ -514,7 +514,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/72/16/eb619e84edf7510b0f8464f2134f666ec9681f55df802694587a742fa5e6/asf_search-9.0.9-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
-      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=upgrade%2Fimproved_antimeridian_logic#ecc78c7792aed90f1b7951808e15e404a6011f0c
+      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=v0.2.4#747cf32b2b774bbbc489c728e806e2db0e789422
       - pypi: https://files.pythonhosted.org/packages/a2/3d/023389198f69c722d039351050738d6755376c8fd343e91dc493ea485905/jsonschema-4.24.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/01/0e/b27cdbaccf30b890c40ed1da9fd4a3593a5cf94dae54fb34f8a4b74fcd3f/jsonschema_specifications-2025.4.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/42/d7/1ec15b46af6af88f19b8e5ffea08fa375d433c998b8a7639e76935c14f1f/markdown_it_py-3.0.0-py3-none-any.whl
@@ -809,7 +809,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/6f/22/b99efca33f1f3a1d2552c714b1e1b5ae92efac6c43e790ad539a163d1754/black-25.1.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
-      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=upgrade%2Fimproved_antimeridian_logic#ecc78c7792aed90f1b7951808e15e404a6011f0c
+      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=v0.2.4#747cf32b2b774bbbc489c728e806e2db0e789422
       - pypi: https://files.pythonhosted.org/packages/a2/3d/023389198f69c722d039351050738d6755376c8fd343e91dc493ea485905/jsonschema-4.24.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/01/0e/b27cdbaccf30b890c40ed1da9fd4a3593a5cf94dae54fb34f8a4b74fcd3f/jsonschema_specifications-2025.4.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/42/d7/1ec15b46af6af88f19b8e5ffea08fa375d433c998b8a7639e76935c14f1f/markdown_it_py-3.0.0-py3-none-any.whl
@@ -1081,7 +1081,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/13/f3/89aac8a83d73937ccd39bbe8fc6ac8860c11cfa0af5b1c96d081facac844/black-25.1.0-cp312-cp312-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
-      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=upgrade%2Fimproved_antimeridian_logic#ecc78c7792aed90f1b7951808e15e404a6011f0c
+      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=v0.2.4#747cf32b2b774bbbc489c728e806e2db0e789422
       - pypi: https://files.pythonhosted.org/packages/a2/3d/023389198f69c722d039351050738d6755376c8fd343e91dc493ea485905/jsonschema-4.24.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/01/0e/b27cdbaccf30b890c40ed1da9fd4a3593a5cf94dae54fb34f8a4b74fcd3f/jsonschema_specifications-2025.4.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/42/d7/1ec15b46af6af88f19b8e5ffea08fa375d433c998b8a7639e76935c14f1f/markdown_it_py-3.0.0-py3-none-any.whl
@@ -2040,9 +2040,9 @@ packages:
   purls: []
   size: 760229
   timestamp: 1685695754230
-- pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=upgrade%2Fimproved_antimeridian_logic#ecc78c7792aed90f1b7951808e15e404a6011f0c
+- pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=v0.2.4#747cf32b2b774bbbc489c728e806e2db0e789422
   name: dem-handler
-  version: 0.2.4.dev8+gecc78c779
+  version: 0.2.4
   requires_dist:
   - boto3>=1.37.1
   - geopandas>=1.0.1
@@ -5986,8 +5986,8 @@ packages:
   timestamp: 1740681675666
 - pypi: ./
   name: sar-pipeline
-  version: 0.4.1.dev105+g9ec2a4617
-  sha256: 7dbe7d3a6005a18a83403497ac5d51c00c0ad80e2fd039b4fe9eea196596b082
+  version: 0.4.1.dev108+gc30b0cfe7.d20251106
+  sha256: c9b371b417424a514a51be3ae31737852d5c0a7d217b9ccb467ebc924287b368
   requires_dist:
   - asf-search>=9.0.9
   - boto3>=1.37.1
@@ -5999,7 +5999,7 @@ packages:
   - python-dotenv>=1.1.1,<2
   - pystac[validation]==1.13.0
   - antimeridian>=0.4.3,<0.5
-  - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@upgrade/improved_antimeridian_logic
+  - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.4
   requires_python: '>=3.8'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.6.1-py312h7a48858_0.conda
