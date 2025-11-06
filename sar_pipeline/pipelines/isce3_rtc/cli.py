@@ -39,6 +39,7 @@ from sar_pipeline.utils.antimeridian import (
     check_shape_crosses_antimeridian,
     get_bounds_for_antimeridian_shape,
 )
+from sar_pipeline.utils.checksum import PackageChecksum
 
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
@@ -774,6 +775,10 @@ def make_rtc_opera_stac_and_upload_bursts(
         )
         shutil.copy(run_config_path, burst_run_config_filepath)
 
+        # create a placeholder checksum file to link in stac metadata
+        checksum_filepath = burst_folder / f"{burst_product_name}_checksum.sha1"
+        Path(checksum_filepath).touch()
+
         # make the stac metadata from the .h5 metadata
         logging.info(f"Making stac metadata from .h5 file")
         # initialise the class to convert data from the .h5 to a stac doc
@@ -870,6 +875,12 @@ def make_rtc_opera_stac_and_upload_bursts(
             XML.populate_special_xml_mappings()
             logger.info(f"Saving XML file to : {xml_filepath}")
             XML.save_xml(xml_filepath)
+
+        # replace the empty checksum file now all required files have been created
+        product_checksum = PackageChecksum()
+        checksum_files = [f for f in burst_folder.iterdir() if "checksum" not in str(f)]
+        product_checksum.add_files(checksum_files)
+        product_checksum.write(checksum_filepath)
 
         # push folder to S3
         if skip_upload_to_s3:

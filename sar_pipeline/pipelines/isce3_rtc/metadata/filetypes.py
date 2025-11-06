@@ -24,6 +24,7 @@ REQUIRED_ASSET_FILETYPES = {
             "_VH-gamma0.tif",
             "_mask.tif",
             "_thumbnail.png",
+            "_checksum.sha1",
         ],
         "sigma0": [
             "_HH-sigma0.tif",
@@ -32,6 +33,7 @@ REQUIRED_ASSET_FILETYPES = {
             "_VH-sigma0.tif",
             "_mask.tif",
             "_thumbnail.png",
+            "_checksum.sha1",
         ],
         "beta0": [
             "_HH-beta0.tif",
@@ -40,6 +42,7 @@ REQUIRED_ASSET_FILETYPES = {
             "_VH-beta0.tif",
             "_mask.tif",
             "_thumbnail.png",
+            "_checksum.sha1",
         ],
     },
     "RTC_S1_STATIC": [
@@ -49,6 +52,7 @@ REQUIRED_ASSET_FILETYPES = {
         "_local-incidence-angle.tif",
         "_incidence-angle.tif",
         "_thumbnail.png",
+        "_checksum.sha1",
     ],
 }
 
@@ -74,6 +78,7 @@ ASSET_FILETYPE_TO_TITLE = {
     "_incidence-angle.tif": "oa_incidence_angle",
     "_interpolated-dem.tif": "oa_digital_elevation_model",
     "_thumbnail.png": "thumbnail",
+    "_checksum.sha1": "checksum",
 }
 
 ASSET_FILETYPE_TO_DESCRIPTION = {
@@ -97,6 +102,7 @@ ASSET_FILETYPE_TO_DESCRIPTION = {
     "_incidence-angle.tif": "incidence angle (IA)",
     "_interpolated-dem.tif": "interpolated digital elevation model (DEM)",
     "_thumbnail.png": "thumbnail image for backscatter",
+    "_checksum.sha1": "product folder checksum file",
 }
 
 ASSET_FILETYPE_TO_ROLES = {
@@ -120,6 +126,7 @@ ASSET_FILETYPE_TO_ROLES = {
     "_incidence-angle.tif": ["data", "auxiliary"],
     "_interpolated-dem.tif": ["data", "ancillary"],
     "_thumbnail.png": ["thumbnail"],
+    "_checksum.sha1": ["checksum", "metadata"],
 }
 
 ASSET_FILETYPE_TO_MEDIATYPE = {
@@ -143,4 +150,5 @@ ASSET_FILETYPE_TO_MEDIATYPE = {
     "_incidence-angle.tif": pystac.media_type.MediaType.COG,
     "_interpolated-dem.tif": pystac.media_type.MediaType.COG,
     "_thumbnail.png": pystac.media_type.MediaType.PNG,
+    "_checksum.sha1": pystac.media_type.MediaType.TEXT,
 }
