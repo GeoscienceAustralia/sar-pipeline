@@ -82,12 +82,12 @@ def find_scene_file_from_api(
         )
 
     # Get directory on NCI that hosts the file system for the Aus Cop Hub API
-    api_scene_directory = api_scene_directory or os.getenv("NCI_API_FILES")
+    api_scene_directory = api_scene_directory or os.getenv("NCI_API_FILE_LOCATION")
     if not api_scene_directory:
         raise NCIMissingFilePathVariableError(
             "Path to Aus Cop Hub API filesystem on NCI is missing. "
             "Please provide the api_scene_directory argument "
-            "Or set the NCI_API_FILES environment variable."
+            "Or set the NCI_API_FILE_LOCATION environment variable."
         )
 
     # Get metadata by querying the scene ID using the API
@@ -153,13 +153,13 @@ def find_scene_file_from_filesystem(
     # Get directory on NCI that hosts the original filesystem for Aus Cop Hub
     # This directory ceased to be updated after mid-2025
     filesystem_scene_directory = filesystem_scene_directory or os.getenv(
-        "NCI_FILESYSTEM_FILES"
+        "NCI_FILESYSTEM_FILE_LOCATION"
     )
     if not filesystem_scene_directory:
         raise NCIMissingFilePathVariableError(
             "Path to original Aus Cop Hub filesystem on NCI is missing. "
             "Please provide the filesystem_scene_directory argument "
-            "Or set the NCI_FILESYSTEM_FILES environment variable."
+            "Or set the NCI_FILESYSTEM_FILE_LOCATION environment variable."
         )
 
     scene_product = get_product_type_from_scene_id(scene)
