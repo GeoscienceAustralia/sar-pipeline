@@ -52,7 +52,7 @@ REQUIRED_ENV_VARIABLES = [
 @click.command()
 @click.argument("scene", type=str)
 @click.option(
-    "dotenv-location",
+    "--dotenv-location",
     type=click.Path(
         exists=True,
         file_okay=False,
@@ -63,6 +63,7 @@ REQUIRED_ENV_VARIABLES = [
 def find_scene_file(scene, dotenv_location):
     """This will identify the path to a given SCENE on the NCI"""
 
+    # Identify and load required environment variables
     identify_and_load_missing_env_vars(REQUIRED_ENV_VARIABLES, dotenv_location)
 
     scene_file = find_scene_file_from_id(scene)
@@ -179,7 +180,7 @@ def configure(ctx, param, filename):
     help="Flag for dry-run. Produces the submission script without launching it.",
 )
 @click.option(
-    "dotenv-location",
+    "--dotenv-location",
     type=click.Path(
         exists=True,
         file_okay=False,
@@ -208,6 +209,7 @@ def submit_pyrosar_gamma_workflow(
 ):
     """Submit a job to the NCI job queue to run the pyroSAR+GAMMA workflow to process SCENE with given options."""
 
+    # Identify and load required environment variables
     identify_and_load_missing_env_vars(REQUIRED_ENV_VARIABLES, dotenv_location)
 
     if not output_dir.exists():
@@ -388,6 +390,15 @@ def submit_pyrosar_gamma_workflow(
     default="/g/data/yp75/projects/pyrosar_processing/sar-pyrosar-nci:/apps/fftw3/3.3.10/lib:/apps/gdal/3.6.4/lib64",
     help="Environment variable to point to symlinked .sso objects to ensure GAMMA runs",
 )
+@click.option(
+    "--dotenv-location",
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        path_type=Path,
+    ),
+    default=PROJECT_ROOT,
+)
 def run_pyrosar_gamma_workflow(
     scene: Path,
     spacing: int,
@@ -399,8 +410,12 @@ def run_pyrosar_gamma_workflow(
     output_dir: Path,
     gamma_lib_dir: Path,
     gamma_env_var: str,
+    dotenv_location: Path,
 ):
     """Run the pyroSAR+GAMMA workflow to process SCENE with given options."""
+
+    # Identify and load required environment variables
+    identify_and_load_missing_env_vars(REQUIRED_ENV_VARIABLES, dotenv_location)
 
     click.echo("Preparing orbit and DEM")
     dem_output_dir = output_dir / "data/dem"

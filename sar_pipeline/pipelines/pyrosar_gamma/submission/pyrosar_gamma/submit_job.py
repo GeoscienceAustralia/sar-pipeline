@@ -38,14 +38,14 @@ def submit_job(
     conda_root_prefix = conda_exe.parent.parent
     conda_shell_script = conda_root_prefix / "etc/profile.d/conda.sh"
 
-    environment_command = f"""
-
-    export CONDA_EXE={conda_exe}
-    source {conda_shell_script}
-
-    conda activate sar-pipeline
-
-    """
+    environment_command = (
+        "\n"
+        f"export CONDA_EXE={conda_exe} \n"
+        f"source {conda_shell_script} \n"
+        "\n"
+        "conda activate sar-pipeline \n"
+        "\n"
+    )
 
     # Prepare the pbs script string
     scene_name = scene.stem
