@@ -34,16 +34,19 @@ from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
 from sar_pipeline.utils.general import log_timing
 from sar_pipeline.utils.spatial import (
     write_burst_geometries_to_geojson,
-    load_burst_geometry_from_geojson,
 )
+from sar_pipeline.utils.antimeridian import (
+    check_shape_crosses_antimeridian,
+    get_bounds_for_antimeridian_shape,
+)
+from sar_pipeline.utils.checksum import PackageChecksum
 
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
 from dem_handler.utils.spatial import (
-    check_s1_bounds_cross_antimeridian,
-    get_correct_bounds_from_shape_at_antimeridian,
     check_dem_type_in_bounds,
 )
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -388,6 +391,10 @@ def get_data_for_scene_and_make_run_config(
     )
     logger.info(f"File downloaded to : {ORBIT_PATH}")
 
+    # show the original scene shape and bounds
+    logger.info(f"The scene shape is : {scene_polygon}")
+    logger.info(f"The scene bounds are : {scene_polygon.bounds}")
+
     # get the shape of the area covering the bursts to be processed
     burst_geoms_to_process = [
         all_scene_burst_info[id_]["geometry"] for id_ in burst_id_list_to_process
@@ -399,33 +406,34 @@ def get_data_for_scene_and_make_run_config(
             burst_geoms_to_process,
             out_folder / f"{scene}_burst_geoms.json",
         )
-    combined_burst_geom = shapely.ops.unary_union(burst_geoms_to_process)
-    logger.info(f"The scene shape is : {scene_polygon}")
-    logger.info(f"The scene bounds are : {scene_polygon.bounds}")
-    logger.info(f"The shape covering the required bursts is : {combined_burst_geom}")
-    logger.info(
-        f"The bounds covering the required bursts are : {combined_burst_geom.bounds}"
-    )
-    combined_burst_bounds = combined_burst_geom.bounds
-    scene_bounds = combined_burst_geom.bounds
 
-    if check_s1_bounds_cross_antimeridian(scene_bounds):
-        # the scene crosses the antimeridian, the bounds need to be
-        # correctly obtained from the source shape
-        logger.warning("The scene bounds cross the antimeridian")
-        logger.warning("Downloading DEM data using the corrected scene bounds")
-        bounds = get_correct_bounds_from_shape_at_antimeridian(scene_bounds)
-        logger.info(f"The corrected scene bounds are : {bounds}")
-        # increase the buffer to ensure DEM sufficiently covers area
-        # cop30 shape is a little odd due to merging either side of AM
-        cop30_buffer_degrees = 0.8
+    # check if the scene shape crosses the antimeridian
+    # different antimeridian shapes are returned from the CDSE (Polygon) and ASF (multipolygon)
+    if check_shape_crosses_antimeridian(scene_polygon):
+        logger.warning("The scene crosses the antimeridian")
+        # use the full scene bounds for an antimeridian scene
+        bounds = get_bounds_for_antimeridian_shape(scene_polygon)
+        logger.info(
+            f"Getting the corrected scene bounds crossing the antimeridian : {bounds}"
+        )
+        logger.info("Using the bounds for complete scene over the antimeridian.")
+        cop30_buffer_degrees = 0.5  # slighly bigger buffer
     else:
-        logger.info(f"Downloading DEM data for the combined burst bounds")
-        bounds = combined_burst_bounds
+        # reduce the DEM download by considering only the required bursts geometries
+        # if all bursts are considered, this will be close to the scene bounds
+        combined_burst_geom = shapely.ops.unary_union(burst_geoms_to_process)
+        logger.info(
+            f"The shape covering the required bursts is : {combined_burst_geom}"
+        )
+        logger.info(
+            f"The bounds covering the required bursts are : {combined_burst_geom.bounds}"
+        )
+        logger.info("Using the bounds for the required bursts.")
+
+        bounds = combined_burst_geom.bounds
         cop30_buffer_degrees = 0.3
 
     logger.info(f"Finding the best DEM in order of preference: {dem_types}")
-
     for dem_type in dem_types:
         if dem_type == "cop_glo30":
             dem_resolution = 30
@@ -767,24 +775,32 @@ def make_rtc_opera_stac_and_upload_bursts(
         )
         shutil.copy(run_config_path, burst_run_config_filepath)
 
+        # create a placeholder checksum file to link in stac metadata
+        checksum_filepath = burst_folder / f"{burst_product_name}_checksum.sha1"
+        Path(checksum_filepath).touch()
+
         # make the stac metadata from the .h5 metadata
         logging.info(f"Making stac metadata from .h5 file")
         # initialise the class to convert data from the .h5 to a stac doc
+        if product == "RTC_S1":
+            logger.info(
+                "STAC geometry will be set using valid data from a product GeoTiff"
+            )
+            update_geometry_using_valid_data = True
+        else:
+            update_geometry_using_valid_data = False
+            logger.info("STAC geometry will be set using data from the .h5 file")
         burst_stac_manager = BurstH5toStacManager(
             h5_filepath=burst_h5_filepath,
             product=product,
             product_id=burst_product_name,
             backscatter_convention=backscatter_convention,
+            update_geometry_using_valid_data=update_geometry_using_valid_data,
             collection_number=collection_number,
             s3_bucket=s3_bucket,
             s3_project_folder=s3_project_folder,
         )
 
-        if product == "RTC_S1":
-            logger.info(
-                "Updating STAC geometry using valid data from a product GeoTiff"
-            )
-            burst_stac_manager.update_geometry_using_valid_data()
         # make the stac item from the .h5 file
         burst_stac_manager.make_stac_item_from_h5()
         # add properties to the stac doc
@@ -859,6 +875,12 @@ def make_rtc_opera_stac_and_upload_bursts(
             XML.populate_special_xml_mappings()
             logger.info(f"Saving XML file to : {xml_filepath}")
             XML.save_xml(xml_filepath)
+
+        # replace the empty checksum file now all required files have been created
+        product_checksum = PackageChecksum()
+        checksum_files = [f for f in burst_folder.iterdir() if "checksum" not in str(f)]
+        product_checksum.add_files(checksum_files)
+        product_checksum.write(checksum_filepath)
 
         # push folder to S3
         if skip_upload_to_s3:
