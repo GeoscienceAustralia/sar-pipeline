@@ -1,4 +1,5 @@
 import click
+import datetime
 from pathlib import Path, PurePath
 import tomli
 import logging
@@ -281,6 +282,7 @@ def submit_pyrosar_gamma_workflow(
     log_dir = output_dir / "submission/logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
+    submitted_scenes = []
     for scene_id in processing_list:
 
         # Check if already processed
@@ -311,8 +313,19 @@ def submit_pyrosar_gamma_workflow(
                     dry_run=dry_run,
                 )
 
+                submitted_scenes.append(scene_id)
+
             except NCIMissingSceneError:
                 continue
+
+    submitted_scenes_file = f'{output_dir}/submitted_scenes_{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}.txt'
+    click.echo(f"Writing submitted scenes to {submitted_scenes_file}")
+    with open(
+        submitted_scenes_file,
+        "w",
+    ) as f:
+        for scene in submitted_scenes:
+            f.write(f"{scene}\n")
 
 
 # run_pyrosar_gamma_workflow
