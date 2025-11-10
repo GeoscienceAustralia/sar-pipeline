@@ -65,6 +65,15 @@ VALID_SENSOR_MODES = ["IW"]
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+VALID_DEMS = [
+    "cop_glo30",
+    "REMA_32",
+    "REMA_10",
+    "REMA_2",
+    "REMA_10_TIMESERIES",
+    "REMA_32_TIMESERIES",
+]
+
 
 @click.command()
 @click.option(
@@ -527,7 +536,35 @@ def get_data_for_scene_and_make_run_config(
             f"The bounds covering the required bursts are : {combined_burst_geom.bounds}"
         )
         logger.info("Using the bounds for the required bursts.")
-        dem_bounds = combined_burst_geom.bounds
+
+        bounds = combined_burst_geom.bounds
+        cop30_buffer_degrees = 0.3
+
+    logger.info(f"Finding the best DEM in order of preference: {dem_types}")
+    for dem_type in dem_types:
+        if dem_type == "cop_glo30":
+            dem_resolution = 30
+        elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
+            dem_resolution = int(dem_type.split("_")[1])
+            rema_year = None
+        elif dem_type in ["REMA_32_TIMESERIES", "REMA_10_TIMESERIES"]:
+            dem_resolution = int(dem_type.split("_")[1])
+            rema_year = int(scene.split("_")[5][0:4])  # year from aq date
+        dem_in_bounds = check_dem_type_in_bounds(dem_type, dem_resolution, bounds)
+        if dem_in_bounds:
+            # dem has data in the bounds we want, exit with dem_type set
+            break
+        elif dem_type == dem_types[-1] and not dem_in_bounds:
+            logger.warning(
+                "No DEM data could not be found in the requested bounds. "
+                "The bursts will be processed with ellipsoidal heights. "
+                "Change `dem_type` if this is not desired."
+            )
+
+    dem_folder = download_folder / "dem" / dem_type
+    DEM_PATH = dem_folder / f"{scene}_dem.tif"
+    if make_folders:
+        dem_folder.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"Downloading DEM type `{dem_type}` to path : {DEM_PATH}")
     if dem_type == "cop_glo30":
@@ -543,10 +580,16 @@ def get_data_for_scene_and_make_run_config(
             download_dem_tiles=True,
             download_geoid=True,
         )
-    elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
-        dem_resolution = int(dem_type.split("_")[1])
+    elif dem_type in [
+        "REMA_32",
+        "REMA_10",
+        "REMA_2",
+        "REMA_32_TIMESERIES",
+        "REMA_10_TIMESERIES",
+    ]:
         get_rema_dem_for_bounds(
-            bounds=dem_bounds,
+            bounds=bounds,
+            rema_year=rema_year,
             bounds_src_crs=4326,
             save_path=DEM_PATH,
             resolution=dem_resolution,
