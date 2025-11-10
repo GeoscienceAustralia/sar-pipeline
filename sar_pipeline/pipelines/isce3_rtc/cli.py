@@ -65,6 +65,17 @@ VALID_SENSOR_MODES = ["IW"]
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+VALID_DEMS = [
+    "cop_glo30",
+    "REMA_32",
+    "REMA_10",
+    "REMA_2",
+    "REMA_10_TIMESERIES",
+    "REMA_30_TIMESERIES",
+    "REMA_32_TIMESERIES",
+]
+VALID_SENSOR_MODES = ["IW"]
+
 
 @click.command()
 @click.option(
@@ -237,6 +248,14 @@ logger = logging.getLogger(__name__)
     is_flag=True,
     help="Save the burst geometries to a geojson",
 )
+@click.option(
+    "--rema-year",
+    required=False,
+    help="Year of the REMA data to use. Format: YYYY-MM for monthly data or YYYY for yearly data."
+    "If not specified, the year is automatically extracted from the scene acquisition date. ",
+    default="0",  # If set to zero the rema_year is automatically extracted from the scene acquisition date.
+    # This is only relevant for the REMA timeseries DEM options. For non-timeseries DEM options, this argument is ignored.
+)
 @log_timing
 def get_data_for_scene_and_make_run_config(
     scene,
@@ -263,6 +282,7 @@ def get_data_for_scene_and_make_run_config(
     orbit_data_source,
     make_folders,
     save_burst_geometries,
+    rema_year,
 ):
     """
     Retrieve all required inputs for RTC_S1 or RTC_S1_STATIC processing, including scene data, orbit files,
@@ -294,7 +314,8 @@ def get_data_for_scene_and_make_run_config(
         run_config_save_path.parent.mkdir(parents=True, exist_ok=True)
 
     # get the dem_type
-    if dem_type not in VALID_DEMS:
+    dem_types = dem_type.split(" ")
+    if not all([d in VALID_DEMS for d in dem_types]):
         raise ValueError(
             f"Invalid --dem_type {dem_type}. --dem-type valid values are {VALID_DEMS}"
         )
@@ -543,6 +564,44 @@ def get_data_for_scene_and_make_run_config(
             logger.info("Using the bounds for the required bursts.")
             dem_bounds = combined_burst_geom.bounds
 
+    logger.info(f"Finding the best DEM in order of preference: {dem_types}")
+    for dem_type in dem_types:
+        if dem_type == "cop_glo30":
+            dem_resolution = 30
+        elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
+            dem_resolution = int(dem_type.split("_")[1])
+            rema_year = None
+        elif dem_type in [
+            "REMA_32_TIMESERIES",
+            "REMA_30_TIMESERIES",
+            "REMA_10_TIMESERIES",
+        ]:
+            dem_resolution = int(dem_type.split("_")[1])
+            if (
+                rema_year == "0"
+            ):  # if the rema_year argument is set to the default value, extract the year from the scene acquisition date
+                rema_year = int(scene.split("_")[5][0:4])  # year from aq date
+            else:
+                logger.info(
+                    f"Fixing REMA year to the user specified value : {rema_year}"
+                )
+        # For REMA v0.5 with 30m resolution, this check is skipped in dem-handler and later the bounds are checked when the DEM data is downloaded.
+        dem_in_bounds = check_dem_type_in_bounds(dem_type, dem_resolution, dem_bounds)
+        if dem_in_bounds:
+            # dem has data in the bounds we want, exit with dem_type set
+            break
+        elif dem_type == dem_types[-1] and not dem_in_bounds:
+            logger.warning(
+                "No DEM data could not be found in the requested bounds. "
+                "The bursts will be processed with ellipsoidal heights. "
+                "Change `dem_type` if this is not desired."
+            )
+
+    dem_folder = download_folder / "dem" / dem_type
+    DEM_PATH = dem_folder / f"{scene}_dem.tif"
+    if make_folders:
+        dem_folder.mkdir(parents=True, exist_ok=True)
+
     logger.info(f"Downloading DEM type `{dem_type}` to path : {DEM_PATH}")
     if dem_type == "cop_glo30":
         get_cop30_dem_for_bounds(
@@ -557,7 +616,14 @@ def get_data_for_scene_and_make_run_config(
             download_dem_tiles=True,
             download_geoid=True,
         )
-    elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
+    elif dem_type in [
+        "REMA_32",
+        "REMA_10",
+        "REMA_2",
+        "REMA_32_TIMESERIES",
+        "REMA_30_TIMESERIES",
+        "REMA_10_TIMESERIES",
+    ]:
         dem_resolution = int(dem_type.split("_")[1])
         # 38.4 km buffer at any resolution (1200 pix @ 32m)
         buffer_pixels = int(38_400 / dem_resolution)
@@ -567,6 +633,7 @@ def get_data_for_scene_and_make_run_config(
             buffer_pixels = int(buffer_pixels * 1.5)
         get_rema_dem_for_bounds(
             bounds=dem_bounds,
+            rema_year=rema_year,
             bounds_src_crs=4326,
             save_path=DEM_PATH,
             resolution=dem_resolution,
@@ -599,12 +666,22 @@ def get_data_for_scene_and_make_run_config(
         RTC_RUN_CONFIG.set(f"{gk}.processing.rtc.output_type", backscatter_convention)
 
     # set the dem input source
-    dem_url = DEM_TYPE_URL[dem_type]
     if dem_type == "cop_glo30":
-        demDescription = f"Copernicus Global 30m DEM - {dem_url}"
+        demSource = "https://registry.opendata.aws/copernicus-dem/"
+        demDescription = f"Copernicus Global 30m DEM - {demSource}"
     elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
         dem_res = dem_type.split("_")[-1]
-        demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM at {dem_res}m - {dem_url}"
+        demSource = (
+            f"https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/{dem_res}m"
+        )
+        demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM at {dem_res}m - {demSource}"
+    elif dem_type in ["REMA_32_TIMESERIES", "REMA_30_TIMESERIES", "REMA_10_TIMESERIES"]:
+        dem_res = dem_type.split("_")[-2]
+        demSource = "https://umn1.osn.mghpcc.org"
+        demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM timeseries at {dem_res}m - {demSource}"
+    else:
+        raise ValueError(f"dem_type must be one of {VALID_DEMS}")
+
     RTC_RUN_CONFIG.set(
         f"{gk}.dynamic_ancillary_file_group.dem_file_description", demDescription
     )
