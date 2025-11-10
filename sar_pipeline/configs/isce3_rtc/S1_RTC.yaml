@@ -228,7 +228,7 @@ runconfig:
                 save_rtc_anf_gamma0_to_sigma0: False
 
                 # Save the interpolated DEM used to generate the RTC-S1 product
-                save_dem: False
+                save_dem: True
 
                 # Save layover shadow mask
                 save_mask: True

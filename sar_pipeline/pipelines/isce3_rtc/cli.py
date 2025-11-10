@@ -51,7 +51,14 @@ from dem_handler.utils.spatial import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
+VALID_DEMS = [
+    "cop_glo30",
+    "REMA_32",
+    "REMA_10",
+    "REMA_2",
+    "REMA_10_TIMESERIES",
+    "REMA_32_TIMESERIES",
+]
 
 
 @click.command()
@@ -439,6 +446,10 @@ def get_data_for_scene_and_make_run_config(
             dem_resolution = 30
         elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
             dem_resolution = int(dem_type.split("_")[1])
+            rema_year = None
+        elif dem_type in ["REMA_32_TIMESERIES", "REMA_10_TIMESERIES"]:
+            dem_resolution = int(dem_type.split("_")[1])
+            rema_year = int(scene.split("_")[5][0:4])  # year from aq date
         dem_in_bounds = check_dem_type_in_bounds(dem_type, dem_resolution, bounds)
         if dem_in_bounds:
             # dem has data in the bounds we want, exit with dem_type set
@@ -469,9 +480,16 @@ def get_data_for_scene_and_make_run_config(
             download_dem_tiles=True,
             download_geoid=True,
         )
-    elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
+    elif dem_type in [
+        "REMA_32",
+        "REMA_10",
+        "REMA_2",
+        "REMA_32_TIMESERIES",
+        "REMA_10_TIMESERIES",
+    ]:
         get_rema_dem_for_bounds(
             bounds=bounds,
+            rema_year=rema_year,
             bounds_src_crs=4326,
             save_path=DEM_PATH,
             resolution=dem_resolution,
@@ -482,9 +500,7 @@ def get_data_for_scene_and_make_run_config(
             download_dir=dem_folder,
         )
     else:
-        raise ValueError(
-            'dem_type must be one of ["cop_glo30","REMA_32","REMA_10","REMA_2"]'
-        )
+        raise ValueError(f"dem_type must be one of {VALID_DEMS}")
 
     # Update input and ancillary data
     logger.info(f"Updating the run config for scene")
