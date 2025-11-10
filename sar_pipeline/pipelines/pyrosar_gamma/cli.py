@@ -18,6 +18,7 @@ from sar_pipeline.utils.sentinel1 import (
 )
 from sar_pipeline.preparation.nci.scenes import (
     find_scene_file_from_id,
+    NCIMissingSceneError,
 )
 from sar_pipeline.utils.sentinel1 import is_s1_filename, is_s1_id
 from sar_pipeline.pipelines.pyrosar_gamma.processing.pyroSAR.pyrosar_geocode import (
@@ -216,51 +217,49 @@ def submit_pyrosar_gamma_workflow(
         click.echo(f"Creating output directory: {output_dir}")
         output_dir.mkdir(parents=True)
 
-    # Function to get filepaths on NCI
+    # Function to get scene ids from CLI input
     # This function uses recursion. It begins by checking if the input string is any of
     # A Sentinel-1 ID, filename, or path, before assuming that the user has provided a file
     # containing these items. It will then open the file, and apply the previous checks to
     # the contents line-by-line.
-    def _get_nci_s1_filepath(input: str) -> list[Path]:
+    def _get_nci_s1_scene_id(input: str) -> list[str]:
         input_as_path = Path(input)
 
         # Check if input string is a Sentinel-1 ID
         if is_s1_id(input):
-            click.echo(f"A Sentinel-1 id was passed: {input}")
-            filepath = find_scene_file_from_id(input)
-            if filepath is not None:
-                return [filepath]
+            click.echo(f"A Sentinel-1 id was passed: {input}, type = {type(input)}")
+            return [input]
 
         # Check if input string is a Sentinel-1 filename
         elif is_s1_filename(input):
             click.echo(f"A Sentinel-1 filename was passed: {input}")
             scene_id = PurePath(input).stem
-            filepath = find_scene_file_from_id(scene_id)
-            if filepath is not None:
-                return [filepath]
+            return [scene_id]
 
         # Check if the input string is a file
         elif input_as_path.is_file():
             if input_as_path.suffix == ".zip":
+                #
                 # Confirm that stem is either a Sentinel-1 SAFE dir or Sentinel-1 ID
                 if is_s1_filename(input_as_path.stem) or is_s1_id(input_as_path.stem):
                     click.echo(
                         f"A zipped Sentinel-1 file path was passed: {input_as_path}"
                     )
+                    scene_id = input_as_path.stem
                 if input_as_path is not None:
-                    return [input_as_path]
+                    return [scene_id]
 
             # Otherwise, open the file and process the content line-by-line, using the same
             # logic above (ID, filename, or path)
             else:
-                filepaths = []
+                scene_ids = []
                 click.echo("A file was passed, attempting to open and process contents")
                 with open(input_as_path) as f:
                     for line in f:
-                        line_path = _get_nci_s1_filepath(line.rstrip())
-                        filepaths.extend(line_path)
-                if filepaths is not None:
-                    return filepaths
+                        line_scene_id = _get_nci_s1_scene_id(line.rstrip())
+                        scene_ids.extend(line_scene_id)
+                if scene_ids is not None:
+                    return scene_ids
 
         # If unsuccessful, raise an error for the user.
         else:
@@ -268,7 +267,8 @@ def submit_pyrosar_gamma_workflow(
                 "scene must be a valid Sentinel-1 id/zipped file/path, or a file containing valid Sentinel-1 ids/zipped files/paths"
             )
 
-    processing_list = _get_nci_s1_filepath(scene)
+    processing_list = _get_nci_s1_scene_id(scene)
+    click.echo(f"Processing list length: {len(processing_list)}")
 
     pbs_parameters = {
         "ncpu": ncpu,
@@ -281,32 +281,38 @@ def submit_pyrosar_gamma_workflow(
     log_dir = output_dir / "submission/logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    for scene_file in processing_list:
+    for scene_id in processing_list:
 
         # Check if already processed
-        scene_id = scene_file.stem
         processed_path = output_dir / f"data/processed_scene/{scene_id}"
         if len(list(processed_path.glob("*gamma0*.tif"))) > 0:
             click.echo(
                 f"{scene_id} has already been processed. Check output at {processed_path}"
             )
         else:
-            submit_job(
-                scene=scene_file,
-                spacing=spacing,
-                scaling=scaling,
-                target_crs=target_crs,
-                orbit_dir=orbit_dir,
-                orbit_type=orbit_type,
-                etad_dir=etad_dir,
-                output_dir=output_dir,
-                log_dir=log_dir,
-                gamma_lib_dir=gamma_lib_dir,
-                gamma_env_var=gamma_env_var,
-                pbs_parameters=pbs_parameters,
-                conda_exe=None,
-                dry_run=dry_run,
-            )
+            # Find file on NCI
+            try:
+                scene_file = find_scene_file_from_id(scene_id)
+
+                submit_job(
+                    scene=scene_file,
+                    spacing=spacing,
+                    scaling=scaling,
+                    target_crs=target_crs,
+                    orbit_dir=orbit_dir,
+                    orbit_type=orbit_type,
+                    etad_dir=etad_dir,
+                    output_dir=output_dir,
+                    log_dir=log_dir,
+                    gamma_lib_dir=gamma_lib_dir,
+                    gamma_env_var=gamma_env_var,
+                    pbs_parameters=pbs_parameters,
+                    conda_exe=None,
+                    dry_run=dry_run,
+                )
+
+            except NCIMissingSceneError:
+                continue
 
 
 # run_pyrosar_gamma_workflow

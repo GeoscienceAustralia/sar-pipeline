@@ -214,7 +214,7 @@ def find_scene_file_from_id(
 
     for i, data_source in enumerate(scene_data_source_preferences):
         logger.info(
-            f"Attempting to find scene on NCI from preference {i+1} of {len(scene_data_source_preferences)} : {data_source}"
+            f"Attempting to find {scene} on NCI from preference {i+1} of {len(scene_data_source_preferences)} : {data_source}"
         )
         try:
             if data_source == "API":
