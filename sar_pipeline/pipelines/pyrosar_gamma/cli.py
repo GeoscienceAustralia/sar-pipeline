@@ -318,7 +318,11 @@ def submit_pyrosar_gamma_workflow(
             except NCIMissingSceneError:
                 continue
 
-    submitted_scenes_file = f'{output_dir}/submitted_scenes_{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}.txt'
+    if dry_run == True:
+        submitted_scenes_file = f'{output_dir}/missing_scenes_{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}.txt'
+    else:
+        submitted_scenes_file = f'{output_dir}/submitted_scenes_{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}.txt'
+
     click.echo(f"Writing submitted scenes to {submitted_scenes_file}")
     with open(
         submitted_scenes_file,
