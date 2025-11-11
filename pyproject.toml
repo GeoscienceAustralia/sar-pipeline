@@ -134,6 +134,7 @@ test-pyrosar-gamma-full-docker-workflow-run = "pixi run export-conda && pytest t
 
 ### GENERAL TASKS ###
 lint = "black sar_pipeline"
+rema-timeseries = "python parallel_run.py"
 
 [tool.black]
 target-version = ["py310", "py311", "py312"]
