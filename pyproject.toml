@@ -102,6 +102,7 @@ test-isce3-rtc-downloads= "pixi run install-pygssearch-env && pytest tests/sar_p
 # nci specific tests that should be run locally on the nci
 test-nci-filesystem = "pytest tests/filesystem"
 lint = "black sar_pipeline"
+rema-timeseries = "python parallel_run.py"
 
 [tool.pixi.feature.dev.dependencies]
 pre-commit = ">=4.2.0"
