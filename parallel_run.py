@@ -100,7 +100,7 @@ MAX_WORKERS = 10
 # Run jobs concurrently with a limit
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
     #futures = {executor.submit(run_job, name, param): name for name, param in jobs}
-    futures = {executor.submit(run_job, row.scene, row): row.scene for row in df_run.itertuples(index=False)}
+    futures = {executor.submit(run_job, row.scene, row): f'{row.scene}_{row.dem_type}' for row in df_run.itertuples(index=False)}
 
     for future in as_completed(futures):
         name, code = future.result()
