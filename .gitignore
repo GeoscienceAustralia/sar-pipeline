@@ -53,3 +53,5 @@ TMP/*
 notebooks/**/*.parquet
 
 Container_logs/*
+timeseries-results
+burst_shapefiles
