@@ -9,6 +9,8 @@ import shapely
 import ast
 import re
 import tempfile
+import multiprocessing
+import sys
 from cdsetool.query import query_features, FeatureQuery
 from cdsetool.credentials import Credentials
 from cdsetool.download import download_features
@@ -44,6 +46,12 @@ class SceneDownloadError(Exception):
 
 class NonSingleSceneResultError(Exception):
     """Exception raised 0, or more than one SLC result is found."""
+
+    pass
+
+
+class SceneDownloadTimeoutError(TimeoutError):
+    """Raised when the scene download exceeds the allowed time limit."""
 
     pass
 
@@ -750,3 +758,70 @@ def download_scene_from_preference_list(
 
     logger.info(f"Scene successfully downloaded from: {data_source}")
     return SCENE_PATH, scene_polygon, scene_url
+
+
+def download_scene_from_preference_list_with_timeout(
+    scene_data_source_preferences: list,
+    timeout_mins: int = 60,
+    early_exit_code: int | None = 102,
+    *args,
+    **kwargs,
+):
+    """
+    Run `download_scene_from_preference_list` with a timeout. Each
+    source is allowed timout minutes.
+
+    Parameters
+    ----------
+    scene_data_source_preferences:
+        preference list of data sources to try
+    timeout_mins : int
+        Maximum number of minutes before timing out.
+    early_exit_code:
+        If a specific exit code should be raised on timout
+    *args, **kwargs
+        Passed directly to `download_scene_from_preference_list`.
+
+    Raises
+    ------
+    SceneDownloadTimeoutError
+        If the download takes longer than the timeout.
+    """
+    timeout_seconds = timeout_mins * 60
+    current_sources = list(scene_data_source_preferences)  # avoid mutating caller list
+
+    with multiprocessing.Pool(processes=1) as pool:
+        async_result = pool.apply_async(
+            download_scene_from_preference_list,
+            args,
+            dict(kwargs, scene_data_source_preferences=current_sources),
+        )
+        try:
+            return async_result.get(timeout=timeout_seconds)
+
+        except multiprocessing.context.TimeoutError:
+            msg = f"Scene download timed out after {timeout_mins} minutes."
+            error = SceneDownloadTimeoutError(msg)
+            logger.exception(error)
+
+            # Always terminate the stuck worker
+            pool.terminate()
+            pool.join()
+
+            if len(current_sources) > 1:
+                # Try again with the first option removed
+                logger.info(
+                    f"Removing preference '{current_sources[0]}' from list and retrying download"
+                )
+                return download_scene_from_preference_list_with_timeout(
+                    scene_data_source_preferences=current_sources[1:],
+                    timeout_mins=timeout_mins,
+                    early_exit_code=early_exit_code,
+                    *args,
+                    **kwargs,
+                )
+            else:
+                # All options exhausted
+                if early_exit_code is not None:
+                    sys.exit(early_exit_code)
+                raise error
