@@ -3,6 +3,7 @@ from pathlib import Path, PurePath
 import tomli
 import logging
 from typing import Literal
+import rasterio
 
 from sar_pipeline.pipelines.pyrosar_gamma.filesystem import get_orbits_nci
 from sar_pipeline.pipelines.pyrosar_gamma.submission.pyrosar_gamma.prepare_input import (
@@ -394,26 +395,41 @@ def run_pyrosar_gamma_workflow(
         etad=etad,
     )
 
-    # If target CRS is 3031, convert geocoded data layers before proceeding
-    if target_crs == "3031":
-        click.echo("Performing reprojection to EPSG:3031")
-        files_to_reproject = list(processed_scene_directory.glob("*_geo*.tif"))
-        for file in files_to_reproject:
-            output_file = file.parent / (file.stem + "_3031" + file.suffix)
+    # Check file projection and compare to target projection
+    output_geocoded_tif_files = list(processed_scene_directory.glob("*_geo*.tif"))
+    with rasterio.open(output_geocoded_tif_files[0]) as src:
+        file_crs = str(src.crs.to_epsg())
+
+    # If check if files have the target crs, and reproject if not
+    if file_crs == target_crs:
+        click.echo("Output files are already in target projection.")
+        # Add a suffix to the file to make it very clear what projection files are in
+        for file in output_geocoded_tif_files:
+            updated_path = file.with_stem(file.stem + f"_{file_crs}")
+            file.replace(updated_path)
+    else:
+        click.echo(f"Performing reprojection to EPSG:{target_crs}")
+        for file in output_geocoded_tif_files:
+            output_file = file.parent / (file.stem + f"_{target_crs}" + file.suffix)
 
             gdal_reproject(
                 src_file=file,
                 dst_file=output_file,
-                dst_epsg=3031,
+                dst_epsg=int(target_crs),
                 dst_resolution=spacing,
                 resample_algorithm="bilinear",
             )
 
+            # also update original geocoded files to make the source crs explicit
+            updated_path = file.with_stem(file.stem + f"_{file_crs}")
+            file.replace(updated_path)
+
     # For all geocoded files, update all no-data values to nan and add overviews
+    # Glob needs to be run again to pick up any scenes that have been reprojected
     files_to_update = list(processed_scene_directory.glob("*_geo*.tif"))
 
     for file in files_to_update:
-        click.echo("{file}: Setting nodata to nan and adding overviews")
+        click.echo(f"{file}: Setting nodata to nan and adding overviews")
         # update nodata - overwrite original file
         gdal_update_nodata(file, file, "nan")
 
