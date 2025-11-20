@@ -112,7 +112,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --burst_id_list=()
 --resolution=20
 --output_crs="UTM"
---dem_type=("REMA_32" "cop_glo30") # order of preference, if data available for scene
+--dem_type="best" # logic to chose best DEM between REMA_32 and glo_cop30
 --product="RTC_S1"
 --backscatter_convention=gamma0 # gamma0, sigma0 or beta0
 --s3_bucket="deant-data-public-dev"
@@ -135,7 +135,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 - `burst_id_list` -> A list of burst ids corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated.txt file.
 - `resolution` -> The target resolution of the products. Default is 20m.
 - `output_crs` -> The target crs of the products. If not specified, the UTM of the scene center will be used or polar stereographic coordinates will be used for high latitudes above 60 degrees. Expects integer values (e.g. `3031`)
-- `dem_type` -> The preference of digital elevation model (DEM) to download and use for processing. Can be passed as a string or list of preferences separated by a space. If DEM data does not exist in the area of the first preference, the next will be used. E.g. `--dem-type REMA_32 cop_glo30` will first look for the Antarctic specific REMA DEM @32m before settling on the cop_glo30. Values must be one of: `cop_glo30`, `REMA_32`, `REMA_10`, `REMA_2`.
+- `dem_type` -> The type of DEM that should be downloaded for processing the scene.If 'best' is provided, logic will be used to select the most appropriate DEM out of the REMA_32 and cop_glo30. Ellipsoidal height values will be used where no DEM data exists (e.g. over water). Valid inputs are: `best` `cop_glo30`, `REMA_32`, `REMA_10`, `REMA_2`.
 - `product` -> The product being created with the workflow. Must be `RTC_S1` or `RTC_S1_STATIC`.
 - `backscatter_convention` -> the output backscatter convention from the workflow. Allowed values are [`beta0`,`sigma0`,`gamma0`] Note sigma0 data is referenced to the DEM. To create sigma0 ellipsoid referenced data, the beta0 layer and static incidence_angle layer is required; sigma0_ellipsoid = beta0*sin(incidence_angle).
 - `s3_bucket` -> the AWS S3 bucket to upload the products
@@ -176,6 +176,7 @@ Final product output paths have the following structure
 
 **Error Codes**
 * **101** - Process failed (101): Required Static Layers are missing.
+* * **103** - Process failed (102): SceneDownloadTimeout. Scene could not be downloaded in allowed time.
 * **1** - Process failed (1): Error in get-data-for-scene-and-make-run-config process.
 * **2** - Process failed (2): Error in rtc_s1.py $RUN_CONFIG_PATH process
 * **3** - Process failed (3): Error in make-rtc-opera-stac-and-upload-bursts process
