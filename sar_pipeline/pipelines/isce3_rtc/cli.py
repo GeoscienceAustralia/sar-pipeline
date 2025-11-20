@@ -259,7 +259,7 @@ def get_data_for_scene_and_make_run_config(
         scratch_folder.mkdir(parents=True, exist_ok=True)
         run_config_save_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # get the preference list of dem types
+    # get the dem_type
     if dem_type not in VALID_DEMS:
         raise ValueError(
             f"Invalid --dem_type {dem_type}. --dem-type valid values are {VALID_DEMS}"
@@ -311,7 +311,6 @@ def get_data_for_scene_and_make_run_config(
         logger.info(f"The original scene bounds are : {scene_polygon.bounds}")
 
     # check if the scene crosses the antimeridian
-    logger.info(f"Checking if the scene scrosses the antimeridian")
     scene_crosses_antimeridian = check_shape_crosses_antimeridian(scene_polygon)
     if scene_crosses_antimeridian:
         logger.warning("The scene crosses the antimeridian")
