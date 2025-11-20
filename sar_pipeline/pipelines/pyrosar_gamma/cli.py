@@ -240,7 +240,6 @@ def submit_pyrosar_gamma_workflow(
         # Check if the input string is a file
         elif input_as_path.is_file():
             if input_as_path.suffix == ".zip":
-                #
                 # Confirm that stem is either a Sentinel-1 SAFE dir or Sentinel-1 ID
                 if is_s1_filename(input_as_path.stem) or is_s1_id(input_as_path.stem):
                     click.echo(
