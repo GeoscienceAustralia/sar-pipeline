@@ -10,7 +10,9 @@ import re
 
 from sar_pipeline.preparation.downloads.scenes import (
     download_scene_from_preference_list_with_timeout,
+    query_scene_from_cdse,
     VALID_SCENE_DATA_SOURCES,
+    NonSingleSceneResultError,
 )
 from sar_pipeline.preparation.downloads.orbits import (
     download_orbits,
@@ -20,7 +22,6 @@ from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     ensure_static_layers_in_s3,
     check_burst_product_h5_exists_in_s3,
     get_burst_info_for_scene_from_cdse,
-    get_burst_info_for_scene_from_asf,
 )
 
 from sar_pipeline.pipelines.isce3_rtc.utils.config_manager import RTCConfigManager
@@ -39,19 +40,16 @@ from sar_pipeline.utils.antimeridian import (
     check_shape_crosses_antimeridian,
     get_bounds_for_antimeridian_shape,
 )
+from sar_pipeline.utils.dem import get_best_dem_type_for_scene, VALID_DEMS
 from sar_pipeline.utils.checksum import PackageChecksum
 
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
-from dem_handler.utils.spatial import (
-    check_dem_type_in_bounds,
-)
+from dem_handler.utils.spatial import check_dem_type_in_bounds
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
 
 
 @click.command()
@@ -82,11 +80,11 @@ VALID_DEMS = ["cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
 @click.option(
     "--dem-type",
     required=True,
+    default="best",
     type=str,
     help="The type of DEM that should be downloaded for processing the scene. "
-    "Can be passed as a string or list of preferences separated by a space. "
-    "If DEM data does not exist in the area of the first preference, the next will be used. "
-    "E.g. `--dem-type REMA_32 cop_glo30` will first look for the Antarctic specific REMA DEM @32m before settling on the cop_glo30. "
+    "If 'best' is provided, logic will be used to select the most appropriate DEM out of the REMA_32 and cop_glo30. "
+    "Ellipsoidal height values will be used where no DEM data exists (e.g. over water)"
     f"Values must be one of {VALID_DEMS}",
 )
 @click.option(
@@ -248,13 +246,24 @@ def get_data_for_scene_and_make_run_config(
     logger.info(f"Data source for scene download : {scene_data_source}")
     logger.info(f"Data source for orbit download : {orbit_data_source}")
 
+    # sub-folders for downloads
+    orbit_folder = download_folder / "orbits"
+    scene_folder = download_folder / "scenes"
+
+    if make_folders:
+        logger.info(f"Making output folders if not existing")
+        download_folder.mkdir(parents=True, exist_ok=True)
+        orbit_folder.mkdir(parents=True, exist_ok=True)
+        scene_folder.mkdir(parents=True, exist_ok=True)
+        out_folder.mkdir(parents=True, exist_ok=True)
+        scratch_folder.mkdir(parents=True, exist_ok=True)
+        run_config_save_path.parent.mkdir(parents=True, exist_ok=True)
+
     # get the preference list of dem types
-    dem_types = dem_type.split(" ")
-    if not all([d in VALID_DEMS for d in dem_types]):
+    if dem_type not in VALID_DEMS:
         raise ValueError(
-            f"Invalid --dem_type {dem_types}. --dem-type valid values are {VALID_DEMS}"
+            f"Invalid --dem_type {dem_type}. --dem-type valid values are {VALID_DEMS}"
         )
-    logger.info(f"The order of DEM preference is : {dem_types}")
 
     # get the preference list scene data sources
     scene_data_sources = scene_data_source.split(" ")
@@ -287,41 +296,53 @@ def get_data_for_scene_and_make_run_config(
     if backscatter_convention not in ["gamma0", "sigma0", "beta0"]:
         raise ValueError("backscatter_convention must be one of gamma0, sigma0, beta0")
 
-    # sub-folders for downloads
-    orbit_folder = download_folder / "orbits"
-    scene_folder = download_folder / "scenes"
+    # Query the CDSE to make sure the scene exists
+    cdse_scene_results = query_scene_from_cdse(scene)
+    if len(cdse_scene_results) != 1:
+        raise NonSingleSceneResultError(
+            f"Expected 1 scene, found {len(cdse_scene_results)} results for scene id : {scene}. Check input scene."
+        )
+    else:
+        logger.info(f"Scene metadata successfully retrieved from CDSE")
+        cdse_scene_metadata = cdse_scene_results[0]
+        scene_polygon = shapely.geometry.shape(cdse_scene_metadata["geometry"])
+        # show the original scene shape and bounds
+        logger.info(f"The original scene shape is : {scene_polygon}")
+        logger.info(f"The original scene bounds are : {scene_polygon.bounds}")
 
-    if make_folders:
-        logger.info(f"Making output folders if not existing")
-        download_folder.mkdir(parents=True, exist_ok=True)
-        orbit_folder.mkdir(parents=True, exist_ok=True)
-        scene_folder.mkdir(parents=True, exist_ok=True)
-        out_folder.mkdir(parents=True, exist_ok=True)
-        scratch_folder.mkdir(parents=True, exist_ok=True)
-        run_config_save_path.parent.mkdir(parents=True, exist_ok=True)
+    # check if the scene crosses the antimeridian
+    logger.info(f"Checking if the scene scrosses the antimeridian")
+    scene_crosses_antimeridian = check_shape_crosses_antimeridian(scene_polygon)
+    if scene_crosses_antimeridian:
+        logger.warning("The scene crosses the antimeridian")
+        # use the full scene bounds for an antimeridian scene
+        scene_bounds = get_bounds_for_antimeridian_shape(scene_polygon)
+        logger.info(
+            f"Getting the corrected scene bounds crossing the antimeridian : {scene_bounds}"
+        )
+    else:
+        scene_bounds = scene_polygon.bounds
 
-    # The burst ids, start-times and geometries can be acquired from the ASF/CDSE.
+    # get the best dem for processing if required
+    if dem_type == "best":
+        logger.info("Finding the best DEM for processing the scene")
+        dem_type = get_best_dem_type_for_scene(scene_bounds)
+    logger.info(f"The {dem_type} DEM will be used for processing")
+
+    # The burst ids, start-times and geometries can be acquired from the CDSE.
     # We can therefore check if desired products already exist before needing to download the scene
     try:
-        logger.info(f"Querying ASF for scene burst ids")
-        all_scene_burst_info = get_burst_info_for_scene_from_asf(scene)
+        logger.info(f"Querying CDSE for scene burst ids")
+        all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
         logger.info(
-            f"{len(all_scene_burst_info)} burst ids found for scene from ASF API"
+            f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API"
         )
     except Exception:
-        logger.info(f"Burst ids not found on ASF, trying the CDSE", exc_info=True)
-        try:
-            logger.info(f"Querying CDSE for scene burst ids")
-            all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
-            logger.info(
-                f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API"
-            )
-        except Exception:
-            logger.error(
-                f"Burst ids could not be found for scene on ASF or CDSE. Check input scene : {scene}",
-                exc_info=True,
-            )
-            raise
+        logger.error(
+            f"Burst ids could not be found for scene on CDSE. Check input scene : {scene}",
+            exc_info=True,
+        )
+        raise
 
     # Limit the bursts to be processed if a list has been provided
     if burst_id_list:
@@ -344,6 +365,7 @@ def get_data_for_scene_and_make_run_config(
         for pol in all_scene_burst_info[id_]["pols"]
     ]
     polarisation_list = list(set(polarisation_list))
+
     # return products that don't exist, and early exit if all already exist
     burst_id_list_to_process = check_burst_product_h5_exists_in_s3(
         product=product,
@@ -395,10 +417,6 @@ def get_data_for_scene_and_make_run_config(
     )
     logger.info(f"File downloaded to : {ORBIT_PATH}")
 
-    # show the original scene shape and bounds
-    logger.info(f"The scene shape is : {scene_polygon}")
-    logger.info(f"The scene bounds are : {scene_polygon.bounds}")
-
     # get the shape of the area covering the bursts to be processed
     burst_geoms_to_process = [
         all_scene_burst_info[id_]["geometry"] for id_ in burst_id_list_to_process
@@ -411,20 +429,24 @@ def get_data_for_scene_and_make_run_config(
             out_folder / f"{scene}_burst_geoms.json",
         )
 
-    # check if the scene shape crosses the antimeridian
-    # different antimeridian shapes are returned from the CDSE (Polygon) and ASF (multipolygon)
-    if check_shape_crosses_antimeridian(scene_polygon):
-        logger.warning("The scene crosses the antimeridian")
-        # use the full scene bounds for an antimeridian scene
-        bounds = get_bounds_for_antimeridian_shape(scene_polygon)
+    # download the DEM
+    dem_folder = download_folder / "dem" / dem_type
+    DEM_PATH = dem_folder / f"{scene}_dem.tif"
+    if make_folders:
+        dem_folder.mkdir(parents=True, exist_ok=True)
+
+    # set the bounds to download the DEM with
+    if scene_crosses_antimeridian:
         logger.info(
-            f"Getting the corrected scene bounds crossing the antimeridian : {bounds}"
+            "Downloading DEM Using the bounds for complete scene over the antimeridian."
         )
-        logger.info("Using the bounds for complete scene over the antimeridian.")
-        cop30_buffer_degrees = 0.5  # slighly bigger buffer
+        dem_bounds = scene_bounds
     else:
         # reduce the DEM download by considering only the required bursts geometries
         # if all bursts are considered, this will be close to the scene bounds
+        logger.info(
+            "Downloading DEM Using the bounds covering the required bursts only."
+        )
         combined_burst_geom = shapely.ops.unary_union(burst_geoms_to_process)
         logger.info(
             f"The shape covering the required bursts is : {combined_burst_geom}"
@@ -433,49 +455,26 @@ def get_data_for_scene_and_make_run_config(
             f"The bounds covering the required bursts are : {combined_burst_geom.bounds}"
         )
         logger.info("Using the bounds for the required bursts.")
-
-        bounds = combined_burst_geom.bounds
-        cop30_buffer_degrees = 0.3
-
-    logger.info(f"Finding the best DEM in order of preference: {dem_types}")
-    for dem_type in dem_types:
-        if dem_type == "cop_glo30":
-            dem_resolution = 30
-        elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
-            dem_resolution = int(dem_type.split("_")[1])
-        dem_in_bounds = check_dem_type_in_bounds(dem_type, dem_resolution, bounds)
-        if dem_in_bounds:
-            # dem has data in the bounds we want, exit with dem_type set
-            break
-        elif dem_type == dem_types[-1] and not dem_in_bounds:
-            logger.warning(
-                "No DEM data could not be found in the requested bounds. "
-                "The bursts will be processed with ellipsoidal heights. "
-                "Change `dem_type` if this is not desired."
-            )
-
-    dem_folder = download_folder / "dem" / dem_type
-    DEM_PATH = dem_folder / f"{scene}_dem.tif"
-    if make_folders:
-        dem_folder.mkdir(parents=True, exist_ok=True)
+        dem_bounds = combined_burst_geom.bounds
 
     logger.info(f"Downloading DEM type `{dem_type}` to path : {DEM_PATH}")
     if dem_type == "cop_glo30":
         get_cop30_dem_for_bounds(
-            bounds=bounds,
+            bounds=dem_bounds,
             save_path=DEM_PATH,
             ellipsoid_heights=True,
             adjust_at_high_lat=True,
             buffer_pixels=None,
-            buffer_degrees=cop30_buffer_degrees,
+            buffer_degrees=0.3,
             cop30_folder_path=dem_folder,
             geoid_tif_path=dem_folder / f"{scene}_geoid.tif",
             download_dem_tiles=True,
             download_geoid=True,
         )
     elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
+        dem_resolution = int(dem_type.split("_")[1])
         get_rema_dem_for_bounds(
-            bounds=bounds,
+            bounds=dem_bounds,
             bounds_src_crs=4326,
             save_path=DEM_PATH,
             resolution=dem_resolution,
@@ -486,9 +485,7 @@ def get_data_for_scene_and_make_run_config(
             download_dir=dem_folder,
         )
     else:
-        raise ValueError(
-            'dem_type must be one of ["cop_glo30","REMA_32","REMA_10","REMA_2"]'
-        )
+        raise ValueError(f"dem_type must be one of {VALID_DEMS}")
 
     # Update input and ancillary data
     logger.info(f"Updating the run config for scene")
