@@ -135,7 +135,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 - `burst_id_list` -> A list of burst ids corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated.txt file.
 - `resolution` -> The target resolution of the products. Default is 20m.
 - `output_crs` -> The target crs of the products. If not specified, the UTM of the scene center will be used or polar stereographic coordinates will be used for high latitudes above 60 degrees. Expects integer values (e.g. `3031`)
-- `dem_type` -> The type of DEM that should be downloaded for processing the scene.If 'best' is provided, logic will be used to select the most appropriate DEM out of the REMA_32 and cop_glo30. Ellipsoidal height values will be used where no DEM data exists (e.g. over water). Valid inputs are: `best` `cop_glo30`, `REMA_32`, `REMA_10`, `REMA_2`.
+- `dem_type` -> The type of DEM that should be downloaded for processing the scene. If 'best' is provided, logic will be used to select the most appropriate DEM out of the REMA_32 and cop_glo30. Ellipsoidal height values will be used where no DEM data exists (e.g. over water). Valid inputs are: `best` `cop_glo30`, `REMA_32`, `REMA_10`, `REMA_2`.
 - `product` -> The product being created with the workflow. Must be `RTC_S1` or `RTC_S1_STATIC`.
 - `backscatter_convention` -> the output backscatter convention from the workflow. Allowed values are [`beta0`,`sigma0`,`gamma0`] Note sigma0 data is referenced to the DEM. To create sigma0 ellipsoid referenced data, the beta0 layer and static incidence_angle layer is required; sigma0_ellipsoid = beta0*sin(incidence_angle).
 - `s3_bucket` -> the AWS S3 bucket to upload the products
