@@ -6,7 +6,7 @@ scene=""
 burst_id_list=()
 resolution=20
 output_crs="UTM"
-dem_type=("REMA_32" "cop_glo30") # order of preference, if data available for scene
+dem_type="best" # logic to chose best DEM between REMA_32 and glo_cop30
 product="RTC_S1"
 backscatter_convention=gamma0 # gamma0, sigma0 or beta0
 s3_bucket="deant-data-public-dev"
@@ -40,19 +40,7 @@ while [[ "$#" -gt 0 ]]; do
         --scene) scene="$2"; shift 2 ;;
         --resolution) resolution="$2"; shift 2 ;;
         --output_crs) output_crs="$2"; shift 2 ;;
-        --dem_type) 
-            dem_type=()  # clear the default
-            shift
-            if [[ $# -eq 1 && -f "$1" ]]; then
-                dem_type=($(cat "$1"))
-                shift
-            else
-                while [[ $# -gt 0 && ! $1 =~ ^-- ]]; do
-                    dem_type+=("$1")
-                    shift
-                done
-            fi
-            ;;
+        --dem_type) dem_type="$2"; shift 2 ;;
         --product) product="$2"; shift 2 ;;
         --backscatter_convention) backscatter_convention="$2"; shift 2 ;;
         --s3_bucket) s3_bucket="$2"; shift 2 ;;
@@ -147,7 +135,7 @@ echo scene : "$scene"
 echo burst_id_list : ${burst_id_list[*]}
 echo resolution : "$resolution"
 echo output_crs : "$epsg_code_msg"
-echo dem_type :  ${dem_type[*]}
+echo dem_type :  "$dem_type"
 echo product : "$product"
 echo backscatter_convention : "$backscatter_convention"
 echo s3_bucket : "$s3_bucket"
