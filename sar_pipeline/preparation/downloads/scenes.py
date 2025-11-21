@@ -398,7 +398,7 @@ def download_scene_from_cdse(
 
 def query_scene_from_aus_cop_hub(
     scene: str,
-    pygssearch_conda_env_path: Optional[Union[str, Path]],
+    pygssearch_conda_env: Optional[Union[str, Path]],
     service: str = "https://catalogue.copernicus.gov.au/odata/v1",
 ) -> tuple[str, dict]:
     """Query the scene and retrieve associated metadata from the Copernicus
@@ -411,9 +411,9 @@ def query_scene_from_aus_cop_hub(
     ----------
     scene : str
         scene name. e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
-    pygssearch_conda_env_path: Optional[Union[str, Path]]
+    pygssearch_conda_env: Optional[Union[str, Path]]
         Path to the conda environment containing an installation of pygssearch that will be called in a
-        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used. e.g. /path/to/anaconda3/envs/pygssearch-env
+        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used
     service : str, optional
         Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
 
@@ -425,7 +425,7 @@ def query_scene_from_aus_cop_hub(
     Raises
     ------
     MissingEnvironmentError
-        Neither of pygssearch_conda_env_path and PYGSSEARCH_CONDA_ENV environment variable were set
+        Neither of pygssearch_conda_env and PYGSSEARCH_CONDA_ENV environment variable were set
     NonSingleSceneResultError
         0, or more than one SLC result is found
     """
@@ -433,20 +433,18 @@ def query_scene_from_aus_cop_hub(
     logger.info("Using pygssearch to query Aus Cop Hub for scene metadata")
 
     # Check for pygssearch_conda_env_path, and import from environment if not available
-    pygssearch_conda_env_path = pygssearch_conda_env_path or os.getenv(
-        "PYGSSEARCH_CONDA_ENV"
-    )
+    pygssearch_conda_env = pygssearch_conda_env or os.getenv("PYGSSEARCH_CONDA_ENV")
 
-    if not pygssearch_conda_env_path:
+    if not pygssearch_conda_env:
         err_string = (
             "Path to conda environment for pygssearch is missing. "
-            "Please provide the pygssearch_conda_env_path argument "
+            "Please provide the pygssearch_conda_env argument "
             "or set the PYGSSEARCH_CONDA_ENV environment variable."
         )
         raise MissingEnvironmentError(err_string)
 
     # Set the command to use conda to execute a command using the pygssearch environment
-    environment_cmd = f"conda run -p {pygssearch_conda_env_path} "
+    environment_cmd = f"conda run -p {pygssearch_conda_env} "
 
     # Set the query for the scene -- no credentials required when querying
     pygss_cmd = (
@@ -465,6 +463,9 @@ def query_scene_from_aus_cop_hub(
         text=True,
         bufsize=1,
     )
+
+    # Create output variable before try statement
+    output = None
 
     try:
         # convert the pygssearch result to a python object
@@ -501,7 +502,7 @@ def download_scene_from_aus_cop_hub(
     aus_cop_hub_client_secret: Optional[str] = None,
     service: str = "https://catalogue.copernicus.gov.au/odata/v1",
     token_url: str = "https://auth.copernicus.gov.au/realms/gss/protocol/openid-connect/token",
-    pygssearch_conda_env_path: Optional[Union[str, Path]] = None,
+    pygssearch_conda_env: Optional[Union[str, Path]] = None,
 ) -> tuple[Path, dict]:
     """Download the scene and query associated metadata from the Copernicus
     Australasia Regional Data Hub. Function makes use of pygssearch -
@@ -535,7 +536,7 @@ def download_scene_from_aus_cop_hub(
         Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
     token_url : str, optional
         URL to validate token, by default "https://auth.copernicus.gov.au/realms/gss/protocol/openid-connect/token"
-    pygssearch_conda_env_path: Optional[Union[str, Path]]
+    pygssearch_conda_env: Optional[Union[str, Path]]
         Path to the conda environment containing an installation of pygssearch that will be called in a
         subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used. e.g. /path/to/anaconda3/envs/pygssearch-env
 
@@ -549,7 +550,7 @@ def download_scene_from_aus_cop_hub(
     MissingCredentialsError
         Required credentials are not set
     MissingEnvironmentError
-        Neither of pygssearch_conda_env_path and PYGSSEARCH_CONDA_ENV environment variable were set
+        Neither of pygssearch_conda_env and PYGSSEARCH_CONDA_ENV environment variable were set
     NonSingleSceneResultError
         Could not find exactly 1 scene
     RuntimeError
@@ -564,9 +565,7 @@ def download_scene_from_aus_cop_hub(
     aus_cop_hub_client_secret = aus_cop_hub_client_secret or os.getenv(
         "AUS_COP_HUB_CLIENT_SECRET"
     )
-    pygssearch_conda_env_path = pygssearch_conda_env_path or os.getenv(
-        "PYGSSEARCH_CONDA_ENV"
-    )
+    pygssearch_conda_env = pygssearch_conda_env or os.getenv("PYGSSEARCH_CONDA_ENV")
 
     # Check for any missing credentials
     missing_vars = []
@@ -585,7 +584,7 @@ def download_scene_from_aus_cop_hub(
         )
 
     # Check for missing pygssearch environment manager parameters
-    if not pygssearch_conda_env_path:
+    if not pygssearch_conda_env:
         err_string = (
             "Path to conda environment for pygssearch is missing. "
             "Please provide the pygssearch_conda_env_path argument "
@@ -600,7 +599,7 @@ def download_scene_from_aus_cop_hub(
     # Run the initial query to get the base run command plus scene metadata.
     # The base run command contains query information for the scene of interest.
     base_cmd, aus_cophub_scene_metadata = query_scene_from_aus_cop_hub(
-        scene, pygssearch_conda_env_path=pygssearch_conda_env_path, service=service
+        scene, pygssearch_conda_env=pygssearch_conda_env, service=service
     )
 
     # Add additional query parameters to the base command to enable downloading

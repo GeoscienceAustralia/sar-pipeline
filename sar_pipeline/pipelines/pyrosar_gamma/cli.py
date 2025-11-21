@@ -1,4 +1,5 @@
 import click
+import datetime
 from pathlib import Path, PurePath
 import tomli
 import logging
@@ -18,6 +19,7 @@ from sar_pipeline.utils.sentinel1 import (
 )
 from sar_pipeline.preparation.nci.scenes import (
     find_scene_file_from_id,
+    NCIMissingSceneError,
 )
 from sar_pipeline.utils.sentinel1 import is_s1_filename, is_s1_id
 from sar_pipeline.pipelines.pyrosar_gamma.processing.pyroSAR.pyrosar_geocode import (
@@ -32,15 +34,32 @@ from sar_pipeline.utils.post_processing import (
     gdal_update_nodata,
     gdal_add_overviews,
 )
+from sar_pipeline.utils.environment_variables import identify_and_load_missing_env_vars
 
 logging.basicConfig(level=logging.INFO)
+
+CURRENT_DIR = Path(__file__).parent.resolve()
+PROJECT_ROOT = CURRENT_DIR.parents[2]
 
 
 # find_scene_file
 @click.command()
 @click.argument("scene", type=str)
-def find_scene_file(scene):
+@click.option(
+    "--dotenv-location",
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        path_type=Path,
+    ),
+    default=PROJECT_ROOT,
+)
+def find_scene_file(scene, dotenv_location):
     """This will identify the path to a given SCENE on the NCI"""
+
+    # Identify and load required environment variables
+    identify_and_load_missing_env_vars(REQUIRED_ENV_VARIABLES, dotenv_location)
+
     scene_file = find_scene_file_from_id(scene)
 
     click.echo(scene_file)
@@ -154,6 +173,15 @@ def configure(ctx, param, filename):
     default=False,
     help="Flag for dry-run. Produces the submission script without launching it.",
 )
+@click.option(
+    "--dotenv-location",
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        path_type=Path,
+    ),
+    default=PROJECT_ROOT,
+)
 def submit_pyrosar_gamma_workflow(
     scene: str,
     spacing: int,
@@ -171,33 +199,43 @@ def submit_pyrosar_gamma_workflow(
     project: str,
     walltime: str,
     dry_run: bool,
+    dotenv_location: Path,
 ):
     """Submit a job to the NCI job queue to run the pyroSAR+GAMMA workflow to process SCENE with given options."""
+
+    # set NCI required env variables
+    REQUIRED_ENV_VARIABLES = [
+        "NCI_API_FILE_LOCATION",
+        "NCI_FILESYSTEM_FILE_LOCATION",
+        "CONDA_EXE",
+        "PYGSSEARCH_CONDA_ENV",
+    ]
+
+    # Identify and load required environment variables
+    identify_and_load_missing_env_vars(REQUIRED_ENV_VARIABLES, dotenv_location)
 
     if not output_dir.exists():
         click.echo(f"Creating output directory: {output_dir}")
         output_dir.mkdir(parents=True)
 
-    # Function to get filepaths on NCI
+    # Function to get scene ids from CLI input
     # This function uses recursion. It begins by checking if the input string is any of
     # A Sentinel-1 ID, filename, or path, before assuming that the user has provided a file
     # containing these items. It will then open the file, and apply the previous checks to
     # the contents line-by-line.
-    def _get_nci_s1_filepath(input: str) -> list[Path]:
+    def _get_nci_s1_scene_id(input: str) -> list[str]:
         input_as_path = Path(input)
 
         # Check if input string is a Sentinel-1 ID
         if is_s1_id(input):
-            click.echo(f"A Sentinel-1 id was passed: {input}")
-            filepath = find_scene_file_from_id(input)
-            return [filepath]
+            click.echo(f"A Sentinel-1 id was passed: {input}, type = {type(input)}")
+            return [input]
 
         # Check if input string is a Sentinel-1 filename
         elif is_s1_filename(input):
             click.echo(f"A Sentinel-1 filename was passed: {input}")
             scene_id = PurePath(input).stem
-            filepath = find_scene_file_from_id(scene_id)
-            return [filepath]
+            return [scene_id]
 
         # Check if the input string is a file
         elif input_as_path.is_file():
@@ -207,18 +245,21 @@ def submit_pyrosar_gamma_workflow(
                     click.echo(
                         f"A zipped Sentinel-1 file path was passed: {input_as_path}"
                     )
-                return [input_as_path]
+                    scene_id = input_as_path.stem
+                if input_as_path is not None:
+                    return [scene_id]
 
             # Otherwise, open the file and process the content line-by-line, using the same
             # logic above (ID, filename, or path)
             else:
-                filepaths = []
+                scene_ids = []
                 click.echo("A file was passed, attempting to open and process contents")
                 with open(input_as_path) as f:
                     for line in f:
-                        line_path = _get_nci_s1_filepath(line.rstrip())
-                        filepaths.extend(line_path)
-                return filepaths
+                        line_scene_id = _get_nci_s1_scene_id(line.rstrip())
+                        scene_ids.extend(line_scene_id)
+                if scene_ids is not None:
+                    return scene_ids
 
         # If unsuccessful, raise an error for the user.
         else:
@@ -226,7 +267,8 @@ def submit_pyrosar_gamma_workflow(
                 "scene must be a valid Sentinel-1 id/zipped file/path, or a file containing valid Sentinel-1 ids/zipped files/paths"
             )
 
-    processing_list = _get_nci_s1_filepath(scene)
+    processing_list = _get_nci_s1_scene_id(scene)
+    click.echo(f"Processing list length: {len(processing_list)}")
 
     pbs_parameters = {
         "ncpu": ncpu,
@@ -239,31 +281,54 @@ def submit_pyrosar_gamma_workflow(
     log_dir = output_dir / "submission/logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    for scene_file in processing_list:
+    submitted_scenes = []
+    for scene_id in processing_list:
 
         # Check if already processed
-        scene_id = scene_file.stem
         processed_path = output_dir / f"data/processed_scene/{scene_id}"
         if len(list(processed_path.glob("*gamma0*.tif"))) > 0:
             click.echo(
                 f"{scene_id} has already been processed. Check output at {processed_path}"
             )
         else:
-            submit_job(
-                scene=scene_file,
-                spacing=spacing,
-                scaling=scaling,
-                target_crs=target_crs,
-                orbit_dir=orbit_dir,
-                orbit_type=orbit_type,
-                etad_dir=etad_dir,
-                output_dir=output_dir,
-                log_dir=log_dir,
-                gamma_lib_dir=gamma_lib_dir,
-                gamma_env_var=gamma_env_var,
-                pbs_parameters=pbs_parameters,
-                dry_run=dry_run,
-            )
+            # Find file on NCI
+            try:
+                scene_file = find_scene_file_from_id(scene_id)
+
+                submit_job(
+                    scene=scene_file,
+                    spacing=spacing,
+                    scaling=scaling,
+                    target_crs=target_crs,
+                    orbit_dir=orbit_dir,
+                    orbit_type=orbit_type,
+                    etad_dir=etad_dir,
+                    output_dir=output_dir,
+                    log_dir=log_dir,
+                    gamma_lib_dir=gamma_lib_dir,
+                    gamma_env_var=gamma_env_var,
+                    pbs_parameters=pbs_parameters,
+                    conda_exe=None,
+                    dry_run=dry_run,
+                )
+
+                submitted_scenes.append(scene_id)
+
+            except NCIMissingSceneError:
+                continue
+
+    if dry_run == True:
+        submitted_scenes_file = f'{output_dir}/missing_scenes_{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}.txt'
+    else:
+        submitted_scenes_file = f'{output_dir}/submitted_scenes_{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}.txt'
+
+    click.echo(f"Writing submitted scenes to {submitted_scenes_file}")
+    with open(
+        submitted_scenes_file,
+        "w",
+    ) as f:
+        for scene in submitted_scenes:
+            f.write(f"{scene}\n")
 
 
 # run_pyrosar_gamma_workflow
@@ -347,6 +412,15 @@ def submit_pyrosar_gamma_workflow(
     default="/g/data/yp75/projects/pyrosar_processing/sar-pyrosar-nci:/apps/fftw3/3.3.10/lib:/apps/gdal/3.6.4/lib64",
     help="Environment variable to point to symlinked .sso objects to ensure GAMMA runs",
 )
+@click.option(
+    "--dotenv-location",
+    type=click.Path(
+        exists=True,
+        file_okay=False,
+        path_type=Path,
+    ),
+    default=PROJECT_ROOT,
+)
 def run_pyrosar_gamma_workflow(
     scene: Path,
     spacing: int,
@@ -358,8 +432,20 @@ def run_pyrosar_gamma_workflow(
     output_dir: Path,
     gamma_lib_dir: Path,
     gamma_env_var: str,
+    dotenv_location: Path,
 ):
     """Run the pyroSAR+GAMMA workflow to process SCENE with given options."""
+
+    # set NCI required env variables
+    REQUIRED_ENV_VARIABLES = [
+        "NCI_API_FILE_LOCATION",
+        "NCI_FILESYSTEM_FILE_LOCATION",
+        "CONDA_EXE",
+        "PYGSSEARCH_CONDA_ENV",
+    ]
+
+    # Identify and load required environment variables
+    identify_and_load_missing_env_vars(REQUIRED_ENV_VARIABLES, dotenv_location)
 
     click.echo("Preparing orbit and DEM")
     dem_output_dir = output_dir / "data/dem"

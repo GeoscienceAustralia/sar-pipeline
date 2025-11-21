@@ -180,7 +180,7 @@ def run_pyrosar_gamma_geocode(
         update_osv=False,
         osvdir=str(orbit_dir),
         allow_RES_OSV=False,
-        cleanup=False,
+        cleanup=True,
         export_extra=[
             "inc_geo",
             "dem_seg_geo",

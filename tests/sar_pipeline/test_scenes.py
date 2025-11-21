@@ -24,7 +24,7 @@ identify_and_load_missing_env_vars(
     required_env_vars=REQUIRED_ENV_VARIABLES, dotenv_location=PROJECT_ROOT
 )
 
-pygssearch_conda_env_path = os.getenv("PYGSSEARCH_CONDA_ENV")
+pygssearch_conda_env = os.getenv("PYGSSEARCH_CONDA_ENV")
 
 scene_1 = "S1A_EW_GRDM_1SDH_20200330T165825_20200330T165929_031907_03AF02_8570"
 scene_2 = "S1B_EW_GRDM_1SDH_20210914T112333_20210914T112403_028693_036C96_3EA8"
@@ -52,6 +52,6 @@ def test_query_scene_from_cdse(scene: str):
 def test_query_scene_from_aus_cop_hub(scene: str):
     _, metadata = query_scene_from_aus_cop_hub(
         scene,
-        pygssearch_conda_env_path=pygssearch_conda_env_path,
+        pygssearch_conda_env=pygssearch_conda_env,
     )
     assert metadata["Name"] == scene + ".zip"
