@@ -15,7 +15,7 @@ def get_best_dem_type_for_scene(
 
     The logic prioritises the REMA DEM for high latitude areas (<-50 degrees).
     However, if in a high latitude areas there is no intersection with the
-    REMA dem, but there is intersection with the cop_glo30 DEN, the cop_glo30
+    REMA dem, but there is intersection with the cop_glo30 DEM, the cop_glo30
     DEM will be returned. An example of this is Heard Island which has a high
     latitude but is not in the REMA area of interest.
 
