@@ -176,7 +176,7 @@ Final product output paths have the following structure
 
 **Error Codes**
 * **101** - Process failed (101): Required Static Layers are missing.
-* * **103** - Process failed (102): SceneDownloadTimeout. Scene could not be downloaded in allowed time.
+* * **102** - Process failed (102): SceneDownloadTimeout. Scene could not be downloaded in allowed time.
 * **1** - Process failed (1): Error in get-data-for-scene-and-make-run-config process.
 * **2** - Process failed (2): Error in rtc_s1.py $RUN_CONFIG_PATH process
 * **3** - Process failed (3): Error in make-rtc-opera-stac-and-upload-bursts process
