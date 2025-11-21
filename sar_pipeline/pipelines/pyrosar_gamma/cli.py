@@ -41,14 +41,6 @@ logging.basicConfig(level=logging.INFO)
 CURRENT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = CURRENT_DIR.parents[2]
 
-# set NCI required env variables
-REQUIRED_ENV_VARIABLES = [
-    "NCI_API_FILE_LOCATION",
-    "NCI_FILESYSTEM_FILE_LOCATION",
-    "CONDA_EXE",
-    "PYGSSEARCH_CONDA_ENV",
-]
-
 
 # find_scene_file
 @click.command()
@@ -210,6 +202,14 @@ def submit_pyrosar_gamma_workflow(
     dotenv_location: Path,
 ):
     """Submit a job to the NCI job queue to run the pyroSAR+GAMMA workflow to process SCENE with given options."""
+
+    # set NCI required env variables
+    REQUIRED_ENV_VARIABLES = [
+        "NCI_API_FILE_LOCATION",
+        "NCI_FILESYSTEM_FILE_LOCATION",
+        "CONDA_EXE",
+        "PYGSSEARCH_CONDA_ENV",
+    ]
 
     # Identify and load required environment variables
     identify_and_load_missing_env_vars(REQUIRED_ENV_VARIABLES, dotenv_location)
@@ -435,6 +435,14 @@ def run_pyrosar_gamma_workflow(
     dotenv_location: Path,
 ):
     """Run the pyroSAR+GAMMA workflow to process SCENE with given options."""
+
+    # set NCI required env variables
+    REQUIRED_ENV_VARIABLES = [
+        "NCI_API_FILE_LOCATION",
+        "NCI_FILESYSTEM_FILE_LOCATION",
+        "CONDA_EXE",
+        "PYGSSEARCH_CONDA_ENV",
+    ]
 
     # Identify and load required environment variables
     identify_and_load_missing_env_vars(REQUIRED_ENV_VARIABLES, dotenv_location)
