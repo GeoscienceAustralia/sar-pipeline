@@ -9,6 +9,7 @@ output_crs="UTM"
 dem_type="best" # logic to chose best DEM between REMA_32 and glo_cop30
 product="RTC_S1"
 backscatter_convention=gamma0 # gamma0, sigma0 or beta0
+static_layer_validity_start_date=20140403 
 s3_bucket="deant-data-public-dev"
 s3_project_folder="baseline"
 collection_number=0
@@ -43,6 +44,7 @@ while [[ "$#" -gt 0 ]]; do
         --dem_type) dem_type="$2"; shift 2 ;;
         --product) product="$2"; shift 2 ;;
         --backscatter_convention) backscatter_convention="$2"; shift 2 ;;
+        --static_layer_validity_start_date) static_layer_validity_start_date="$2"; shift 2 ;;
         --s3_bucket) s3_bucket="$2"; shift 2 ;;
         --s3_project_folder) s3_project_folder="$2"; shift 2 ;;
         --collection_number) collection_number="$2"; shift 2 ;;
@@ -138,6 +140,7 @@ echo output_crs : "$epsg_code_msg"
 echo dem_type :  "$dem_type"
 echo product : "$product"
 echo backscatter_convention : "$backscatter_convention"
+echo static_layer_validity_start_date : "$static_layer_validity_start_date"
 echo s3_bucket : "$s3_bucket"
 echo s3_project_folder : "$s3_project_folder"
 echo collection_number : "$collection_number"
@@ -192,6 +195,7 @@ cmd=(
     --output-crs "$output_crs" \
     --product "$product" \
     --backscatter-convention "$backscatter_convention" \
+    --static-layer-validity-start-date "$static_layer_validity_start_date" \
     --s3-bucket "$s3_bucket" \
     --s3-project-folder "$s3_project_folder" \
     --collection-number "$collection_number" \

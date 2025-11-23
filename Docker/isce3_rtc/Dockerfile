@@ -30,8 +30,8 @@ RUN curl -sSL https://github.com/conda-forge/miniforge/releases/latest/download/
 
 # Download and install the Geoscience Australia fork of the opera/RTC project
 # UPDATE VERSION AND TAG HERE IF NEEDED
-ARG RTC_VERSION=RTC-1.0.5-GA-prod
-ARG RTC_VERSION_TAG=v1.0.5-GA-prod
+ARG RTC_VERSION=RTC-1.0.6-GA-prod
+ARG RTC_VERSION_TAG=v1.0.6-GA-prod
 RUN  curl -sSL https://github.com/GeoscienceAustralia/RTC/archive/refs/tags/$RTC_VERSION_TAG.tar.gz -o $RTC_VERSION.tar.gz &&\
 tar -xvf $RTC_VERSION.tar.gz -C OPERA &&\
 rm $RTC_VERSION.tar.gz

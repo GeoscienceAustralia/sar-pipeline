@@ -115,6 +115,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --dem_type="best" # logic to chose best DEM between REMA_32 and glo_cop30
 --product="RTC_S1"
 --backscatter_convention=gamma0 # gamma0, sigma0 or beta0
+--static_layer_validity_start_date=20140403
 --s3_bucket="deant-data-public-dev"
 --s3_project_folder="baseline"
 --collection_number=0
