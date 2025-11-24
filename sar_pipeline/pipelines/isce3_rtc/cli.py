@@ -102,6 +102,17 @@ logger = logging.getLogger(__name__)
     "Note, sigma0 data is referenced to the DEM. See docs for information on creating ellipsoid referenced sigma0 data.",
 )
 @click.option(
+    "--static-layer-validity-start-date",
+    required=False,
+    default=20140403,
+    type=int,
+    help="The validity start date for the static layers used in processing, expressed in YYYYMMDD format. "
+    "This sets the rtc_s1_static_validity_start_date value in the run configuration. "
+    "This value is not expected to change often, and the default 20140403 marks the start of the S1 mission. "
+    "You would only change it if the satellite orbit changes and the existing static layers become invalid. "
+    "Another reason is when the DEM used for processing is updated, requiring new static layers for that `dem_type`.",
+)
+@click.option(
     "--s3-bucket",
     required=True,
     type=str,
@@ -221,6 +232,7 @@ def get_data_for_scene_and_make_run_config(
     dem_type,
     product,
     backscatter_convention,
+    static_layer_validity_start_date,
     s3_bucket,
     s3_project_folder,
     collection_number,
@@ -542,11 +554,11 @@ def get_data_for_scene_and_make_run_config(
             f"The path to the config is {RTC_RUN_CONFIG.file_path}."
         )
 
-    # NOTE - In the future, we may want to make this dynamic. E.g. multi-temporal DEMS
-    # Currently set to a fixed value in the run config template.
-    # RTC_RUN_CONFIG.set(
-    #     f"{gk}.product_group.rtc_s1_static_validity_start_date", 20140403
-    # )
+    # set the static layer validity start date
+    RTC_RUN_CONFIG.set(
+        f"{gk}.product_group.rtc_s1_static_validity_start_date",
+        static_layer_validity_start_date,
+    )
 
     if link_static_layers or (product == "RTC_S1_STATIC"):
         # add the static layer base url
@@ -556,7 +568,7 @@ def get_data_for_scene_and_make_run_config(
             linked_static_layers_s3_bucket,
             linked_static_layers_collection_number,
             linked_static_layers_s3_project_folder,
-            burst_id="{burst_id}",
+            burst_id="{burst_id}",  # replace this downstream as multiple bursts processed with one config
         )
         logger.info(f"static layer data access : {static_layer_data_access}")
         RTC_RUN_CONFIG.set(
