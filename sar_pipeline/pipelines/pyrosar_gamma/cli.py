@@ -397,8 +397,20 @@ def run_pyrosar_gamma_workflow(
 
     # Check file projection and compare to target projection
     output_geocoded_tif_files = list(processed_scene_directory.glob("*_geo*.tif"))
-    with rasterio.open(output_geocoded_tif_files[0]) as src:
-        file_crs = str(src.crs.to_epsg())
+
+    output_geocoded_crs_values = []
+    for tif_file in output_geocoded_tif_files:
+        with rasterio.open(tif_file) as src:
+            output_geocoded_crs_values.append(src.crs.to_epsg())
+
+    unique_crs_values = list(set(output_geocoded_crs_values))
+
+    if len(unique_crs_values) == 1:
+        file_crs = str(unique_crs_values[0])
+    else:
+        raise ValueError(
+            f"Geocoded outputs have more than one CRS value. Values are {unique_crs_values}. Check the geocoding process."
+        )
 
     # If check if files have the target crs, and reproject if not
     if file_crs == target_crs:
