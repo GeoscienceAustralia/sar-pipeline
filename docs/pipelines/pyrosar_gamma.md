@@ -3,14 +3,23 @@
 
 ## 1. About
 
-the pyrosar_gamma pipeline can be used to create Sentinel-1 Normalised Radar Backscatter (NRB) data captured in the EW mode (in Ground Range Detected format).
+The pyrosar_gamma pipeline can be used to create Sentinel-1 Normalised Radar Backscatter (NRB) data captured in the EW mode (in Ground Range Detected format).
 
 The dependant codebases managed by GA used in the pipeline are:
 - [dem-handler](https://github.com/GeoscienceAustralia/dem-handler)
 - [sar-pipeline](https://github.com/GeoscienceAustralia/sar-pipeline/tree/main/sar_pipeline)
 
 The primary output from the pyrosar_gamma pipeline is Normalised Radar Backscatter, including ancillary layers (e.g. local incidence angle). 
-There are no static layers, and outputs are provided at the level of a scene, rather than bursts. 
+There are no static layers, and outputs are provided at the level of a scene, rather than bursts.
+
+### 1.1. Requirements
+
+You will need an NCI account as well as membership for the following projects:
+* `dg9` - For access to GAMMA software
+* `fj7` - For access to Copernicus Australasian Datahub data holdings
+
+You will additionally need memberships for a relevant filesystem and compute resource.
+For Digital Earth Antarctica, the filesystem is under project `yp75` and compute is allocated to `u46`.
 
 ## 2. Example products
 
@@ -40,8 +49,6 @@ The login node of the NCI has very limited internet access, so the pipeline is d
 The main approach uses the Copernicus Australasian Datahub (Aus Cop Hub) API to search for a scene's UUID, which is then converted to an NCI path. 
 If this fails, the pipeline will fall back to searching the older (and no longer updated) filesystem.
 This back-up can be useful in the case of accessing scenes captured prior to mid-2025 if they're not available through the Aus Cop Hub API.
-
-To run this pipeline, you must have access to the `fj7` project on NCI.
 
 ### 3.2. Environment variables
 
@@ -116,7 +123,7 @@ The CLI has the following options:
 * `etad-dir` -> Path to where ETAD correction files are stored. If provided, the ETAD correction will be applied.
 * `output-dir` -> Path to where outputs will be stored.
 * `gamma-lib-dir` -> Path to GAMMA software binaries.
-* `gamma-env-var` -> Environment variable to point to symlinked .sso objects to ensure GAMMA run.
+* `gamma-env-var` -> Environment variable to point to symlinked .so objects to ensure GAMMA runs.
 * `ncpu` -> Number of CPU to request.
 * `mem` -> Amount of memory to request in GB.
 * `queue` -> NCI queue to submit to.
@@ -217,7 +224,68 @@ conda env create -f Conda/pygssearch/environment.yaml  && conda clean -afy
 Create a `.env` file based on the example and fill in the required environment variable values.
 For `CONDA_EXE`, this should be set as `/g/data/<project>/<username>/miniforge3/bin/conda` if you followed the above instructions.
 
-### 4.2. pyroSAR+GAMMA
+### 4.4. Set up symlink for GAMMA
+
+The version of GAMMA currently used by the pipeline (20230712) requires a symlink for `libgdal.so.20`, as this lib file is not available in the Conda environment. 
+The following steps are used to create the symlink:
+
+1. Create a directory for symlinks
+```bash
+mkdir /g/data/<project>/<username>/gamma_symlinks
+```
+2. Identify the location of gdal library files in your Conda environement
+```bash
+cd /g/daya/<project>/<username>/miniforge3/envs/sar-pipeline/lib
+find . -name "libgdal*"
+```
+3. Confirm that `./libgdal.so.36` appears in the list
+4. Create the symlink
+```bash
+cd /g/data/<project>/<username>/gamma_symlinks
+ls -s /g/data/<project>/<username>/miniforge3/envs/sar-pipeline/lib/libgdal.so.36 libgdal.so.20
+```
+
+You must supply an appropriate `gamma_env_var` path in the configuration file or at run time via the CLI. 
+To ensure all lib files from the Conda environment are available, as well as the new symlink, use the following:
+```toml
+gamma_env_var = "/g/data/<project>/<username>/micromamba/envs/sar-pipeline/lib:/g/data/<project>/<username>/gamma_symlinks"
+```
+
+### 4.5 Initialise pyroSAR
+
+The pyroSAR library is a python wrapper for various GAMMA command line utilities.
+As such, it needs to read the GAMMA commands and create the appropriate Python wrapper functions before first use.
+
+You can check whether it exists by seeing if you have a folder at `~/.pyrosar/gammaparse`.
+If you do not have this folder, or you want to change your version of GAMMA or  which Conda install you're using, follow these steps:
+
+1. Activate the sar-pipeline conda environment
+```bash
+conda activate sar-pipeline
+```
+2. Run a new Python REPL
+```bash
+python
+```
+3. Specify the required paths, set these as environment variables, then run the GAMMA `autoparse` function from pyroSAR:
+```python
+>>> gamma_lib_dir = "/g/data/dg9/GAMMA/GAMMA_SOFTWARE-20230712"
+>>> gamma_env_var = "/g/data/<project>/<username>/micromamba/envs/sar-pipeline/lib:/g/data/<project>/<username>/gamma_symlinks"
+>>> from sar_pipeline.utils.gamma import set_gamma_env_variables
+>>> set_gamma_env_variables(gamma_lib_dir, gamma_env_var)
+>>> from pyroSAR.gamma.parser import autoparse
+>>> exit()
+```
+4. Check that the following files are available in your NCI home directory at `~/.pyrosar/gammaparse`:
+```bash
+diff.py
+disp.py
+__init__.py
+isp.py
+lat.py
+msp.py
+__pycache__
+```
 
 ## 5. Examples
 
