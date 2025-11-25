@@ -1,10 +1,10 @@
 spacing = 20
-scaling = "linear"
+scaling = "both"
 target_crs = "4326"
 ncpu = "4"
 mem = "40"
 queue = "normal"
-project = "u46"
+project = "<compute project>"
 walltime = "02:00:00"
 orbit_dir = "/g/data/fj7/Copernicus/Sentinel-1/"
 orbit_type = "POE"
