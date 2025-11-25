@@ -1,5 +1,7 @@
 # NCI pyroSAR + GAMMA Pipeline (Sentinel-1 EW NRB)
-> **_NOTE:_**  This is a work in progress and has not been finalised.
+
+
+
 
 ## 1. About
 
@@ -322,3 +324,10 @@ submit-pyrosar-gamma-workflow -c /g/data/<project>/<username>/sar-pipeline/s1_rt
 ```
 
 ## 6. Development environment setup
+
+Install pixi into your home directory on NCI
+```bash
+curl -fsSL https://pixi.sh/install.sh | bash
+```
+
+From there, you should be able to run pixi commands on NCI.
