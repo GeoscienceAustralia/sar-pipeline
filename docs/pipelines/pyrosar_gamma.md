@@ -307,11 +307,18 @@ conda activate sar-pipeline
 submit-pyrosar-gamma-workflow -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml /g/data/<project>/<username>/list_of_scenes.txt
 ```
 
-### 5.4. Submit a list of scenes, to a new output directory
+### 5.4. Submit a list of scenes to a new output directory
 
 ```bash
 conda activate sar-pipeline
 submit-pyrosar-gamma-workflow -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml /g/data/<project>/<username>/list_of_scenes.txt --output-dir /g/data/<project>/<desired_output_dir>
+```
+
+### 5.5. Submit a list of scenes to a new output directory, with increased memory and walltime
+
+```bash
+conda activate sar-pipeline
+submit-pyrosar-gamma-workflow -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml /g/data/<project>/<username>/list_of_scenes.txt --output-dir /g/data/<project>/<desired_output_dir> --mem 60 --walltime 03:00:00
 ```
 
 ## 6. Development environment setup
