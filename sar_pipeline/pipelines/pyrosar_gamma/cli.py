@@ -319,7 +319,7 @@ def submit_pyrosar_gamma_workflow(
                 continue
 
     if dry_run == True:
-        submitted_scenes_file = f'{output_dir}/missing_scenes_{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}.txt'
+        submitted_scenes_file = f'{output_dir}/unprocessed_scenes_{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}.txt'
     else:
         submitted_scenes_file = f'{output_dir}/submitted_scenes_{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}.txt'
 
