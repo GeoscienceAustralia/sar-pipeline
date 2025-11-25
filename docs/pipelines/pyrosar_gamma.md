@@ -235,14 +235,14 @@ mkdir /g/data/<project>/<username>/gamma_symlinks
 ```
 2. Identify the location of gdal library files in your Conda environement
 ```bash
-cd /g/daya/<project>/<username>/miniforge3/envs/sar-pipeline/lib
+cd /g/data/<project>/<username>/miniforge3/envs/sar-pipeline/lib
 find . -name "libgdal*"
 ```
 3. Confirm that `./libgdal.so.36` appears in the list
 4. Create the symlink
 ```bash
 cd /g/data/<project>/<username>/gamma_symlinks
-ls -s /g/data/<project>/<username>/miniforge3/envs/sar-pipeline/lib/libgdal.so.36 libgdal.so.20
+ln -s /g/data/<project>/<username>/miniforge3/envs/sar-pipeline/lib/libgdal.so.36 libgdal.so.20
 ```
 
 You must supply an appropriate `gamma_env_var` path in the configuration file or at run time via the CLI. 
@@ -305,6 +305,13 @@ submit-pyrosar-gamma-workflow -c /g/data/<project>/<username>/sar-pipeline/s1_rt
 ```bash
 conda activate sar-pipeline
 submit-pyrosar-gamma-workflow -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml /g/data/<project>/<username>/list_of_scenes.txt
+```
+
+### 5.4. Submit a list of scenes, to a new output directory
+
+```bash
+conda activate sar-pipeline
+submit-pyrosar-gamma-workflow -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml /g/data/<project>/<username>/list_of_scenes.txt --output-dir /g/data/<project>/<desired_output_dir>
 ```
 
 ## 6. Development environment setup
