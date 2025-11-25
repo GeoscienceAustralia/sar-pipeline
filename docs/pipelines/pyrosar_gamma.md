@@ -1,7 +1,30 @@
 # NCI pyroSAR + GAMMA Pipeline (Sentinel-1 EW NRB)
 
-
-
+- [NCI pyroSAR + GAMMA Pipeline (Sentinel-1 EW NRB)](#nci-pyrosar--gamma-pipeline-sentinel-1-ew-nrb)
+    - [About](#1-about)
+        - [Requirements](#11-requirements)
+    - [Example products](#2-example-products)
+    - [Running the pipeline](#3-running-the-pipeline)
+        - [Overview](#31-overview)
+        - [Environment variables](#32-environment-variables)
+        - [Pipeline arguments and configuration](#33-pipeline-arguments-and-configuration)
+        - [Example product outputs](#34-example-product-outputs)
+        - [Logs and errors](#35-logs-and-errors)
+        - [Troubleshooting](#36-troubleshooting)
+        - [Setting permissions for external access](#37-setting-permissions-for-external-access)
+    - [Project setup](#4-project-setup)
+        - [Conda install](#41-conda-install)
+        - [Add required Conda environments](#42-add-required-conda-environments)
+        - [Update the Conda exe environment variable](#43-update-the-conda-exe-environment-variable)
+        - [Set up symlink for GAMMA](#44-set-up-symlink-for-gamma)
+        - [Initialise pyroSAR](#45-initialise-pyrosar)
+    - [Examples](#5-examples)
+        - [Configuration file](#51-configuration-file)
+        - [Submit a single scene](#52-submit-a-single-scene)
+        - [Submit a list of scenes](#53-submit-a-list-of-scenes)
+        - [Submit a list of scenes to a new output directory](#54-submit-a-list-of-scenes-to-a-new-output-directory)
+        - [Submit a list of scenes to a new output directory, with increased memory and walltime](#55-submit-a-list-of-scenes-to-a-new-output-directory-with-increased-memory-and-walltime)
+    - [Development environment setup](#6-development-environment-setup) 
 
 ## 1. About
 
@@ -149,7 +172,7 @@ The corresponding logs and submission script for the above example output can be
 * command line messages, including the job summary, are sent to the `.OU` file
 
 Errors to be aware of:
-#### Out of memory
+**Out of memory**
 In the `.ER` file, you will see a message like 
 ```text
 Job 154132534 has exceeded memory allocation on node gadi-cpu-clx-2232.gadi.nci.org.au
