@@ -3,8 +3,15 @@ from typing import Literal
 
 VALID_DEMS = ["best", "cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
 VALID_REMA_RESOLUTIONS = [2, 10, 32]
-ValidDemType = Literal[*VALID_DEMS]
-ValidREMAResolution = Literal[*VALID_REMA_RESOLUTIONS]
+ValidDemType = Literal["best", "cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
+ValidREMAResolution = Literal[2, 10, 32]
+
+DEM_TYPE_URL = {
+    "cop_glo30": "https://registry.opendata.aws/copernicus-dem/",
+    "REMA_32": "https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/32m",
+    "REMA_10": "https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/10m",
+    "REMA_2": "https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/2m",
+}
 
 
 def get_best_dem_type_for_scene(
