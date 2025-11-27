@@ -692,7 +692,7 @@ def get_data_for_scene_and_make_run_config(
 @click.option(
     "--s3-project-folder",
     required=True,
-    type=str,
+    type=click.Path(file_okay=False, path_type=Path),
     help="The folder within the bucket to upload the files. Note the "
     "final path follows the patter in the description of this function.",
 )
