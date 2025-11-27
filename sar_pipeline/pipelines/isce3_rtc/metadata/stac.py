@@ -514,13 +514,22 @@ class BurstH5toStacManager:
         self.item.properties["sarard:geometric_accuracy_unit"] = "metre"
 
         # add the timing information
-        self.item.properties["sarard:azimuth_time"] = str(self.azimuth_time)
-        self.item.properties["sarard:zero_doppler_start_time"] = str(
-            self.zero_doppler_start_time
-        )
-        self.item.properties["sarard:zero_doppler_end_time"] = str(
-            self.zero_doppler_end_time
-        )
+        if self.product == "RTC_S1":
+            self.item.properties["sarard:azimuth_time"] = str(
+                self.azimuth_time.isoformat(timespec="microseconds").replace(
+                    "+00:00", "Z"
+                )
+            )
+            self.item.properties["sarard:zero_doppler_start_time"] = str(
+                self.zero_doppler_start_time.isoformat(timespec="microseconds").replace(
+                    "+00:00", "Z"
+                )
+            )
+            self.item.properties["sarard:zero_doppler_end_time"] = str(
+                self.zero_doppler_end_time.isoformat(timespec="microseconds").replace(
+                    "+00:00", "Z"
+                )
+            )
 
         # add the storage stac extension properties
         self.item.properties["storage:schemes"] = {
