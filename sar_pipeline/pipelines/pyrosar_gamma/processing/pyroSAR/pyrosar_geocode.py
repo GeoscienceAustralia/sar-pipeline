@@ -187,6 +187,7 @@ def run_pyrosar_gamma_geocode(
             "ls_map_geo",
             "pix_area_gamma0_geo",
             "pix_ratio_geo",
+            "gs_ratio_geo",
         ],
         basename_extensions=None,
         removeS1BorderNoiseMethod=str(border_removal_method),
