@@ -283,6 +283,7 @@ cmd=(
     make-rtc-opera-stac-and-upload-bursts \
     --results-folder "$out_folder" \
     --run-config-path "$RUN_CONFIG_PATH" \
+    --scene "$scene" \
     --product "$product" \
     --backscatter-convention "$backscatter_convention" \
     --collection-number "$collection_number" \
@@ -300,12 +301,8 @@ if [ "$make_existing_products" = true ] ; then
 fi
 if [ "$link_static_layers" = true ] ; then
     # Static layers are to be linked to RTC_S1 in the stac metadata
-    cmd+=(
-        --link-static-layers \
-        --linked-static-layers-s3-bucket "$linked_static_layers_s3_bucket" \
-        --linked-static-layers-collection-number "$linked_static_layers_collection_number" \
-        --linked-static-layers-s3-project-folder "$linked_static_layers_s3_project_folder" 
-    )
+    # We get the path to the static layer folder from the .h5 metadata
+    cmd+=(--link-static-layers)
 fi
 if [ "$skip_validate_stac" != true ] ; then
     # validate the stac doc within the code
