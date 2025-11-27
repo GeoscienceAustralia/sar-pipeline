@@ -122,7 +122,7 @@ logger = logging.getLogger(__name__)
 )
 @click.option(
     "--s3-project-folder",
-    required=True,
+    required=click.Path(file_okay=False, path_type=Path),
     type=str,
     help="project folder in the s3 bucket",
 )
