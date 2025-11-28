@@ -229,7 +229,7 @@ class BurstH5toStacManager:
                 f"DEM type URL map: {DEM_TYPE_URL}. Matches: {dem_type_matches}"
             )
             raise ValueError(
-                f"Expected exactly one DEM type match, found {len(dem_type_matches)}."
+                f"Expected exactly one DEM type match, found {len(dem_type_matches)} : {dem_type_matches}."
             )
 
     def _get_product_timeliness_category(
