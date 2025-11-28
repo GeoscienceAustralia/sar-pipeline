@@ -123,7 +123,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--s3-project-folder",
     required=True,
-    type=str,
+    type=click.Path(file_okay=False, path_type=Path),
     help="project folder in the s3 bucket",
 )
 @click.option(
@@ -692,7 +692,7 @@ def get_data_for_scene_and_make_run_config(
 @click.option(
     "--s3-project-folder",
     required=True,
-    type=str,
+    type=click.Path(file_okay=False, path_type=Path),
     help="The folder within the bucket to upload the files. Note the "
     "final path follows the patter in the description of this function.",
 )
@@ -998,14 +998,14 @@ import json
 @click.option(
     "--s3-product-folder-1",
     required=False,
-    type=str,
+    type=click.Path(file_okay=False, path_type=Path),
     help="Path to the folder in s3 containing the first burst outputs from RTC/opera to compare."
     " Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required.",
 )
 @click.option(
     "--s3-product-folder-2",
     required=False,
-    type=str,
+    type=click.Path(file_okay=False, path_type=Path),
     help="Path to the folder in s3 containing the second burst outputs from RTC/opera to compare."
     "Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required.",
 )
