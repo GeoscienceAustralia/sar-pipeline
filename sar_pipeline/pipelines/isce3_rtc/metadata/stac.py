@@ -17,11 +17,8 @@ import sar_pipeline
 from sar_pipeline.pipelines.isce3_rtc.metadata.h5 import H5Manager
 from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     get_odc_product_name,
-    make_rtc_s1_static_s3_subpath,
-)
-from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
-    make_rtc_s1_s3_subpath,
-    make_rtc_s1_static_s3_subpath,
+    get_s3_bucket_from_product_browse_url,
+    get_s3_prefix_from_product_browse_url,
 )
 from sar_pipeline.utils.spatial import (
     polygon_str_to_geojson,
@@ -34,6 +31,7 @@ from sar_pipeline.utils.antimeridian import (
     get_bounds_for_antimeridian_shape,
     convert_antimeridian_polygon_to_multipolygon,
 )
+from sar_pipeline.utils.dem import DEM_TYPE_URL
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
 from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import (
     RENAME_ASSET_FILETYPES,
@@ -63,6 +61,8 @@ class BurstH5toStacManager:
         s3_bucket: str,
         s3_project_folder: str,
         s3_region: str = "ap-southeast-2",
+        start_time: datetime.datetime | None = None,
+        end_time: datetime.datetime | None = None,
         update_geometry_using_valid_data: bool = False,
         correct_antimeridian_geometry: bool = True,
     ):
@@ -87,6 +87,16 @@ class BurstH5toStacManager:
             the odc_product_name will be appended to this folder path.
         s3_region : str, optional
             The region of the S3 bucket, by default "ap-southeast-2"
+        start_time : datetime.datetime | None
+            The starting time to be referenced in the STAC metadata for product. The
+            .h5 file references the zeroDopplerStartTime which differs from the BeginningDateTime
+            provided in the CDSE burst metadata. This can therefore be passed in
+            at the top level if preferred. If None, the zeroDopplerStartTime is used.
+        end_time :
+            The ending time to be referenced in the STAC metadata for product. The
+            .h5 file references the zeroDopplerEndTime which differs from the EndingDateTime
+            provided in the CDSE burst metadata. This can therefore be passed in
+            at the top level if preferred. If None, the zeroDopplerEndTime is used.
         update_geometry_using_valid_data: bool.
             Whether to update the geometry in the STAC file using valid data
             from a product tif. This ensures the geometry in the metadata actually
@@ -108,6 +118,8 @@ class BurstH5toStacManager:
         self.odc_product_name = get_odc_product_name(
             self.product, self.collection_number, self.polarisations
         )
+        self.dem_description = self.h5.search_value("inputs/demSource")
+        self.dem_type = self._get_dem_type_from_dem_description(self.dem_description)
         self.stac_extensions = [
             "https://stac-extensions.github.io/product/v0.1.0/schema.json",
             "https://stac-extensions.github.io/sar/v1.1.0/schema.json",
@@ -124,12 +136,19 @@ class BurstH5toStacManager:
         self.s3_bucket = s3_bucket
         self.s3_project_folder = s3_project_folder
         self.s3_region = s3_region
-        self.start_dt = isoparse(
+        # set the timings for the burst
+        self.zero_doppler_start_time = isoparse(
             self.h5.search_value("identification/zeroDopplerStartTime")
         )
-        self.end_dt = isoparse(
+        self.azimuth_time = self.zero_doppler_start_time
+        self.zero_doppler_end_time = isoparse(
             self.h5.search_value("identification/zeroDopplerEndTime")
         )
+        # set the start and end times to be referenced by STAC
+        # use zero doppler time / azimuth_time if another isn't provided
+        self.start_dt = start_time or self.zero_doppler_start_time
+        # set the processing datetime
+        self.end_dt = end_time or self.zero_doppler_end_time
         self.processed_dt = isoparse(
             self.h5.search_value("identification/processingDateTime")
         )
@@ -168,39 +187,22 @@ class BurstH5toStacManager:
                 logger.warning(f"STAC geometry crosses the antimeridian. reformatting")
                 self._handle_antimeridian_crossing()
 
-        self.burst_s3_subfolder = self._make_s3_subfolder()
-        self.bucket_href = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
-        self.base_href = f"{self.bucket_href}/{self.burst_s3_subfolder}"
-        # browse link the view all product files in folder
-        self.browse_href = (
-            f"{self.bucket_href}/index.html?prefix={self.burst_s3_subfolder}"
+        # get browse link for product folder
+        self.burst_product_browse_url = self.h5.search_value(
+            "identification/dataAccess"
         )
+        # get the burst_s3_product_folder from the product browse link
+        self.burst_s3_product_folder = get_s3_prefix_from_product_browse_url(
+            self.burst_product_browse_url
+        )
+        self.bucket_href = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
+        self.base_href = f"{self.bucket_href}/{self.burst_s3_product_folder}"
 
     def _check_valid_product(self, product):
         "check the product is valid"
         if product not in ["RTC_S1", "RTC_S1_STATIC"]:
             raise ValueError("Invalid product")
         return product
-
-    def _make_s3_subfolder(self):
-        "make the s3 subfolder destination based on the product"
-        if self.product == "RTC_S1":
-            # include acquisition dates for S1_RTC
-            return make_rtc_s1_s3_subpath(
-                s3_project_folder=self.s3_project_folder,
-                collection_number=self.collection_number,
-                burst_polarisations=self.polarisations,
-                burst_id=self.burst_id,
-                burst_st=self.start_dt,
-            )
-
-        elif self.product == "RTC_S1_STATIC":
-            # static products are date independent
-            return make_rtc_s1_static_s3_subpath(
-                s3_project_folder=self.s3_project_folder,
-                collection_number=self.collection_number,
-                burst_id=self.burst_id,
-            )
 
     def _extract_doi_link(self, text: str) -> str:
         """extracts the doi reference from a given string and converts
@@ -212,6 +214,23 @@ class BurstH5toStacManager:
         """Extracts the first HTTP or HTTPS link from a given string"""
         url_match = re.search(r"https?://\S+", text)
         return url_match.group() if url_match else None
+
+    def _get_dem_type_from_dem_description(self, dem_description):
+        dem_type_matches = [
+            dem_type for dem_type, url in DEM_TYPE_URL.items() if url in dem_description
+        ]
+
+        if len(dem_type_matches) == 1:
+            return dem_type_matches[0]
+        else:
+            logging.error(
+                "Could not determine a unique DEM type from the URL in the "
+                f"DEM description. Description: {dem_description}. "
+                f"DEM type URL map: {DEM_TYPE_URL}. Matches: {dem_type_matches}"
+            )
+            raise ValueError(
+                f"Expected exactly one DEM type match, found {len(dem_type_matches)} : {dem_type_matches}."
+            )
 
     def _get_product_timeliness_category(
         self, acquisition_dt: datetime.datetime, processed_dt: datetime.datetime
@@ -312,7 +331,7 @@ class BurstH5toStacManager:
             id=self.id,
             geometry=self.geometry_4326,
             bbox=self.bbox_4326,
-            datetime=self.start_dt,
+            datetime=self.azimuth_time,
             start_datetime=self.start_dt,
             end_datetime=self.end_dt,
             collection=self.odc_product_name,
@@ -494,6 +513,21 @@ class BurstH5toStacManager:
         self.item.properties["sarard:geometric_accuracy_east_std"] = 1.19
         self.item.properties["sarard:geometric_accuracy_unit"] = "metre"
 
+        # add the timing information
+        self.item.properties["sarard:azimuth_time"] = str(
+            self.azimuth_time.isoformat(timespec="microseconds").replace("+00:00", "Z")
+        )
+        self.item.properties["sarard:zero_doppler_start_time"] = str(
+            self.zero_doppler_start_time.isoformat(timespec="microseconds").replace(
+                "+00:00", "Z"
+            )
+        )
+        self.item.properties["sarard:zero_doppler_end_time"] = str(
+            self.zero_doppler_end_time.isoformat(timespec="microseconds").replace(
+                "+00:00", "Z"
+            )
+        )
+
         # add the storage stac extension properties
         self.item.properties["storage:schemes"] = {
             "aws": {
@@ -637,7 +671,7 @@ class BurstH5toStacManager:
         self.item.add_link(
             pystac.Link(
                 rel="browse",
-                target=f"{self.browse_href}",
+                target=f"{self.burst_product_browse_url}",
                 media_type=pystac.media_type.MediaType.HTML,
             )
         )
@@ -878,11 +912,8 @@ class BurstH5toStacManager:
 
     def add_linked_static_layers_as_assets_to_stac(
         self,
-        linked_static_layers_s3_bucket: str,
-        linked_static_layers_collection_number: str,
-        linked_static_layers_s3_project_folder: str,
         stac_suffix_string: str = "stac-item.json",
-        assets_to_link: str = [
+        assets_to_link: list[str] = [
             "oa_number_of_looks",
             "oa_gamma0_to_beta0_ratio",
             "oa_gamma0_to_sigma0_ratio",
@@ -892,35 +923,47 @@ class BurstH5toStacManager:
     ):
         """add the static layer assets to the STAC metadata file. This is
         achieved by reading in the STAC metadata file associated with the
-        static layers themselves
+        static layers themselves. The static layers are found by using the
+        staticLayersDataAccess link in the .h5 file. They must therefore be
+        defined with the initial config for the RTC_S1 run.
 
         Parameters
         ----------
-            linked_static_layers_s3_bucket : Static layers bucket.
-            linked_static_layers_collection_number : Static layers collection number.
-            linked_static_layers_s3_project_folder : Static layers AWS S3 project folder
-            stac_suffix_string : The 'endswith' file string to search for in the
-            static layers s3 bucket to find the stac item metadata file.
-            e.g. stac-item.json -> the following file will be found
+            stac_suffix_string : str
+                The 'endswith' file string to search for in the
+                static layers s3 bucket to find the stac item metadata file.
+                e.g. stac-item.json -> the following file will be found
                 ga_s1_nrb-static_v0.1.0_T070-149815-IW3_20140403.stac-item.json
-
+            assets_to_link : list[str]
+                The static layers assets that we want to link to the stac
+                file as assets.
         """
 
-        # get the path to the static layer folder in AWS S3
-        burst_static_layer_s3_subpath = make_rtc_s1_static_s3_subpath(
-            linked_static_layers_s3_project_folder,
-            linked_static_layers_collection_number,
-            self.burst_id,
+        # get the link to the static layers from the .h5 processing template
+        static_layer_browse_url = self.h5.search_value(
+            "identification/staticLayersDataAccess"
         )
-
+        if not static_layer_browse_url:
+            raise ValueError(
+                "Cannot link static layers as identification/staticLayersDataAccess not set in .h5 metadata. "
+                "Ensure --link_static_layers was set when generating the RTC processing config"
+            )
+        # get the s3 subpath and bucket from the browse url
+        burst_static_layer_s3_product_folder = get_s3_prefix_from_product_browse_url(
+            static_layer_browse_url
+        )
+        linked_static_layers_s3_bucket = get_s3_bucket_from_product_browse_url(
+            static_layer_browse_url
+        )
         logger.info(
-            f"Searching for '{stac_suffix_string}' in AWS S3 burst static layer folder: {burst_static_layer_s3_subpath}"
+            f"Searching for static layer stac item *'{stac_suffix_string}' in AWS S3 "
+            f"burst static layer folder: {burst_static_layer_s3_product_folder}"
         )
 
         # search for the stac-item in the burst folder
         s3_static_layer_files = find_s3_filepaths_from_suffixes(
             linked_static_layers_s3_bucket,
-            burst_static_layer_s3_subpath,
+            burst_static_layer_s3_product_folder,
             suffixes=[stac_suffix_string],
         )
 
@@ -929,7 +972,7 @@ class BurstH5toStacManager:
 
         if len(s3_static_layer_files) != 1:
             raise ValueError(
-                f"Expecting 1 file containing '{stac_suffix_string}' in {burst_static_layer_s3_subpath}, found {len(s3_static_layer_files)}: {s3_static_layer_files} "
+                f"Expecting 1 file containing '{stac_suffix_string}' in {burst_static_layer_s3_product_folder}, found {len(s3_static_layer_files)}: {s3_static_layer_files} "
             )
         else:
             static_layer_stac_file = s3_static_layer_files[0]
@@ -950,29 +993,6 @@ class BurstH5toStacManager:
                 f"Ensure the RTC_S1_STATIC product exists at this location."
                 f"Request error: {e}"
             ) from e
-
-        # add the link to the static layer metadata file to the links
-        self.item.add_link(
-            pystac.Link(
-                rel="static-layers-stac-item",
-                target=burst_static_layer_stac_url,
-                media_type=pystac.media_type.STAC_JSON,
-            )
-        )
-
-        static_layer_browse_url = (
-            f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
-            f"/index.html?prefix={burst_static_layer_s3_subpath}"
-        )
-
-        # add link to browse the static layer folder
-        self.item.add_link(
-            pystac.Link(
-                rel="static-layers-browse",
-                target=static_layer_browse_url,
-                media_type=pystac.media_type.MediaType.HTML,
-            )
-        )
 
         # Load the JSON content into a Python dictionary
         burst_static_layer_stac = response.json()
@@ -1005,6 +1025,29 @@ class BurstH5toStacManager:
                     extra_fields=extra_fields,
                 ),
             )
+
+        # add the link to the static layer metadata file to the links
+        self.item.add_link(
+            pystac.Link(
+                rel="static-layers-stac-item",
+                target=burst_static_layer_stac_url,
+                media_type=pystac.media_type.STAC_JSON,
+            )
+        )
+
+        static_layer_browse_url = (
+            f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
+            f"/index.html?prefix={burst_static_layer_s3_product_folder}"
+        )
+
+        # add link to browse the static layer folder
+        self.item.add_link(
+            pystac.Link(
+                rel="static-layers-browse",
+                target=static_layer_browse_url,
+                media_type=pystac.media_type.MediaType.HTML,
+            )
+        )
 
     def save(self, save_path: str | Path = "metadata.json"):
         """save the STAC item to a file

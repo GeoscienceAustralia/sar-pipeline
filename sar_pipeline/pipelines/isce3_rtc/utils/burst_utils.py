@@ -11,10 +11,11 @@ import sys
 import requests
 
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
+from sar_pipeline.utils.dem import ValidDemType
 from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import REQUIRED_ASSET_FILETYPES
 from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
-    make_rtc_s1_s3_subpath,
-    make_rtc_s1_static_s3_subpath,
+    make_rtc_s1_product_s3_prefix,
+    make_rtc_s1_static_product_s3_prefix,
 )
 from sar_pipeline.utils.sentinel1 import get_dates_from_scene_id
 
@@ -25,9 +26,10 @@ logger = logging.getLogger(__name__)
 def get_burst_info_for_scene_from_asf(
     scene: str, burst_prefix: str = "t", lowercase: bool = True
 ) -> dict[str, dict[str, str | datetime | shapely.geometry.Polygon]]:
-    """Get the burst ids, start-times, polarisations and geometries for a scene from ASF.
-    Return as a dictionary of bursts as the keys, and start-times, polarisations and geometries as
-    sub-dictionaries.
+    """Get the burst ids, start time, azimuth_time, end_time, polarisations and
+    geometries for a scene from ASF. Return as a dictionary of bursts as the keys,
+    and times, polarisations and geometries as sub-dictionaries. Warning - the end_time
+    returned from the ASF API is different than that returned from the CDSE API
 
     Parameters
     ----------
@@ -47,8 +49,19 @@ def get_burst_info_for_scene_from_asf(
     Returns
     -------
     dict
-        unique dict of scene burst ids mapped to start_times, geometries and shapes
-        {'t070_149822_IW3' : {start_time : datetime.datetime, geometry: shapely.geometry}}
+        unique dict of scene burst ids mapped to the azimuth start time,
+        start time, end time, geometry and list of polarisations.
+        {
+            't070_149822_IW3' :
+                {
+                    azimuth_time : datetime.datetime,
+                    start_time : datetime.datetime,
+                    end_time : datetime.datetime,
+                    geometry: shapely.geometry
+                    pols: list[str]
+            },
+            ...
+        }
     """
 
     st, et = get_dates_from_scene_id(scene)
@@ -67,14 +80,23 @@ def get_burst_info_for_scene_from_asf(
         if scene in b.properties["url"]:
             burst_id = f"{burst_prefix}{b.properties['burst']['fullBurstID']}"
             burst_id = burst_id.lower() if lowercase else burst_id
+            # get start and end times referenced in metadata
             burst_st = datetime.strptime(
                 b.properties["startTime"], "%Y-%m-%dT%H:%M:%SZ"
+            )
+            # WARNING - the end time differs that the CDSE end time
+            burst_et = datetime.strptime(b.properties["stopTime"], "%Y-%m-%dT%H:%M:%SZ")
+            # get the azimuth time. This is the start time referenced by s1_reader
+            burst_azimuth_st = datetime.strptime(
+                b.properties["burst"]["azimuthTime"], "%Y-%m-%dT%H:%M:%SZ"
             )
             burst_geom = shapely.geometry.shape(b.geometry)
             pol = b.properties["polarization"].upper()
             if burst_id not in burst_info:
                 burst_info[burst_id] = {
+                    "azimuth_time": burst_azimuth_st,
                     "start_time": burst_st,
+                    "end_time": burst_et,
                     "geometry": burst_geom,
                     "pols": [pol],
                 }
@@ -93,9 +115,10 @@ def get_burst_info_for_scene_from_asf(
 def get_burst_info_for_scene_from_cdse(
     scene: str, burst_prefix: str = "t", lowercase: bool = True
 ) -> dict[str, dict[str, str | datetime | shapely.geometry.Polygon]]:
-    """Get the burst ids, start-times, polarisations and geometries for a scene from CDSE.
-    Return as a dictionary of bursts as the keys, and start-times, polarisations and geometries as
-    sub-dictionaries.
+    """Get the burst ids, start time, azimuth_time, end_time, polarisations and
+    geometries for a scene from ASF. Return as a dictionary of bursts as the keys,
+    and times, polarisations and geometries as sub-dictionaries. Warning - the end_time
+    returned from the CDSE API is different than that returned from the ASF API
 
     Parameters
     ----------
@@ -115,8 +138,19 @@ def get_burst_info_for_scene_from_cdse(
     Returns
     -------
     dict
-        unique dict of scene burst ids mapped to start_times, geometries and shapes
-        {'t070_149822_IW3' : {start_time : datetime.datetime, geometry: shapely.geometry}}
+        unique dict of scene burst ids mapped to the azimuth start time,
+        start time, geometry and list of polarisations.
+        {
+            't070_149822_IW3' :
+                {
+                    azimuth_time : datetime.datetime,
+                    start_time : datetime.datetime,
+                    end_time : datetime.datetime,
+                    geometry: shapely.geometry
+                    pols: list[str]
+            },
+            ...
+        }
     """
 
     base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
@@ -137,16 +171,24 @@ def get_burst_info_for_scene_from_cdse(
         # defined here - https://github.com/isce-framework/s1-reader/blob/main/src/s1reader/s1_burst_id.py#L133
         burst_id = f"{burst_prefix}{track_number:03d}_{esa_burst_id:06d}_{subswath}"
         burst_id = burst_id.lower() if lowercase else burst_id
-        # get start-times and geometries
+        # get start-times, end-times and geometries
         burst_st = datetime.strptime(
             b.get("BeginningDateTime"), "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
+        # WARNING - the end time differs that the ASF end time
+        burst_et = datetime.strptime(b.get("EndingDateTime"), "%Y-%m-%dT%H:%M:%S.%fZ")
+        # get the azimuth start time. This is the start time referenced by s1_reader
+        burst_azimuth_st = datetime.strptime(
+            b.get("AzimuthTime"), "%Y-%m-%dT%H:%M:%S.%fZ"
         )
         burst_geom = shapely.geometry.shape(b.get("GeoFootprint"))
         pol = b.get("PolarisationChannels").upper()
 
         if burst_id not in burst_info:
             burst_info[burst_id] = {
+                "azimuth_time": burst_azimuth_st,
                 "start_time": burst_st,
+                "end_time": burst_et,
                 "geometry": burst_geom,
                 "pols": [pol],
             }
@@ -170,7 +212,9 @@ def check_burst_product_h5_exists_in_s3(
     s3_bucket: str,
     s3_project_folder: str,
     collection_number: int,
-    make_existing_products: bool,
+    dem_type: ValidDemType,
+    static_layer_validity_start_date: int,
+    make_existing_products: bool = False,
     early_exit: bool = True,
     early_exit_code: int = 100,
 ) -> tuple[list[str], list[str]]:
@@ -192,9 +236,14 @@ def check_burst_product_h5_exists_in_s3(
         The subpath within the bucket
     collection_number : int
         The collection_number as an int.
+    dem_type : str, ValidDemType
+        The dem type used for processing.
+    static_layer_validity_start_date : int
+        The validity start date for the static layers used in processing,
+        expressed in YYYYMMDD format.
     make_existing_products : bool
         whether to make products if they already exist in s3. If False,
-        process will exit early if all already exist.
+        process will exit early if all already exist. Default is False.
     early_exit : bool,
         Exit the process early with a 100 error code if True. If false,
         No error is raised.
@@ -213,15 +262,17 @@ def check_burst_product_h5_exists_in_s3(
     existing_s3_paths = []
 
     for burst_id, burst_st in zip(burst_id_list, burst_st_list):
-        # get the path to search for
+        # get the path to search for in s3
         if product == "RTC_S1_STATIC":
-            s3_product_subpath = make_rtc_s1_static_s3_subpath(
+            s3_product_subpath = make_rtc_s1_static_product_s3_prefix(
                 s3_project_folder=s3_project_folder,
                 collection_number=collection_number,
                 burst_id=burst_id,
+                dem_type=dem_type,
+                static_layer_validity_start_date=static_layer_validity_start_date,
             )
         if product == "RTC_S1":
-            s3_product_subpath = make_rtc_s1_s3_subpath(
+            s3_product_subpath = make_rtc_s1_product_s3_prefix(
                 s3_project_folder=s3_project_folder,
                 collection_number=collection_number,
                 burst_polarisations=burst_polarisations,
@@ -281,6 +332,8 @@ def ensure_static_layers_in_s3(
     static_layers_s3_bucket: str,
     static_layers_collection_number: int,
     static_layers_s3_project_folder: str,
+    dem_type: ValidDemType,
+    static_layer_validity_start_date: int,
     early_exit_code: int = 101,
 ):
     """Check AWS S3 bucket to ensure static layers exist for the required bursts
@@ -297,6 +350,13 @@ def ensure_static_layers_in_s3(
         collection number of the static layers
     static_layers_s3_project_folder : str
         project folder for static layers
+    dem_type : str, ValidDemType
+        The dem type used for processing.
+    static_layer_validity_start_date : int
+        The validity start date for the static layers used in processing,
+        expressed in YYYYMMDD format.
+    early_exit_code:
+        The exit code to quit the process with if static layers don't exist.
 
     Returns
     -------
@@ -317,8 +377,12 @@ def ensure_static_layers_in_s3(
     missing_burst_files = {}
 
     for burst_id in burst_id_list:
-        static_layers_s3_folder = make_rtc_s1_static_s3_subpath(
-            static_layers_s3_project_folder, static_layers_collection_number, burst_id
+        static_layers_s3_folder = make_rtc_s1_static_product_s3_prefix(
+            static_layers_s3_project_folder,
+            static_layers_collection_number,
+            dem_type=dem_type,
+            static_layer_validity_start_date=static_layer_validity_start_date,
+            burst_id=burst_id,
         )
         filetype_to_s3paths = find_s3_filepaths_from_suffixes(
             static_layers_s3_bucket,

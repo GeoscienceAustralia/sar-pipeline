@@ -27,11 +27,14 @@ from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
 from sar_pipeline.pipelines.isce3_rtc.utils.config_manager import RTCConfigManager
 from sar_pipeline.pipelines.isce3_rtc.metadata.stac import BurstH5toStacManager
 from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
-    make_static_layer_browse_url,
-    make_rtc_s1_burst_browse_url,
+    make_rtc_s1_product_s3_prefix,
+    make_rtc_s1_static_product_s3_prefix,
+    make_rtc_s1_product_browse_url,
+    make_rtc_s1_static_product_browse_url,
 )
 from sar_pipeline.pipelines.isce3_rtc.metadata.xml import XMLMapper
 from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
+from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
 from sar_pipeline.utils.general import log_timing
 from sar_pipeline.utils.spatial import (
     write_burst_geometries_to_geojson,
@@ -40,9 +43,8 @@ from sar_pipeline.utils.antimeridian import (
     check_shape_crosses_antimeridian,
     get_bounds_for_antimeridian_shape,
 )
-from sar_pipeline.utils.dem import get_best_dem_type_for_scene, VALID_DEMS
+from sar_pipeline.utils.dem import get_best_dem_type_for_scene, VALID_DEMS, DEM_TYPE_URL
 from sar_pipeline.utils.checksum import PackageChecksum
-
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
 from dem_handler.utils.spatial import check_dem_type_in_bounds
@@ -340,20 +342,11 @@ def get_data_for_scene_and_make_run_config(
         dem_type = get_best_dem_type_for_scene(scene_bounds)
     logger.info(f"The {dem_type} DEM will be used for processing")
 
-    # The burst ids, start-times and geometries can be acquired from the CDSE.
+    # The burst ids, times and geometries can be acquired from the CDSE.
     # We can therefore check if desired products already exist before needing to download the scene
-    try:
-        logger.info(f"Querying CDSE for scene burst ids")
-        all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
-        logger.info(
-            f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API"
-        )
-    except Exception:
-        logger.error(
-            f"Burst ids could not be found for scene on CDSE. Check input scene : {scene}",
-            exc_info=True,
-        )
-        raise
+    logger.info(f"Querying CDSE for scene burst ids and metadata")
+    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
+    logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
 
     # Limit the bursts to be processed if a list has been provided
     if burst_id_list:
@@ -367,8 +360,11 @@ def get_data_for_scene_and_make_run_config(
     logger.info(
         f"Checking if burst products already exists in S3 for product {product}"
     )
+    # use the azimuth_time as the reference as this is the
+    # start time that is referred to by the s1_reader/RTC software
+    # https://github.com/isce-framework/s1-reader/blob/main/src/s1reader/s1_reader.py#L1044
     burst_st_list_candidates = [
-        all_scene_burst_info[id_]["start_time"] for id_ in burst_id_list_candidates
+        all_scene_burst_info[id_]["azimuth_time"] for id_ in burst_id_list_candidates
     ]
     polarisation_list = [
         pol
@@ -387,6 +383,8 @@ def get_data_for_scene_and_make_run_config(
         s3_project_folder=s3_project_folder,
         collection_number=collection_number,
         make_existing_products=make_existing_products,
+        dem_type=dem_type,
+        static_layer_validity_start_date=static_layer_validity_start_date,
         early_exit=True,
         early_exit_code=100,
     )
@@ -404,6 +402,8 @@ def get_data_for_scene_and_make_run_config(
             static_layers_s3_bucket=linked_static_layers_s3_bucket,
             static_layers_collection_number=linked_static_layers_collection_number,
             static_layers_s3_project_folder=linked_static_layers_s3_project_folder,
+            dem_type=dem_type,
+            static_layer_validity_start_date=static_layer_validity_start_date,
             early_exit_code=101,
         )
 
@@ -518,21 +518,15 @@ def get_data_for_scene_and_make_run_config(
         RTC_RUN_CONFIG.set(f"{gk}.processing.rtc.output_type", backscatter_convention)
 
     # set the dem input source
+    dem_url = DEM_TYPE_URL[dem_type]
     if dem_type == "cop_glo30":
-        demSource = "https://registry.opendata.aws/copernicus-dem/"
-        demDescription = f"Copernicus Global 30m DEM - {demSource}"
-        RTC_RUN_CONFIG.set(
-            f"{gk}.dynamic_ancillary_file_group.dem_file_description", demDescription
-        )
+        demDescription = f"Copernicus Global 30m DEM - {dem_url}"
     elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
         dem_res = dem_type.split("_")[-1]
-        demSource = (
-            f"https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/{dem_res}m"
-        )
-        demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM at {dem_res}m - {demSource}"
-        RTC_RUN_CONFIG.set(
-            f"{gk}.dynamic_ancillary_file_group.dem_file_description", demDescription
-        )
+        demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM at {dem_res}m - {dem_url}"
+    RTC_RUN_CONFIG.set(
+        f"{gk}.dynamic_ancillary_file_group.dem_file_description", demDescription
+    )
 
     # specify bursts to process
     RTC_RUN_CONFIG.set(f"{gk}.input_file_group.burst_id", burst_id_list_to_process)
@@ -560,41 +554,76 @@ def get_data_for_scene_and_make_run_config(
         static_layer_validity_start_date,
     )
 
-    if link_static_layers or (product == "RTC_S1_STATIC"):
-        # add the static layer base url
-        # the '{burst_id}' string gets handled in the RTC process and ensures
-        # the burst id is appended to each .h5 and Geotiff file
-        static_layer_data_access = make_static_layer_browse_url(
-            linked_static_layers_s3_bucket,
-            linked_static_layers_collection_number,
-            linked_static_layers_s3_project_folder,
-            burst_id="{burst_id}",  # replace this downstream as multiple bursts processed with one config
-        )
-        logger.info(f"static layer data access : {static_layer_data_access}")
-        RTC_RUN_CONFIG.set(
-            f"{gk}.product_group.static_layers_data_access",
-            str(static_layer_data_access),
-        )
-
-    # add the link to access the product
-    # the '{burst_id}' string gets handled in the RTC process and ensures
-    # the burst id is appended to each .h5 and Geotiff file
-    if product == "RTC_S1_STATIC":
-        RTC_RUN_CONFIG.set(
-            f"{gk}.product_group.product_data_access",
-            str(static_layer_data_access),
-        )
-    else:
-        burst_product_data_access = make_rtc_s1_burst_browse_url(
-            s3_bucket=s3_bucket,
+    # create the browse links for data access. For this we need to set the paths (s3 prefix)
+    # for where each burst product will be stored in the S3 bucket. Given the config is defined
+    # for the whole scene, the strings are updated when each burst product is created.
+    if product == "RTC_S1":
+        # The "{burst_id}", "{burst_st_year}", "{burst_st_month}", "{burst_st_day}", "{burst_st}"
+        # strings get replaced using the azimuth_time in the RTC process. This ensures the correct
+        # information is shared across the generated cloud optimised geotiffs (COGS) and metadata files.
+        # https://github.com/GeoscienceAustralia/RTC/blob/v1.0.6-GA-prod/src/rtc/h5_prep.py#L469
+        rtc_s1_product_s3_subpath = make_rtc_s1_product_s3_prefix(
             s3_project_folder=s3_project_folder,
             collection_number=collection_number,
             burst_polarisations=polarisation_list,
             burst_id="{burst_id}",
+            burst_st="{burst_st}",
+            burst_st_year="{burst_st_year}",
+            burst_st_month="{burst_st_month}",
+            burst_st_day="{burst_st_day}",
         )
+        burst_product_data_access = make_rtc_s1_product_browse_url(
+            s3_bucket=s3_bucket,
+            rtc_s1_s3_prefix=rtc_s1_product_s3_subpath,
+        )
+
+        # link static layers using the information provided. We are linking
+        # static layers that have already been created
+        if link_static_layers:
+            # the '{burst_id}' string get replaced in the RTC process. This ensures the correct
+            # information is shared across the generated cloud optimised geotiffs (COGS) and metadata files.
+            rtc_s1_static_product_s3_subpath = make_rtc_s1_static_product_s3_prefix(
+                linked_static_layers_s3_project_folder,
+                linked_static_layers_collection_number,
+                dem_type,
+                static_layer_validity_start_date,
+                burst_id="{burst_id}",
+            )
+            static_layer_data_access = make_rtc_s1_static_product_browse_url(
+                s3_bucket=linked_static_layers_s3_bucket,
+                rtc_s1_static_s3_prefix=rtc_s1_static_product_s3_subpath,
+            )
+
+    if product == "RTC_S1_STATIC":
+        # link using the settings for the current run as we are in the process of
+        # creating the static layers
+        rtc_s1_static_product_s3_subpath = make_rtc_s1_static_product_s3_prefix(
+            s3_project_folder,
+            collection_number,
+            dem_type,
+            static_layer_validity_start_date,
+            burst_id="{burst_id}",
+        )
+        burst_product_data_access = make_rtc_s1_static_product_browse_url(
+            s3_bucket=s3_bucket,
+            rtc_s1_static_s3_prefix=rtc_s1_static_product_s3_subpath,
+        )
+        # set the static layer access to self
+        static_layer_data_access = burst_product_data_access
+
+    # set the browse for product link in the config
+    logger.info(f"burst product data access : {burst_product_data_access}")
+    RTC_RUN_CONFIG.set(
+        f"{gk}.product_group.product_data_access",
+        str(burst_product_data_access),
+    )
+
+    # set the browse link for static layers in the config if provided
+    if link_static_layers or product == "RTC_S1_STATIC":
+        logger.info(f"static layer data access : {static_layer_data_access}")
         RTC_RUN_CONFIG.set(
-            f"{gk}.product_group.product_data_access",
-            str(burst_product_data_access),
+            f"{gk}.product_group.static_layers_data_access",
+            str(static_layer_data_access),
         )
 
     # set the polarisation
@@ -631,6 +660,12 @@ def get_data_for_scene_and_make_run_config(
     required=True,
     type=click.Path(dir_okay=False, path_type=Path),
     help="Path to the config path used to run RTC opera",
+)
+@click.option(
+    "--scene",
+    type=str,
+    required=True,
+    help="scene id. E.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
 )
 @click.option(
     "--product",
@@ -686,24 +721,6 @@ def get_data_for_scene_and_make_run_config(
     "be read in from the .h5 output from the rtc_s1.py process.",
 )
 @click.option(
-    "--linked-static-layers-s3-bucket",
-    required=False,
-    type=str,
-    help="S3 bucket containing the RTC_S1_STATIC data that will be linked to the RTC_S1 bursts.",
-)
-@click.option(
-    "--linked-static-layers-collection-number",
-    required=False,
-    type=str,
-    help="Collection number of RTC_S1_STATIC data that will be linked to the RTC_S1 bursts.",
-)
-@click.option(
-    "--linked-static-layers-s3-project-folder",
-    required=False,
-    type=str,
-    help="Project folder containing the RTC_S1_STATIC data that will be linked to the RTC_S1 bursts. ",
-)
-@click.option(
     "--validate-stac",
     required=False,
     is_flag=True,
@@ -716,6 +733,7 @@ def get_data_for_scene_and_make_run_config(
 def make_rtc_opera_stac_and_upload_bursts(
     results_folder,
     run_config_path,
+    scene,
     product,
     backscatter_convention,
     collection_number,
@@ -724,9 +742,6 @@ def make_rtc_opera_stac_and_upload_bursts(
     skip_upload_to_s3,
     make_existing_products,
     link_static_layers,
-    linked_static_layers_s3_bucket,
-    linked_static_layers_collection_number,
-    linked_static_layers_s3_project_folder,
     validate_stac,
 ):
     """makes STAC metadata for opera-rtc and uploads them to a desired s3 bucket.
@@ -736,6 +751,11 @@ def make_rtc_opera_stac_and_upload_bursts(
     product = RTC_S1_STATIC:
         s3_bucket/s3_folder/odc_product_name/burst_id/*files
     """
+
+    # query CDSE to get sensing start and sensing end times for bursts to be referenced in the
+    # STAC metadata as the datetimes in the .h5 metadata reference azimuth / zero doppler times
+    logger.info(f"Querying CDSE for scene burst ids and metadata")
+    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
 
     # iterate through the burst directory and create STAC metadata
     logger.info(
@@ -802,11 +822,20 @@ def make_rtc_opera_stac_and_upload_bursts(
         else:
             update_geometry_using_valid_data = False
             logger.info("STAC geometry will be set using data from the .h5 file")
+
+        # Use the start and end times from the CDSE API. This
+        # ensure consistency with the CDSE. Note that the RTC_S1 product
+        # datetime and storage path refers to the azimuth_time.
+        start_time = all_scene_burst_info[burst_folder.name]["start_time"]
+        end_time = all_scene_burst_info[burst_folder.name]["end_time"]
+
         burst_stac_manager = BurstH5toStacManager(
             h5_filepath=burst_h5_filepath,
             product=product,
             product_id=burst_product_name,
             backscatter_convention=backscatter_convention,
+            start_time=start_time,
+            end_time=end_time,
             update_geometry_using_valid_data=update_geometry_using_valid_data,
             collection_number=collection_number,
             s3_bucket=s3_bucket,
@@ -832,11 +861,7 @@ def make_rtc_opera_stac_and_upload_bursts(
             # link to static layer metadata is in the .h5 file
             # use this to map assets to the file
             logger.info("Linking static layers to product")
-            burst_stac_manager.add_linked_static_layers_as_assets_to_stac(
-                linked_static_layers_s3_bucket=linked_static_layers_s3_bucket,
-                linked_static_layers_collection_number=linked_static_layers_collection_number,
-                linked_static_layers_s3_project_folder=linked_static_layers_s3_project_folder,
-            )
+            burst_stac_manager.add_linked_static_layers_as_assets_to_stac()
         logging.info(f"Adding links to metadata files and self")
         # set the filepaths for stac and xml data if applicable
         stac_filepath = burst_folder / f"{burst_product_name}_stac-item.json"
@@ -889,6 +914,7 @@ def make_rtc_opera_stac_and_upload_bursts(
             XML.save_xml(xml_filepath)
 
         # replace the empty checksum file now all required files have been created
+        logger.info("Running checksums on product files")
         product_checksum = PackageChecksum()
         checksum_files = [f for f in burst_folder.iterdir() if "checksum" not in str(f)]
         product_checksum.add_files(checksum_files)
@@ -904,26 +930,36 @@ def make_rtc_opera_stac_and_upload_bursts(
             logger.info(
                 f"Checking if product already exist before uploading for burst : {burst_stac_manager.burst_id}"
             )
-            # returns a list of bursts that don't already exist
-            # pass in just the current burst
-            bursts_to_upload = check_burst_product_h5_exists_in_s3(
-                product=product,
-                burst_id_list=[burst_stac_manager.burst_id],
-                burst_st_list=[burst_stac_manager.start_dt],
-                burst_polarisations=burst_stac_manager.polarisations,
-                s3_bucket=s3_bucket,
-                s3_project_folder=s3_project_folder,
-                collection_number=collection_number,
-                make_existing_products=make_existing_products,
-                early_exit=False,  # don't exit early, move to next burst
+            logger.info(
+                f"Searching for .h5 file in : {burst_stac_manager.burst_s3_product_folder}"
             )
-            if burst_stac_manager.burst_id in bursts_to_upload:
-                logger.info(f"uploading files for {burst_stac_manager.burst_id} to S3.")
-                push_files_in_folder_to_s3(
-                    burst_folder, s3_bucket, burst_stac_manager.burst_s3_subfolder
-                )
-            else:
-                logger.info(f"Skipping upload to S3.")
+            product_h5_file = find_s3_filepaths_from_suffixes(
+                bucket_name=s3_bucket,
+                s3_folder=burst_stac_manager.burst_s3_product_folder,
+                suffixes=[".h5"],
+            )
+            if len(product_h5_file[".h5"]) > 0:
+                logger.warning("The burst product already exists.")
+                if not make_existing_products:
+                    logging.info(
+                        "Skipping upload for existing product. Set --make-existing-products if this is not desired"
+                    )
+                    logger.info(
+                        f"Browse link for burst products : {burst_stac_manager.burst_product_browse_url}"
+                    )
+                    continue
+                else:
+                    logging.warning(
+                        "Existing products will be replaced as --make-existing-products is set."
+                    )
+
+            logger.info(f"uploading files for {burst_stac_manager.burst_id} to S3.")
+            push_files_in_folder_to_s3(
+                burst_folder, s3_bucket, burst_stac_manager.burst_s3_product_folder
+            )
+            logger.info(
+                f"Browse link for burst products : {burst_stac_manager.burst_product_browse_url}"
+            )
 
 
 from sar_pipeline import PROJECT_ROOT_PATH

@@ -28,12 +28,14 @@ linked_static_layers_collection_number=0
 
 # Final product output paths have the following structure
 # RTC_S1
-#   - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/*files
+#   - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/datetime/*files
 #   - odc_product_name is determined by the polarisation and collection_number for RTC_S1 products.
+#   - the dates in the path refer to the azimuth_time of the burst
 #   - It will be one of ga_s1_nrb_iw_vv_vh_X, ga_s1_nrb_iw_vv_X, ga_s1_nrb_iw_hh_hv_X, ga_s1_nrb_iw_hh_X, where X is the collection_number
 # RTC_S1_STATIC
-#   - e.g. s3_bucket/s3_project_folder/odc_product_name/burst_id/*files
+#   - e.g. s3_bucket/s3_project_folder/odc_product_name/burst_id/static_layer_validity_start_date/dem_type/*files
 #   - odc_product_name = ga_s1_nrb_iw_static_X, where X is the collection_number
+#   - if dem type is 'best', it will be replaced by the most suitable DEM in the workflow. e.g. cop_glo30 or REMA_32
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
@@ -283,6 +285,7 @@ cmd=(
     make-rtc-opera-stac-and-upload-bursts \
     --results-folder "$out_folder" \
     --run-config-path "$RUN_CONFIG_PATH" \
+    --scene "$scene" \
     --product "$product" \
     --backscatter-convention "$backscatter_convention" \
     --collection-number "$collection_number" \
@@ -300,12 +303,8 @@ if [ "$make_existing_products" = true ] ; then
 fi
 if [ "$link_static_layers" = true ] ; then
     # Static layers are to be linked to RTC_S1 in the stac metadata
-    cmd+=(
-        --link-static-layers \
-        --linked-static-layers-s3-bucket "$linked_static_layers_s3_bucket" \
-        --linked-static-layers-collection-number "$linked_static_layers_collection_number" \
-        --linked-static-layers-s3-project-folder "$linked_static_layers_s3_project_folder" 
-    )
+    # We get the path to the static layer folder from the .h5 metadata
+    cmd+=(--link-static-layers)
 fi
 if [ "$skip_validate_stac" != true ] ; then
     # validate the stac doc within the code
