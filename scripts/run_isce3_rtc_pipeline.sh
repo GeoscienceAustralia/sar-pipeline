@@ -28,12 +28,14 @@ linked_static_layers_collection_number=0
 
 # Final product output paths have the following structure
 # RTC_S1
-#   - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/*files
+#   - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/datetime/*files
 #   - odc_product_name is determined by the polarisation and collection_number for RTC_S1 products.
+#   - the dates in the path refer to the azimuth_time of the burst
 #   - It will be one of ga_s1_nrb_iw_vv_vh_X, ga_s1_nrb_iw_vv_X, ga_s1_nrb_iw_hh_hv_X, ga_s1_nrb_iw_hh_X, where X is the collection_number
 # RTC_S1_STATIC
-#   - e.g. s3_bucket/s3_project_folder/odc_product_name/burst_id/*files
+#   - e.g. s3_bucket/s3_project_folder/odc_product_name/burst_id/static_layer_validity_start_date/dem_type/*files
 #   - odc_product_name = ga_s1_nrb_iw_static_X, where X is the collection_number
+#   - if dem type is 'best', it will be replaced by the most suitable DEM in the workflow. e.g. cop_glo30 or REMA_32
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
