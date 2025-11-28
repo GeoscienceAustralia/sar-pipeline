@@ -29,7 +29,7 @@ from sar_pipeline.pipelines.pyrosar_gamma.processing.pyroSAR.pyrosar_geocode imp
 from sar_pipeline.pipelines.pyrosar_gamma.submission.pyrosar_gamma.submit_job import (
     submit_job,
 )
-from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
+from sar_pipeline.utils.aws import S3Util
 from sar_pipeline.utils.post_processing import (
     gdal_reproject,
     gdal_update_nodata,
@@ -593,8 +593,11 @@ def upload_files_in_folder_to_s3(
     exclude_files: list[str] = [],
     region_name: str = "ap-southeast-2",
 ):
+
+    S3UPLOADER = S3Util(region_name=region_name)
+
     """Upload contents of SRC_FOLDER to S3_BUCKET with prefix S3_BUCKET_FOLDER"""
-    push_files_in_folder_to_s3(
+    S3UPLOADER.push_files_in_folder_to_s3(
         src_folder=src_folder,
         s3_bucket=s3_bucket,
         s3_bucket_folder=s3_bucket_folder,

@@ -5,13 +5,14 @@ from botocore import UNSIGNED
 from botocore.config import Config
 from botocore.exceptions import ClientError
 import logging
+import mimetypes
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def check_aws_environment_credentials() -> list[str]:
+def check_aws_environment_credentials(verbose=False) -> list[str]:
     """Checks if the required credentials exist
 
     Returns: list
@@ -21,15 +22,18 @@ def check_aws_environment_credentials() -> list[str]:
     MISSING_CREDENTIALS = []
     if os.environ.get("AWS_ACCESS_KEY_ID") is None:
         wrn_msg = "AWS_ACCESS_KEY_ID is not set in environment variables. Set if authentication required on bucket"
-        logging.warning(wrn_msg)
+        if verbose:
+            logging.warning(wrn_msg)
         MISSING_CREDENTIALS.append("AWS_ACCESS_KEY_ID")
     if os.environ.get("AWS_SECRET_ACCESS_KEY") is None:
         wrn_msg = "AWS_SECRET_ACCESS_KEY is not set in environment variables. Set if authentication required on bucket"
-        logging.warning(wrn_msg)
+        if verbose:
+            logging.warning(wrn_msg)
         MISSING_CREDENTIALS.append("AWS_SECRET_ACCESS_KEY")
     if os.environ.get("AWS_DEFAULT_REGION") is None:
         wrn_msg = "AWS_DEFAULT_REGION is not set in environment variables. Set if authentication required on bucket"
-        logging.warning(wrn_msg)
+        if verbose:
+            logging.warning(wrn_msg)
         MISSING_CREDENTIALS.append("AWS_DEFAULT_REGION")
     return MISSING_CREDENTIALS
 
@@ -103,7 +107,7 @@ class S3Util:
             AWS region name, by default "ap-southeast-2".
         """
 
-        check_aws_environment_credentials()
+        check_aws_environment_credentials(verbose=True)
 
         self.s3 = boto3.client(
             "s3",
@@ -135,3 +139,66 @@ class S3Util:
                     print(f"Downloaded: {key} -> {local_file_path}")
                 except ClientError as e:
                     print(f"Failed to download {key}: {e}")
+
+    def push_files_in_folder_to_s3(
+        self,
+        src_folder: str,
+        s3_bucket: str,
+        s3_bucket_folder: str,
+        upload_folder: bool = False,
+        exclude_extensions: list[str] = [],
+        exclude_files: list[str] = [],
+    ):
+        """Upload the files in a local folder to an S3 bucket. The subfolder
+        structure in the specified folder is maintained in s3.
+
+        Parameters
+        ----------
+        src_folder : str
+            Source folder containing files of interest
+        s3_bucket : str
+            S3 bucket to push to
+        s3_bucket_folder : str
+            Folder within bucket to push to
+        upload_folder : bool
+            upload the entire folder to the s3_bucket_folder.
+            If; src_folder = my/local_folder/ & s3_bucket_folder = s3/s3_folder
+            when True, all files uploaded to -> s3/s3_folder/local_folder/...
+            when False, all files uploaded to -> s3/s3_folder/...
+        exclude_extensions : list[str], optional
+            List of file extensions to exclude, by default []
+        exclude_files : list[str], optional
+            List of files to exclude, by default []
+        """
+
+        logging.info(f"Attempting to upload to S3 bucket : {s3_bucket}")
+
+        for root, dirs, files in os.walk(src_folder):
+            for file in files:
+                if exclude_extensions:
+                    filename, file_extension = os.path.splitext(file)
+                    if file_extension in exclude_extensions:
+                        continue
+                if file in exclude_files:
+                    continue
+                local_path = Path(root) / Path(file)
+                relative_path = Path(os.path.relpath(local_path, src_folder))
+                if not upload_folder:
+                    s3_key = Path(
+                        os.path.join(s3_bucket_folder, relative_path).replace("\\", "/")
+                    )
+                else:
+                    folder = Path(src_folder).name
+                    s3_key = Path(
+                        os.path.join(s3_bucket_folder, folder, relative_path).replace(
+                            "\\", "/"
+                        )
+                    )
+                file_mime_type, _ = mimetypes.guess_type(local_path)
+                self.s3.upload_file(
+                    str(local_path),
+                    str(s3_bucket),
+                    str(s3_key),
+                    ExtraArgs={"ContentType": file_mime_type or "binary/octet-stream"},
+                )
+                logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
