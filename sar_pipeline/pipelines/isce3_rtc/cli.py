@@ -33,8 +33,7 @@ from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     make_rtc_s1_static_product_browse_url,
 )
 from sar_pipeline.pipelines.isce3_rtc.metadata.xml import XMLMapper
-from sar_pipeline.utils.s3upload import push_files_in_folder_to_s3
-from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
+from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes, S3Util
 from sar_pipeline.utils.general import log_timing
 from sar_pipeline.utils.spatial import (
     write_burst_geometries_to_geojson,
@@ -763,6 +762,10 @@ def make_rtc_opera_stac_and_upload_bursts(
     )
     burst_folders = [x for x in results_folder.iterdir() if x.is_dir()]
 
+    # initialise the S3 utility
+    if not skip_upload_to_s3:
+        S3UPLOADER = S3Util()
+
     for i, burst_folder in enumerate(burst_folders):
         logger.info(
             f"Making STAC metadata for burst {i+1} of {len(burst_folders)} : {burst_folder}"
@@ -954,7 +957,7 @@ def make_rtc_opera_stac_and_upload_bursts(
                     )
 
             logger.info(f"uploading files for {burst_stac_manager.burst_id} to S3.")
-            push_files_in_folder_to_s3(
+            S3UPLOADER.push_files_in_folder_to_s3(
                 burst_folder, s3_bucket, burst_stac_manager.burst_s3_product_folder
             )
             logger.info(
