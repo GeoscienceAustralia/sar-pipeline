@@ -144,7 +144,7 @@ class S3Util:
         self,
         src_folder: str,
         s3_bucket: str,
-        s3_bucket_folder: str,
+        s3_prefix: str,
         upload_folder: bool = False,
         exclude_extensions: list[str] = [],
         exclude_files: list[str] = [],
@@ -158,11 +158,11 @@ class S3Util:
             Source folder containing files of interest
         s3_bucket : str
             S3 bucket to push to
-        s3_bucket_folder : str
+        s3_prefix : str
             Folder within bucket to push to
         upload_folder : bool
-            upload the entire folder to the s3_bucket_folder.
-            If; src_folder = my/local_folder/ & s3_bucket_folder = s3/s3_folder
+            upload the entire folder to the s3_prefix.
+            If; src_folder = my/local_folder/ & s3_prefix = s3/s3_folder
             when True, all files uploaded to -> s3/s3_folder/local_folder/...
             when False, all files uploaded to -> s3/s3_folder/...
         exclude_extensions : list[str], optional
@@ -185,12 +185,12 @@ class S3Util:
                 relative_path = Path(os.path.relpath(local_path, src_folder))
                 if not upload_folder:
                     s3_key = Path(
-                        os.path.join(s3_bucket_folder, relative_path).replace("\\", "/")
+                        os.path.join(s3_prefix, relative_path).replace("\\", "/")
                     )
                 else:
                     folder = Path(src_folder).name
                     s3_key = Path(
-                        os.path.join(s3_bucket_folder, folder, relative_path).replace(
+                        os.path.join(s3_prefix, folder, relative_path).replace(
                             "\\", "/"
                         )
                     )

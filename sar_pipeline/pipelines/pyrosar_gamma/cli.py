@@ -562,12 +562,12 @@ def find_orbits_for_scene(scene):
 @click.command()
 @click.argument("src_folder", type=click.Path(exists=True, file_okay=False))
 @click.argument("s3_bucket", type=str)
-@click.argument("s3_bucket_folder", type=str)
+@click.argument("s3_prefix", type=str)
 @click.option(
     "--upload-folder",
     default=False,
     is_flag=True,
-    help="Upload the whole folder to specified s3_bucket_folder.",
+    help="Upload the whole folder to specified s3_prefix.",
 )
 @click.option(
     "--exclude-extensions",
@@ -587,7 +587,7 @@ def find_orbits_for_scene(scene):
 def upload_files_in_folder_to_s3(
     src_folder: str,
     s3_bucket: str,
-    s3_bucket_folder: str,
+    s3_prefix: str,
     upload_folder: bool,
     exclude_extensions: list[str] = [],
     exclude_files: list[str] = [],
@@ -596,11 +596,11 @@ def upload_files_in_folder_to_s3(
 
     S3UPLOADER = S3Util(region_name=region_name)
 
-    """Upload contents of SRC_FOLDER to S3_BUCKET with prefix S3_BUCKET_FOLDER"""
+    """Upload contents of SRC_FOLDER to S3_BUCKET with prefix s3_prefix"""
     S3UPLOADER.push_files_in_folder_to_s3(
         src_folder=src_folder,
         s3_bucket=s3_bucket,
-        s3_bucket_folder=s3_bucket_folder,
+        s3_prefix=s3_prefix,
         upload_folder=upload_folder,
         exclude_extensions=exclude_extensions,
         exclude_files=exclude_files,
