@@ -159,7 +159,7 @@ class S3Util:
         s3_bucket : str
             S3 bucket to push to
         s3_prefix : str
-            Folder within bucket to push to
+            Prefix within bucket to push to
         upload_folder : bool
             upload the entire folder to the s3_prefix.
             If; src_folder = my/local_folder/ & s3_prefix = s3/s3_folder
