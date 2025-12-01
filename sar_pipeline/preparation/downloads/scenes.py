@@ -400,15 +400,17 @@ def _run_aus_cophub_query(
     pygssearch_conda_env: Optional[Union[str, Path]],
     pygss_cmd: str,
 ) -> list:
-    """run a query to the copernicus australasia datahub (aus cop hub)
-    using pygssearch
+    """run a query to the copernicus australasia datahub (aus cop hub) using pygssearch
 
     Parameters
     ----------
     pygssearch_conda_env : Optional[Union[str, Path]]
-        The path to the conda environment with pygssearch installed
+        Path to the conda environment containing an installation of pygssearch that
+        will be called in a subprocess. If not specified, If not specified env variable
+        PYGSSEARCH_CONDA_ENV will be used. e.g. /path/to/anaconda3/envs/pygssearch-env
     pygss_cmd : str
-        The pygssearch command to be run
+        The pygssearch command to be run. E.g. activate env and search for product by name.
+        conda run -p {pygssearch_conda_env} pygssearch --service {service} --name {name}
 
     Returns
     -------
@@ -431,9 +433,6 @@ def _run_aus_cophub_query(
             "or set the PYGSSEARCH_CONDA_ENV environment variable."
         )
         raise MissingEnvironmentError(err_string)
-
-    # Construct the command to run for subprocess
-    pygss_cmd
 
     # Run the subprocess
     process = subprocess.Popen(
@@ -469,16 +468,16 @@ def query_scene_from_aus_cop_hub(
     """Query the scene and retrieve associated metadata from the Copernicus
     Australasia Regional Data Hub. Function makes use of pygssearch -
     https://pypi.org/project/pygssearch/ which is installed in a separate conda environment
-    and called in a subprocess due to package conflicts. The path to the conda executable and environment
-    should be set in the function.
+    and called in a subprocess due to package conflicts.
 
     Parameters
     ----------
     scene : str
         scene name. e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
     pygssearch_conda_env: Optional[Union[str, Path]]
-        Path to the conda environment containing an installation of pygssearch that will be called in a
-        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used
+        Path to the conda environment containing an installation of pygssearch that
+        will be called in a subprocess. If not specified, If not specified env variable
+        PYGSSEARCH_CONDA_ENV will be used. e.g. /path/to/anaconda3/envs/pygssearch-env
     service : str, optional
         Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
 
@@ -574,7 +573,8 @@ def download_scene_from_aus_cop_hub(
         URL to validate token, by default "https://auth.copernicus.gov.au/realms/gss/protocol/openid-connect/token"
     pygssearch_conda_env: Optional[Union[str, Path]]
         Path to the conda environment containing an installation of pygssearch that will be called in a
-        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used. e.g. /path/to/anaconda3/envs/pygssearch-env
+        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used.
+        e.g. /path/to/anaconda3/envs/pygssearch-env
 
     Returns
     -------
@@ -639,7 +639,7 @@ def download_scene_from_aus_cop_hub(
         f"--download "
         f"--output {download_folder} "
     )
-    run_cmd = pygss_search_cmd + download_cli_string
+    download_cmd = pygss_search_cmd + download_cli_string
 
     # Check if scene has been previously downloaded
     scene_zip_path = Path(download_folder) / f"{scene}.zip"
@@ -658,7 +658,7 @@ def download_scene_from_aus_cop_hub(
         try:
             logger.info(f"Download in progress...")
             process = subprocess.Popen(
-                run_cmd,
+                download_cmd,
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
