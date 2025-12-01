@@ -399,7 +399,7 @@ def download_scene_from_cdse(
 def _run_aus_cophub_query(
     pygssearch_conda_env: Optional[Union[str, Path]],
     pygss_cmd: str,
-) -> tuple[str, list]:
+) -> list:
     """run a query to the copernicus australasia datahub (aus cop hub)
     using pygssearch
 
@@ -412,10 +412,9 @@ def _run_aus_cophub_query(
 
     Returns
     -------
-    tuple (list,str)
-        The query that was executed (str) and a list containing the query response.
-        i.e. in the case of a multiple scene query, this is would be a list of
-        dictionaries containing metadata for each scene
+    list
+        A list containing the query response. i.e. in the case of a multiple scene query,
+        this is would be a list of dictionaries containing metadata for each scene
 
     Raises
     ------
