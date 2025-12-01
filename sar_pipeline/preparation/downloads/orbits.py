@@ -432,7 +432,6 @@ def download_orbits(
             f"Attempting to download orbits from preference {i+1} of {len(orbit_source_preferences)} : {source}"
         )
         try:
-            a = b
             if source == "CDSE":
                 orbit_paths = download_orbits_from_cdse(
                     scene_safe_file=scene_safe_file,
