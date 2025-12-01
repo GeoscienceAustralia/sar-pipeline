@@ -422,7 +422,7 @@ def get_data_for_scene_and_make_run_config(
     logger.info(f"Downloading Orbits for scene : {scene}")
     ORBIT_PATH = download_orbits(
         scene_safe_file=scene + ".SAFE",
-        save_dir=orbit_folder,
+        download_folder=orbit_folder,
         source=orbit_data_sources,
     )
     logger.info(f"File downloaded to : {ORBIT_PATH}")

@@ -16,7 +16,7 @@ collection_number=0
 make_existing_products=false
 skip_upload_to_s3=false
 scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
-orbit_data_source=("ASF" "CDSE")
+orbit_data_source=("AUS_COP_HUB" "ASF" "CDSE")
 skip_validate_stac=false
 skip_rtc=false
 ## -- WORKFLOW INPUTS TO LINK RTC_S1_STATIC in RTC_S1 metadata--

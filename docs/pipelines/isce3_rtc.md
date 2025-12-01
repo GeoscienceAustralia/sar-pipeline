@@ -122,7 +122,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --make_existing_products=false
 --skip_upload_to_s3=false
 --scene_data_source=("AUS_COP_HUB" "ASF" "CDSE") # order of preference
---orbit_data_source=("ASF" "CDSE")  # order of preference
+--orbit_data_source=("AUS_COP_HUB" "ASF" "CDSE")  # order of preference
 --skip_validate_stac=false
 # Required inputs for linking RTC_S1_STATIC to RTC_S1
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
@@ -147,7 +147,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
 - `skip_upload_to_s3` -> Make the products, but skip uploading them to AWS S3.
 - `scene_data_source` -> Where to download the scene SLC file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
-- `orbit_data_source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `ASF` or `CDSE`. The default is (`ASF` `CDSE`).
+- `orbit_data_source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
 - `skip_validate_stac` -> To skip validation of the created STAC doc within the code. If this is not set and the stac is invalid, products will not be uploaded. By default we want to validate the stac.
 - `link_static_layers` -> Flag to link RTC_S1_STATIC to RTC_S1
 - `linked_static_layers_s3_bucket` -> bucket where RTC_S1_STATIC stored
