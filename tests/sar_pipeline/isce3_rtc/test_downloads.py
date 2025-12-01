@@ -93,7 +93,7 @@ TEST_AUS_COP_HUB_DOWNLOAD = ProductDownloadTest(
     scene=scene_1,
     scene_data_sources=["AUS_COP_HUB"],
     unzip=True,
-    orbit_data_sources=["CDSE"],
+    orbit_data_sources=["AUS_COP_HUB"],
     download_folder=TEST_DOWNLOAD_WORKSPACE,
     passes=True,
     exception_type=None,
@@ -103,7 +103,7 @@ TEST_AUS_COP_HUB_DOWNLOAD = ProductDownloadTest(
     / f"S1A_OPER_AUX_POEORB_OPOD_20220121T121549_V20211231T225942_20220102T005942.EOF",
 )
 
-TEST_NON_EXISTANT_PRODUCT = ProductDownloadTest(
+TEST_NON_EXISTENT_PRODUCT = ProductDownloadTest(
     scene=scene_1 + "XX",  # non existing product name
     scene_data_sources=["CDSE", "ASF", "AUS_COP_HUB"],
     unzip=True,
@@ -133,7 +133,7 @@ TEST_CASES = [
     TEST_AUS_COP_HUB_DOWNLOAD,
     TEST_CDSE_DOWNLOAD,
     TEST_ASF_DOWNLOAD,
-    TEST_NON_EXISTANT_PRODUCT,
+    TEST_NON_EXISTENT_PRODUCT,
     TEST_NON_VALID_SCENE_DATA_SOURCE,
 ]
 
@@ -158,7 +158,7 @@ def test_product_downloads(test_case):
         # # download the orbits
         ORBIT_PATHS = download_orbits(
             scene_safe_file=test_case.scene + ".SAFE",
-            save_dir=test_case.download_folder,
+            download_folder=test_case.download_folder,
             source=test_case.orbit_data_sources,
         )
 
