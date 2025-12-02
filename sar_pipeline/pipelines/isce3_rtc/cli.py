@@ -15,7 +15,7 @@ from sar_pipeline.preparation.downloads.scenes import (
     NonSingleSceneResultError,
 )
 from sar_pipeline.preparation.downloads.orbits import (
-    download_orbits,
+    download_orbits_from_preference_list,
     VALID_ORBIT_DATA_SOURCES,
 )
 from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
@@ -347,6 +347,18 @@ def get_data_for_scene_and_make_run_config(
     all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
     logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
 
+    # write the geometries to a geojson. Useful for debugging if needed
+    if save_burst_geometries:
+        _burst_id_list = all_scene_burst_info.keys()
+        _burst_geoms_list = [
+            all_scene_burst_info[b]["geometry"] for b in _burst_id_list
+        ]
+        write_burst_geometries_to_geojson(
+            _burst_id_list,
+            _burst_geoms_list,
+            out_folder / f"{scene}_burst_geoms.json",
+        )
+
     # Limit the bursts to be processed if a list has been provided
     if burst_id_list:
         logger.info(f"List of bursts to process provided")
@@ -420,10 +432,10 @@ def get_data_for_scene_and_make_run_config(
 
     # # download the orbits
     logger.info(f"Downloading Orbits for scene : {scene}")
-    ORBIT_PATH = download_orbits(
+    ORBIT_PATH = download_orbits_from_preference_list(
         scene_safe_file=scene + ".SAFE",
         download_folder=orbit_folder,
-        source=orbit_data_sources,
+        orbit_data_source_preferences=orbit_data_sources,
     )
     logger.info(f"File downloaded to : {ORBIT_PATH}")
 
@@ -431,13 +443,6 @@ def get_data_for_scene_and_make_run_config(
     burst_geoms_to_process = [
         all_scene_burst_info[id_]["geometry"] for id_ in burst_id_list_to_process
     ]
-    # write the geometries to a geojson. Useful for debugging if needed
-    if save_burst_geometries:
-        write_burst_geometries_to_geojson(
-            burst_id_list_to_process,
-            burst_geoms_to_process,
-            out_folder / f"{scene}_burst_geoms.json",
-        )
 
     # download the DEM
     dem_folder = download_folder / "dem" / dem_type

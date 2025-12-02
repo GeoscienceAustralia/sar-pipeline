@@ -13,7 +13,7 @@ from sar_pipeline.preparation.downloads.scenes import (
     SceneDownloadError,
 )
 from sar_pipeline.preparation.downloads.orbits import (
-    download_orbits,
+    download_orbits_from_preference_list,
 )
 from sar_pipeline.utils.environment_variables import identify_and_load_missing_env_vars
 
@@ -156,10 +156,10 @@ def test_product_downloads(test_case):
         assert scene_url == test_case.downloaded_scene_url
 
         # # download the orbits
-        ORBIT_PATHS = download_orbits(
+        ORBIT_PATHS = download_orbits_from_preference_list(
             scene_safe_file=test_case.scene + ".SAFE",
             download_folder=test_case.download_folder,
-            source=test_case.orbit_data_sources,
+            orbit_data_source_preferences=test_case.orbit_data_sources,
         )
 
         logger.info(ORBIT_PATHS)

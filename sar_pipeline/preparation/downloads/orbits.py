@@ -30,13 +30,13 @@ class OrbitDownloadError(Exception):
 
 
 class OrbitNotFoundError(Exception):
-    """Exception raised when the scene download fails."""
+    """Exception raised when orbit file cannot be found."""
 
     pass
 
 
 class NonSingleOrbitError(Exception):
-    """Exception raised 0, or more than one SLC result is found."""
+    """Exception raised when more than one orbit file is found."""
 
     pass
 
@@ -90,10 +90,10 @@ def download_orbits_from_asf(
         Folder where the orbit file will be saved.
     asf_user : Optional[str], optional
         User for NASA Earthdata, by default None and environment credentials
-        will be searched.
+        will be searched for EARTHDATA_LOGIN.
     asf_password : Optional[str], optional
         Password for NASA Earthdata, by default None and environment credentials
-        will be searched.
+        will be searched for EARTHDATA_PASSWORD.
 
     Returns
     -------
@@ -158,10 +158,10 @@ def download_orbits_from_cdse(
         Folder where the orbit file will be saved.
     asf_user : Optional[str], optional
         User for CDSE, by default None and environment credentials
-        will be searched.
+        will be searched for CDSE_LOGIN.
     asf_password : Optional[str], optional
         Password for CDSE, by default None and environment credentials
-        will be searched.
+        will be searched for CDSE_PASSWORD.
 
     Returns
     -------
@@ -215,7 +215,7 @@ def download_orbits_from_aus_cop_hub(
     Parameters
     ----------
     scene_safe_file : str | Path
-        Path to the scene .SAFE file e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
+        Path to the scene .SAFE file e.g. path/to/S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD.SAFE
     download_folder : Path
         Folder where the scene should be downloaded to
     make_folder : bool, optional
@@ -245,8 +245,8 @@ def download_orbits_from_aus_cop_hub(
 
     Returns
     -------
-    Path
-        Path to the downloaded orbit file
+    list
+        List of paths to the downloaded orbit files.
 
     Raises
     ------
@@ -333,6 +333,7 @@ def download_orbits_from_aus_cop_hub(
         if orbit_file_name:
             break
         if not orbit_file_name and orbit_file_type == orbit_file_types[-1]:
+            # exit with no file path found
             return []
 
     # Add additional query parameters to the base command to enable downloading
@@ -382,10 +383,10 @@ def download_orbits_from_aus_cop_hub(
 
 
 @log_timing
-def download_orbits(
+def download_orbits_from_preference_list(
     scene_safe_file: Path,
     download_folder: Path,
-    source: (
+    orbit_data_source_preferences: (
         ValidOrbitDataSources | list[ValidOrbitDataSources]
     ) = VALID_ORBIT_DATA_SOURCES,
 ) -> list[Path]:
@@ -400,7 +401,7 @@ def download_orbits(
         Path to the Sentinel-1 SAFE file.
     download_folder : Path
         Directory to save the downloaded EOF file.
-    source : ValidOrbitDataSources | list[ValidOrbitDataSources], optional
+    orbit_data_source_preferences : ValidOrbitDataSources | list[ValidOrbitDataSources], optional
         Source for downloading EOF, either "AUS_COP_HUB, "CDSE" or "ASF",
         or a list of preferences. Defaults to ["AUS_COP_HUB", "ASF", "CDSE"].
 
@@ -422,14 +423,12 @@ def download_orbits(
     """
 
     # if single string provided, add to list of preferences to iterate
-    if isinstance(source, str):
-        orbit_source_preferences = [source]
-    else:
-        orbit_source_preferences = source
+    if isinstance(orbit_data_source_preferences, str):
+        orbit_data_source_preferences = [orbit_data_source_preferences]
 
-    for i, source in enumerate(orbit_source_preferences):
+    for i, source in enumerate(orbit_data_source_preferences):
         logger.info(
-            f"Attempting to download orbits from preference {i+1} of {len(orbit_source_preferences)} : {source}"
+            f"Attempting to download orbits from preference {i+1} of {len(orbit_data_source_preferences)} : {source}"
         )
         try:
             if source == "CDSE":
@@ -468,12 +467,12 @@ def download_orbits(
                 )
         except Exception as e:
             logger.error(
-                f"Could not download orbits from preference {i+1} of {len(orbit_source_preferences)} : {source}",
+                f"Could not download orbits from preference {i+1} of {len(orbit_data_source_preferences)} : {source}",
                 exc_info=True,
             )
-            if source == orbit_source_preferences[-1]:
+            if source == orbit_data_source_preferences[-1]:
                 raise OrbitDownloadError(
-                    f"Orbits could not be downloaded from any data source provided : {orbit_source_preferences}"
+                    f"Orbits could not be downloaded from any data source provided : {orbit_data_source_preferences}"
                 )
 
     return orbit_paths[0]
