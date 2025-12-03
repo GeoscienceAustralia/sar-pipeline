@@ -44,6 +44,7 @@ upload-files-in-folder-to-s3 = "sar_pipeline.pipelines.pyrosar_gamma.cli:upload_
 get-data-for-scene-and-make-run-config = "sar_pipeline.pipelines.isce3_rtc.cli:get_data_for_scene_and_make_run_config"
 make-rtc-opera-stac-and-upload-bursts = "sar_pipeline.pipelines.isce3_rtc.cli:make_rtc_opera_stac_and_upload_bursts"
 compare-isce3-rtc-products = "sar_pipeline.pipelines.isce3_rtc.cli:compare_products"
+get_bursts_ids_for_scene = "sar_pipeline.pipelines.isce3_rtc.cli:get_bursts_ids_for_scene"
 
 [tool.setuptools_scm]
 version_file = "sar_pipeline/_version.py"
