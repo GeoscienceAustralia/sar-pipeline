@@ -344,7 +344,7 @@ def download_orbits_from_aus_cop_hub(
         f"--token_url {token_url} "
         f"--client_id {aus_cop_hub_client_id} "
         f"--client_secret {aus_cop_hub_client_secret} "
-        f"--name {orbit_file_name}"
+        f"--name {orbit_file_name} "
         f"--download "
         f"--output {download_folder} "
     )
@@ -389,7 +389,7 @@ def download_orbits_from_preference_list(
     orbit_data_source_preferences: (
         ValidOrbitDataSources | list[ValidOrbitDataSources]
     ) = VALID_ORBIT_DATA_SOURCES,
-) -> list[Path]:
+) -> Path:
     """
     Downloads precise/restituted orbit files (.EOF files) for the given
     Sentinel-1 SAFE file from the Copernicus Australia Datahub (AUS_COP_HUB),
@@ -461,7 +461,7 @@ def download_orbits_from_preference_list(
                 break
             if len(orbit_paths) == 0:
                 raise OrbitNotFoundError(f"Orbit file could not be found for scene.")
-            elif len() > 1:
+            elif len(orbit_paths) > 1:
                 raise NonSingleOrbitError(
                     f"Check logic, {len(orbit_paths)} orbit files found for scene. Expecting 1."
                 )
@@ -475,4 +475,4 @@ def download_orbits_from_preference_list(
                     f"Orbits could not be downloaded from any data source provided : {orbit_data_source_preferences}"
                 )
 
-    return orbit_paths[0]
+    return Path(orbit_paths[0])
