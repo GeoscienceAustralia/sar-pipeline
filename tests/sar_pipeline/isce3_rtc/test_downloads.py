@@ -75,6 +75,7 @@ TEST_CDSE_DOWNLOAD = ProductDownloadTest(
     / f"S1A_OPER_AUX_POEORB_OPOD_20220121T121549_V20211231T225942_20220102T005942.EOF",
 )
 
+# WARNING ASF ORBIT CURRENTLY FAILING - https://github.com/scottstanie/sentineleof/issues/80
 TEST_ASF_DOWNLOAD = ProductDownloadTest(
     scene=scene_1,
     scene_data_sources=["ASF"],
@@ -152,6 +153,8 @@ def test_product_downloads(test_case):
             unzip=test_case.unzip,
         )
 
+        logger.info(f'scene path : {SCENE_PATH}')
+        logger.info(f'scene URL : {scene_url}')
         assert SCENE_PATH == test_case.downloaded_scene_path
         assert scene_url == test_case.downloaded_scene_url
 
@@ -162,7 +165,7 @@ def test_product_downloads(test_case):
             orbit_data_source_preferences=test_case.orbit_data_sources,
         )
 
-        logger.info(ORBIT_PATHS)
+        logger.info(f'orbit paths : {ORBIT_PATHS}')
         assert ORBIT_PATHS == test_case.downloaded_orbits_path
 
         shutil.rmtree(TEST_DOWNLOAD_WORKSPACE)
