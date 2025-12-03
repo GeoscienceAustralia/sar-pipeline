@@ -37,6 +37,7 @@ identify_and_load_missing_env_vars(
 
 @dataclass
 class RunConfig:
+    scene: str
     test_product_s3_bucket: Path
     test_product_s3_folder: Path
     original_local_product_folder: Path
@@ -59,6 +60,7 @@ class RunConfig:
 from settings import (
     CURRENT_DIR,
     TEST_S3_BUCKET,
+    TEST_1_SCENE,
     TEST_1_COLLECTION_NUMBER,
     TEST_1_BURST,
     TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER,
@@ -79,6 +81,7 @@ PRODUCT = "RTC_S1"
 # PERSISTENT_S3_PROJECT_FOLDER = "experimental/baseline/antarctica"
 
 TEST_1 = RunConfig(
+    scene=TEST_1_SCENE,
     test_product_s3_bucket=TEST_S3_BUCKET,
     test_product_s3_folder=TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER,
     original_local_product_folder=f"{ORIGINAL_PRODUCT_RESULTS_DIR}/TEST_1/RTC_S1/{TEST_1_BURST}",
@@ -134,6 +137,7 @@ def test_cli_make_rtc_opera_stac_and_upload_bursts(test_run):
 
     runner = CliRunner()
     args = ["--results-folder", results_folder]
+    args += ["--scene", test_run.scene]
     args += ["--run-config-path", run_config]
     args += ["--product", test_run.product]
     args += ["--backscatter-convention", test_run.backscatter_convention]
@@ -143,18 +147,6 @@ def test_cli_make_rtc_opera_stac_and_upload_bursts(test_run):
     args += ["--skip-upload-to-s3"] if test_run.skip_upload_to_s3 else []
     args += ["--make-existing-products"] if test_run.make_existing_products else []
     args += ["--link-static-layers"] if test_run.link_static_layers else []
-    args += [
-        "--linked-static-layers-s3-bucket",
-        test_run.linked_static_layers_s3_bucket,
-    ]
-    args += [
-        "--linked-static-layers-collection-number",
-        test_run.linked_static_layers_collection_number,
-    ]
-    args += [
-        "--linked-static-layers-s3-project-folder",
-        test_run.linked_static_layers_s3_project_folder,
-    ]
     args += ["--validate-stac"] if test_run.validate_stac else []
 
     logging.info(f"Running make_rtc_opera_stac_and_upload_bursts.")

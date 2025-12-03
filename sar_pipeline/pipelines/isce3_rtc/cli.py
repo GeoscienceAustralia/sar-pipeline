@@ -1157,7 +1157,7 @@ def compare_products(
             tifs_are_same, stats = compare_cog_stats(tif_1, tif_2)
             tif_comparison_stats[filetype] = stats
         else:
-            tif_2 = [x for x in tif_files_2 if filetype in x]
+            tif_2 = [x for x in tif_files_2 if str(filetype) in str(x)]
             if not tif_2:
                 logger.warning(
                     f'Could not find tif of same filetype "{filetype}" to compare with {tif_1}'
