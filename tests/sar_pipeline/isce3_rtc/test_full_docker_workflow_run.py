@@ -248,6 +248,7 @@ TEST_1_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR = (
     f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_1_RTC_S1_STATIC"
 )
 
+
 def test_compare_single_pol_rtc_s1_static_product_outputs():
     """
     This function will compare the static layer outputs (RTC_S1_STATIC) created in the test_docker_single_pol_with_args

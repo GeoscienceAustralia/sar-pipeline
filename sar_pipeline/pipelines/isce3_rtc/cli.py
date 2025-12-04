@@ -1183,6 +1183,7 @@ def compare_products(
             )
         write_diffs_to_json(tif_comparison_stats, tif_difference_path)
 
+
 @click.command()
 @click.option(
     "--scene",
@@ -1195,16 +1196,16 @@ def compare_products(
     required=False,
     default=None,
     type=click.Path(file_okay=False, path_type=Path),
-    help="Folder to save the geometries to as a geojson " \
+    help="Folder to save the geometries to as a geojson "
     "{save_geometries}/{scene}_burst_geoms.json",
 )
 def get_bursts_ids_for_scene(
     scene,
     save_geometries,
 ):
-    logger.info(f'Finding burst ids for scene : {scene}')
+    logger.info(f"Finding burst ids for scene : {scene}")
 
-     # Query the CDSE to make sure the scene exists
+    # Query the CDSE to make sure the scene exists
     cdse_scene_results = query_scene_from_cdse(scene)
     if len(cdse_scene_results) != 1:
         raise NonSingleSceneResultError(
@@ -1231,11 +1232,13 @@ def get_bursts_ids_for_scene(
     logger.info(f"Querying CDSE for scene burst ids and metadata")
     all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
     fnd_str = f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API:"
-    logger.info(f"{fnd_str}\n"+"\n".join(list(sorted(all_scene_burst_info.keys()))))
+    logger.info(f"{fnd_str}\n" + "\n".join(list(sorted(all_scene_burst_info.keys()))))
 
     # write the geometries to a geojson. Useful for debugging if needed
     if save_geometries:
-        logger.info(f'Saving burst geometries to : {save_geometries}/{scene}_burst_geoms.json')
+        logger.info(
+            f"Saving burst geometries to : {save_geometries}/{scene}_burst_geoms.json"
+        )
         _burst_id_list = all_scene_burst_info.keys()
         _burst_geoms_list = [
             all_scene_burst_info[b]["geometry"] for b in _burst_id_list
@@ -1246,4 +1249,6 @@ def get_bursts_ids_for_scene(
             save_geometries / f"{scene}_burst_geoms.json",
         )
     else:
-        logger.info('To save burst geometries to a file pass --save-geometries <FOLDER_PATH>')
+        logger.info(
+            "To save burst geometries to a file pass --save-geometries <FOLDER_PATH>"
+        )
