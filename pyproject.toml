@@ -96,9 +96,9 @@ test-isce3-rtc = "pytest tests/sar_pipeline/isce3_rtc -o log_cli=true --capture=
 test-isce3-rtc-full-docker-run = "pytest tests/sar_pipeline/isce3_rtc/test_full_docker_build_and_run.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-cli-make-rtc-opera-stac-and-upload-bursts = "pytest tests/sar_pipeline/isce3_rtc/test_cli_make_rtc_opera_stac_and_upload_bursts.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 # test queries from all providers (ASF, CDSE, AUS_COP_HUB). pygssearch conda environment is required for the AUS_COP_HUB test
-test-scene-data-source-queries="pixi run install-pygssearch-env && pytest tests/sar_pipeline/test_scenes.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+test-scene-data-source-queries="pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV='$(conda info --base)/envs/pygssearch-env' && pytest tests/sar_pipeline/test_scenes.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 # test downloads from all providers. pygssearch conda environment is required for the AUS_COP_HUB test
-test-isce3-rtc-downloads= "pixi run install-pygssearch-env && pytest tests/sar_pipeline/isce3_rtc/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+test-isce3-rtc-downloads= "pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV='$(conda info --base)/envs/pygssearch-env' && pytest tests/sar_pipeline/isce3_rtc/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 # nci specific tests that should be run locally on the nci
 test-nci-filesystem = "pytest tests/filesystem"
 lint = "black sar_pipeline"

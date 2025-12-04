@@ -13,7 +13,7 @@ from sar_pipeline.preparation.downloads.scenes import (
     SceneDownloadError,
 )
 from sar_pipeline.preparation.downloads.orbits import (
-    download_orbits,
+    download_orbits_from_preference_list,
 )
 from sar_pipeline.utils.environment_variables import identify_and_load_missing_env_vars
 
@@ -75,6 +75,7 @@ TEST_CDSE_DOWNLOAD = ProductDownloadTest(
     / f"S1A_OPER_AUX_POEORB_OPOD_20220121T121549_V20211231T225942_20220102T005942.EOF",
 )
 
+# WARNING ASF ORBIT CURRENTLY FAILING - https://github.com/scottstanie/sentineleof/issues/80
 TEST_ASF_DOWNLOAD = ProductDownloadTest(
     scene=scene_1,
     scene_data_sources=["ASF"],
@@ -93,7 +94,7 @@ TEST_AUS_COP_HUB_DOWNLOAD = ProductDownloadTest(
     scene=scene_1,
     scene_data_sources=["AUS_COP_HUB"],
     unzip=True,
-    orbit_data_sources=["CDSE"],
+    orbit_data_sources=["AUS_COP_HUB"],
     download_folder=TEST_DOWNLOAD_WORKSPACE,
     passes=True,
     exception_type=None,
@@ -103,7 +104,7 @@ TEST_AUS_COP_HUB_DOWNLOAD = ProductDownloadTest(
     / f"S1A_OPER_AUX_POEORB_OPOD_20220121T121549_V20211231T225942_20220102T005942.EOF",
 )
 
-TEST_NON_EXISTANT_PRODUCT = ProductDownloadTest(
+TEST_NON_EXISTENT_PRODUCT = ProductDownloadTest(
     scene=scene_1 + "XX",  # non existing product name
     scene_data_sources=["CDSE", "ASF", "AUS_COP_HUB"],
     unzip=True,
@@ -133,7 +134,7 @@ TEST_CASES = [
     TEST_AUS_COP_HUB_DOWNLOAD,
     TEST_CDSE_DOWNLOAD,
     TEST_ASF_DOWNLOAD,
-    TEST_NON_EXISTANT_PRODUCT,
+    TEST_NON_EXISTENT_PRODUCT,
     TEST_NON_VALID_SCENE_DATA_SOURCE,
 ]
 
@@ -152,17 +153,19 @@ def test_product_downloads(test_case):
             unzip=test_case.unzip,
         )
 
+        logger.info(f"scene path : {SCENE_PATH}")
+        logger.info(f"scene URL : {scene_url}")
         assert SCENE_PATH == test_case.downloaded_scene_path
         assert scene_url == test_case.downloaded_scene_url
 
         # # download the orbits
-        ORBIT_PATHS = download_orbits(
+        ORBIT_PATHS = download_orbits_from_preference_list(
             scene_safe_file=test_case.scene + ".SAFE",
-            save_dir=test_case.download_folder,
-            source=test_case.orbit_data_sources,
+            download_folder=test_case.download_folder,
+            orbit_data_source_preferences=test_case.orbit_data_sources,
         )
 
-        logger.info(ORBIT_PATHS)
+        logger.info(f"orbit paths : {ORBIT_PATHS}")
         assert ORBIT_PATHS == test_case.downloaded_orbits_path
 
         shutil.rmtree(TEST_DOWNLOAD_WORKSPACE)

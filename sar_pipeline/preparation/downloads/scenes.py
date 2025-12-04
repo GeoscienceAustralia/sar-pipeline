@@ -251,7 +251,7 @@ def download_scene_from_asf(
                 "An error occurred while running the download command",
                 exc_info=True,
             )
-            raise SceneDownloadError
+            raise SceneDownloadError()
 
     if unzip and not scene_safe_path.exists():
         logger.info(f"unzipping scene to {scene_safe_path}")
@@ -383,7 +383,7 @@ def download_scene_from_cdse(
             logger.error(
                 "An error occurred while running the download command", exc_info=True
             )
-            raise SceneDownloadError
+            raise SceneDownloadError()
 
     if unzip and not os.path.exists(scene_safe_path):
         logger.info(f"unzipping scene to {scene_safe_path}")
@@ -396,6 +396,70 @@ def download_scene_from_cdse(
         return scene_zip_path, cdse_scene_metadata
 
 
+def _run_aus_cophub_query(
+    pygssearch_conda_env: Optional[Union[str, Path]],
+    pygss_cmd: str,
+) -> list:
+    """run a query to the copernicus australasia datahub (aus cop hub) using pygssearch
+
+    Parameters
+    ----------
+    pygssearch_conda_env : Optional[Union[str, Path]]
+        Path to the conda environment containing an installation of pygssearch that
+        will be called in a subprocess. If not specified, If not specified env variable
+        PYGSSEARCH_CONDA_ENV will be used. e.g. /path/to/anaconda3/envs/pygssearch-env
+    pygss_cmd : str
+        The pygssearch command to be run. E.g. activate env and search for product by name.
+        conda run -p {pygssearch_conda_env} pygssearch --service {service} --name {name}
+
+    Returns
+    -------
+    list
+        A list containing the query response. i.e. in the case of a multiple scene query,
+        this is would be a list of dictionaries containing metadata for each scene
+
+    Raises
+    ------
+    MissingEnvironmentError
+        If the pygssearch conda environment has not been provided
+    Other
+        If the response cannot be converted to a list of dicts
+    """
+
+    if not pygssearch_conda_env:
+        err_string = (
+            "Path to conda environment for pygssearch is missing. "
+            "Please provide the pygssearch_conda_env argument "
+            "or set the PYGSSEARCH_CONDA_ENV environment variable."
+        )
+        raise MissingEnvironmentError(err_string)
+
+    # Run the subprocess
+    process = subprocess.Popen(
+        pygss_cmd,
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+
+    # Create output variable before try statement
+    output = None
+
+    try:
+        # convert the pygssearch result to a python object
+        # an empty list is returned if no results found, else list of json
+        output, _ = process.communicate()
+        aus_cophub_metadata: list[dict] = ast.literal_eval(output)
+        return aus_cophub_metadata
+    except Exception as e:
+        logger.error(
+            f"Failed to convert Aus Cop Hub metadata response to list of dictionaries. Response: {output}",
+        )
+        raise
+
+
 def query_scene_from_aus_cop_hub(
     scene: str,
     pygssearch_conda_env: Optional[Union[str, Path]],
@@ -404,16 +468,16 @@ def query_scene_from_aus_cop_hub(
     """Query the scene and retrieve associated metadata from the Copernicus
     Australasia Regional Data Hub. Function makes use of pygssearch -
     https://pypi.org/project/pygssearch/ which is installed in a separate conda environment
-    and called in a subprocess due to package conflicts. The path to the conda executable and environment
-    should be set in the function.
+    and called in a subprocess due to package conflicts.
 
     Parameters
     ----------
     scene : str
         scene name. e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
     pygssearch_conda_env: Optional[Union[str, Path]]
-        Path to the conda environment containing an installation of pygssearch that will be called in a
-        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used
+        Path to the conda environment containing an installation of pygssearch that
+        will be called in a subprocess. If not specified, If not specified env variable
+        PYGSSEARCH_CONDA_ENV will be used. e.g. /path/to/anaconda3/envs/pygssearch-env
     service : str, optional
         Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
 
@@ -432,51 +496,22 @@ def query_scene_from_aus_cop_hub(
 
     logger.info("Using pygssearch to query Aus Cop Hub for scene metadata")
 
-    # Check for pygssearch_conda_env_path, and import from environment if not available
+    # import path from environment if not available
     pygssearch_conda_env = pygssearch_conda_env or os.getenv("PYGSSEARCH_CONDA_ENV")
-
-    if not pygssearch_conda_env:
-        err_string = (
-            "Path to conda environment for pygssearch is missing. "
-            "Please provide the pygssearch_conda_env argument "
-            "or set the PYGSSEARCH_CONDA_ENV environment variable."
-        )
-        raise MissingEnvironmentError(err_string)
 
     # Set the command to use conda to execute a command using the pygssearch environment
     environment_cmd = f"conda run -p {pygssearch_conda_env} "
 
     # Set the query for the scene -- no credentials required when querying
-    pygss_cmd = (
-        f"pygssearch --service {service} --name {scene} --format _ --attributes "
+    pygss_search_cmd = (
+        environment_cmd
+        + f"pygssearch --service {service} --name {scene} --format _ --attributes "
     )
 
-    # Construct the command to run for subprocess
-    run_cmd = environment_cmd + pygss_cmd
-
-    # Run the subprocess
-    process = subprocess.Popen(
-        run_cmd,
-        shell=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
+    # run the auscophub query
+    aus_cophub_scenes_metadata = _run_aus_cophub_query(
+        pygssearch_conda_env, pygss_search_cmd
     )
-
-    # Create output variable before try statement
-    output = None
-
-    try:
-        # convert the pygssearch result to a python object
-        # an empty list is returned if no results found, else list of json
-        output, _ = process.communicate()
-        aus_cophub_scenes_metadata: list[dict] = ast.literal_eval(output)
-    except Exception as e:
-        logger.error(
-            f"Failed to convert Aus Cop Hub metadata response to list of dictionaries. Response: {output}",
-        )
-        raise
 
     # ensure only one slc found
     if len(aus_cophub_scenes_metadata) != 1:
@@ -487,7 +522,7 @@ def query_scene_from_aus_cop_hub(
         aus_cophub_scene_metadata = aus_cophub_scenes_metadata[0]
         logger.info(f"Scene metadata found")
 
-    return run_cmd, aus_cophub_scene_metadata
+    return pygss_search_cmd, aus_cophub_scene_metadata
 
 
 @log_timing
@@ -538,7 +573,8 @@ def download_scene_from_aus_cop_hub(
         URL to validate token, by default "https://auth.copernicus.gov.au/realms/gss/protocol/openid-connect/token"
     pygssearch_conda_env: Optional[Union[str, Path]]
         Path to the conda environment containing an installation of pygssearch that will be called in a
-        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used. e.g. /path/to/anaconda3/envs/pygssearch-env
+        subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used.
+        e.g. /path/to/anaconda3/envs/pygssearch-env
 
     Returns
     -------
@@ -583,22 +619,13 @@ def download_scene_from_aus_cop_hub(
             f"Missing credentials: {', '.join(missing_vars)}. Please pass them as arguments or set them as environment variables."
         )
 
-    # Check for missing pygssearch environment manager parameters
-    if not pygssearch_conda_env:
-        err_string = (
-            "Path to conda environment for pygssearch is missing. "
-            "Please provide the pygssearch_conda_env_path argument "
-            "or set the PYGSSEARCH_CONDA_ENV environment variable."
-        )
-        raise MissingEnvironmentError(err_string)
-
     # Create a folder for download if requested
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
 
     # Run the initial query to get the base run command plus scene metadata.
     # The base run command contains query information for the scene of interest.
-    base_cmd, aus_cophub_scene_metadata = query_scene_from_aus_cop_hub(
+    pygss_search_cmd, aus_cophub_scene_metadata = query_scene_from_aus_cop_hub(
         scene, pygssearch_conda_env=pygssearch_conda_env, service=service
     )
 
@@ -612,7 +639,7 @@ def download_scene_from_aus_cop_hub(
         f"--download "
         f"--output {download_folder} "
     )
-    run_cmd = base_cmd + download_cli_string
+    download_cmd = pygss_search_cmd + download_cli_string
 
     # Check if scene has been previously downloaded
     scene_zip_path = Path(download_folder) / f"{scene}.zip"
@@ -631,7 +658,7 @@ def download_scene_from_aus_cop_hub(
         try:
             logger.info(f"Download in progress...")
             process = subprocess.Popen(
-                run_cmd,
+                download_cmd,
                 shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -654,8 +681,10 @@ def download_scene_from_aus_cop_hub(
                 raise RuntimeError(f"Download failed with return code {return_code}")
 
         except Exception as e:
-            logger.error("An error occurred while running the download command")
-            raise SceneDownloadError
+            logger.error(
+                "An error occurred while running the download command", exc_info=True
+            )
+            raise SceneDownloadError()
 
     # construct the download url and add it to the metadata
     aus_cophub_scene_metadata["url"] = (

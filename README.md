@@ -2,7 +2,7 @@
 
 This repository contains code for running SAR processing pipelines on the NCI and AWS. Currently, this codebase supports two pipelines for generating Sentinel-1 Normalised Radar Backscatter (NRB). 
 
-* [isce3_rtc (Sentinel-1 IW) that can be run locally and on AWS](docs/pipelines/aws_isce3_rtc.md)
+* [isce3_rtc (Sentinel-1 IW) that can be run locally and on AWS](docs/pipelines/isce3_rtc.md)
 * [pyroSAR-GAMMA (Sentinel-1 IW/EW) that can be run on the NCI](docs/pipelines/pyrosar_gamma.md)
 
 For more information see [Pipelines](docs/pipelines/README.md) or the specific workflow docs for usage examples and running tests.
