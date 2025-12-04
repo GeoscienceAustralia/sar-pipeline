@@ -1218,6 +1218,14 @@ def get_bursts_ids_for_scene(
         logger.info(f"The original scene shape is : {scene_polygon}")
         logger.info(f"The original scene bounds are : {scene_polygon.bounds}")
 
+    if check_shape_crosses_antimeridian(scene_polygon):
+        logger.warning("The scene crosses the antimeridian")
+        # use the full scene bounds for an antimeridian scene
+        scene_bounds = get_bounds_for_antimeridian_shape(scene_polygon)
+        logger.info(
+            f"Getting the corrected scene bounds crossing the antimeridian : {scene_bounds}"
+        )
+
     # The burst ids, times and geometries can be acquired from the CDSE.
     # We can therefore check if desired products already exist before needing to download the scene
     logger.info(f"Querying CDSE for scene burst ids and metadata")
