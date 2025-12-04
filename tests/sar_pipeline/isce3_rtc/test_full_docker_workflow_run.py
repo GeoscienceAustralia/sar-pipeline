@@ -5,24 +5,32 @@ It should be completed prior to every PR and release. A local run is generally
 required, given the need for credentials, sufficient CPU, RAM and Disk Memory.
 Recommend minimum of 4 CPU and 16 GB RAM.
 
+The test is run for three scenes
+- single pol HH scene over Antarctica
+- dual pol VV+VH scene over Australia
+- single pol scene over the Antimeridian.
+
+The outputs of the run are compared to already created products in S3 to ensure
+There are no unexpected changes in data and metadata.
+
 Test steps:
 1.  Required environment variables are set.
 2.  The docker image for the current state is built and tagged.
 3.  The container is run, creating static layers (RTC_S1_STATIC) and uploading them to a
-    temporary folder in the AWS `TEST_S3_BUCKET` and `TEST_S3_PROJECT_FOLDER` set below
-4. The container is run again for the backscatter products (RTC_S1), linking them to the
-    RTC_S1_STATIC products made in the above step. The results are similarly uploaded to AWS.
+    temporary folder in the AWS `TEST_S3_BUCKET` and `TEST_S3_PROJECT_FOLDER` set below.
+4. The container is run again for backscatter products (RTC_S1), linking them to the
+    RTC_S1_STATIC products made in the previous step. The results are then uploaded to AWS.
 5. The newly created products are compared to those stored at the PERSISTENT_S3_PROJECT_FOLDER to understand
-    any differences that have been made.
-6. Steps 3, 4 and 5 are completed for a single pol (HH) and dual pol (VV+VH) scene burst.
+    any differences that have been made (e.g. breaking differences in geotiff data and changes in metadata).
+6. Steps 3, 4 and 5 are completed for each scene listed above.
 
 Creating / updating new test data:
 1. In step 5 above, the created products are compared to existing products that are stored
    in the PERSISTENT_S3_PROJECT_FOLDER. If planned product changes have been made, these
    comparison products should be updated for future tests. These can be replaced by new products
    by setting the UPDATE_PERSISTENT_TEST_DATA to True in the settings.py file and re-running the tests.
-   NOTE - existing products should be manually deleted from the PERSISTENT_S3_PROJECT_FOLDER, otherwise
-   The run may exit early as the products already exist.
+   NOTE - existing products should be manually deleted from the PERSISTENT_S3_PROJECT_FOLDER prior
+   to recreating them.
 """
 
 import subprocess
@@ -77,7 +85,7 @@ from settings import (
 
 if UPDATE_PERSISTENT_TEST_DATA:
     logger.warning(
-        f"Updating persistent data used for comparisons. Ensure existing products are deleted otherwise the run may exit early"
+        f"Updating the persistent data used for the test comparisons. Ensure existing products are deleted."
     )
     TEST_S3_PROJECT_FOLDER = PERSISTENT_S3_PROJECT_FOLDER
 
@@ -150,11 +158,11 @@ def test_docker_single_pol_with_args():
         os.makedirs(LOCAL_TEST_OUTPUTS_DIR)
     logging.info(f"Saving test outputs locally to : {LOCAL_TEST_OUTPUTS_DIR}")
     logging.info(f"Uploading outputs to : {TEST_S3_BUCKET}/{TEST_S3_PROJECT_FOLDER}")
-    logging.info(f"RUN 1: Producing Static Layers")
     logging.info(
         "Mounting test data directory for results: "
         f"{LOCAL_TEST_OUTPUTS_DIR}:/home/rtc_user/working/results",
     )
+    logging.info(f"RUN 1: Producing Static Layers (RTC_S1_STATIC)")
     cmd = [
         "docker",
         "run",
@@ -188,7 +196,7 @@ def test_docker_single_pol_with_args():
         result.returncode == 0
     ), f"Non-zero exit code: {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
 
-    logging.info(f"RUN 2: Producing Backscatter and Linking to Static Layers")
+    logging.info(f"RUN 2: Producing Backscatter (RTC_S1) and Linking to Static Layers")
     cmd = [
         "docker",
         "run",
@@ -239,7 +247,6 @@ TEST_1_COMPARE_RTC_S1_STATIC_S3_PROJECT_FOLDER = (
 TEST_1_RTC_S1_STATIC_LOCAL_COMPARISON_OUTPUTS_DIR = (
     f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_1_RTC_S1_STATIC"
 )
-
 
 def test_compare_single_pol_rtc_s1_static_product_outputs():
     """
