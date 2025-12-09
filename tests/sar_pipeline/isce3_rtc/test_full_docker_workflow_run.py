@@ -80,14 +80,20 @@ from settings import (
     TEST_1_BURST,
     TEST_1_RTC_S1_STATIC_PRODUCT_S3_PREFIX,
     TEST_1_RTC_S1_PRODUCT_S3_PREFIX,
+    TEST_1_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER,
+    TEST_1_BENCHMARK_RTC_S1_STATIC_S3_PRODUCT_FOLDER,
     TEST_2_SCENE,
     TEST_2_BURST,
     TEST_2_RTC_S1_STATIC_PRODUCT_S3_PREFIX,
     TEST_2_RTC_S1_PRODUCT_S3_PREFIX,
+    TEST_2_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER,
+    TEST_2_BENCHMARK_RTC_S1_STATIC_S3_PRODUCT_FOLDER,
     TEST_3_SCENE,
     TEST_3_BURST,
     TEST_3_RTC_S1_STATIC_PRODUCT_S3_PREFIX,
     TEST_3_RTC_S1_PRODUCT_S3_PREFIX,
+    TEST_3_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER,
+    TEST_3_BENCHMARK_RTC_S1_STATIC_S3_PRODUCT_FOLDER,
     TEST_S3_BUCKET,
 )
 
@@ -377,9 +383,7 @@ def test_compare_single_pol_rtc_s1_static_product_to_benchmark():
     test_product_s3_prefix = (
         f"{TEST_S3_PROJECT_FOLDER}/{TEST_1_RTC_S1_STATIC_PRODUCT_S3_PREFIX}"
     )
-    benchmark_product_s3_prefix = (
-        f"{BENCHMARK_S3_PROJECT_FOLDER}/{TEST_1_RTC_S1_STATIC_PRODUCT_S3_PREFIX}"
-    )
+    benchmark_product_s3_prefix = TEST_1_BENCHMARK_RTC_S1_STATIC_S3_PRODUCT_FOLDER
     local_comparison_outputs_folder = (
         f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_1_RTC_S1_STATIC"
     )
@@ -405,9 +409,7 @@ def test_compare_single_pol_rtc_s1_product_to_benchmark():
     test_product_s3_prefix = (
         f"{TEST_S3_PROJECT_FOLDER}/{TEST_1_RTC_S1_PRODUCT_S3_PREFIX}"
     )
-    benchmark_product_s3_prefix = (
-        f"{BENCHMARK_S3_PROJECT_FOLDER}/{TEST_1_RTC_S1_PRODUCT_S3_PREFIX}"
-    )
+    benchmark_product_s3_prefix = TEST_1_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER
     local_comparison_outputs_folder = f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_1_RTC_S1"
 
     _compare_product_to_benchmark(
@@ -449,9 +451,7 @@ def test_compare_dual_pol_rtc_s1_static_product_to_benchmark():
     test_product_s3_prefix = (
         f"{TEST_S3_PROJECT_FOLDER}/{TEST_2_RTC_S1_STATIC_PRODUCT_S3_PREFIX}"
     )
-    benchmark_product_s3_prefix = (
-        f"{BENCHMARK_S3_PROJECT_FOLDER}/{TEST_2_RTC_S1_STATIC_PRODUCT_S3_PREFIX}"
-    )
+    benchmark_product_s3_prefix = TEST_2_BENCHMARK_RTC_S1_STATIC_S3_PRODUCT_FOLDER
     local_comparison_outputs_folder = (
         f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_2_RTC_S1_STATIC"
     )
@@ -477,9 +477,7 @@ def test_compare_dual_pol_rtc_s1_product_to_benchmark():
     test_product_s3_prefix = (
         f"{TEST_S3_PROJECT_FOLDER}/{TEST_2_RTC_S1_PRODUCT_S3_PREFIX}"
     )
-    benchmark_product_s3_prefix = (
-        f"{BENCHMARK_S3_PROJECT_FOLDER}/{TEST_2_RTC_S1_PRODUCT_S3_PREFIX}"
-    )
+    benchmark_product_s3_prefix = TEST_2_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER
     local_comparison_outputs_folder = f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_2_RTC_S1"
 
     _compare_product_to_benchmark(
@@ -526,9 +524,7 @@ if TEST_AM_SCENE:
         test_product_s3_prefix = (
             f"{TEST_S3_PROJECT_FOLDER}/{TEST_3_RTC_S1_STATIC_PRODUCT_S3_PREFIX}"
         )
-        benchmark_product_s3_prefix = (
-            f"{BENCHMARK_S3_PROJECT_FOLDER}/{TEST_3_RTC_S1_STATIC_PRODUCT_S3_PREFIX}"
-        )
+        benchmark_product_s3_prefix = TEST_3_BENCHMARK_RTC_S1_STATIC_S3_PRODUCT_FOLDER
         local_comparison_outputs_folder = (
             f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_3_RTC_S1_STATIC"
         )
@@ -553,9 +549,7 @@ if TEST_AM_SCENE:
         test_product_s3_prefix = (
             f"{TEST_S3_PROJECT_FOLDER}/{TEST_3_RTC_S1_PRODUCT_S3_PREFIX}"
         )
-        benchmark_product_s3_prefix = (
-            f"{BENCHMARK_S3_PROJECT_FOLDER}/{TEST_3_RTC_S1_PRODUCT_S3_PREFIX}"
-        )
+        benchmark_product_s3_prefix = TEST_3_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER
         local_comparison_outputs_folder = (
             f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_3_RTC_S1"
         )

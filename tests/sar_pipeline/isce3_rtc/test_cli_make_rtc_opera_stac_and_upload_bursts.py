@@ -60,7 +60,7 @@ from settings import (
     TEST_1_SCENE,
     TEST_1_COLLECTION_NUMBER,
     TEST_1_BURST,
-    TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER,
+    TEST_1_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER,
     BENCHMARK_S3_PROJECT_FOLDER,
 )
 
@@ -73,7 +73,7 @@ PRODUCT = "RTC_S1"
 TEST_1 = RunConfig(
     scene=TEST_1_SCENE,
     test_product_s3_bucket=TEST_S3_BUCKET,
-    test_product_s3_folder=TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER,
+    test_product_s3_folder=TEST_1_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER,
     original_local_product_folder=f"{ORIGINAL_PRODUCT_RESULTS_DIR}/TEST_1/RTC_S1/{TEST_1_BURST}",
     new_local_product_folder=f"{NEW_PRODUCT_RESULTS_DIR}/TEST_1/RTC_S1/{TEST_1_BURST}",
     compare_product_folder=f"{COMPARE_PRODUCT_FOLDER}/TEST_1/RTC_S1/{TEST_1_BURST}",
