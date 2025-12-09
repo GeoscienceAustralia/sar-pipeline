@@ -51,9 +51,6 @@ class RunConfig:
     skip_upload_to_s3: str
     make_existing_products: bool
     link_static_layers: bool
-    linked_static_layers_s3_bucket: bool
-    linked_static_layers_collection_number: str
-    linked_static_layers_s3_project_folder: str
     validate_stac: bool
 
 
@@ -64,7 +61,7 @@ from settings import (
     TEST_1_COLLECTION_NUMBER,
     TEST_1_BURST,
     TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER,
-    PERSISTENT_S3_PROJECT_FOLDER,
+    BENCHMARK_S3_PROJECT_FOLDER,
 )
 
 ORIGINAL_PRODUCT_RESULTS_DIR = f"{CURRENT_DIR}/data/TMP/test_metadata/original"
@@ -72,13 +69,6 @@ NEW_PRODUCT_RESULTS_DIR = f"{CURRENT_DIR}/data/TMP/test_metadata/new"
 COMPARE_PRODUCT_FOLDER = f"{CURRENT_DIR}/data/TMP/test_metadata/compare"
 PRODUCT = "RTC_S1"
 
-# custom test against another product by changing these values
-# TEST_1_COLLECTION_NUMBER = 0
-# TEST_1_BURST = "t085_182158_iw2"
-# TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER = (
-#     "experimental/baseline/antarctica/ga_s1_nrb_iw_hh_0/t085_182158_iw2/2021/04/25"
-# )
-# PERSISTENT_S3_PROJECT_FOLDER = "experimental/baseline/antarctica"
 
 TEST_1 = RunConfig(
     scene=TEST_1_SCENE,
@@ -91,13 +81,10 @@ TEST_1 = RunConfig(
     backscatter_convention="gamma0",
     collection_number=TEST_1_COLLECTION_NUMBER,
     s3_bucket=TEST_S3_BUCKET,
-    s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
+    s3_project_folder=BENCHMARK_S3_PROJECT_FOLDER,
     skip_upload_to_s3=True,
     make_existing_products=True,
     link_static_layers=True,
-    linked_static_layers_s3_bucket=TEST_S3_BUCKET,
-    linked_static_layers_collection_number=TEST_1_COLLECTION_NUMBER,
-    linked_static_layers_s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
     validate_stac=True,
 )
 
@@ -166,7 +153,7 @@ def test_cli_make_rtc_opera_stac_and_upload_bursts(test_run):
 
 
 @pytest.mark.parametrize("test_run", [TEST_1])
-def test_compare_new_product_with_original(test_run):
+def test_compare_new_product_with_benchmark(test_run):
 
     logging.info(f"Comparing the original and new products to see changes in metadata")
     logging.info(
