@@ -128,4 +128,4 @@ conda env list | grep -q pygssearch-env || conda env create -f Conda/pygssearch/
 """
 
 [dependency-groups]
-dev = ["black>=25.1.0"]
+dev = ["black>=25.1.0", "pytest-dependency>=0.6.0,<0.7"]
