@@ -124,6 +124,7 @@ class BurstH5toStacManager:
             "https://stac-extensions.github.io/product/v0.1.0/schema.json",
             "https://stac-extensions.github.io/sar/v1.1.0/schema.json",
             "https://stac-extensions.github.io/projection/v2.0.0/schema.json",
+            "https://stac-extensions.github.io/raster/v2.0.0/schema.json",
             "https://stac-extensions.github.io/sat/v1.1.0/schema.json",
             "https://stac-extensions.github.io/sentinel-1/v0.2.0/schema.json",
             "https://stac-extensions.github.io/processing/v1.2.0/schema.json",
@@ -849,9 +850,9 @@ class BurstH5toStacManager:
                         "proj:shape": shape,
                         "proj:transform": transform,
                         "proj:code": str(r.crs),
-                        "raster:data_type": r.dtypes[0],
+                        "data_type": r.dtypes[0],
                         "raster:sampling": raster_sampling,
-                        "raster:nodata": (
+                        "nodata": (
                             r.nodata
                             if (
                                 isinstance(r.nodata, (float, int))
