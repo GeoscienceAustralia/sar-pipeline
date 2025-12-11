@@ -121,9 +121,11 @@ class BurstH5toStacManager:
         self.dem_description = self.h5.search_value("inputs/demSource")
         self.dem_type = self._get_dem_type_from_dem_description(self.dem_description)
         self.stac_extensions = [
+            "https://stac-extensions.github.io/classification/v2.0.0/schema.json",
             "https://stac-extensions.github.io/product/v0.1.0/schema.json",
             "https://stac-extensions.github.io/sar/v1.1.0/schema.json",
             "https://stac-extensions.github.io/projection/v2.0.0/schema.json",
+            "https://stac-extensions.github.io/raster/v2.0.0/schema.json",
             "https://stac-extensions.github.io/sat/v1.1.0/schema.json",
             "https://stac-extensions.github.io/sentinel-1/v0.2.0/schema.json",
             "https://stac-extensions.github.io/processing/v1.2.0/schema.json",
@@ -849,9 +851,9 @@ class BurstH5toStacManager:
                         "proj:shape": shape,
                         "proj:transform": transform,
                         "proj:code": str(r.crs),
-                        "raster:data_type": r.dtypes[0],
+                        "data_type": r.dtypes[0],
                         "raster:sampling": raster_sampling,
-                        "raster:nodata": (
+                        "nodata": (
                             r.nodata
                             if (
                                 isinstance(r.nodata, (float, int))
@@ -862,13 +864,28 @@ class BurstH5toStacManager:
                     }
 
                     if asset_filetype == "_mask.tif":
-                        extra_fields["raster:values"] = {
-                            "valid": 0,
-                            "shadow": 1,
-                            "layover": 2,
-                            "shadow_and_layover": 3,
-                            "invalid_sample": 255,
-                        }
+                        extra_fields["classification:classes"] = [
+                            {
+                                "value": 0,
+                                "name": "valid",
+                            },
+                            {
+                                "value": 1,
+                                "name": "shadow",
+                            },
+                            {
+                                "value": 2,
+                                "name": "layover",
+                            },
+                            {
+                                "value": 3,
+                                "name": "shadow_and_layover",
+                            },
+                            {
+                                "value": 255,
+                                "name": "invalid_sample",
+                            },
+                        ]
                     if asset_filetype in included_pol_assets:
                         # need to add a processing property to satisfy the
                         # processing stac requirements
