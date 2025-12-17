@@ -167,3 +167,18 @@ def get_dates_from_scene_id(id: str) -> tuple[datetime, datetime]:
     stop_date = id_metadata.stop_datetime
 
     return (start_date, stop_date)
+
+
+def get_polarisation_list_from_scene_id(id: str) -> list[str]:
+    id_metadata = extract_metadata_from_s1_id(id)
+    pol_string_to_pol_list = {
+        "SH": ["HH"],
+        "SV": ["VV"],
+        "DH": ["HH", "HV"],
+        "DV": ["VV", "VH"],
+        "HH": ["HH"],
+        "HV": ["HV"],
+        "VV": ["VV"],
+        "VH": ["VH"],
+    }
+    return pol_string_to_pol_list[id_metadata.polarisation]
