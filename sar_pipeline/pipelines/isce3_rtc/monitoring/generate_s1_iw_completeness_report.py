@@ -11,9 +11,12 @@ from tqdm import tqdm
 import re
 import pandas as pd
 import pystac_client
+import time
+from pystac_client.exceptions import APIError
 import json
 from odc.stac import load, configure_s3_access
 from pprint import pprint
+import mimetypes
 
 from sar_pipeline.utils.general import log_timing
 from sar_pipeline.utils.sentinel1 import get_polarisation_list_from_scene_id
@@ -43,6 +46,11 @@ ValidBurstProducts = Literal["IW_SLC__1S", "EW_SLC__1S"]
 def _format_dt(dt: datetime) -> str:
     s = dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
     return re.sub(r"(\.\d{3})\d{3}Z$", r"\1Z", s)
+
+
+COMPLETENESS_REPORT_FORMAT = (
+    "{report_dt}_{start_dt}_{end_dt}_{report_type}_completeness_report.json"
+)
 
 
 def make_completeness_report_json_safe(obj):
@@ -253,6 +261,7 @@ def query_stac_for_metadata_in_period(
     collections: list,
     stac_catalog: str,
     query: dict | None = None,
+    fields: dict | None = None,
 ):
     """Query A given STAC API for product metadata that falls within the
     provided time range and geometry.
@@ -270,9 +279,13 @@ def query_stac_for_metadata_in_period(
     stac_catalog : str, optional
         STAC catalog url to search, e.g. "https://stac.dataspace.copernicus.eu/v1/"
         or "https://explorer.dea.ga.gov.au/stac"
-    query : str, optional
+    query : dict, optional
         Additional filtering for the products. e.g.
         {"sar:instrument_mode": {"eq": "IW"}}
+    fields : dict
+        limit the fields of the response. e.g.
+        fields={"include": ["id", "properties.sarard:scene_id"]}
+
 
 
     Returns
@@ -291,6 +304,7 @@ def query_stac_for_metadata_in_period(
         datetime=f"{stac_start_dt}/{stac_end_dt}",
         intersects=geometry,
         query=query,
+        fields=fields,
     )
     n_stac_items = stac_items.matched()
 
@@ -348,8 +362,158 @@ def load_geojson_as_shape(url: str) -> MultiPolygon:
     return MultiPolygon(geometries)
 
 
+def make_scene_odc_completeness_report(
+    s3_completeness_report_folder: str,
+    s3_bucket: str,
+    s3_project_folder: str,
+    collection_number: str,
+    start_dt: datetime,
+    end_dt: datetime,
+    geometry: str | None,
+    stac_catalog: str,
+):
+    logging.info(f"Running Sentinel-1 IW NRB Scene Level Completeness Check")
+
+    report_dt = datetime.now()
+
+    completeness_report_name = COMPLETENESS_REPORT_FORMAT.format(
+        report_dt=f"{report_dt.strftime('%Y%m%dT%H%M%S')}",
+        start_dt=f"_{start_dt.strftime('%Y%m%dT%H%M%S')}",
+        end_dt=f"_{end_dt.strftime('%Y%m%dT%H%M%S')}",
+        report_type="scene",
+    )
+
+    if isinstance(geometry, str):
+        geometry = load_geojson_as_shape(geometry).simplify(tolerance=0.1)
+
+    logging.info("Query the CDSE STAC API for scene metadata")
+
+    # stac query STAC for items with slight buffer in times
+    n_stac_matches, stac_items = query_stac_for_metadata_in_period(
+        start_dt=start_dt,
+        end_dt=end_dt,
+        geometry=shape(geometry),
+        collections=["sentinel-1-slc"],
+        query={"sar:instrument_mode": {"eq": "IW"}},
+        fields={"include": ["id"]},
+        stac_catalog="https://stac.dataspace.copernicus.eu/v1/",
+    )
+
+    if n_stac_matches == None:
+        logging.info(
+            f"Total number of matches not provided, iterating stac results. This may take a while for large requests."
+        )
+    else:
+        logging.info(
+            f"{n_stac_matches} scenes found for the given time/geometry window.."
+        )
+
+    # get the list of scenes we expect to have been processed based on the bursts
+    expected_scene_set = {item["id"] for item in stac_items.items_as_dicts()}
+
+    logging.info(
+        f"{len(expected_scene_set)} scenes expected to be found for odc burst products"
+    )
+
+    # get the collections to search based on polarisations and collection_number
+    # e.g. ga_s1_nrb_iw_hh_hv_1
+    collections_to_search = [
+        get_odc_product_name("RTC_S1", collection_number, ["VV"]),
+        get_odc_product_name("RTC_S1", collection_number, ["HH"]),
+        get_odc_product_name("RTC_S1", collection_number, ["VV", "VH"]),
+        get_odc_product_name("RTC_S1", collection_number, ["HH", "HV"]),
+    ]
+
+    # query for bursts in the period and filter for scenes
+    buffer = timedelta(minutes=1)
+    n_stac_matches, stac_items = query_stac_for_metadata_in_period(
+        start_dt=start_dt - buffer,
+        end_dt=end_dt + buffer,
+        geometry=shape(geometry),
+        collections=collections_to_search,
+        stac_catalog=stac_catalog,
+        fields={"include": ["id", "properties.sarard:scene_id"]},
+    )
+
+    logging.info(
+        f"{n_stac_matches} burst products found for the given time/geometry window.."
+    )
+
+    logging.info(f"Getting list of parent scenes processed")
+
+    indexed_scene_set = set()
+
+    while True:
+        try:
+            for item in tqdm(
+                stac_items.items_as_dicts(),
+                total=n_stac_matches,
+                desc="Iterating STAC items",
+            ):
+                indexed_scene_set.add(item["properties"]["sarard:scene_id"])
+            break  # success
+        except APIError as e:
+            logging.warning(f"STAC API error: {e}. Retrying in 10s...")
+            time.sleep(10)
+
+    # reconcile which scenes do not exist in the odc and should therefore be reprocessed
+    missing_scene_set = expected_scene_set - indexed_scene_set
+    existing_scene_set = expected_scene_set & indexed_scene_set
+
+    logging.info(
+        f"{len(existing_scene_set)} of {len(expected_scene_set)} have products in the open data cube (ODC)"
+    )
+    logging.info(
+        f"{len(missing_scene_set)} of {len(expected_scene_set)} expected scenes are missing from the open data cube (ODC). "
+        "The simple assumption is made that these full scenes need to be reprocessed and indexed. For a detailed assessment of the "
+        "specific burst products that need to be reprocessed or re-indexed run the burst level completeness check."
+    )
+
+    # Create the file with missing products
+    scene_completeness_dict = {
+        "report_time": report_dt.strftime("%Y%m%dT%H%M%S"),
+        "search_start_time": start_dt.strftime("%Y%m%dT%H%M%S"),
+        "search_end_time": end_dt.strftime("%Y%m%dT%H%M%S"),
+        "search_geometry": geometry.wkt,
+        "s3_bucket": s3_bucket,
+        "s3_project_folder": s3_project_folder,
+        "collection_number": collection_number,
+        "stac_catalog": stac_catalog,
+        "collections_searched": collections_to_search,
+        "nrb_product_format": RTC_S1_S3_PREFIX_FORMAT,
+        "summary": {
+            "n_expected_processed_scenes": len(expected_scene_set),
+            "n_scenes_to_reprocess": len(missing_scene_set),
+        },
+        "results_descriptions": {
+            "scenes_to_reprocess": "These are scenes that could not be found indexed in the open data cube (ODC). The simple assumption is made that these need to be reprocessed and indexed.",
+        },
+        "results": {
+            "scenes_to_reprocess": list(missing_scene_set),
+        },
+    }
+
+    os.makedirs("TMP", exist_ok=True)
+    with open(f"TMP/{completeness_report_name}", "w") as f:
+        json.dump(scene_completeness_dict, f, indent=2)
+
+    # upload the completeness report to the desired AWS S3 bucket
+    s3_uploder = S3Util()
+    local_path = f"TMP/{completeness_report_name}"
+    s3_key = str(Path(s3_completeness_report_folder) / completeness_report_name)
+    s3_uploder.s3.upload_file(
+        local_path,
+        str(s3_bucket),
+        s3_key,
+        ExtraArgs={
+            "ContentType": mimetypes.guess_type(local_path)[0] or "binary/octet-stream"
+        },
+    )
+    logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
+
+
 def make_burst_product_completeness_report(
-    s3_report_folder: str,
+    s3_completeness_report_folder: str,
     s3_bucket: str,
     s3_project_folder: str,
     collection_number: str,
@@ -368,7 +532,7 @@ def make_burst_product_completeness_report(
     sar_pipeline/pipelines/isce3_rtc/monitoring/cli.py
     """
 
-    logging.info(f"Running Sentinel-1 IW NRB completeness check")
+    logging.info(f"Running Sentinel-1 IW NRB Detailed Burst Level Completeness Check")
 
     if dem_type not in VALID_DEMS:
         raise ValueError(
@@ -376,13 +540,13 @@ def make_burst_product_completeness_report(
         )
 
     report_dt = datetime.now()
-    # format for completeness report -> "{report_dt}_{start_dt}_{end_dt}_completeness_report.json"
+    # format for completeness report -> "{report_dt}_{start_dt}_{end_dt}_burst_completeness_report.json"
 
-    completeness_report_name = (
-        f"{report_dt.strftime('%Y%m%dT%H%M%S')}"
-        f"_{start_dt.strftime('%Y%m%dT%H%M%S')}"
-        f"_{end_dt.strftime('%Y%m%dT%H%M%S')}"
-        "_completeness_report.json"
+    completeness_report_name = COMPLETENESS_REPORT_FORMAT.format(
+        report_dt=f"{report_dt.strftime('%Y%m%dT%H%M%S')}",
+        start_dt=f"_{start_dt.strftime('%Y%m%dT%H%M%S')}",
+        end_dt=f"_{end_dt.strftime('%Y%m%dT%H%M%S')}",
+        report_type="burst",
     )
 
     if isinstance(geometry, str):
@@ -772,17 +936,23 @@ def make_burst_product_completeness_report(
 
     # upload the completeness report to the desired AWS S3 bucket
     s3_uploder = S3Util()
-    s3_uploder.upload_file(
-        s3_bucket,
-        Path(s3_report_folder) / completeness_report_name,
-        f"TMP/{completeness_report_name}",
+    local_path = f"TMP/{completeness_report_name}"
+    s3_key = str(Path(s3_completeness_report_folder) / completeness_report_name)
+    s3_uploder.s3.upload_file(
+        local_path,
+        str(s3_bucket),
+        s3_key,
+        ExtraArgs={
+            "ContentType": mimetypes.guess_type(local_path)[0] or "binary/octet-stream"
+        },
     )
+    logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
 
 
 if __name__ == "__main__":
 
     s3_bucket = "deant-data-public-dev"
-    s3_report_folder = "TMP/completeness_reports"
+    s3_completeness_report_folder = "TMP/completeness_reports"
     collection_number = 0
     stac_catalog = "https://explorer.dev.dea.ga.gov.au/stac"
     # start_dt = datetime(2025, 1, 20, 12, 0, 0)
@@ -791,6 +961,9 @@ if __name__ == "__main__":
     # end_dt = datetime(2025, 6, 27, 20, 50, 0) # ant test
     start_dt = datetime(2024, 12, 15, 12, 0, 0)  # ant test
     end_dt = datetime(2024, 12, 16, 0, 0, 0)  # ant test
+    start_dt = datetime(2024, 12, 1, 0, 0, 0)
+    end_dt = datetime(2024, 12, 3, 0, 0, 0)
+
     # Aus
     shape_url = "https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/persistent/DEA-non-offshore-product-extent.geojson"
     s3_project_folder = "experimental/for_zhengshu"
@@ -809,8 +982,9 @@ if __name__ == "__main__":
     # nrb_process_sqs_queue_url = ""
     # static_layer_process_sqs_queue_url = ""
 
+    # burst level
     make_burst_product_completeness_report(
-        s3_report_folder=s3_report_folder,
+        s3_completeness_report_folder=s3_completeness_report_folder,
         s3_bucket=s3_bucket,
         s3_project_folder=s3_project_folder,
         collection_number=collection_number,
@@ -825,3 +999,15 @@ if __name__ == "__main__":
         linked_static_layer_s3_project_folder=linked_static_layer_s3_project_folder,
         linked_static_layer_collection_number=linked_static_layer_collection_number,
     )
+
+    # scene level
+    # make_scene_odc_completeness_report(
+    #     s3_completeness_report_folder=s3_completeness_report_folder,
+    #     s3_bucket=s3_bucket,
+    #     s3_project_folder=s3_project_folder,
+    #     collection_number=collection_number,
+    #     start_dt=start_dt,
+    #     end_dt=end_dt,
+    #     geometry=shape_url,
+    #     stac_catalog=stac_catalog,
+    # )
