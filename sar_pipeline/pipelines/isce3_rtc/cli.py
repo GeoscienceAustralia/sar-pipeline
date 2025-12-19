@@ -982,14 +982,14 @@ def make_rtc_opera_stac_and_upload_bursts(
             )
 
     # upload the tracking file to a sub folder where it can be checked
+    monitoring_folder = Path(s3_project_folder) / "monitoring"
     if product == "RTC_S1":
         processed_scene_tracking_file_s3_folder = str(
-            Path(burst_stac_manager.burst_s3_product_folder) / "processed_scenes"
+            monitoring_folder / "processed_scenes"
         )
     elif product == "RTC_S1_STATIC":
         processed_scene_tracking_file_s3_folder = str(
-            Path(burst_stac_manager.burst_s3_product_folder)
-            / "processed_scenes_static_layers"
+            monitoring_folder / "processed_scenes_static_layers"
         )
 
     processed_scene_tracking_file_s3_key = (
