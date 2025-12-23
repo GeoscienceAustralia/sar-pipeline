@@ -47,3 +47,4 @@ tests/sar_pipeline/isce3_rtc/data/TMP/*
 
 tests/sar_pipeline/data/isce3_rtc/TMP/*
 comparison
+TMP/*
