@@ -94,8 +94,8 @@ test-all = "pytest"
 
 ### Shared Pipeline Tests ###
 # tests do not require credentials - can currently be run locally and in github
-test-pipeline-no-creds = 'pixi run install-pygssearch-env && PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/ --ignore=tests/sar_pipeline/isce3_rtc'
-test-scene-data-source-queries='pixi run install-pygssearch-env && PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/test_scenes.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s'
+test-pipeline-no-creds = 'pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/ --ignore=tests/sar_pipeline/isce3_rtc'
+test-scene-data-source-queries='pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/test_scenes.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s'
 
 ### ISCE3_RTC Pipeline Tests ###
 # Tests require credentials - not currently setup for github but should be run locally before PRs
@@ -104,7 +104,7 @@ test-isce3-rtc-full-docker-workflow-run = "pytest tests/sar_pipeline/isce3_rtc/t
 test-isce3-rtc-burst-utils = "pytest tests/sar_pipeline/isce3_rtc/test_burst_utils.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-cli-make-rtc-opera-stac-and-upload-bursts = "pytest tests/sar_pipeline/isce3_rtc/test_cli_make_rtc_opera_stac_and_upload_bursts.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-cli-get-data-for-scene-and-make-run-config= "pytest tests/sar_pipeline/isce3_rtc/test_cli_get_data_for_scene_and_make_run_config.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
-test-isce3-rtc-downloads= 'pixi run install-pygssearch-env && PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/isce3_rtc/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s'
+test-isce3-rtc-downloads= 'pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/isce3_rtc/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s'
 
 ### NCI Pipeline Tests ###
 # nci specific tests that should be run locally on the nci
