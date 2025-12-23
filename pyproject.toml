@@ -95,7 +95,7 @@ test-all = "pytest"
 ### Shared Pipeline Tests ###
 # tests do not require credentials - can currently be run locally and in github
 test-pipeline-no-creds = 'pixi run install-pygssearch-env && PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/ --ignore=tests/sar_pipeline/isce3_rtc'
-test-scene-data-source-queries="pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV='$(conda info --base)/envs/pygssearch-env' && pytest tests/sar_pipeline/test_scenes.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+test-scene-data-source-queries='pixi run install-pygssearch-env && PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/test_scenes.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s'
 
 ### ISCE3_RTC Pipeline Tests ###
 # Tests require credentials - not currently setup for github but should be run locally before PRs
