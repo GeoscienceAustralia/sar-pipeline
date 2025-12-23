@@ -1157,7 +1157,7 @@ def compare_products(
             tifs_are_same, stats = compare_cog_stats(tif_1, tif_2)
             tif_comparison_stats[filetype] = stats
         else:
-            tif_2 = [x for x in tif_files_2 if filetype in x]
+            tif_2 = [x for x in tif_files_2 if str(filetype) in str(x)]
             if not tif_2:
                 logger.warning(
                     f'Could not find tif of same filetype "{filetype}" to compare with {tif_1}'
@@ -1182,3 +1182,73 @@ def compare_products(
                 f"No differences in tif statistics found. Saving summary to : {tif_difference_path}"
             )
         write_diffs_to_json(tif_comparison_stats, tif_difference_path)
+
+
+@click.command()
+@click.option(
+    "--scene",
+    required=True,
+    type=str,
+    help="Scene to get the list of bursts ids for",
+)
+@click.option(
+    "--save-geometries",
+    required=False,
+    default=None,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Folder to save the geometries to as a geojson "
+    "{save_geometries}/{scene}_burst_geoms.json",
+)
+def get_bursts_ids_for_scene(
+    scene,
+    save_geometries,
+):
+    logger.info(f"Finding burst ids for scene : {scene}")
+
+    # Query the CDSE to make sure the scene exists
+    cdse_scene_results = query_scene_from_cdse(scene)
+    if len(cdse_scene_results) != 1:
+        raise NonSingleSceneResultError(
+            f"Expected 1 scene, found {len(cdse_scene_results)} results for scene id : {scene}. Check input scene."
+        )
+    else:
+        logger.info(f"Scene metadata successfully retrieved from CDSE")
+        cdse_scene_metadata = cdse_scene_results[0]
+        scene_polygon = shapely.geometry.shape(cdse_scene_metadata["geometry"])
+        # show the original scene shape and bounds
+        logger.info(f"The original scene shape is : {scene_polygon}")
+        logger.info(f"The original scene bounds are : {scene_polygon.bounds}")
+
+    if check_shape_crosses_antimeridian(scene_polygon):
+        logger.warning("The scene crosses the antimeridian")
+        # use the full scene bounds for an antimeridian scene
+        scene_bounds = get_bounds_for_antimeridian_shape(scene_polygon)
+        logger.info(
+            f"Getting the corrected scene bounds crossing the antimeridian : {scene_bounds}"
+        )
+
+    # The burst ids, times and geometries can be acquired from the CDSE.
+    # We can therefore check if desired products already exist before needing to download the scene
+    logger.info(f"Querying CDSE for scene burst ids and metadata")
+    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
+    fnd_str = f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API:"
+    logger.info(f"{fnd_str}\n" + "\n".join(list(sorted(all_scene_burst_info.keys()))))
+
+    # write the geometries to a geojson. Useful for debugging if needed
+    if save_geometries:
+        logger.info(
+            f"Saving burst geometries to : {save_geometries}/{scene}_burst_geoms.json"
+        )
+        _burst_id_list = all_scene_burst_info.keys()
+        _burst_geoms_list = [
+            all_scene_burst_info[b]["geometry"] for b in _burst_id_list
+        ]
+        write_burst_geometries_to_geojson(
+            _burst_id_list,
+            _burst_geoms_list,
+            save_geometries / f"{scene}_burst_geoms.json",
+        )
+    else:
+        logger.info(
+            "To save burst geometries to a file pass --save-geometries <FOLDER_PATH>"
+        )

@@ -21,15 +21,15 @@ PROJECT_ROOT = CURRENT_DIR.parents[2]
 TEST_WORKSPACE = CURRENT_DIR / Path("data")
 
 
-# Existing products for testing are stored in the persistent folder of the deant-public-data-dev bucket
-# These area created in the test_full_docker_build_and_run.py script
+# Existing products for testing are stored in the BENCHMARK_S3_PROJECT_FOLDER
+# These can be created in the test_full_docker_workflow_run.py script
 from settings import (
     TEST_1_SCENE,
     TEST_1_BURST,
     TEST_1_BURST_ST,
     TEST_1_POLS,
     TEST_S3_BUCKET,
-    PERSISTENT_S3_PROJECT_FOLDER,
+    BENCHMARK_S3_PROJECT_FOLDER,
 )
 
 
@@ -43,6 +43,8 @@ class BurstProduct:
     s3_bucket: str
     s3_project_folder: str
     collection_number: int
+    dem_type: str
+    static_layer_validity_start_date: int
     make_existing_products: bool
     EXISTS: bool
 
@@ -56,8 +58,10 @@ TEST_NON_EXISTING_RTC_S1 = BurstProduct(
     ],
     burst_polarisations=["VV", "VH"],
     s3_bucket=TEST_S3_BUCKET,
-    s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
+    s3_project_folder=BENCHMARK_S3_PROJECT_FOLDER,
     collection_number=1,
+    dem_type="cop_glo30",
+    static_layer_validity_start_date=20140403,
     make_existing_products=False,
     EXISTS=False,
 )
@@ -69,8 +73,10 @@ TEST_EXISTING_RTC_S1 = BurstProduct(
     burst_st_list=[datetime.strptime(TEST_1_BURST_ST, "%Y-%m-%dT%H:%M:%S.%fZ")],
     burst_polarisations=TEST_1_POLS,
     s3_bucket=TEST_S3_BUCKET,
-    s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
+    s3_project_folder=BENCHMARK_S3_PROJECT_FOLDER,
     collection_number=1,
+    dem_type="REMA_32",
+    static_layer_validity_start_date=20140403,
     make_existing_products=False,
     EXISTS=True,
 )
@@ -84,8 +90,10 @@ TEST_NON_EXISTING_RTC_S1_STATIC = BurstProduct(
     ],
     burst_polarisations=["VV", "VH"],
     s3_bucket=TEST_S3_BUCKET,
-    s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
+    s3_project_folder=BENCHMARK_S3_PROJECT_FOLDER,
     collection_number=1,
+    dem_type="cop_glo30",
+    static_layer_validity_start_date=20140403,
     make_existing_products=False,
     EXISTS=False,
 )
@@ -97,8 +105,10 @@ TEST_EXISTING_RTC_S1_STATIC = BurstProduct(
     burst_st_list=[datetime.strptime(TEST_1_BURST_ST, "%Y-%m-%dT%H:%M:%S.%fZ")],
     burst_polarisations=TEST_1_POLS,
     s3_bucket=TEST_S3_BUCKET,
-    s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
+    s3_project_folder=BENCHMARK_S3_PROJECT_FOLDER,
     collection_number=1,
+    dem_type="REMA_32",
+    static_layer_validity_start_date=20140403,
     make_existing_products=False,
     EXISTS=True,
 )
@@ -126,6 +136,8 @@ def test_check_burst_product_h5_exists_in_s3(test_run):
                 s3_bucket=test_run.s3_bucket,
                 s3_project_folder=test_run.s3_project_folder,
                 collection_number=test_run.collection_number,
+                dem_type=test_run.dem_type,
+                static_layer_validity_start_date=test_run.static_layer_validity_start_date,
                 make_existing_products=test_run.make_existing_products,
                 early_exit=True,
             )
@@ -143,6 +155,8 @@ def test_check_burst_product_h5_exists_in_s3(test_run):
             s3_bucket=test_run.s3_bucket,
             s3_project_folder=test_run.s3_project_folder,
             collection_number=test_run.collection_number,
+            dem_type=test_run.dem_type,
+            static_layer_validity_start_date=test_run.static_layer_validity_start_date,
             make_existing_products=test_run.make_existing_products,
             early_exit=True,
         )
