@@ -113,7 +113,7 @@ class S3Util:
             "s3",
         )
 
-    def download_folder(self, bucket_name: str, s3_folder: str, local_dir: Path):
+    def download_folder(self, bucket_name: str, s3_folder: str | Path, local_dir: Path):
         """
         Download all objects from an S3 folder to a local directory.
 
@@ -121,13 +121,30 @@ class S3Util:
         ----------
         bucket_name : str
             Name of the S3 bucket.
-        s3_folder : str
+        s3_folder : str | Path
             S3 folder (prefix) to download.
         local_dir : Path
             Local folder path to download files into.
+
+            Raises
+            ------
+            ValueError
+                If the S3 prefix does not exist or is empty.
         """
-        s3_folder = s3_folder.rstrip("/") + "/"
+        s3_folder = str(s3_folder).rstrip("/") + "/"
         paginator = self.s3.get_paginator("list_objects_v2")
+
+        # Check prefix exists
+        first_page = paginator.paginate(
+            Bucket=bucket_name, Prefix=s3_folder
+        ).build_full_result()
+
+        if "Contents" not in first_page or len(first_page["Contents"]) == 0:
+            raise ValueError(
+                f"S3 folder does not exist or is empty: s3://{bucket_name}/{s3_folder}"
+            )
+
+        # Download loop
         for page in paginator.paginate(Bucket=bucket_name, Prefix=s3_folder):
             for obj in page.get("Contents", []):
                 key = obj["Key"]

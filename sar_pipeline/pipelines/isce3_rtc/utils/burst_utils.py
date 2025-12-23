@@ -319,7 +319,7 @@ def check_burst_product_h5_exists_in_s3(
                 "set '--make-existing-products' if this behavior is not desired."
             )
     else:
-        f"No products already exist for the requested bursts."
+        logger.info(f"No products already exist for the requested bursts.")
         burst_id_list_to_process = burst_id_list
 
     # return the list of bursts that need to be processed

@@ -35,4 +35,4 @@ jobs:
 
     # Run pixi tests
     - name: Run tests
-      run: pixi run test-pipeline
+      run: pixi run test-pipeline-no-creds

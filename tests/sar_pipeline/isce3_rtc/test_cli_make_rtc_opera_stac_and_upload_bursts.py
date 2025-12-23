@@ -37,6 +37,7 @@ identify_and_load_missing_env_vars(
 
 @dataclass
 class RunConfig:
+    scene: str
     test_product_s3_bucket: Path
     test_product_s3_folder: Path
     original_local_product_folder: Path
@@ -50,19 +51,17 @@ class RunConfig:
     skip_upload_to_s3: str
     make_existing_products: bool
     link_static_layers: bool
-    linked_static_layers_s3_bucket: bool
-    linked_static_layers_collection_number: str
-    linked_static_layers_s3_project_folder: str
     validate_stac: bool
 
 
 from settings import (
     CURRENT_DIR,
     TEST_S3_BUCKET,
+    TEST_1_SCENE,
     TEST_1_COLLECTION_NUMBER,
     TEST_1_BURST,
-    TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER,
-    PERSISTENT_S3_PROJECT_FOLDER,
+    TEST_1_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER,
+    BENCHMARK_S3_PROJECT_FOLDER,
 )
 
 ORIGINAL_PRODUCT_RESULTS_DIR = f"{CURRENT_DIR}/data/TMP/test_metadata/original"
@@ -70,17 +69,11 @@ NEW_PRODUCT_RESULTS_DIR = f"{CURRENT_DIR}/data/TMP/test_metadata/new"
 COMPARE_PRODUCT_FOLDER = f"{CURRENT_DIR}/data/TMP/test_metadata/compare"
 PRODUCT = "RTC_S1"
 
-# custom test against another product by changing these values
-# TEST_1_COLLECTION_NUMBER = 0
-# TEST_1_BURST = "t085_182158_iw2"
-# TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER = (
-#     "experimental/baseline/antarctica/ga_s1_nrb_iw_hh_0/t085_182158_iw2/2021/04/25"
-# )
-# PERSISTENT_S3_PROJECT_FOLDER = "experimental/baseline/antarctica"
 
 TEST_1 = RunConfig(
+    scene=TEST_1_SCENE,
     test_product_s3_bucket=TEST_S3_BUCKET,
-    test_product_s3_folder=TEST_1_COMPARE_RTC_S1_S3_PROJECT_FOLDER,
+    test_product_s3_folder=TEST_1_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER,
     original_local_product_folder=f"{ORIGINAL_PRODUCT_RESULTS_DIR}/TEST_1/RTC_S1/{TEST_1_BURST}",
     new_local_product_folder=f"{NEW_PRODUCT_RESULTS_DIR}/TEST_1/RTC_S1/{TEST_1_BURST}",
     compare_product_folder=f"{COMPARE_PRODUCT_FOLDER}/TEST_1/RTC_S1/{TEST_1_BURST}",
@@ -88,13 +81,10 @@ TEST_1 = RunConfig(
     backscatter_convention="gamma0",
     collection_number=TEST_1_COLLECTION_NUMBER,
     s3_bucket=TEST_S3_BUCKET,
-    s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
+    s3_project_folder=BENCHMARK_S3_PROJECT_FOLDER,
     skip_upload_to_s3=True,
     make_existing_products=True,
     link_static_layers=True,
-    linked_static_layers_s3_bucket=TEST_S3_BUCKET,
-    linked_static_layers_collection_number=TEST_1_COLLECTION_NUMBER,
-    linked_static_layers_s3_project_folder=PERSISTENT_S3_PROJECT_FOLDER,
     validate_stac=True,
 )
 
@@ -134,6 +124,7 @@ def test_cli_make_rtc_opera_stac_and_upload_bursts(test_run):
 
     runner = CliRunner()
     args = ["--results-folder", results_folder]
+    args += ["--scene", test_run.scene]
     args += ["--run-config-path", run_config]
     args += ["--product", test_run.product]
     args += ["--backscatter-convention", test_run.backscatter_convention]
@@ -143,18 +134,6 @@ def test_cli_make_rtc_opera_stac_and_upload_bursts(test_run):
     args += ["--skip-upload-to-s3"] if test_run.skip_upload_to_s3 else []
     args += ["--make-existing-products"] if test_run.make_existing_products else []
     args += ["--link-static-layers"] if test_run.link_static_layers else []
-    args += [
-        "--linked-static-layers-s3-bucket",
-        test_run.linked_static_layers_s3_bucket,
-    ]
-    args += [
-        "--linked-static-layers-collection-number",
-        test_run.linked_static_layers_collection_number,
-    ]
-    args += [
-        "--linked-static-layers-s3-project-folder",
-        test_run.linked_static_layers_s3_project_folder,
-    ]
     args += ["--validate-stac"] if test_run.validate_stac else []
 
     logging.info(f"Running make_rtc_opera_stac_and_upload_bursts.")
@@ -174,7 +153,7 @@ def test_cli_make_rtc_opera_stac_and_upload_bursts(test_run):
 
 
 @pytest.mark.parametrize("test_run", [TEST_1])
-def test_compare_new_product_with_original(test_run):
+def test_compare_new_product_with_benchmark(test_run):
 
     logging.info(f"Comparing the original and new products to see changes in metadata")
     logging.info(

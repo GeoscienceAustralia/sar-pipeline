@@ -61,6 +61,7 @@ RUN curl -o opera-burst-bbox-only.sqlite3 "$BURST_DB_URL"
 # Copy the full project and create a second CONDA environment for the sar-pipeline
 WORKDIR /home/rtc_user/sar-pipeline
 COPY --chown=rtc_user:rtc_user . /home/rtc_user/sar-pipeline
+RUN echo "Installing sar-pipeline from environment.yaml, ensure dependencies have been updated if required."
 RUN conda env create -f /home/rtc_user/sar-pipeline/environment.yaml && conda clean -afy
 
 # Create third conda environment for pygssearch. Installed outside of sar-pipeline due to package conflicts. 
