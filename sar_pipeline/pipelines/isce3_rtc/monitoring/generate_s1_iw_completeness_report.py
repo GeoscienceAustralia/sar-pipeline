@@ -51,10 +51,13 @@ def _format_dt(dt: datetime) -> str:
 COMPLETENESS_REPORT_FORMAT = (
     "{report_dt}_{start_dt}_{end_dt}_{report_type}_completeness_report.json"
 )
+DEFAULT_S3_COMPLETENESS_REPORT_FOLDER = (
+    "{s3_project_folder}/monitoring/completeness_reports"
+)
 
 
 def make_completeness_report_json_safe(obj):
-    """convert tuple keys to literal strings and convert datetimes to strings"""
+    """convert tuple keys to literal strings, datetimes to strings, Paths to strings"""
     if isinstance(obj, dict):
         out = {}
         for k, v in obj.items():
@@ -63,10 +66,13 @@ def make_completeness_report_json_safe(obj):
                 key = (
                     "("
                     + ", ".join(
-                        repr(_format_dt(t) if isinstance(t, datetime) else t) for t in k
+                        repr(_format_dt(t) if isinstance(t, datetime) else str(t))
+                        for t in k
                     )
                     + ")"
                 )
+            elif isinstance(k, Path):
+                key = str(k)
             else:
                 key = k
 
@@ -79,6 +85,9 @@ def make_completeness_report_json_safe(obj):
 
     elif isinstance(obj, datetime):
         return _format_dt(obj)
+
+    elif isinstance(obj, Path):
+        return str(obj)
 
     else:
         return obj
@@ -311,7 +320,7 @@ def query_stac_for_metadata_in_period(
     return n_stac_items, stac_items
 
 
-def load_geojson_as_shape(url: str) -> MultiPolygon:
+def load_geojson_as_shape(shape_path: str) -> MultiPolygon:
     """
     Load a GeoJSON from a URL (or local file) and return a flattened MultiPolygon.
 
@@ -331,15 +340,17 @@ def load_geojson_as_shape(url: str) -> MultiPolygon:
         Flattened MultiPolygon containing all polygons from the GeoJSON.
     """
 
+    logger.info(f"Loading geojson into shape : {shape_path}")
+
     # Load GeoJSON (supports URL or local file)
-    if url.startswith("http://") or url.startswith("https://"):
-        resp = requests.get(url)
+    if shape_path.startswith("http://") or shape_path.startswith("https://"):
+        resp = requests.get(shape_path)
         resp.raise_for_status()
         geojson = resp.json()
     else:
         import json
 
-        with open(url, "r") as f:
+        with open(shape_path, "r") as f:
             geojson = json.load(f)
 
     # Collect all geometries
@@ -363,16 +374,25 @@ def load_geojson_as_shape(url: str) -> MultiPolygon:
 
 
 def make_scene_odc_completeness_report(
-    s3_completeness_report_folder: str,
     s3_bucket: str,
     s3_project_folder: str,
     collection_number: str,
     start_dt: datetime,
     end_dt: datetime,
-    geometry: str | None,
+    roi_geojson: str | None,
     stac_catalog: str,
+    s3_completeness_report_folder: str | None = None,
 ):
     logging.info(f"Running Sentinel-1 IW NRB Scene Level Completeness Check")
+
+    if not s3_completeness_report_folder:
+        logging.info(
+            "`s3_completeness_report_folder` not provided. Report will be saved to subfolder "
+            f"in provided `s3_project_folder` : {s3_project_folder}/monitoring/completeness_reports"
+        )
+        s3_completeness_report_folder = DEFAULT_S3_COMPLETENESS_REPORT_FOLDER.format(
+            s3_project_folder=s3_project_folder
+        )
 
     report_dt = datetime.now()
 
@@ -383,8 +403,8 @@ def make_scene_odc_completeness_report(
         report_type="scene",
     )
 
-    if isinstance(geometry, str):
-        geometry = load_geojson_as_shape(geometry).simplify(tolerance=0.1)
+    if isinstance(roi_geojson, str):
+        geometry = load_geojson_as_shape(roi_geojson).simplify(tolerance=0.1)
 
     logging.info("Query the CDSE STAC API for scene metadata")
 
@@ -475,8 +495,10 @@ def make_scene_odc_completeness_report(
         "search_start_time": start_dt.strftime("%Y%m%dT%H%M%S"),
         "search_end_time": end_dt.strftime("%Y%m%dT%H%M%S"),
         "search_geometry": geometry.wkt,
+        "search_roi_geojson": roi_geojson,
         "s3_bucket": s3_bucket,
         "s3_project_folder": s3_project_folder,
+        "s3_completeness_report_folder": s3_completeness_report_folder,
         "collection_number": collection_number,
         "stac_catalog": stac_catalog,
         "collections_searched": collections_to_search,
@@ -492,6 +514,10 @@ def make_scene_odc_completeness_report(
             "scenes_to_reprocess": list(missing_scene_set),
         },
     }
+
+    scene_completeness_dict = make_completeness_report_json_safe(
+        scene_completeness_dict
+    )
 
     os.makedirs("TMP", exist_ok=True)
     with open(f"TMP/{completeness_report_name}", "w") as f:
@@ -513,14 +539,14 @@ def make_scene_odc_completeness_report(
 
 
 def make_burst_product_completeness_report(
-    s3_completeness_report_folder: str,
     s3_bucket: str,
     s3_project_folder: str,
     collection_number: str,
     start_dt: datetime,
     end_dt: datetime,
-    geometry: str | None,
+    roi_geojson: str | None,
     stac_catalog: str,
+    s3_completeness_report_folder: str | None = None,
     identify_missing_linked_static_layers: bool = True,
     dem_type: ValidDemType = "best",
     static_layer_validity_start_date=20140403,
@@ -533,6 +559,15 @@ def make_burst_product_completeness_report(
     """
 
     logging.info(f"Running Sentinel-1 IW NRB Detailed Burst Level Completeness Check")
+
+    if not s3_completeness_report_folder:
+        logging.info(
+            "`s3_completeness_report_folder` not provided. Report will be saved to subfolder "
+            f"in provided `s3_project_folder` : {s3_project_folder}/monitoring/completeness_reports"
+        )
+        s3_completeness_report_folder = DEFAULT_S3_COMPLETENESS_REPORT_FOLDER.format(
+            s3_project_folder=s3_project_folder
+        )
 
     if dem_type not in VALID_DEMS:
         raise ValueError(
@@ -549,8 +584,8 @@ def make_burst_product_completeness_report(
         report_type="burst",
     )
 
-    if isinstance(geometry, str):
-        geometry = load_geojson_as_shape(geometry).simplify(tolerance=0.1)
+    if isinstance(roi_geojson, str):
+        geometry = load_geojson_as_shape(roi_geojson).simplify(tolerance=0.1)
 
     # Get the burst products we expect to have over the time period
     expected_burst_product_dict = query_cdse_for_bursts_in_period(
@@ -810,7 +845,7 @@ def make_burst_product_completeness_report(
                 f"collection_number : {linked_static_layer_collection_number}, "
                 f"aws_s3_prefix_format : {RTC_S1_STATIC_S3_PREFIX_FORMAT}"
             )
-            # we need to use the scenes to determine which DEM is used for the
+            # we need to use the scene geometry to determine which DEM is used for the
             # missing static layers
             for scene in tqdm(
                 scenes_to_process,
@@ -827,7 +862,8 @@ def make_burst_product_completeness_report(
 
                 # get the best dem for processing if required
                 if dem_type == "best":
-                    burst_dem_type = get_best_dem_type_for_scene(scene_bounds)
+                    scene_dem_type = get_best_dem_type_for_scene(scene_bounds)
+                    logger.info(f"Scene requires the DEM : {scene_dem_type}")
 
                 # get the list of bursts that belong to that scene
                 scene_bursts = [
@@ -843,7 +879,7 @@ def make_burst_product_completeness_report(
                     expected_static_layer_s3_product_folder = make_rtc_s1_static_product_s3_prefix(
                         s3_project_folder=linked_static_layer_s3_project_folder,
                         collection_number=linked_static_layer_collection_number,
-                        dem_type=burst_dem_type,
+                        dem_type=scene_dem_type,
                         static_layer_validity_start_date=static_layer_validity_start_date,
                         burst_id=burst_id,
                     )
@@ -885,8 +921,10 @@ def make_burst_product_completeness_report(
         "search_start_time": start_dt.strftime("%Y%m%dT%H%M%S"),
         "search_end_time": end_dt.strftime("%Y%m%dT%H%M%S"),
         "search_geometry": geometry.wkt,
+        "search_roi_geojson": roi_geojson,
         "s3_bucket": s3_bucket,
         "s3_project_folder": s3_project_folder,
+        "s3_completeness_report_folder": s3_completeness_report_folder,
         "collection_number": collection_number,
         "stac_catalog": stac_catalog,
         "collections_searched": collections_to_search,
@@ -947,67 +985,3 @@ def make_burst_product_completeness_report(
         },
     )
     logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
-
-
-if __name__ == "__main__":
-
-    s3_bucket = "deant-data-public-dev"
-    s3_completeness_report_folder = "TMP/completeness_reports"
-    collection_number = 0
-    stac_catalog = "https://explorer.dev.dea.ga.gov.au/stac"
-    # start_dt = datetime(2025, 1, 20, 12, 0, 0)
-    # end_dt = datetime(2025, 1, 21, 0, 0, 0)
-    # start_dt = datetime(2025, 6, 27, 20, 40, 0) # ant test
-    # end_dt = datetime(2025, 6, 27, 20, 50, 0) # ant test
-    start_dt = datetime(2024, 12, 15, 12, 0, 0)  # ant test
-    end_dt = datetime(2024, 12, 16, 0, 0, 0)  # ant test
-    start_dt = datetime(2024, 12, 1, 0, 0, 0)
-    end_dt = datetime(2024, 12, 3, 0, 0, 0)
-
-    # Aus
-    shape_url = "https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/persistent/DEA-non-offshore-product-extent.geojson"
-    s3_project_folder = "experimental/for_zhengshu"
-    # Ant
-    shape_url = "https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/persistent/antarctica_roi_4326.geojson"
-    s3_project_folder = "experimental/baseline/antarctica"
-    identify_missing_linked_static_layers = True
-    dem_type = "best"
-    static_layer_validity_start_date = 20140403
-    linked_static_layer_s3_project_folder = s3_project_folder
-    linked_static_layer_s3_bucket = s3_bucket
-    linked_static_layer_collection_number = collection_number
-
-    # where to send messages
-    # index_sqs_queue_url = ""
-    # nrb_process_sqs_queue_url = ""
-    # static_layer_process_sqs_queue_url = ""
-
-    # burst level
-    make_burst_product_completeness_report(
-        s3_completeness_report_folder=s3_completeness_report_folder,
-        s3_bucket=s3_bucket,
-        s3_project_folder=s3_project_folder,
-        collection_number=collection_number,
-        start_dt=start_dt,
-        end_dt=end_dt,
-        geometry=shape_url,
-        stac_catalog=stac_catalog,
-        identify_missing_linked_static_layers=True,
-        dem_type="best",
-        static_layer_validity_start_date=20140403,
-        linked_static_layer_s3_bucket=linked_static_layer_s3_bucket,
-        linked_static_layer_s3_project_folder=linked_static_layer_s3_project_folder,
-        linked_static_layer_collection_number=linked_static_layer_collection_number,
-    )
-
-    # scene level
-    # make_scene_odc_completeness_report(
-    #     s3_completeness_report_folder=s3_completeness_report_folder,
-    #     s3_bucket=s3_bucket,
-    #     s3_project_folder=s3_project_folder,
-    #     collection_number=collection_number,
-    #     start_dt=start_dt,
-    #     end_dt=end_dt,
-    #     geometry=shape_url,
-    #     stac_catalog=stac_catalog,
-    # )

@@ -21,15 +21,6 @@ logger = logging.getLogger(__name__)
     help="S3 bucket where the RTC_S1 nrb burst products are stored.",
 )
 @click.option(
-    "--s3-completeness-report-folder",
-    required=True,
-    type=click.Path(file_okay=False, path_type=Path),
-    help="S3 folder where the completeness report will be written. The report will have the structure "
-    "{s3_bucket}/{s3_report_folder}/{report_time}_{start_time}_{end_time}_scene_completion_report.json "
-    "where time is of the format %Y%m%dT%H%M%S, e.g. "
-    "20251218T043403_20241214T000000_20241216T000000_completeness_report.json",
-)
-@click.option(
     "--s3-project-folder",
     required=True,
     type=click.Path(file_okay=False, path_type=Path),
@@ -54,27 +45,55 @@ logger = logging.getLogger(__name__)
     help="End datetime (ISO format, e.g. 2024-01-31T23:59:59Z).",
 )
 @click.option(
-    "--geometry",
+    "--roi-geojson",
     required=False,
     type=str,
-    help="URL or path to geometry used for STAC searching.",
+    help="URL or path to geometry with region of interest for scenes.",
 )
 @click.option(
     "--stac-catalog",
-    required=True,
+    # required=True,
+    default="https://explorer.dev.dea.ga.gov.au/stac",
     type=str,
-    help="STAC catalog URL (e.g. https://earth-search.aws.element84.com/v1).",
+    help="STAC catalog URL (e.g. https://explorer.dev.dea.ga.gov.au/stac).",
 )
-def make_scene_odc_completeness_report(
+@click.option(
+    "--s3-completeness-report-folder",
+    required=False,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="S3 folder where the completeness report will be written. The report will have the structure "
+    "{s3_report_folder}/{report_time}_{start_time}_{end_time}_scene_completion_report.json "
+    "where time is of the format %Y%m%dT%H%M%S, e.g. "
+    "20251218T043403_20241214T000000_20241216T000000_completeness_report.json. If not provided,"
+    "it will be set to {s3_report_folder}/monitoring/completeness_reports by default.",
+)
+def make_scene_odc_completeness_report_cli(
     s3_bucket,
-    s3_completeness_report_folder,
     s3_project_folder,
     collection_number,
     start_dt,
     end_dt,
-    geometry,
+    roi_geojson,
     stac_catalog,
+    s3_completeness_report_folder,
 ):
+    """
+    Generate a scene completeness report for normalised radar backscatter (nrb) products.
+
+    NOTE - The following only consider scenes that have been processed, and not
+    individual burst products. For a detailed report, the cli make_burst_product_completeness_report_cli
+    should be used.
+
+    First, the CDSE is queried for scene_ids within the provided time range and geometry.
+    Next, the open data cube (odc) is queried via the stac-api to determine the processed scenes
+    associated with the burst products. We can then determine if any of the expected scenes are
+    missing from the odc (i.e. have no associated burst products). These scenes should be re-sent
+    for processing.
+
+    A completeness report (.json) is created detailing the missing scenes that need reprocessing.
+    This report should be monitored by another process.
+    """
+
     # --- Parse datetimes ---
     start_dt = datetime.strptime(start_dt, "%Y-%m-%dT%H:%M:%SZ")
     end_dt = datetime.strptime(end_dt, "%Y-%m-%dT%H:%M:%SZ")
@@ -86,14 +105,14 @@ def make_scene_odc_completeness_report(
         )
 
     make_scene_odc_completeness_report(
-        s3_completeness_report_folder=s3_completeness_report_folder,
         s3_bucket=s3_bucket,
         s3_project_folder=s3_project_folder,
         collection_number=collection_number,
         start_dt=start_dt,
         end_dt=end_dt,
-        geometry=geometry,
+        roi_geojson=roi_geojson,
         stac_catalog=stac_catalog,
+        s3_completeness_report_folder=s3_completeness_report_folder,
     )
 
 
@@ -103,15 +122,6 @@ def make_scene_odc_completeness_report(
     required=True,
     type=str,
     help="S3 bucket where the RTC_S1 nrb burst products are stored.",
-)
-@click.option(
-    "--s3-completeness-report-folder",
-    required=True,
-    type=click.Path(file_okay=False, path_type=Path),
-    help="S3 folder where the completeness report will be written. The report will have the structure "
-    "{s3_bucket}/{s3_report_folder}/{report_time}_{start_time}_{end_time}_burst_completion_report.json "
-    "where time is of the format %Y%m%dT%H%M%S, e.g. "
-    "20251218T043403_20241214T000000_20241216T000000_completeness_report.json",
 )
 @click.option(
     "--s3-project-folder",
@@ -138,16 +148,27 @@ def make_scene_odc_completeness_report(
     help="End datetime (ISO format, e.g. 2024-01-31T23:59:59Z).",
 )
 @click.option(
-    "--geometry",
+    "--roi-geojson",
     required=False,
     type=str,
-    help="URL or path to geometry used for STAC searching.",
+    help="URL or path to geometry with region of interest for bursts.",
 )
 @click.option(
     "--stac-catalog",
-    required=True,
+    # required=True,
+    default="https://explorer.dev.dea.ga.gov.au/stac",
     type=str,
-    help="STAC catalog URL (e.g. https://earth-search.aws.element84.com/v1).",
+    help="STAC catalog URL (e.g. https://explorer.dev.dea.ga.gov.au/stac).",
+)
+@click.option(
+    "--s3-completeness-report-folder",
+    required=False,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="S3 folder where the completeness report will be written. The report will have the structure "
+    "{s3_report_folder}/{report_time}_{start_time}_{end_time}_scene_completion_report.json "
+    "where time is of the format %Y%m%dT%H%M%S, e.g. "
+    "20251218T043403_20241214T000000_20241216T000000_completeness_report.json. If not provided,"
+    "it will be set to {s3_report_folder}/monitoring/completeness_reports by default.",
 )
 @click.option(
     "--identify-missing-linked-static-layers",
@@ -188,13 +209,13 @@ def make_scene_odc_completeness_report(
 )
 def make_burst_product_completeness_report_cli(
     s3_bucket,
-    s3_completeness_report_folder,
     s3_project_folder,
     collection_number,
     start_dt,
     end_dt,
-    geometry,
+    roi_geojson,
     stac_catalog,
+    s3_completeness_report_folder,
     identify_missing_linked_static_layers,
     dem_type,
     static_layer_validity_start_date,
@@ -203,7 +224,25 @@ def make_burst_product_completeness_report_cli(
     linked_static_layer_collection_number,
 ):
     """
-    Generate a burst-level completeness report for RTC_S1 products.
+    Generate a burst-level completeness report for normalised radar backscatter (nrb) products.
+
+    NOTE - small windows of <10 days should be used. For larger time spans, the
+    make_scene_odc_completeness_report_cli should be used  to identify unprocessed
+    scenes that should be sent for reprocessing to recreate required burst products.
+
+    First, the CDSE is queried for burst_ids and datetimes within the provided
+    time range and geometry. We expect to have a RTC_S1/nrb product for each of these
+    bursts. Next, the provided AWS S3 bucket is searched to ensure the expected products exist.
+    Next, the open data cube (odc) is queried to ensure the expected products are indexed and
+    available via the stac api.
+
+    If --identify_missing_linked_static_layers is set, the static layers for the missing scenes
+    will also be searched for, as the nrb product may have failed due to a missing static layer.
+
+    A detailed report (.json) is then created detailing the missing bursts, static layers and
+    scenes that need  either reprocessing, or indexing in to the odc. This report should be
+    monitored by another process.
+
     """
 
     # --- Parse datetimes ---
@@ -235,14 +274,14 @@ def make_burst_product_completeness_report_cli(
         )
 
     make_burst_product_completeness_report(
-        s3_completeness_report_folder=s3_completeness_report_folder,
         s3_bucket=s3_bucket,
         s3_project_folder=s3_project_folder,
         collection_number=collection_number,
         start_dt=start_dt,
         end_dt=end_dt,
-        geometry=geometry,
+        roi_geojson=roi_geojson,
         stac_catalog=stac_catalog,
+        s3_completeness_report_folder=s3_completeness_report_folder,
         identify_missing_linked_static_layers=identify_missing_linked_static_layers,
         dem_type=dem_type,
         static_layer_validity_start_date=static_layer_validity_start_date,
