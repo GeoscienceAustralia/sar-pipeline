@@ -125,11 +125,11 @@ class S3Util:
             S3 folder (prefix) to download.
         local_dir : Path
             Local folder path to download files into.
-            
+
             Raises
             ------
             ValueError
-                If the S3 prefix does not exist or is empty.          
+                If the S3 prefix does not exist or is empty.
         """
         s3_folder = str(s3_folder).rstrip("/") + "/"
         paginator = self.s3.get_paginator("list_objects_v2")
