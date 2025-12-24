@@ -14,11 +14,11 @@ import pystac_client
 import time
 from pystac_client.exceptions import APIError
 import json
-from odc.stac import load, configure_s3_access
-from pprint import pprint
+from odc.stac import configure_s3_access
 import mimetypes
 
 from sar_pipeline.utils.general import log_timing
+from sar_pipeline.utils.spatial import load_geojson_as_multipolygon
 from sar_pipeline.utils.sentinel1 import get_polarisation_list_from_scene_id
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes, S3Util
 from sar_pipeline.utils.antimeridian import (
@@ -26,7 +26,6 @@ from sar_pipeline.utils.antimeridian import (
     get_bounds_for_antimeridian_shape,
 )
 from sar_pipeline.utils.dem import get_best_dem_type_for_scene, VALID_DEMS, ValidDemType
-from sar_pipeline.preparation.downloads.scenes import query_scene_from_cdse
 from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     make_rtc_s1_product_s3_prefix,
     make_rtc_s1_static_product_s3_prefix,
@@ -93,11 +92,11 @@ def make_completeness_report_json_safe(obj):
         return obj
 
 
-def _make_chunk_request(
+def _make_chunk_cdse_request(
     base_url: str,
     chunk_start: datetime,
     chunk_end: datetime,
-    product_type: str,
+    product_type: ValidBurstProducts,
     geometry: Optional[Polygon | MultiPolygon],
 ):
     """Execute a single GET request for one time chunk."""
@@ -146,11 +145,46 @@ def query_cdse_for_bursts_in_period(
     product_type: ValidBurstProducts = "IW_SLC__1S",
     burst_prefix: str = "t",
     lowercase: bool = True,
-    max_workers: int = 5,
+    max_workers: int = 10,
     output_path: Optional[str] = None,  # <-- new parameter
 ):
-    """
-    Parallel, chunked CDSE burst query.
+    """_summary_
+
+    Parameters
+    ----------
+    start_dt : datetime
+        search start datetime
+    end_dt : datetime
+        search end datetime
+    chunk_query_minutes : int, optional
+        request minute chunks, by default 5
+    geometry : Optional[Polygon  |  MultiPolygon], optional
+        geometry of the region of interest, by default None
+    query_overlap_seconds : int, optional
+        Overlap seconds for successive queries, by default 5
+    product_type : ValidBurstProducts, optional
+        Filter for correct operational mode, by default "IW_SLC__1S"
+    burst_prefix : str, optional
+        prefix for burst_id formatting, by default "t"
+    lowercase : bool, optional
+        return burst_id in lowercase, by default True
+    max_workers : int, optional
+        Number of parallel requests to make, by default 10.
+    output_path : Optional[str], optional
+        path to write the bursts to a parquet, by default None.
+
+    Returns
+    -------
+    dict
+        dictionary with tuple key (burst_id, azimuth_time) and values
+        {
+            "burst_id": str,
+            "burst_id_cdse": str,
+            "scene_id": str,
+            "azimuth_time": datetime,
+            "platform": str,
+        }
+
     """
 
     logging.info(f"Querying CDSE for bursts between : {start_dt} and {end_dt}")
@@ -196,7 +230,7 @@ def query_cdse_for_bursts_in_period(
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         futures = {
             ex.submit(
-                _make_chunk_request,
+                _make_chunk_cdse_request,
                 base_url,
                 query_start_dt,
                 query_end_dt,
@@ -220,8 +254,8 @@ def query_cdse_for_bursts_in_period(
             if len(results) > 1000:
                 logging.info(
                     "WARNING - more than the limit of 1000 results were found for the query."
-                    f" Reduce `chunk_query_minutes` to be less than the current value of {5}"
-                    f" as some bursts may be missed"
+                    f" Reduce `chunk_query_minutes` to be less than the current value of "
+                    f" {chunk_query_minutes} as some bursts may be missed"
                 )
             for b in results:
                 track_number = int(b.get("RelativeOrbitNumber"))
@@ -295,12 +329,10 @@ def query_stac_for_metadata_in_period(
         limit the fields of the response. e.g.
         fields={"include": ["id", "properties.sarard:scene_id"]}
 
-
-
     Returns
     -------
     tuple (int, dict)
-        Count of matching products and dictionary of metadata for the scenes
+        Count of matching products and dictionary of stac metadata for the scenes
         matching the criteria.
     """
 
@@ -320,59 +352,7 @@ def query_stac_for_metadata_in_period(
     return n_stac_items, stac_items
 
 
-def load_geojson_as_shape(shape_path: str) -> MultiPolygon:
-    """
-    Load a GeoJSON from a URL (or local file) and return a flattened MultiPolygon.
-
-    Handles GeoJSONs containing:
-    - Polygon features
-    - MultiPolygon features
-    - Mix of both
-
-    Parameters
-    ----------
-    url : str
-        URL or local path to the GeoJSON.
-
-    Returns
-    -------
-    MultiPolygon
-        Flattened MultiPolygon containing all polygons from the GeoJSON.
-    """
-
-    logger.info(f"Loading geojson into shape : {shape_path}")
-
-    # Load GeoJSON (supports URL or local file)
-    if shape_path.startswith("http://") or shape_path.startswith("https://"):
-        resp = requests.get(shape_path)
-        resp.raise_for_status()
-        geojson = resp.json()
-    else:
-        import json
-
-        with open(shape_path, "r") as f:
-            geojson = json.load(f)
-
-    # Collect all geometries
-    geometries = []
-
-    features = geojson.get("features", [])
-    for feat in features:
-        geom = shape(feat["geometry"])
-        if isinstance(geom, Polygon):
-            geometries.append(geom)
-        elif isinstance(geom, MultiPolygon):
-            geometries.extend(geom.geoms)
-        else:
-            raise ValueError(f"Unexpected geometry type: {type(geom)}")
-
-    if not geometries:
-        raise ValueError("No Polygon/MultiPolygon geometries found in GeoJSON.")
-
-    # Return a single flattened MultiPolygon
-    return MultiPolygon(geometries)
-
-
+@log_timing
 def make_scene_completeness_report(
     s3_bucket: str,
     s3_project_folder: str,
@@ -383,6 +363,9 @@ def make_scene_completeness_report(
     stac_catalog: str,
     s3_completeness_report_folder: str | None = None,
 ):
+    """For variable descriptions and function docs see the cli:
+    sar_pipeline/pipelines/isce3_rtc/monitoring/cli.py
+    """
     logging.info(f"Running Sentinel-1 IW NRB Scene Level Completeness Check")
 
     if not s3_completeness_report_folder:
@@ -413,7 +396,7 @@ def make_scene_completeness_report(
     ]
 
     if isinstance(roi_geojson, str):
-        geometry = load_geojson_as_shape(roi_geojson).simplify(tolerance=0.1)
+        geometry = load_geojson_as_multipolygon(roi_geojson).simplify(tolerance=0.1)
 
     logging.info("Query the CDSE STAC API for expected processed scene metadata")
 
@@ -429,13 +412,13 @@ def make_scene_completeness_report(
     )
 
     if n_stac_matches == None:
-        logging.info(
-            f"Total number of matches not provided, iterating stac results. This may take a while for large requests."
-        )
+        logging.info(f"Total number of matches not provided.")
     else:
         logging.info(
-            f"{n_stac_matches} scenes found for the given time/geometry window.."
+            f"{n_stac_matches} scenes found for the given time/geometry window."
         )
+
+    logger.info("Iterating stac results. This may take a while for large requests...")
 
     # get the list of scenes we expect to have been processed based on the bursts
     expected_scene_set = {item["id"] for item in stac_items.items_as_dicts()}
@@ -581,6 +564,7 @@ def make_scene_completeness_report(
     logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
 
 
+@log_timing
 def make_burst_product_completeness_report(
     s3_bucket: str,
     s3_project_folder: str,
@@ -597,7 +581,7 @@ def make_burst_product_completeness_report(
     linked_static_layer_s3_project_folder: str | None = None,
     linked_static_layer_collection_number: str | None = None,
 ):
-    """For variable descriptions see the cli:
+    """For variable descriptions and function docs see the cli:
     sar_pipeline/pipelines/isce3_rtc/monitoring/cli.py
     """
 
@@ -628,7 +612,7 @@ def make_burst_product_completeness_report(
     )
 
     if isinstance(roi_geojson, str):
-        geometry = load_geojson_as_shape(roi_geojson).simplify(tolerance=0.1)
+        geometry = load_geojson_as_multipolygon(roi_geojson).simplify(tolerance=0.1)
 
     # Get the burst products we expect to have over the time period
     expected_burst_product_dict = query_cdse_for_bursts_in_period(
