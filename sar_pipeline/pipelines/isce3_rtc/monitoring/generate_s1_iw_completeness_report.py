@@ -373,7 +373,7 @@ def load_geojson_as_shape(shape_path: str) -> MultiPolygon:
     return MultiPolygon(geometries)
 
 
-def make_scene_odc_completeness_report(
+def make_scene_completeness_report(
     s3_bucket: str,
     s3_project_folder: str,
     collection_number: str,
@@ -403,10 +403,19 @@ def make_scene_odc_completeness_report(
         report_type="scene",
     )
 
+    # get the collections to search based on polarisations and collection_number
+    # e.g. ga_s1_nrb_iw_hh_hv_1
+    collections_to_search = [
+        get_odc_product_name("RTC_S1", collection_number, ["VV"]),
+        get_odc_product_name("RTC_S1", collection_number, ["HH"]),
+        get_odc_product_name("RTC_S1", collection_number, ["VV", "VH"]),
+        get_odc_product_name("RTC_S1", collection_number, ["HH", "HV"]),
+    ]
+
     if isinstance(roi_geojson, str):
         geometry = load_geojson_as_shape(roi_geojson).simplify(tolerance=0.1)
 
-    logging.info("Query the CDSE STAC API for scene metadata")
+    logging.info("Query the CDSE STAC API for expected processed scene metadata")
 
     # stac query STAC for items with slight buffer in times
     n_stac_matches, stac_items = query_stac_for_metadata_in_period(
@@ -432,61 +441,96 @@ def make_scene_odc_completeness_report(
     expected_scene_set = {item["id"] for item in stac_items.items_as_dicts()}
 
     logging.info(
-        f"{len(expected_scene_set)} scenes expected to be found for odc burst products"
+        f"{len(expected_scene_set)} processed scenes expected to be found for burst products"
     )
 
-    # get the collections to search based on polarisations and collection_number
-    # e.g. ga_s1_nrb_iw_hh_hv_1
-    collections_to_search = [
-        get_odc_product_name("RTC_S1", collection_number, ["VV"]),
-        get_odc_product_name("RTC_S1", collection_number, ["HH"]),
-        get_odc_product_name("RTC_S1", collection_number, ["VV", "VH"]),
-        get_odc_product_name("RTC_S1", collection_number, ["HH", "HV"]),
-    ]
-
-    # query for bursts in the period and filter for scenes
-    buffer = timedelta(minutes=1)
-    n_stac_matches, stac_items = query_stac_for_metadata_in_period(
-        start_dt=start_dt - buffer,
-        end_dt=end_dt + buffer,
-        geometry=shape(geometry),
-        collections=collections_to_search,
-        stac_catalog=stac_catalog,
-        fields={"include": ["id", "properties.sarard:scene_id"]},
+    # get the scenes that have been processed using the processed tracking file
+    processed_scene_s3_monitoring_folder = (
+        f"{s3_project_folder}/monitoring/processed_scenes"
     )
+    processed_scenes_set = set()
 
     logging.info(
-        f"{n_stac_matches} burst products found for the given time/geometry window.."
+        f"Searching the monitoring folder for processed scenes : {processed_scene_s3_monitoring_folder}"
     )
 
-    logging.info(f"Getting list of parent scenes processed")
+    # query the folder for the filenames (scene.json)
+    s3_utility = S3Util()
+    paginator = s3_utility.s3.get_paginator("list_objects_v2")
+    found_any_objects = False
 
-    indexed_scene_set = set()
+    for page in paginator.paginate(
+        Bucket=s3_bucket,
+        Prefix=processed_scene_s3_monitoring_folder,
+    ):
+        contents = page.get("Contents", [])
+        if contents:
+            found_any_objects = True
 
-    while True:
-        try:
-            for item in tqdm(
-                stac_items.items_as_dicts(),
-                total=n_stac_matches,
-                desc="Iterating STAC items",
-            ):
-                indexed_scene_set.add(item["properties"]["sarard:scene_id"])
-            break  # success
-        except APIError as e:
-            logging.warning(f"STAC API error: {e}. Retrying in 10s...")
-            time.sleep(10)
-
-    # reconcile which scenes do not exist in the odc and should therefore be reprocessed
-    missing_scene_set = expected_scene_set - indexed_scene_set
-    existing_scene_set = expected_scene_set & indexed_scene_set
+        for obj in contents:
+            key = obj["Key"]
+            if key.endswith(".json"):
+                # add the scene_id
+                processed_scenes_set.add(Path(key).stem)
 
     logging.info(
-        f"{len(existing_scene_set)} of {len(expected_scene_set)} have products in the open data cube (ODC)"
+        f"{len(processed_scenes_set)} total processed scenes found for all locations and time"
+    )
+
+    # raise if folder is empty or does not exist
+    if not found_any_objects:
+        logger.warning(
+            f"No objects found under s3://{s3_bucket}/"
+            f"{processed_scene_s3_monitoring_folder}. "
+            "Ensure that processed scenes are saved to this location in the isce3_rtc pipeline."
+        )
+
+        logger.warning(
+            "Falling back to querying the STAC API for processed scenes. "
+            "This is much slower and may not be appropriate for large time windows"
+        )
+
+        # query for bursts in the period and filter for scenes
+        buffer = timedelta(minutes=1)
+        n_stac_matches, stac_items = query_stac_for_metadata_in_period(
+            start_dt=start_dt - buffer,
+            end_dt=end_dt + buffer,
+            geometry=shape(geometry),
+            collections=collections_to_search,
+            stac_catalog=stac_catalog,
+            fields={"include": ["id", "properties.sarard:scene_id"]},
+        )
+
+        logging.info(
+            f"{n_stac_matches} burst products found for the given time/geometry window.."
+        )
+        logging.info(f"Getting list of parent scenes processed")
+
+        while True:
+            try:
+                for item in tqdm(
+                    stac_items.items_as_dicts(),
+                    total=n_stac_matches,
+                    desc="Iterating STAC items",
+                ):
+                    processed_scenes_set.add(item["properties"]["sarard:scene_id"])
+                break  # success
+            except APIError as e:
+                logging.warning(f"STAC API error: {e}. Retrying in 10s...")
+                time.sleep(10)
+
+    # reconcile which scenes do not exist and should therefore be reprocessed
+    logger.info("Comparing list of processed scenes to expected scenes")
+    existing_scene_set = expected_scene_set & processed_scenes_set
+    missing_scene_set = expected_scene_set - processed_scenes_set
+
+    logging.info(
+        f"{len(existing_scene_set)} of {len(expected_scene_set)} expected products have been processed"
     )
     logging.info(
-        f"{len(missing_scene_set)} of {len(expected_scene_set)} expected scenes are missing from the open data cube (ODC). "
-        "The simple assumption is made that these full scenes need to be reprocessed and indexed. For a detailed assessment of the "
-        "specific burst products that need to be reprocessed or re-indexed run the burst level completeness check."
+        f"{len(missing_scene_set)} of {len(expected_scene_set)} expected scenes are missing. "
+        "For a detailed assessment of the specific burst products that need to be "
+        "reprocessed or re-indexed run the burst level completeness check."
     )
 
     # Create the file with missing products
@@ -524,10 +568,9 @@ def make_scene_odc_completeness_report(
         json.dump(scene_completeness_dict, f, indent=2)
 
     # upload the completeness report to the desired AWS S3 bucket
-    s3_uploder = S3Util()
     local_path = f"TMP/{completeness_report_name}"
     s3_key = str(Path(s3_completeness_report_folder) / completeness_report_name)
-    s3_uploder.s3.upload_file(
+    s3_utility.s3.upload_file(
         local_path,
         str(s3_bucket),
         s3_key,
