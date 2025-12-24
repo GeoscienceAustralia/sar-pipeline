@@ -60,7 +60,7 @@ pyrosar-gamma-rtc-run-workflow = "sar_pipeline.pipelines.pyrosar_gamma.aws.cli:r
 pyrosar-gamma-make-metadata-and-upload-product = "sar_pipeline.pipelines.pyrosar_gamma.aws.metadata_cli:make_metadata_and_upload_product"
 ### Monitoring ###
 monitoring-generate-s1-iw-burst-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:make_burst_product_completeness_report_cli"
-monitoring-generate-s1-iw-scene-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:make_scene_odc_completeness_report_cli"
+monitoring-generate-s1-iw-scene-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:make_scene_completeness_report_cli"
 
 [tool.setuptools_scm]
 version_file = "sar_pipeline/_version.py"

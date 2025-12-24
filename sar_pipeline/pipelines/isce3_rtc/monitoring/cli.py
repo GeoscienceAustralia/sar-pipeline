@@ -5,7 +5,7 @@ import logging
 
 from sar_pipeline.pipelines.isce3_rtc.monitoring.generate_s1_iw_completeness_report import (
     make_burst_product_completeness_report,
-    make_scene_odc_completeness_report,
+    make_scene_completeness_report,
 )
 from sar_pipeline.utils.aws import check_aws_environment_credentials
 
@@ -67,7 +67,7 @@ logger = logging.getLogger(__name__)
     "20251218T043403_20241214T000000_20241216T000000_completeness_report.json. If not provided,"
     "it will be set to {s3_report_folder}/monitoring/completeness_reports by default.",
 )
-def make_scene_odc_completeness_report_cli(
+def make_scene_completeness_report_cli(
     s3_bucket,
     s3_project_folder,
     collection_number,
@@ -80,15 +80,23 @@ def make_scene_odc_completeness_report_cli(
     """
     Generate a scene completeness report for normalised radar backscatter (nrb) products.
 
-    NOTE - The following only consider scenes that have been processed, and not
+    NOTE - The following only considers scenes that have been processed, and not
     individual burst products. For a detailed report, the cli make_burst_product_completeness_report_cli
     should be used.
 
-    First, the CDSE is queried for scene_ids within the provided time range and geometry.
-    Next, the open data cube (odc) is queried via the stac-api to determine the processed scenes
-    associated with the burst products. We can then determine if any of the expected scenes are
-    missing from the odc (i.e. have no associated burst products). These scenes should be re-sent
-    for processing.
+    First, the CDSE is queried for scene_ids within the provided time range and geometry to get
+    an expected list of processed scenes. Next, the function will search the monitoring folder
+    for the scene tracking files that get uploaded with every run to:
+            {s3_project_folder}/monitoring/processed_scenes/{scene}.json.
+    The list of scenes in this folder is then compared to the list of expected scenes, resulting
+    in a list of scenes that have not been processed in the expected time-range. These scenes
+    should be re-sent for processing.
+
+    However, if the processed_scenes monitoring folder is empty, a warning is raised and the function
+    falls back to querying the the open data cube (odc) via the stac-api to determine the processed
+    scenes associated with the burst products. We can then determine if any of the expected scenes are
+    missing from the odc (i.e. have no associated burst products). This process is much slower,
+    and may not be suitable for large timeframes.
 
     A completeness report (.json) is created detailing the missing scenes that need reprocessing.
     This report should be monitored by another process.
@@ -104,7 +112,7 @@ def make_scene_odc_completeness_report_cli(
             "AWS credentials are missing. May not be able to publish completion report AWS S3."
         )
 
-    make_scene_odc_completeness_report(
+    make_scene_completeness_report(
         s3_bucket=s3_bucket,
         s3_project_folder=s3_project_folder,
         collection_number=collection_number,
