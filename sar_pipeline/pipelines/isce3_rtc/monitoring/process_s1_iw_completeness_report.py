@@ -81,9 +81,6 @@ def submit_missing_scenes_to_reprocess_from_burst_completeness_report(): ...
 def submit_static_layers_to_reprocess_from_burst_completeness_report(): ...
 
 
-def submit_nrb_bursts_to_reprocess_from_burst_completeness_report(): ...
-
-
 def submit_bursts_to_index_from_burst_completeness_report(): ...
 
 
@@ -92,7 +89,6 @@ if __name__ == "__main__":
     s3_bucket = "deant-data-public-dev"
     s3_completeness_report_folder = "TMP/completeness_reports"
     report_type = "burst"
-
     report_name = "latest"
 
     if report_name == "latest":
