@@ -9,6 +9,7 @@ import rasterio
 from rasterio.features import shapes
 import json
 from pathlib import Path
+import requests
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -367,3 +368,57 @@ def write_shape_to_geojson(
             json.dump(geojson, f, indent=4)
         else:
             json.dump(geojson, f)
+
+
+def load_geojson_as_multipolygon(shape_path: str) -> MultiPolygon:
+    """
+    Load a GeoJSON from a URL (or local file) and return a flattened
+    MultiPolygon.
+
+    Handles GeoJSONs containing:
+    - Polygon features
+    - MultiPolygon features
+    - Mix of both
+
+    Parameters
+    ----------
+    url : str
+        URL or local path to the GeoJSON.
+
+    Returns
+    -------
+    MultiPolygon
+        Flattened MultiPolygon containing all polygons from the GeoJSON.
+    """
+
+    logger.info(f"Loading geojson into shape : {shape_path}")
+
+    # Load GeoJSON (supports URL or local file)
+    if shape_path.startswith("http://") or shape_path.startswith("https://"):
+        resp = requests.get(shape_path)
+        resp.raise_for_status()
+        geojson = resp.json()
+    else:
+        import json
+
+        with open(shape_path, "r") as f:
+            geojson = json.load(f)
+
+    # Collect all geometries
+    geometries = []
+
+    features = geojson.get("features", [])
+    for feat in features:
+        geom = shape(feat["geometry"])
+        if isinstance(geom, Polygon):
+            geometries.append(geom)
+        elif isinstance(geom, MultiPolygon):
+            geometries.extend(geom.geoms)
+        else:
+            raise ValueError(f"Unexpected geometry type: {type(geom)}")
+
+    if not geometries:
+        raise ValueError("No Polygon/MultiPolygon geometries found in GeoJSON.")
+
+    # Return a single flattened MultiPolygon
+    return MultiPolygon(geometries)

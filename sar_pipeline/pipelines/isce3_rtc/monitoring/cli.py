@@ -18,19 +18,19 @@ logger = logging.getLogger(__name__)
     "--s3-bucket",
     required=True,
     type=str,
-    help="S3 bucket where the RTC_S1 nrb burst products are stored.",
+    help="S3 bucket where the burst products are stored.",
 )
 @click.option(
     "--s3-project-folder",
     required=True,
     type=click.Path(file_okay=False, path_type=Path),
-    help="Project folder in the S3 bucket containing the RTC_S1 nrb burst products.",
+    help="Project folder in the S3 bucket containing the burst products.",
 )
 @click.option(
     "--collection-number",
     required=True,
     type=str,
-    help="Collection number of the RTC_S1 product.",
+    help="Collection number of the products.",
 )
 @click.option(
     "--start-dt",
@@ -87,7 +87,8 @@ def make_scene_completeness_report_cli(
     First, the CDSE is queried for scene_ids within the provided time range and geometry to get
     an expected list of processed scenes. Next, the function will search the monitoring folder
     for the scene tracking files that get uploaded with every run to:
-            {s3_project_folder}/monitoring/processed_scenes/{scene}.json.
+            - {s3_project_folder}/monitoring/processed_scenes/{scene}.json.
+
     The list of scenes in this folder is then compared to the list of expected scenes, resulting
     in a list of scenes that have not been processed in the expected time-range. These scenes
     should be re-sent for processing.
@@ -95,8 +96,8 @@ def make_scene_completeness_report_cli(
     However, if the processed_scenes monitoring folder is empty, a warning is raised and the function
     falls back to querying the the open data cube (odc) via the stac-api to determine the processed
     scenes associated with the burst products. We can then determine if any of the expected scenes are
-    missing from the odc (i.e. have no associated burst products). This process is much slower,
-    and may not be suitable for large timeframes.
+    missing from the odc (i.e. have no associated burst products). This process is much slower than
+    checking the monitoring folder and may not be suitable for large timeframes.
 
     A completeness report (.json) is created detailing the missing scenes that need reprocessing.
     This report should be monitored by another process.
@@ -129,19 +130,19 @@ def make_scene_completeness_report_cli(
     "--s3-bucket",
     required=True,
     type=str,
-    help="S3 bucket where the RTC_S1 nrb burst products are stored.",
+    help="S3 bucket where the burst products are stored.",
 )
 @click.option(
     "--s3-project-folder",
     required=True,
     type=click.Path(file_okay=False, path_type=Path),
-    help="Project folder in the S3 bucket containing the RTC_S1 nrb burst products.",
+    help="Project folder in the S3 bucket containing the burst products.",
 )
 @click.option(
     "--collection-number",
     required=True,
     type=str,
-    help="Collection number of the RTC_S1 product.",
+    help="Collection number of the product.",
 )
 @click.option(
     "--start-dt",
@@ -235,10 +236,10 @@ def make_burst_product_completeness_report_cli(
     Generate a burst-level completeness report for normalised radar backscatter (nrb) products.
 
     NOTE - small windows of <10 days should be used. For larger time spans, the
-    make_scene_odc_completeness_report_cli should be used  to identify unprocessed
-    scenes that should be sent for reprocessing to recreate required burst products.
+    make_scene_odc_completeness_report_cli should be used to identify unprocessed
+    scenes.
 
-    First, the CDSE is queried for burst_ids and datetimes within the provided
+    First, the CDSE burst API is queried for burst_ids and datetimes within the provided
     time range and geometry. We expect to have a RTC_S1/nrb product for each of these
     bursts. Next, the provided AWS S3 bucket is searched to ensure the expected products exist.
     Next, the open data cube (odc) is queried to ensure the expected products are indexed and
@@ -248,9 +249,8 @@ def make_burst_product_completeness_report_cli(
     will also be searched for, as the nrb product may have failed due to a missing static layer.
 
     A detailed report (.json) is then created detailing the missing bursts, static layers and
-    scenes that need  either reprocessing, or indexing in to the odc. This report should be
+    scenes that need either reprocessing, or indexing in to the odc. This report should be
     monitored by another process.
-
     """
 
     # --- Parse datetimes ---
