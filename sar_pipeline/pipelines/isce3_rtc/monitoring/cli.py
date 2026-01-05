@@ -52,7 +52,6 @@ logger = logging.getLogger(__name__)
 )
 @click.option(
     "--stac-catalog",
-    # required=True,
     default="https://explorer.dev.dea.ga.gov.au/stac",
     type=str,
     help="STAC catalog URL (e.g. https://explorer.dev.dea.ga.gov.au/stac).",
@@ -164,7 +163,7 @@ def make_scene_completeness_report_cli(
 )
 @click.option(
     "--stac-catalog",
-    # required=True,
+    required=True,
     default="https://explorer.dev.dea.ga.gov.au/stac",
     type=str,
     help="STAC catalog URL (e.g. https://explorer.dev.dea.ga.gov.au/stac).",
@@ -208,13 +207,15 @@ def make_scene_completeness_report_cli(
     "--linked-static-layer-s3-project-folder",
     required=False,
     type=str,
-    help="S3 project folder containing linked RTC_S1_STATIC layers.",
+    help="S3 project folder containing linked RTC_S1_STATIC layers. "
+    "Defaults to --s3-project-folder if not provided.",
 )
 @click.option(
     "--linked-static-layer-collection-number",
     required=False,
     type=str,
-    help="Collection number of linked RTC_S1_STATIC layers.",
+    help="Collection number of linked RTC_S1_STATIC layers."
+    "Defaults to --collection-number if not provided.",
 )
 def make_burst_product_completeness_report_cli(
     s3_bucket,
@@ -261,7 +262,7 @@ def make_burst_product_completeness_report_cli(
 
     # --- Default linked static layer bucket if not directly set---
     if not skip_identify_missing_linked_static_layers:
-        logging.info("Missing static layers will be searched for")
+        logging.info("Missing static layers will be identified")
         identify_missing_linked_static_layers = True
         if not linked_static_layer_s3_bucket:
             logger.warning(
@@ -279,7 +280,7 @@ def make_burst_product_completeness_report_cli(
             )
             linked_static_layer_s3_project_folder = s3_project_folder
     else:
-        logging.info("Missing static layers will be NOT be searched for")
+        logging.info("Missing static layers will be NOT be identified")
         identify_missing_linked_static_layers = False
 
     missing_credentials = check_aws_environment_credentials(verbose=True)
