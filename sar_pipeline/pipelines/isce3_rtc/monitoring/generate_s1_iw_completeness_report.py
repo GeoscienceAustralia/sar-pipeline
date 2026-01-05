@@ -1,23 +1,15 @@
 from datetime import datetime, timedelta
-from typing import Optional, Literal
-import requests
 import logging
-import shapely
 from pathlib import Path
 import os
-from shapely.geometry import shape, Polygon, MultiPolygon
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
-import re
-import pandas as pd
-import pystac_client
-import time
+from shapely.geometry import shape
 from pystac_client.exceptions import APIError
+from tqdm import tqdm
+import time
 import json
-from odc.stac import configure_s3_access
 import mimetypes
 
-from sar_pipeline.utils.general import log_timing
+from sar_pipeline.utils.general import log_timing, format_dt_utc
 from sar_pipeline.utils.spatial import load_geojson_as_multipolygon
 from sar_pipeline.utils.sentinel1 import get_polarisation_list_from_scene_id
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes, S3Util
@@ -25,7 +17,11 @@ from sar_pipeline.utils.antimeridian import (
     check_shape_crosses_antimeridian,
     get_bounds_for_antimeridian_shape,
 )
+from sar_pipeline.utils.stac import query_stac_for_metadata_in_period
 from sar_pipeline.utils.dem import get_best_dem_type_for_scene, VALID_DEMS, ValidDemType
+from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
+    query_cdse_for_bursts_in_period,
+)
 from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     make_rtc_s1_product_s3_prefix,
     make_rtc_s1_static_product_s3_prefix,
@@ -39,13 +35,6 @@ from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-ValidBurstProducts = Literal["IW_SLC__1S", "EW_SLC__1S"]
-
-
-def _format_dt(dt: datetime) -> str:
-    s = dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-    return re.sub(r"(\.\d{3})\d{3}Z$", r"\1Z", s)
-
 
 COMPLETENESS_REPORT_FORMAT = (
     "{report_dt}_{start_dt}_{end_dt}_{report_type}_completeness_report.json"
@@ -55,7 +44,7 @@ DEFAULT_S3_COMPLETENESS_REPORT_FOLDER = (
 )
 
 
-def make_completeness_report_json_safe(obj):
+def _make_completeness_report_json_safe(obj):
     """convert tuple keys to literal strings, datetimes to strings, Paths to strings"""
     if isinstance(obj, dict):
         out = {}
@@ -65,7 +54,7 @@ def make_completeness_report_json_safe(obj):
                 key = (
                     "("
                     + ", ".join(
-                        repr(_format_dt(t) if isinstance(t, datetime) else str(t))
+                        repr(format_dt_utc(t) if isinstance(t, datetime) else str(t))
                         for t in k
                     )
                     + ")"
@@ -75,281 +64,21 @@ def make_completeness_report_json_safe(obj):
             else:
                 key = k
 
-            out[key] = make_completeness_report_json_safe(v)
+            out[key] = _make_completeness_report_json_safe(v)
 
         return out
 
     elif isinstance(obj, list):
-        return [make_completeness_report_json_safe(v) for v in obj]
+        return [_make_completeness_report_json_safe(v) for v in obj]
 
     elif isinstance(obj, datetime):
-        return _format_dt(obj)
+        return format_dt_utc(obj)
 
     elif isinstance(obj, Path):
         return str(obj)
 
     else:
         return obj
-
-
-def _make_chunk_cdse_request(
-    base_url: str,
-    chunk_start: datetime,
-    chunk_end: datetime,
-    product_type: ValidBurstProducts,
-    geometry: Optional[Polygon | MultiPolygon],
-):
-    """Execute a single GET request for one time chunk."""
-    chunk_start = _format_dt(chunk_start)
-    chunk_end = _format_dt(chunk_end)
-
-    base_query = (
-        f"$filter=ContentDate/Start ge {chunk_start} "
-        f"and ContentDate/Start le {chunk_end} "
-        f"and ParentProductType eq '{product_type}'"
-    )
-
-    all_results = []
-
-    if geometry:
-        if isinstance(geometry, MultiPolygon):
-            # Create one OData filter per polygon, then join with ' or '
-            polygons_filters = [
-                f" and OData.CSC.Intersects(area=geography'SRID=4326;{poly.wkt}')"
-                for poly in geometry.geoms
-            ]
-        elif isinstance(geometry, Polygon):
-            polygons_filters = [
-                f" and OData.CSC.Intersects(area=geography'SRID=4326;{geometry.wkt}')"
-            ]
-        else:
-            raise TypeError("Provided geometry must be Polygon or Multipolygon")
-
-    for poly_wkt in polygons_filters:
-        query = base_query + poly_wkt + "&$orderby=ContentDate/Start desc&$top=1000"
-        url = f"{base_url}?{query}"
-        r = requests.get(url)
-        r.raise_for_status()
-        all_results.extend(r.json().get("value", []))
-
-    return all_results
-
-
-@log_timing
-def query_cdse_for_bursts_in_period(
-    start_dt: datetime,
-    end_dt: datetime,
-    chunk_query_minutes: int = 5,
-    geometry: Optional[Polygon | MultiPolygon] = None,
-    query_overlap_seconds: int = 5,
-    product_type: ValidBurstProducts = "IW_SLC__1S",
-    burst_prefix: str = "t",
-    lowercase: bool = True,
-    max_workers: int = 10,
-    output_path: Optional[str] = None,  # <-- new parameter
-):
-    """_summary_
-
-    Parameters
-    ----------
-    start_dt : datetime
-        search start datetime
-    end_dt : datetime
-        search end datetime
-    chunk_query_minutes : int, optional
-        request minute chunks, by default 5
-    geometry : Optional[Polygon  |  MultiPolygon], optional
-        geometry of the region of interest, by default None
-    query_overlap_seconds : int, optional
-        Overlap seconds for successive queries, by default 5
-    product_type : ValidBurstProducts, optional
-        Filter for correct operational mode, by default "IW_SLC__1S"
-    burst_prefix : str, optional
-        prefix for burst_id formatting, by default "t"
-    lowercase : bool, optional
-        return burst_id in lowercase, by default True
-    max_workers : int, optional
-        Number of parallel requests to make, by default 10.
-    output_path : Optional[str], optional
-        path to write the bursts to a parquet, by default None.
-
-    Returns
-    -------
-    dict
-        dictionary with tuple key (burst_id, azimuth_time) and values
-        {
-            "burst_id": str,
-            "burst_id_cdse": str,
-            "scene_id": str,
-            "azimuth_time": datetime,
-            "platform": str,
-        }
-
-    """
-
-    logging.info(f"Querying CDSE for bursts between : {start_dt} and {end_dt}")
-
-    base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
-
-    chunk = timedelta(minutes=chunk_query_minutes)
-    overlap = timedelta(seconds=query_overlap_seconds)
-
-    # -------- Build chunk list --------
-    query_dt_chunks = []
-    query_start_dt = start_dt
-
-    while query_start_dt <= end_dt:
-        query_end_dt = min(query_start_dt + chunk, end_dt)
-        query_dt_chunks.append((query_start_dt, query_end_dt))
-        if query_end_dt == end_dt:
-            break
-        query_start_dt = query_end_dt - overlap  # maintain overlap
-
-    if isinstance(geometry, MultiPolygon):
-        n_polygons = len(geometry.geoms)
-        logging.info(
-            f"WARNING : Provided geometry is a MultiPolygon (N polygons = {n_polygons}). "
-            f"A separate query will be made for each Polygon within the MultiPolygon. "
-            f"Simplify if possible and ensure Polygons are not overlapping."
-        )
-    else:
-        n_polygons = 1
-
-    logging.info(
-        f"Separating query into {chunk_query_minutes} "
-        f"minute chunks with {query_overlap_seconds} second overlap "
-        f"(odata API limits to 1000 responses per request)"
-    )
-    logging.info(
-        f"{len(query_dt_chunks*n_polygons)} chunked queries will be made in parallel with {max_workers} workers"
-    )
-
-    burst_product_dict = {}
-
-    # -------- Parallel requests --------
-    with ThreadPoolExecutor(max_workers=max_workers) as ex:
-        futures = {
-            ex.submit(
-                _make_chunk_cdse_request,
-                base_url,
-                query_start_dt,
-                query_end_dt,
-                product_type,
-                geometry,
-            ): (query_start_dt, query_end_dt)
-            for (query_start_dt, query_end_dt) in query_dt_chunks
-        }
-
-        for fut in tqdm(
-            as_completed(futures), total=len(futures), desc="Querying CDSE for bursts"
-        ):
-            query_start_dt, query_end_dt = futures[fut]
-            try:
-                results = fut.result()
-            except Exception as err:
-                logging.error(f"Chunk {query_end_dt} → {query_start_dt} failed: {err}")
-                continue
-
-            # Process results
-            if len(results) > 1000:
-                logging.info(
-                    "WARNING - more than the limit of 1000 results were found for the query."
-                    f" Reduce `chunk_query_minutes` to be less than the current value of "
-                    f" {chunk_query_minutes} as some bursts may be missed"
-                )
-            for b in results:
-                track_number = int(b.get("RelativeOrbitNumber"))
-                esa_burst_id = int(b.get("BurstId"))
-                subswath = b.get("SwathIdentifier")
-
-                burst_id_asf = (
-                    f"{burst_prefix}{track_number:03d}_{esa_burst_id:06d}_{subswath}"
-                )
-                burst_id_asf = burst_id_asf.lower() if lowercase else burst_id_asf
-
-                az_time = datetime.strptime(
-                    b.get("AzimuthTime"), "%Y-%m-%dT%H:%M:%S.%fZ"
-                )
-
-                # set the key to be a tuple of the burst_id and azimuth time
-                # bursts repeat every 6/12 days so the time ensures uniqueness
-                if (burst_id_asf, az_time) not in burst_product_dict:
-                    burst_product_dict[(burst_id_asf, az_time)] = {
-                        "burst_id": burst_id_asf,
-                        "burst_id_cdse": b.get("Name"),
-                        "scene_id": b.get("ParentProductName").replace(".SAFE", ""),
-                        "azimuth_time": az_time,
-                        "platform": b.get("PlatformSerialIdentifier"),
-                    }
-
-    if not burst_product_dict:
-        logging.info("No bursts found for the given time/geometry window.")
-    else:
-        logging.info(
-            f"{len(burst_product_dict)} bursts found for the given time/geometry window.."
-        )
-
-    if output_path:
-        df = pd.DataFrame.from_dict(burst_product_dict, orient="index")
-        df.to_parquet(output_path, index=False)
-        logging.info(f"Results written to {output_path}")
-
-    return burst_product_dict
-
-
-def query_stac_for_metadata_in_period(
-    start_dt: datetime,
-    end_dt: datetime,
-    geometry: Polygon | MultiPolygon | None,
-    collections: list,
-    stac_catalog: str,
-    query: dict | None = None,
-    fields: dict | None = None,
-):
-    """Query A given STAC API for product metadata that falls within the
-    provided time range and geometry.
-
-    Parameters
-    ----------
-    start_dt : datetime
-        search start datetime
-    end_dt : datetime
-        search end datetime
-    geometry : shape | Polygon | MultiPolygon | None
-        search geometry
-    collections : list, optional
-        Collection to search, e.g. ["sentinel-1-slc"]
-    stac_catalog : str, optional
-        STAC catalog url to search, e.g. "https://stac.dataspace.copernicus.eu/v1/"
-        or "https://explorer.dea.ga.gov.au/stac"
-    query : dict, optional
-        Additional filtering for the products. e.g.
-        {"sar:instrument_mode": {"eq": "IW"}}
-    fields : dict
-        limit the fields of the response. e.g.
-        fields={"include": ["id", "properties.sarard:scene_id"]}
-
-    Returns
-    -------
-    tuple (int, dict)
-        Count of matching products and dictionary of stac metadata for the scenes
-        matching the criteria.
-    """
-
-    stac_client = pystac_client.Client.open(stac_catalog)
-    configure_s3_access(cloud_defaults=True, aws_unsigned=True)
-    stac_start_dt = _format_dt(start_dt)
-    stac_end_dt = _format_dt(end_dt)
-    stac_items = stac_client.search(
-        collections=collections,
-        datetime=f"{stac_start_dt}/{stac_end_dt}",
-        intersects=geometry,
-        query=query,
-        fields=fields,
-    )
-    n_stac_items = stac_items.matched()
-
-    return n_stac_items, stac_items
 
 
 @log_timing
@@ -542,7 +271,7 @@ def make_scene_completeness_report(
         },
     }
 
-    scene_completeness_dict = make_completeness_report_json_safe(
+    scene_completeness_dict = _make_completeness_report_json_safe(
         scene_completeness_dict
     )
 
@@ -844,6 +573,12 @@ def make_burst_product_completeness_report(
         if n_scenes_to_process == 0:
             logging.info(f"All bursts have the required static layers.")
         else:
+            logging.warning(
+                "Searching for missing static layers for bursts. "
+                "If a large number of scenes are missing this may take a long time. "
+                "Set identify_missing_linked_static_layers = False or set "
+                "--skip-identify-missing-linked-static-layers from the cli to skip this process"
+            )
             logging.info("Query the CDSE STAC API for scene metadata")
             # stac query STAC for items with slight buffer in times
             buffer = timedelta(minutes=10)
@@ -993,7 +728,7 @@ def make_burst_product_completeness_report(
 
     # make the keys (burst_id, azimuth_time) a string so it can be saved as a json
     # convert the datetimes to strings too
-    completeness_json = make_completeness_report_json_safe(completeness_dict)
+    completeness_json = _make_completeness_report_json_safe(completeness_dict)
 
     os.makedirs("TMP", exist_ok=True)
     with open(f"TMP/{completeness_report_name}", "w") as f:

@@ -1,15 +1,16 @@
 import asf_search
 from datetime import datetime, timedelta
-import boto3
-from botocore import UNSIGNED
-from botocore.config import Config
-import os
 import logging
 import shapely
-from typing import Literal
+from shapely.geometry import Polygon, MultiPolygon
+from typing import Optional, Literal
 import sys
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
+import pandas as pd
 
+from sar_pipeline.utils.general import log_timing, format_dt_utc
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
 from sar_pipeline.utils.dem import ValidDemType
 from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import REQUIRED_ASSET_FILETYPES
@@ -21,6 +22,8 @@ from sar_pipeline.utils.sentinel1 import get_dates_from_scene_id
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+ValidBurstProducts = Literal["IW_SLC__1S", "EW_SLC__1S"]
 
 
 def get_burst_info_for_scene_from_asf(
@@ -424,3 +427,208 @@ def ensure_static_layers_in_s3(
             f"See workflow docs for details at docs/workflows/aws.md."
         )
         sys.exit(early_exit_code)
+
+
+def _make_chunk_cdse_request(
+    base_url: str,
+    chunk_start: datetime,
+    chunk_end: datetime,
+    product_type: ValidBurstProducts,
+    geometry: Optional[Polygon | MultiPolygon],
+):
+    """Execute a single GET request for one time chunk."""
+    chunk_start = format_dt_utc(chunk_start)
+    chunk_end = format_dt_utc(chunk_end)
+
+    base_query = (
+        f"$filter=ContentDate/Start ge {chunk_start} "
+        f"and ContentDate/Start le {chunk_end} "
+        f"and ParentProductType eq '{product_type}'"
+    )
+
+    all_results = []
+
+    if geometry:
+        if isinstance(geometry, MultiPolygon):
+            # Create one OData filter per polygon, then join with ' or '
+            polygons_filters = [
+                f" and OData.CSC.Intersects(area=geography'SRID=4326;{poly.wkt}')"
+                for poly in geometry.geoms
+            ]
+        elif isinstance(geometry, Polygon):
+            polygons_filters = [
+                f" and OData.CSC.Intersects(area=geography'SRID=4326;{geometry.wkt}')"
+            ]
+        else:
+            raise TypeError("Provided geometry must be Polygon or Multipolygon")
+
+    for poly_wkt in polygons_filters:
+        query = base_query + poly_wkt + "&$orderby=ContentDate/Start desc&$top=1000"
+        url = f"{base_url}?{query}"
+        r = requests.get(url)
+        r.raise_for_status()
+        all_results.extend(r.json().get("value", []))
+
+    return all_results
+
+
+@log_timing
+def query_cdse_for_bursts_in_period(
+    start_dt: datetime,
+    end_dt: datetime,
+    chunk_query_minutes: int = 5,
+    geometry: Optional[Polygon | MultiPolygon] = None,
+    query_overlap_seconds: int = 5,
+    product_type: ValidBurstProducts = "IW_SLC__1S",
+    burst_prefix: str = "t",
+    lowercase: bool = True,
+    max_workers: int = 10,
+    output_path: Optional[str] = None,  # <-- new parameter
+):
+    """_summary_
+
+    Parameters
+    ----------
+    start_dt : datetime
+        search start datetime
+    end_dt : datetime
+        search end datetime
+    chunk_query_minutes : int, optional
+        request minute chunks, by default 5
+    geometry : Optional[Polygon  |  MultiPolygon], optional
+        geometry of the region of interest, by default None
+    query_overlap_seconds : int, optional
+        Overlap seconds for successive queries, by default 5
+    product_type : ValidBurstProducts, optional
+        Filter for correct operational mode, by default "IW_SLC__1S"
+    burst_prefix : str, optional
+        prefix for burst_id formatting, by default "t"
+    lowercase : bool, optional
+        return burst_id in lowercase, by default True
+    max_workers : int, optional
+        Number of parallel requests to make, by default 10.
+    output_path : Optional[str], optional
+        path to write the bursts to a parquet, by default None.
+
+    Returns
+    -------
+    dict
+        dictionary with tuple key (burst_id, azimuth_time) and values
+        {
+            "burst_id": str,
+            "burst_id_cdse": str,
+            "scene_id": str,
+            "azimuth_time": datetime,
+            "platform": str,
+        }
+
+    """
+
+    logging.info(f"Querying CDSE for bursts between : {start_dt} and {end_dt}")
+
+    base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
+
+    chunk = timedelta(minutes=chunk_query_minutes)
+    overlap = timedelta(seconds=query_overlap_seconds)
+
+    # -------- Build chunk list --------
+    query_dt_chunks = []
+    query_start_dt = start_dt
+
+    while query_start_dt <= end_dt:
+        query_end_dt = min(query_start_dt + chunk, end_dt)
+        query_dt_chunks.append((query_start_dt, query_end_dt))
+        if query_end_dt == end_dt:
+            break
+        query_start_dt = query_end_dt - overlap  # maintain overlap
+
+    if isinstance(geometry, MultiPolygon):
+        n_polygons = len(geometry.geoms)
+        logging.info(
+            f"WARNING : Provided geometry is a MultiPolygon (N polygons = {n_polygons}). "
+            f"A separate query will be made for each Polygon within the MultiPolygon. "
+            f"Simplify if possible and ensure Polygons are not overlapping."
+        )
+    else:
+        n_polygons = 1
+
+    logging.info(
+        f"Separating query into {chunk_query_minutes} "
+        f"minute chunks with {query_overlap_seconds} second overlap "
+        f"(odata API limits to 1000 responses per request)"
+    )
+    logging.info(
+        f"{len(query_dt_chunks*n_polygons)} chunked queries will be made in parallel with {max_workers} workers"
+    )
+
+    burst_product_dict = {}
+
+    # -------- Parallel requests --------
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futures = {
+            ex.submit(
+                _make_chunk_cdse_request,
+                base_url,
+                query_start_dt,
+                query_end_dt,
+                product_type,
+                geometry,
+            ): (query_start_dt, query_end_dt)
+            for (query_start_dt, query_end_dt) in query_dt_chunks
+        }
+
+        for fut in tqdm(
+            as_completed(futures), total=len(futures), desc="Querying CDSE for bursts"
+        ):
+            query_start_dt, query_end_dt = futures[fut]
+            try:
+                results = fut.result()
+            except Exception as err:
+                logging.error(f"Chunk {query_end_dt} → {query_start_dt} failed: {err}")
+                continue
+
+            # Process results
+            if len(results) > 1000:
+                logging.info(
+                    "WARNING - more than the limit of 1000 results were found for the query."
+                    f" Reduce `chunk_query_minutes` to be less than the current value of "
+                    f" {chunk_query_minutes} as some bursts may be missed"
+                )
+            for b in results:
+                track_number = int(b.get("RelativeOrbitNumber"))
+                esa_burst_id = int(b.get("BurstId"))
+                subswath = b.get("SwathIdentifier")
+
+                burst_id_asf = (
+                    f"{burst_prefix}{track_number:03d}_{esa_burst_id:06d}_{subswath}"
+                )
+                burst_id_asf = burst_id_asf.lower() if lowercase else burst_id_asf
+
+                az_time = datetime.strptime(
+                    b.get("AzimuthTime"), "%Y-%m-%dT%H:%M:%S.%fZ"
+                )
+
+                # set the key to be a tuple of the burst_id and azimuth time
+                # bursts repeat every 6/12 days so the time ensures uniqueness
+                if (burst_id_asf, az_time) not in burst_product_dict:
+                    burst_product_dict[(burst_id_asf, az_time)] = {
+                        "burst_id": burst_id_asf,
+                        "burst_id_cdse": b.get("Name"),
+                        "scene_id": b.get("ParentProductName").replace(".SAFE", ""),
+                        "azimuth_time": az_time,
+                        "platform": b.get("PlatformSerialIdentifier"),
+                    }
+
+    if not burst_product_dict:
+        logging.info("No bursts found for the given time/geometry window.")
+    else:
+        logging.info(
+            f"{len(burst_product_dict)} bursts found for the given time/geometry window.."
+        )
+
+    if output_path:
+        df = pd.DataFrame.from_dict(burst_product_dict, orient="index")
+        df.to_parquet(output_path, index=False)
+        logging.info(f"Results written to {output_path}")
+
+    return burst_product_dict

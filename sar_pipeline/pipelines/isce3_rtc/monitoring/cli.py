@@ -180,10 +180,10 @@ def make_scene_completeness_report_cli(
     "it will be set to {s3_report_folder}/monitoring/completeness_reports by default.",
 )
 @click.option(
-    "--identify-missing-linked-static-layers",
+    "--skip-identify-missing-linked-static-layers",
     is_flag=True,
-    default=True,
-    help="Identify missing linked static layers.",
+    default=False,
+    help="Skip identification of missing linked static layers.",
 )
 @click.option(
     "--dem-type",
@@ -225,7 +225,7 @@ def make_burst_product_completeness_report_cli(
     roi_geojson,
     stac_catalog,
     s3_completeness_report_folder,
-    identify_missing_linked_static_layers,
+    skip_identify_missing_linked_static_layers,
     dem_type,
     static_layer_validity_start_date,
     linked_static_layer_s3_bucket,
@@ -245,8 +245,10 @@ def make_burst_product_completeness_report_cli(
     Next, the open data cube (odc) is queried to ensure the expected products are indexed and
     available via the stac api.
 
-    If --identify_missing_linked_static_layers is set, the static layers for the missing scenes
-    will also be searched for, as the nrb product may have failed due to a missing static layer.
+    By default, the static layers for the missing scenes will also be searched for, as the nrb
+    product may have failed due to a missing static layer. If a large number of nrb products are
+    missing, this may take a long time. In this case --skip-identify-missing-linked-static-layers
+    should be set.
 
     A detailed report (.json) is then created detailing the missing bursts, static layers and
     scenes that need either reprocessing, or indexing in to the odc. This report should be
@@ -257,8 +259,10 @@ def make_burst_product_completeness_report_cli(
     start_dt = datetime.strptime(start_dt, "%Y-%m-%dT%H:%M:%SZ")
     end_dt = datetime.strptime(end_dt, "%Y-%m-%dT%H:%M:%SZ")
 
-    # --- Default linked static layer bucket ---
-    if identify_missing_linked_static_layers is None:
+    # --- Default linked static layer bucket if not directly set---
+    if not skip_identify_missing_linked_static_layers:
+        logging.info("Missing static layers will be searched for")
+        identify_missing_linked_static_layers = True
         if not linked_static_layer_s3_bucket:
             logger.warning(
                 "--linked-static-layer-s3-bucket not provided. Setting to --s3-bucket"
@@ -274,6 +278,9 @@ def make_burst_product_completeness_report_cli(
                 "--linked-static-layer-collection-number not provided. Setting to --collection-number"
             )
             linked_static_layer_s3_project_folder = s3_project_folder
+    else:
+        logging.info("Missing static layers will be NOT be searched for")
+        identify_missing_linked_static_layers = False
 
     missing_credentials = check_aws_environment_credentials(verbose=True)
     if missing_credentials:
