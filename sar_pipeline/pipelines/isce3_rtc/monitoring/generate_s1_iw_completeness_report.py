@@ -157,6 +157,8 @@ def make_scene_completeness_report(
     )
 
     # get the scenes that have been processed using the processed tracking file
+    # this is a simple .json file that gets created after processing every scene
+    # produced for sar-pipeline>v0.4.0
     processed_scene_s3_monitoring_folder = (
         f"{s3_project_folder}/monitoring/processed_scenes"
     )
@@ -189,7 +191,7 @@ def make_scene_completeness_report(
         f"{len(processed_scenes_set)} total processed scenes found for all locations and time"
     )
 
-    # raise if folder is empty or does not exist
+    # raise warning if folder is empty or does not exist
     if not found_any_objects:
         logger.warning(
             f"No objects found under s3://{s3_bucket}/"
@@ -203,6 +205,7 @@ def make_scene_completeness_report(
         )
 
         # query for bursts in the period and filter for scenes
+        # this will happen for products made with sar-pipeline<=v0.4.0
         buffer = timedelta(minutes=1)
         n_stac_matches, stac_items = query_stac_for_metadata_in_period(
             start_dt=start_dt - buffer,
@@ -231,7 +234,7 @@ def make_scene_completeness_report(
                 logging.warning(f"STAC API error: {e}. Retrying in 10s...")
                 time.sleep(10)
 
-    # reconcile which scenes do not exist and should therefore be reprocessed
+    # reconcile which scenes do not exist / are missing and should therefore be reprocessed
     logger.info("Comparing list of processed scenes to expected scenes")
     existing_scene_set = expected_scene_set & processed_scenes_set
     missing_scene_set = expected_scene_set - processed_scenes_set
@@ -245,7 +248,7 @@ def make_scene_completeness_report(
         "reprocessed or re-indexed run the burst level completeness check."
     )
 
-    # Create the file with missing products
+    # Create the file detailing the missing products
     scene_completeness_dict = {
         "report_time": report_dt.strftime("%Y%m%dT%H%M%S"),
         "search_start_time": start_dt.strftime("%Y%m%dT%H%M%S"),
@@ -275,12 +278,12 @@ def make_scene_completeness_report(
         scene_completeness_dict
     )
 
-    os.makedirs("TMP", exist_ok=True)
-    with open(f"TMP/{completeness_report_name}", "w") as f:
+    os.makedirs("TMP/monitoring", exist_ok=True)
+    with open(f"TMP/monitoring/{completeness_report_name}", "w") as f:
         json.dump(scene_completeness_dict, f, indent=2)
 
     # upload the completeness report to the desired AWS S3 bucket
-    local_path = f"TMP/{completeness_report_name}"
+    local_path = f"TMP/monitoring/{completeness_report_name}"
     s3_key = str(Path(s3_completeness_report_folder) / completeness_report_name)
     s3_utility.s3.upload_file(
         local_path,
@@ -465,82 +468,79 @@ def make_burst_product_completeness_report(
     n_duplicate_products_to_archive = 0
 
     # determine which bursts are indexed
-    for i in range(0, 1):
-        for burst_product in tqdm(
-            stac_items.items_as_dicts(),
-            total=n_stac_matches,
-            desc="Iterating STAC items",
-        ):
-            # logging.info(burst_product)
-            odc_id = burst_product["id"]
-            burst_id = burst_product["properties"]["sarard:burst_id"]
-            azimuth_time = burst_product["properties"]["datetime"]
-            created_time = burst_product["properties"]["created"]
-            # convert dts
-            azimuth_time = datetime.strptime(azimuth_time, "%Y-%m-%dT%H:%M:%S.%fZ")
-            created_time = datetime.strptime(created_time, "%Y-%m-%dT%H:%M:%S.%fZ")
+    # for i in range(0, 2): # uncomment to iterate through twice and ensure duplicates are found
+    for burst_product in tqdm(
+        stac_items.items_as_dicts(),
+        total=n_stac_matches,
+        desc="Iterating STAC items",
+    ):
+        odc_id = burst_product["id"]
+        burst_id = burst_product["properties"]["sarard:burst_id"]
+        azimuth_time = burst_product["properties"]["datetime"]
+        created_time = burst_product["properties"]["created"]
+        # convert dts
+        azimuth_time = datetime.strptime(azimuth_time, "%Y-%m-%dT%H:%M:%S.%fZ")
+        created_time = datetime.strptime(created_time, "%Y-%m-%dT%H:%M:%S.%fZ")
 
-            if (burst_id, azimuth_time) not in expected_burst_product_dict:
-                # additional product that is in the list of bursts from the CDSE.
-                # We have picked up with the expanded time buffer
-                continue
+        if (burst_id, azimuth_time) not in expected_burst_product_dict:
+            # additional product that is in the list of bursts from the CDSE
+            # We have picked up with the expanded time buffer. Ignore.
+            continue
 
-            # Ensure the products is not already in our dictionary of indexed ones
-            # and is therefore not a duplicate
-            if (burst_id, azimuth_time) not in burst_products_indexed:
-                # add the product to the list of indexed products with the
-                # created time and odc product id
-                burst_products_indexed[(burst_id, azimuth_time)] = (
-                    expected_burst_product_dict[(burst_id, azimuth_time)]
+        # Ensure the products is not already in our dictionary of indexed ones
+        # and is therefore not a duplicate
+        if (burst_id, azimuth_time) not in burst_products_indexed:
+            # add the product to the list of indexed products with the
+            # created time and odc product id
+            burst_products_indexed[(burst_id, azimuth_time)] = (
+                expected_burst_product_dict[(burst_id, azimuth_time)]
+            )
+            burst_products_indexed[(burst_id, azimuth_time)]["odc_id"] = odc_id
+            burst_products_indexed[(burst_id, azimuth_time)]["created"] = created_time
+
+        # we are dealing with a duplicate item
+        else:
+
+            n_duplicate_products_to_archive += 1
+
+            # create a list of the duplicate products for a given burst
+            if (burst_id, azimuth_time) not in duplicate_products_to_archive:
+                duplicate_products_to_archive[(burst_id, azimuth_time)] = []
+
+            # get the created date of the product already in the index list
+            _existing_created_time = burst_products_indexed[(burst_id, azimuth_time)][
+                "created"
+            ]
+
+            # if the incoming product is newer, we want to keep that and
+            # archive the older product already in the dict
+            if created_time > _existing_created_time:
+                # incoming product is newer, add existing to list to archive
+                archive_product = burst_products_indexed[
+                    (burst_id, azimuth_time)
+                ].copy()
+                duplicate_products_to_archive[(burst_id, azimuth_time)].append(
+                    archive_product
                 )
+
+                # update the information of the indexed product we want to keep
+                # with the new odc product and created time
                 burst_products_indexed[(burst_id, azimuth_time)]["odc_id"] = odc_id
                 burst_products_indexed[(burst_id, azimuth_time)][
                     "created"
                 ] = created_time
 
-            # we are dealing with a duplicate item
+            # the incoming product is older, we want to archive this and leave
+            # the current product in the indexed list
             else:
-
-                n_duplicate_products_to_archive += 1
-
-                # create a list of the duplicate products for a given burst
-                if (burst_id, azimuth_time) not in duplicate_products_to_archive:
-                    duplicate_products_to_archive[(burst_id, azimuth_time)] = []
-
-                # get the created date of the product already in the index list
-                _existing_created_time = burst_products_indexed[
+                archive_product = burst_products_indexed[
                     (burst_id, azimuth_time)
-                ]["created"]
-
-                # if the incoming product is newer, we want to keep that and
-                # archive the older product already in the dict
-                if created_time > _existing_created_time:
-                    # incoming product is newer, add existing to list to archive
-                    archive_product = burst_products_indexed[
-                        (burst_id, azimuth_time)
-                    ].copy()
-                    duplicate_products_to_archive[(burst_id, azimuth_time)].append(
-                        archive_product
-                    )
-
-                    # update the information of the indexed product we want to keep
-                    # with the new odc product and created time
-                    burst_products_indexed[(burst_id, azimuth_time)]["odc_id"] = odc_id
-                    burst_products_indexed[(burst_id, azimuth_time)][
-                        "created"
-                    ] = created_time
-
-                # the incoming product is older, we want to archive this and leave
-                # the current product in the indexed list
-                else:
-                    archive_product = burst_products_indexed[
-                        (burst_id, azimuth_time)
-                    ].copy()
-                    archive_product["created"] = created_time
-                    archive_product["odc_id"] = odc_id
-                    duplicate_products_to_archive[(burst_id, azimuth_time)].append(
-                        archive_product
-                    )
+                ].copy()
+                archive_product["created"] = created_time
+                archive_product["odc_id"] = odc_id
+                duplicate_products_to_archive[(burst_id, azimuth_time)].append(
+                    archive_product
+                )
 
     # make the dictionary of products not indexed
     burst_products_not_indexed = {
@@ -607,25 +607,27 @@ def make_burst_product_completeness_report(
                 f"collection_number : {linked_static_layer_collection_number}, "
                 f"aws_s3_prefix_format : {RTC_S1_STATIC_S3_PREFIX_FORMAT}"
             )
-            # we need to use the scene geometry to determine which DEM is used for the
-            # missing static layers
+
             for scene in tqdm(
                 scenes_to_process,
                 desc="Identifying missing static layers for unprocessed scenes",
             ):
 
-                scene_poly = shape(scene_dict[scene].geometry)
-
-                # check if the scene crosses the antimeridian
-                if check_shape_crosses_antimeridian(scene_poly):
-                    scene_bounds = get_bounds_for_antimeridian_shape(scene_poly)
-                else:
-                    scene_bounds = scene_poly.bounds
-
-                # get the best dem for processing if required
                 if dem_type == "best":
+                    # we need to use the scene geometry to determine which DEM is used for the
+                    # missing static layers
+                    scene_poly = shape(scene_dict[scene].geometry)
+
+                    # check if the scene crosses the antimeridian
+                    if check_shape_crosses_antimeridian(scene_poly):
+                        scene_bounds = get_bounds_for_antimeridian_shape(scene_poly)
+                    else:
+                        scene_bounds = scene_poly.bounds
+
                     scene_dem_type = get_best_dem_type_for_scene(scene_bounds)
                     logger.info(f"Scene requires the DEM : {scene_dem_type}")
+                else:
+                    scene_dem_type = dem_type
 
                 # get the list of bursts that belong to that scene
                 scene_bursts = [
@@ -637,7 +639,7 @@ def make_burst_product_completeness_report(
                 # iterate through the burst ids
                 for burst_id, azimuth_time in scene_bursts:
 
-                    # construct the s3_prefix for the static layer
+                    # construct the s3_prefix for the static layer to search if it exists
                     expected_static_layer_s3_product_folder = make_rtc_s1_static_product_s3_prefix(
                         s3_project_folder=linked_static_layer_s3_project_folder,
                         collection_number=linked_static_layer_collection_number,
@@ -670,12 +672,13 @@ def make_burst_product_completeness_report(
     n_bursts_missing_static_layers = len(bursts_missing_static_layers)
     n_scenes_missing_static_layers = len(scenes_missing_static_layers)
 
-    logging.info(
-        f"Number of bursts missing static layers : {n_bursts_missing_static_layers}"
-    )
-    logging.info(
-        f"Number of scenes missing static layers : {n_scenes_missing_static_layers}"
-    )
+    if identify_missing_linked_static_layers:
+        logging.info(
+            f"Number of bursts missing static layers : {n_bursts_missing_static_layers}"
+        )
+        logging.info(
+            f"Number of scenes missing static layers : {n_scenes_missing_static_layers}"
+        )
 
     # Create the file with missing products
     completeness_dict = {
@@ -730,13 +733,13 @@ def make_burst_product_completeness_report(
     # convert the datetimes to strings too
     completeness_json = _make_completeness_report_json_safe(completeness_dict)
 
-    os.makedirs("TMP", exist_ok=True)
-    with open(f"TMP/{completeness_report_name}", "w") as f:
+    os.makedirs("TMP/monitoring", exist_ok=True)
+    with open(f"TMP/monitoring/{completeness_report_name}", "w") as f:
         json.dump(completeness_json, f, indent=2)
 
     # upload the completeness report to the desired AWS S3 bucket
     s3_uploder = S3Util()
-    local_path = f"TMP/{completeness_report_name}"
+    local_path = f"TMP/monitoring/{completeness_report_name}"
     s3_key = str(Path(s3_completeness_report_folder) / completeness_report_name)
     s3_uploder.s3.upload_file(
         local_path,
