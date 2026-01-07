@@ -310,7 +310,7 @@ def get_all_lon_lat_coords(
     Returns
     -------
     tuple(longitudes, latitudes)
-    
+
     longitudes : list
         list of x-coordinates (longitude values).
     latitudes : list
