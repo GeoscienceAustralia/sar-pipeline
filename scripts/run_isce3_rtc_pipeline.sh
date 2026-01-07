@@ -311,10 +311,10 @@ if [ "$skip_validate_stac" != true ] ; then
     # validate the stac doc within the code
     cmd+=( --validate-stac)
 fi
-if [ "$skip_upload_processed_scene_tracking_file" != true ] ; then
+if [ "$skip_upload_processed_scene_tracking_file" = true ] ; then
     # upload a light {scene}.json file to a monitoring folder that
     # can be easily parsed to check for which scene have been processed
-    cmd+=( --upload-processed-scene-tracking-file)
+    cmd+=( --skip-upload-processed-scene-tracking-file)
 fi
 
 # Execute the command

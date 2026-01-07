@@ -736,11 +736,11 @@ def get_data_for_scene_and_make_run_config(
     "will not be uploaded.",
 )
 @click.option(
-    "--upload-processed-scene-tracking-file",
+    "--skip-upload-processed-scene-tracking-file",
     required=False,
     is_flag=True,
     default=False,
-    help="Whether to upload a json with very basic information"
+    help="Whether to skip uploading a json with very basic information"
     "That can be used to track which scenes have been processed. "
     "The filename will be {scene}.json and it's contents include "
     "a list of burst_ids and stac filepaths in s3. By default, it "
@@ -762,7 +762,7 @@ def make_rtc_opera_stac_and_upload_bursts(
     make_existing_products,
     link_static_layers,
     validate_stac,
-    upload_processed_scene_tracking_file,
+    skip_upload_processed_scene_tracking_file,
 ):
     """makes STAC metadata for opera-rtc and uploads them to a desired s3 bucket.
     The final path in s3 will follow the following pattern:
@@ -998,7 +998,7 @@ def make_rtc_opera_stac_and_upload_bursts(
             )
 
     # upload the tracking file to a sub folder where it can be checked
-    if upload_processed_scene_tracking_file:
+    if not skip_upload_processed_scene_tracking_file:
         monitoring_folder = Path(s3_project_folder) / "monitoring"
         if product == "RTC_S1":
             processed_scene_tracking_file_s3_folder = str(
