@@ -294,7 +294,7 @@ def get_valid_data_min_rect_polygon_from_tif(
             return rect
 
 
-def get_all_lat_lon_coords(
+def get_all_lon_lat_coords(
     geom: Polygon | MultiPolygon,
 ) -> tuple[list, list]:
     """
@@ -309,6 +309,8 @@ def get_all_lat_lon_coords(
 
     Returns
     -------
+    tuple(longitudes, latitudes)
+    
     longitudes : list
         list of x-coordinates (longitude values).
     latitudes : list
