@@ -8,7 +8,7 @@ Recommend minimum of 4 CPU and 16 GB RAM.
 The test is run for three scenes
 - single pol HH scene over Antarctica
 - dual pol VV+VH scene over Australia
-- single pol scene over the Antimeridian (Antarctica).
+- single pol scenes over the Antimeridian (Antarctica).
 
 The outputs of the run are compared to already created products in S3 to ensure
 There are no unexpected changes in data and metadata.
@@ -614,7 +614,7 @@ if TEST_AM_SCENES:
         )
 
     @pytest.mark.dependency(depends=["test_docker_antimeridian_land_scene"])
-    def test_compare_antimeridian_ocean_rtc_s1_product_to_benchmark():
+    def test_compare_antimeridian_land_rtc_s1_product_to_benchmark():
         """
         This function will compare the RTC_S1 outputs created in the test_docker_antimeridian_land_scene
         function with existing outputs in AWS. The output of this are data that describe
