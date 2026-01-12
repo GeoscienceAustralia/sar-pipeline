@@ -27,10 +27,14 @@ dependencies = [
     "python-dotenv>=1.1.1,<2", 
     "pystac[validation]==1.13.0", 
     "antimeridian>=0.4.3,<0.5", 
+<<<<<<< HEAD
     "dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.5", 
     "odc-stac>=0.5.0,<0.6", 
     "pystac-client>=0.9.0,<0.10", 
     "tqdm>=4.67.1,<5", 
+=======
+    "dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.6", 
+>>>>>>> main
 ]
 
 [project.urls]
@@ -105,7 +109,7 @@ test-scene-data-source-queries='pixi run install-pygssearch-env && export PYGSSE
 ### ISCE3_RTC Pipeline Tests ###
 # Tests require credentials - not currently setup for github but should be run locally before PRs
 test-isce3-rtc = "pytest tests/sar_pipeline/isce3_rtc -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
-test-isce3-rtc-full-docker-workflow-run = "pytest tests/sar_pipeline/isce3_rtc/test_full_docker_workflow_run.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+test-isce3-rtc-full-docker-workflow-run = "pixi run export-conda && pytest tests/sar_pipeline/isce3_rtc/test_full_docker_workflow_run.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-burst-utils = "pytest tests/sar_pipeline/isce3_rtc/test_burst_utils.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-cli-make-rtc-opera-stac-and-upload-bursts = "pytest tests/sar_pipeline/isce3_rtc/test_cli_make_rtc_opera_stac_and_upload_bursts.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-cli-get-data-for-scene-and-make-run-config = "pytest tests/sar_pipeline/isce3_rtc/test_cli_get_data_for_scene_and_make_run_config.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
@@ -125,8 +129,8 @@ coverage = ">=7.8.0"
 
 [tool.pixi.tasks]
 export-conda = """
-pixi workspace export conda-environment environment.yaml && \
-sed -ix "s/^name: default$/name: sar-pipeline/" environment.yaml; rm environment.yamlx
+pixi workspace export conda-environment environment.yaml --environment default && \
+sed -ix "s/^name: .*/name: sar-pipeline/" environment.yaml; rm environment.yamlx
 """
 install-pygssearch-env = """
 conda env list | grep -q pygssearch-env || conda env create -f Conda/pygssearch/environment.yaml -n pygssearch-env

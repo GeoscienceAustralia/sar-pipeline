@@ -35,7 +35,7 @@ dependencies:
   - python-dotenv>=1.1.1, <2
   - pystac[validation]==1.13.0
   - antimeridian>=0.4.3, <0.5
-  - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.5
   - odc-stac>=0.5.0, <0.6
   - pystac-client>=0.9.0, <0.10
   - tqdm>=4.67.1, <5
+  - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.6

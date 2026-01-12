@@ -1,6 +1,6 @@
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.geometry import shape
-from sar_pipeline.utils.spatial import get_all_lat_lon_coords
+from sar_pipeline.utils.spatial import get_all_lon_lat_coords
 import antimeridian
 
 
@@ -56,7 +56,7 @@ def check_shape_crosses_antimeridian(
         Defaults to 20°.
     """
 
-    longitudes, _ = get_all_lat_lon_coords(in_shape)
+    longitudes, _ = get_all_lon_lat_coords(in_shape)
 
     west_longitudes = [x for x in longitudes if x < 0]
     east_longitudes = [x for x in longitudes if x > 0]
@@ -125,7 +125,7 @@ def get_bounds_for_antimeridian_shape(in_shape: Polygon | MultiPolygon) -> tuple
     >>> (173.430893, -71.618423, -178.032867, -68.765106)
 
     """
-    longitudes, latitudes = get_all_lat_lon_coords(in_shape)
+    longitudes, latitudes = get_all_lon_lat_coords(in_shape)
 
     west_longitudes = [x for x in longitudes if x < 0]
     east_longitudes = [x for x in longitudes if x > 0]
@@ -169,7 +169,7 @@ def convert_antimeridian_polygon_to_multipolygon(
     if not isinstance(in_shape, Polygon):
         raise TypeError("Input shape must be a shapely Polygon")
 
-    longitudes, _ = get_all_lat_lon_coords(in_shape)
+    longitudes, _ = get_all_lon_lat_coords(in_shape)
 
     west_longitudes = [x for x in longitudes if x < 0]
     east_longitudes = [x for x in longitudes if x > 0]

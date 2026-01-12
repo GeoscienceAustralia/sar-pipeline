@@ -8,7 +8,7 @@ Recommend minimum of 4 CPU and 16 GB RAM.
 The test is run for three scenes
 - single pol HH scene over Antarctica
 - dual pol VV+VH scene over Australia
-- single pol scene over the Antimeridian (Antarctica).
+- single pol scenes over the Antimeridian (Antarctica).
 
 The outputs of the run are compared to already created products in S3 to ensure
 There are no unexpected changes in data and metadata.
@@ -94,6 +94,12 @@ from settings import (
     TEST_3_RTC_S1_PRODUCT_S3_PREFIX,
     TEST_3_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER,
     TEST_3_BENCHMARK_RTC_S1_STATIC_S3_PRODUCT_FOLDER,
+    TEST_4_SCENE,
+    TEST_4_BURST,
+    TEST_4_RTC_S1_STATIC_PRODUCT_S3_PREFIX,
+    TEST_4_RTC_S1_PRODUCT_S3_PREFIX,
+    TEST_4_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER,
+    TEST_4_BENCHMARK_RTC_S1_STATIC_S3_PRODUCT_FOLDER,
     TEST_S3_BUCKET,
 )
 
@@ -489,11 +495,11 @@ def test_compare_dual_pol_rtc_s1_product_to_benchmark():
     )
 
 
-TEST_AM_SCENE = False
-if TEST_AM_SCENE:
+TEST_AM_SCENES = True
+if TEST_AM_SCENES:
 
-    @pytest.mark.dependency(name="test_docker_antimeridian_scene")
-    def test_docker_antimeridian_scene():
+    @pytest.mark.dependency(name="test_docker_antimeridian_ocean_scene")
+    def test_docker_antimeridian_ocean_scene():
         """Run the docker image and create a burst product for a single pol SLC that crosses
         The antimeridian. First, static layers (RTC_S1_STATIC) are created. Then, NRB (RTC_S1)
         products are created that get linked to the previous static layers.
@@ -512,10 +518,10 @@ if TEST_AM_SCENE:
             local_outputs_folder=LOCAL_TEST_OUTPUTS_DIR,
         )
 
-    @pytest.mark.dependency(depends=["test_docker_antimeridian_scene"])
-    def test_compare_antimeridian_rtc_s1_static_product_to_benchmark():
+    @pytest.mark.dependency(depends=["test_docker_antimeridian_ocean_scene"])
+    def test_compare_antimeridian_ocean_rtc_s1_static_product_to_benchmark():
         """
-        This function will compare the RTC_S1_STATIC outputs created in the test_docker_dual_pol_scene
+        This function will compare the RTC_S1_STATIC outputs created in the test_docker_antimeridian_ocean_scene
         function with existing outputs in AWS. The output of this are data that describe
         the differences in product files, metadata (.json and xml) and in the GeoTiffs themselves.
         These outputs can be used to understand if the changes made are planned and acceptable.
@@ -537,10 +543,10 @@ if TEST_AM_SCENE:
             s3_bucket=TEST_S3_BUCKET,
         )
 
-    @pytest.mark.dependency(depends=["test_docker_antimeridian_scene"])
-    def test_compare_antimeridian_rtc_s1_product_to_benchmark():
+    @pytest.mark.dependency(depends=["test_docker_antimeridian_ocean_scene"])
+    def test_compare_antimeridian_ocean_rtc_s1_product_to_benchmark():
         """
-        This function will compare the RTC_S1 outputs created in the test_docker_dual_pol_scene
+        This function will compare the RTC_S1 outputs created in the test_docker_antimeridian_ocean_scene
         function with existing outputs in AWS. The output of this are data that describe
         the differences in product files, metadata (.json and xml) and in the GeoTiffs themselves.
         These outputs can be used to understand if the changes made are planned and acceptable.
@@ -552,6 +558,76 @@ if TEST_AM_SCENE:
         benchmark_product_s3_prefix = TEST_3_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER
         local_comparison_outputs_folder = (
             f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_3_RTC_S1"
+        )
+
+        _compare_product_to_benchmark(
+            product="RTC_S1",
+            test_product_s3_prefix=test_product_s3_prefix,
+            benchmark_product_s3_prefix=benchmark_product_s3_prefix,
+            local_comparison_outputs_folder=local_comparison_outputs_folder,
+            s3_bucket=TEST_S3_BUCKET,
+        )
+
+    @pytest.mark.dependency(name="test_docker_antimeridian_land_scene")
+    def test_docker_antimeridian_land_scene():
+        """Run the docker image and create a burst product for a single pol SLC that crosses
+        The antimeridian. First, static layers (RTC_S1_STATIC) are created. Then, NRB (RTC_S1)
+        products are created that get linked to the previous static layers.
+        """
+        logging.info(
+            f"Running full process for ANTIMERIDIAN single pol (HH), this may take a while..."
+        )
+        logging.info(f"Static layers will be produced and linked to backscatter data.")
+        _run_docker_for_scene(
+            docker_image_tag=DOCKER_TAG,
+            docker_env_list=ENV_VARS,
+            scene=TEST_4_SCENE,
+            burst_id=TEST_4_BURST,
+            s3_project_folder=TEST_S3_PROJECT_FOLDER,
+            s3_bucket=TEST_S3_BUCKET,
+            local_outputs_folder=LOCAL_TEST_OUTPUTS_DIR,
+        )
+
+    @pytest.mark.dependency(depends=["test_docker_antimeridian_land_scene"])
+    def test_compare_antimeridian_land_rtc_s1_static_product_to_benchmark():
+        """
+        This function will compare the RTC_S1_STATIC outputs created in the test_docker_antimeridian_ocean_scene
+        function with existing outputs in AWS. The output of this are data that describe
+        the differences in product files, metadata (.json and xml) and in the GeoTiffs themselves.
+        These outputs can be used to understand if the changes made are planned and acceptable.
+        """
+
+        test_product_s3_prefix = (
+            f"{TEST_S3_PROJECT_FOLDER}/{TEST_4_RTC_S1_STATIC_PRODUCT_S3_PREFIX}"
+        )
+        benchmark_product_s3_prefix = TEST_4_BENCHMARK_RTC_S1_STATIC_S3_PRODUCT_FOLDER
+        local_comparison_outputs_folder = (
+            f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_4_RTC_S1_STATIC"
+        )
+
+        _compare_product_to_benchmark(
+            product="RTC_S1_STATIC",
+            test_product_s3_prefix=test_product_s3_prefix,
+            benchmark_product_s3_prefix=benchmark_product_s3_prefix,
+            local_comparison_outputs_folder=local_comparison_outputs_folder,
+            s3_bucket=TEST_S3_BUCKET,
+        )
+
+    @pytest.mark.dependency(depends=["test_docker_antimeridian_land_scene"])
+    def test_compare_antimeridian_land_rtc_s1_product_to_benchmark():
+        """
+        This function will compare the RTC_S1 outputs created in the test_docker_antimeridian_land_scene
+        function with existing outputs in AWS. The output of this are data that describe
+        the differences in product files, metadata (.json and xml) and in the GeoTiffs themselves.
+        These outputs can be used to understand if the changes made are planned and acceptable.
+        """
+
+        test_product_s3_prefix = (
+            f"{TEST_S3_PROJECT_FOLDER}/{TEST_4_RTC_S1_PRODUCT_S3_PREFIX}"
+        )
+        benchmark_product_s3_prefix = TEST_4_BENCHMARK_RTC_S1_S3_PRODUCT_FOLDER
+        local_comparison_outputs_folder = (
+            f"{LOCAL_COMPARISON_OUTPUTS_DIR}/TEST_4_RTC_S1"
         )
 
         _compare_product_to_benchmark(
