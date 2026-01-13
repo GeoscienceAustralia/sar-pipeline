@@ -18,6 +18,7 @@ skip_upload_to_s3=false
 scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
 orbit_data_source=("AUS_COP_HUB" "ASF" "CDSE")
 skip_validate_stac=false
+skip_upload_processed_scene_tracking_file=false
 skip_rtc=false
 ## -- WORKFLOW INPUTS TO LINK RTC_S1_STATIC in RTC_S1 metadata--
 # if link_static_layers, RTC_S1_STATIC products must exist for all RTC_S1 bursts being processed
@@ -304,11 +305,16 @@ fi
 if [ "$link_static_layers" = true ] ; then
     # Static layers are to be linked to RTC_S1 in the stac metadata
     # We get the path to the static layer folder from the .h5 metadata
-    cmd+=(--link-static-layers)
+    cmd+=( --link-static-layers)
 fi
 if [ "$skip_validate_stac" != true ] ; then
     # validate the stac doc within the code
     cmd+=( --validate-stac)
+fi
+if [ "$skip_upload_processed_scene_tracking_file" = true ] ; then
+    # upload a light {scene}.json file to a monitoring folder that
+    # can be easily parsed to check for which scene have been processed
+    cmd+=( --skip-upload-processed-scene-tracking-file)
 fi
 
 # Execute the command

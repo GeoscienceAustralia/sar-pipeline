@@ -128,6 +128,8 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --scene_data_source=("AUS_COP_HUB" "ASF" "CDSE") # order of preference
 --orbit_data_source=("AUS_COP_HUB" "ASF" "CDSE")  # order of preference
 --skip_validate_stac=false
+--skip_upload_processed_scene_tracking_file=false
+--skip_rtc=false
 # Required inputs for linking RTC_S1_STATIC to RTC_S1
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
 --link_static_layers=false           
@@ -153,9 +155,10 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 - `scene_data_source` -> Where to download the scene SLC file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
 - `orbit_data_source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
 - `skip_validate_stac` -> To skip validation of the created STAC doc within the code. If this is not set and the stac is invalid, products will not be uploaded. By default we want to validate the stac.
-- `link_static_layers` -> Flag to link RTC_S1_STATIC to RTC_S1
-- `linked_static_layers_s3_bucket` -> bucket where RTC_S1_STATIC stored
-- `linked_static_layers_s3_project_folder` -> folder within bucket where RTC_S1_STATIC stored
+- `skip_upload_processed_scene_tracking_file` -> By default a small .json file (`{scene}.json`) is uploaded to a monitoring subfolder of the provided `s3_project_folder`. These can be easily parsed to check for which scenes have been processed. Setting this skips the upload of that file. By default, the file is uploaded to: RTC_S1 -> `{s3_project_folder}/monitoring/processed_scenes` and RTC_S1_STATIC -> `{s3_project_folder}/monitoring/processed_scenes_static_layers` 
+- `link_static_layers` -> Flag to link RTC_S1_STATIC products to RTC_S1 in stac metadata. The RTC_S1_STATIC products must exist for the given bursts. 
+- `linked_static_layers_s3_bucket` -> bucket where RTC_S1_STATIC products are stored
+- `linked_static_layers_s3_project_folder` -> folder within bucket where RTC_S1_STATIC products are stored
 - `linked_static_layers_collection_number` -> The collection number of the linked RTC_S1_STATIC product.
 
 ### 3.4. Example Product Outputs

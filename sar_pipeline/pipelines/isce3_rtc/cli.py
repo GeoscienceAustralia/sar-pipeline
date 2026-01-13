@@ -251,8 +251,10 @@ def get_data_for_scene_and_make_run_config(
     make_folders,
     save_burst_geometries,
 ):
-    """Download the required data for the RTC/opera and create a configuration
-    file for the run that points to appropriate files and has the required settings
+    """Download the required data for the opera/RTC workflow and create a config
+    file for the run that points to appropriate files and has the required settings.
+    This config can then get passed to the rtc_s1.py process to create either
+    RTC_S1 normalised radar backscatter (nrb) or RTC_S1_STATIC layers.
     """
 
     logger.info(f"Downloading data for scene : {scene}")
@@ -733,6 +735,19 @@ def get_data_for_scene_and_make_run_config(
     "If the stac is not valid, an error is raised and the products "
     "will not be uploaded.",
 )
+@click.option(
+    "--skip-upload-processed-scene-tracking-file",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Whether to skip uploading a json with very basic information"
+    "That can be used to track which scenes have been processed. "
+    "The filename will be {scene}.json and it's contents include "
+    "a list of burst_ids and stac filepaths in s3. By default, it "
+    "will be uploaded to the following folders: "
+    "RTC_S1 -> {s3_project_folder}/monitoring/processed_scenes "
+    "RTC_S1_STATIC -> {s3_project_folder}/monitoring/processed_scenes_static_layers ",
+)
 @log_timing
 def make_rtc_opera_stac_and_upload_bursts(
     results_folder,
@@ -747,13 +762,14 @@ def make_rtc_opera_stac_and_upload_bursts(
     make_existing_products,
     link_static_layers,
     validate_stac,
+    skip_upload_processed_scene_tracking_file,
 ):
     """makes STAC metadata for opera-rtc and uploads them to a desired s3 bucket.
     The final path in s3 will follow the following pattern:
     product = RTC_S1:
-        s3_bucket/s3_folder/odc_product_name/burst_id/burst_year/burst_month/burst_day/*files
+        s3_bucket/s3_folder/odc_product_name/burst_id/burst_year/burst_month/burst_day/burst_dt/*files
     product = RTC_S1_STATIC:
-        s3_bucket/s3_folder/odc_product_name/burst_id/*files
+        s3_bucket/s3_folder/odc_product_name/burst_id/static_layer_validity_start_date/dem_type/*files
     """
 
     # query CDSE to get sensing start and sensing end times for bursts to be referenced in the
@@ -766,6 +782,9 @@ def make_rtc_opera_stac_and_upload_bursts(
         f"Iterating through the burst folders to reformat files and create STAC metadata"
     )
     burst_folders = [x for x in results_folder.iterdir() if x.is_dir()]
+
+    # tracking file for processed scenes to assist with completion checking
+    processed_scene_json = {"scene_id": scene, "burst_ids": [], "stac": []}
 
     # initialise the S3 utility
     if not skip_upload_to_s3:
@@ -968,6 +987,40 @@ def make_rtc_opera_stac_and_upload_bursts(
             logger.info(
                 f"Browse link for burst products : {burst_stac_manager.burst_product_browse_url}"
             )
+
+            # add basic info to the processed scene tracking file
+            processed_scene_json["burst_ids"].append(burst_stac_manager.burst_id)
+            processed_scene_json["stac"].append(
+                str(
+                    Path(burst_stac_manager.burst_s3_product_folder)
+                    / Path(stac_filepath).name
+                )
+            )
+
+    # upload the tracking file to a sub folder where it can be checked
+    if not skip_upload_processed_scene_tracking_file:
+        monitoring_folder = Path(s3_project_folder) / "monitoring"
+        if product == "RTC_S1":
+            processed_scene_tracking_file_s3_folder = str(
+                monitoring_folder / "processed_scenes"
+            )
+        elif product == "RTC_S1_STATIC":
+            processed_scene_tracking_file_s3_folder = str(
+                monitoring_folder / "processed_scenes_static_layers"
+            )
+
+        processed_scene_tracking_file_s3_key = (
+            f"{processed_scene_tracking_file_s3_folder}/{scene}.json"
+        )
+        logger.info(
+            f"Uploading processed scene tracking file to S3 : {processed_scene_tracking_file_s3_key}."
+        )
+        S3UPLOADER.s3.put_object(
+            Bucket=s3_bucket,
+            Key=processed_scene_tracking_file_s3_key,
+            Body=json.dumps(processed_scene_json, indent=2).encode("utf-8"),
+            ContentType="application/json",
+        )
 
 
 from sar_pipeline import PROJECT_ROOT_PATH
