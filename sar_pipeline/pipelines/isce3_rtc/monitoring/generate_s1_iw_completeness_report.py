@@ -214,6 +214,7 @@ def make_scene_completeness_report(
             collections=collections_to_search,
             stac_catalog=stac_catalog,
             fields={"include": ["id", "properties.sarard:scene_id"]},
+            # fields={"include": ["id", "properties.scene_id"]},
         )
 
         logging.info(
@@ -221,6 +222,8 @@ def make_scene_completeness_report(
         )
         logging.info(f"Getting list of parent scenes processed")
 
+        retries = 0
+        max_retries = 1
         while True:
             try:
                 for item in tqdm(
@@ -231,6 +234,9 @@ def make_scene_completeness_report(
                     processed_scenes_set.add(item["properties"]["sarard:scene_id"])
                 break  # success
             except APIError as e:
+                retries += 1
+                if retries > max_retries:
+                    break
                 logging.warning(f"STAC API error: {e}. Retrying in 10s...")
                 time.sleep(10)
 
