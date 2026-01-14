@@ -63,10 +63,20 @@ docker run --env-file .env -v ${PWD}/data:/home/rtc_user/working sar-pipeline \
 --orbit_data_source ASF 
 ```
 
-Note if there are permission issues writing to the local `./data` folder, the can be run.
+Note if there are permission issues writing to the local `./data` folder, the following can be run:
 
 ```bash
 sudo chmod -R 777 ./data
 ```
+
+## License
+
+Copyright © 2025 Geoscience Australia.
+
+This project is licensed under the **Apache License, Version 2.0**. See the LICENSE file for details.
+
+## Acknowledgements 
+
+This software distributes a [modified version](https://github.com/GeoscienceAustralia/RTC) of the [opera-adt/RTC](https://github.com/opera-adt/RTC) software originally developed by NASA JPL and distributed under the **Apache License, Version 2.0**. Copyright © 2021 California Institute of Technology (“Caltech”). U.S. Government sponsorship acknowledged. All rights reserved. Modifications have been made by Geoscience Australia.
 
 
