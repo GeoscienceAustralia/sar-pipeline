@@ -248,9 +248,6 @@ def find_orbit_file_from_api(
         Neither of api_orbit_directory and NCI_API_ORBIT_FILE_LOCATION environment variable were set
     OrbitNotFoundError
         No valid orbit was found for the scene
-    NonSingleOrbitError
-        More than one orbit found for scene
-
     """
 
     logging.info("Searching Australian Copernicus Hub API for Orbit.")

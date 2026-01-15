@@ -271,7 +271,12 @@ def download_orbits_from_aus_cop_hub(
     aus_cop_hub_client_secret = aus_cop_hub_client_secret or os.getenv(
         "AUS_COP_HUB_CLIENT_SECRET"
     )
+
+    # set the pygssearch envrionment
     pygssearch_conda_env = pygssearch_conda_env or os.getenv("PYGSSEARCH_CONDA_ENV")
+
+    # Set the command to use conda to execute a command using the pygssearch environment
+    environment_cmd = f"conda run -p {pygssearch_conda_env} "
 
     # Check for any missing credentials
     missing_vars = []
