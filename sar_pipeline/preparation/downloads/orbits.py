@@ -310,7 +310,6 @@ def download_orbits_from_aus_cop_hub(
         return []
     else:
         orbit_file_name = orbit_metadata["Name"]
-        logger.info(f"match': {orbit_file_name}")
 
     # Add additional query parameters to the base command to enable downloading
     download_query = (
