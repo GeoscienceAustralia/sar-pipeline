@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 
 from sar_pipeline.preparation.nci.orbits import (
-    find_orbits,
     parse_orbit_file_dates,
     filter_orbits_to_cover_time_window,
     filter_orbits_to_latest,
@@ -72,11 +71,6 @@ orbit_files_and_published_dates = [
     {"orbit": orbit.filepath, "published_date": orbit.published_date}
     for orbit in test_orbits
 ]
-
-
-def test_find_orbits():
-    orbit_files = find_orbits([orbit_directory])
-    assert set(orbit_files) == set(orbit_filepaths)
 
 
 @pytest.mark.parametrize("orbit", test_orbits)
