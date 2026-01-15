@@ -1,14 +1,37 @@
 from datetime import datetime
 from pathlib import Path
 import re
-from typing import TypedDict
+from typing import TypedDict, Optional, Union
+import logging
+import os
 
-from sar_pipeline.utils.sentinel1 import get_dates_from_scene_id
+from sar_pipeline.utils.sentinel1 import (
+    get_dates_from_scene_id,
+    extract_metadata_from_s1_id,
+)
+from sar_pipeline.preparation.downloads.orbits import (
+    query_orbit_from_aus_cop_hub,
+    OrbitNotFoundError,
+    MissingEnvironmentError,
+)
+from sar_pipeline.pipelines.pyrosar_gamma.filesystem import get_orbits_nci
+
+logging.basicConfig(level=logging.INFO)
 
 
 class Orbit(TypedDict):
     orbit: Path
     published_date: datetime
+
+
+class NCIMissingOrbitError(Exception):
+    """Exception raised when orbits cannot be found on NCI"""
+
+    pass
+
+
+class NCIMissingFilePathVariableError(Exception):
+    """Exception raised when a required filepath on NCI has not been provided"""
 
 
 def find_latest_orbit_for_scene(scene_id: str, orbit_files: list[Path]) -> Path:
@@ -36,29 +59,6 @@ def find_latest_orbit_for_scene(scene_id: str, orbit_files: list[Path]) -> Path:
     )
 
     return latest_orbit
-
-
-def find_orbits(directories: list[Path], extension: str = ".EOF") -> list[Path]:
-    """Find all orbit files within a set of directories
-
-    Parameters
-    ----------
-    directories : list[Path]
-        A list of directories to search for orbit files
-    extension : str, optional
-        The extension for orbit files, by default ".EOF"
-
-    Returns
-    -------
-    list[Path]
-        A list of orbit files for every directory searched
-    """
-
-    matching_files = []
-    for directory in directories:
-        if directory.is_dir():
-            matching_files.extend(directory.glob(f"*{extension}"))
-    return matching_files
 
 
 def find_latest_orbit_covering_window(
@@ -132,7 +132,9 @@ def filter_orbits_to_cover_time_window(
             matching_orbits.append(orbit_metadata)
 
     if not matching_orbits:
-        raise ValueError("No orbits were found within the specified time window.")
+        raise OrbitNotFoundError(
+            "No orbits were found within the specified time window."
+        )
 
     return matching_orbits
 
@@ -205,3 +207,155 @@ def parse_orbit_file_dates(
     stop_date = datetime.strptime(match.group("stop_date"), "%Y%m%dT%H%M%S")
 
     return (published_date, start_date, stop_date)
+
+
+def find_orbit_file_from_api(
+    scene: str,
+    orbit_file_types: list = ["AUX_POEORB", "AUX_RESORB"],
+    pygssearch_conda_env: Optional[Union[str, Path]] = None,
+    api_orbit_directory: Optional[Union[str, Path]] = None,
+    service: str = "https://catalogue.copernicus.gov.au/odata/v1",
+) -> Path:
+    """Finds the path to the orbit on the NCI using the pygssearch API for
+    AusCopHub based on the scene ID
+
+    Parameters
+    ----------
+    scene : str
+        Sentinel-1 scene ID
+        e.g. S1A_EW_GRDM_1SDH_20220612T120348_20220612T120452_043629_053582_0F6
+    pygssearch_conda_env : Optional[Union[str, Path]], optional
+        Path to the conda environment containing an installation of pygssearch that
+        will be called in a subprocess. If not specified, the env variable
+        PYGSSEARCH_CONDA_ENV will be used. By default None
+    api_orbit_directory : Optional[Union[str, Path]], optional
+        Directory on NCI that contains scene files for the pygssearch AusCopHub API.
+        If not specified, the env variable NCI_API_ORBIT_FILE_LOCATION will be used.
+        By default None
+    service : _type_, optional
+        Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
+
+    Returns
+    -------
+    Path
+        Location of scene on NCI GADI
+
+    Raises
+    ------
+    MissingEnvironmentError
+        Neither of pygssearch_conda_env and PYGSSEARCH_CONDA_ENV environment variable were set
+    NCIMissingFilePathVariableError
+        Neither of api_orbit_directory and NCI_API_ORBIT_FILE_LOCATION environment variable were set
+    OrbitNotFoundError
+        No valid orbit was found for the scene
+    NonSingleOrbitError
+        More than one orbit found for scene
+
+    """
+
+    logging.info("Searching Australian Copernicus Hub API for Orbit.")
+
+    # Get pygssearch conda environment path if not passed to function
+    pygssearch_conda_env = pygssearch_conda_env or os.getenv("PYGSSEARCH_CONDA_ENV")
+    if not pygssearch_conda_env:
+        raise MissingEnvironmentError(
+            "Path to conda environment for pygssearch is missing. "
+            "Please provide the pygssearch_conda_env argument "
+            "or set the PYGSSEARCH_CONDA_ENV environment variable."
+        )
+
+    # Get directory on NCI that hosts the file system for the Aus Cop Hub API
+    api_orbit_directory = api_orbit_directory or os.getenv(
+        "NCI_API_ORBIT_FILE_LOCATION"
+    )
+    if not api_orbit_directory:
+        raise NCIMissingFilePathVariableError(
+            "Path to Aus Cop Hub API filesystem on NCI is missing. "
+            "Please provide the api_orbit_directory argument "
+            "Or set the NCI_API_ORBIT_FILE_LOCATION environment variable."
+        )
+
+    # Get metadata by querying the scene ID using the API
+    metadata = query_orbit_from_aus_cop_hub(
+        scene,
+        pygssearch_conda_env=pygssearch_conda_env,
+        orbit_file_types=orbit_file_types,
+        service=service,
+    )
+
+    if not metadata:
+        raise OrbitNotFoundError(
+            "Orbit file cound not be found for scene via Aus Cop Hub pygssearch"
+        )
+
+    # Extract the scene UUID from the metadata, which informs the file path
+    orbit_uuid = metadata["Id"]
+    orbit_filename = metadata["Name"]
+
+    # Convert api_orbit_directory to path, then append location of orbit file as dictated by API
+    api_orbit_directory = Path(api_orbit_directory)
+    orbit_file_path = (
+        api_orbit_directory
+        / orbit_uuid[0:2]
+        / orbit_uuid[2:4]
+        / orbit_uuid
+        / orbit_filename
+    )
+
+    # Raise an error if the file does not exist
+    if not orbit_file_path.is_file():
+        raise NCIMissingOrbitError(
+            f"Unable to locate orbit file through API based on retrieved UUID {orbit_uuid}. Expected path is {orbit_file_path}."
+        )
+
+    return orbit_file_path
+
+
+def find_orbit_from_id(
+    scene_id: str,
+    orbit_type: str = "POE",
+    nci_orbit_dir=Path("/g/data/fj7/Copernicus/Sentinel-1/"),
+) -> Path:
+    """
+    scene_id: str:
+        Scene ID, e.g.
+    orbit_dir : Path, optional
+        Path to orbit files
+        Set to default for NCI: /g/data/fj7/Copernicus/Sentinel-1/
+    orbit_type : str, optional
+        The orbit type to get. Any of "POE", "RES" or "either", by default "POE"
+        orbit_dir : Path, optional
+    """
+
+    # Extract metadata
+    scene_metadata = extract_metadata_from_s1_id(scene_id)
+
+    # Isolate metadata for finding orbit
+    scene_sensor = scene_metadata.mission
+    scene_start = scene_metadata.start_datetime
+    scene_stop = scene_metadata.stop_datetime
+
+    # Find orbit files
+    try:
+        logging.info("Searching for orbit file in NCI filesystem")
+        orbit_files = get_orbits_nci(orbit_type, scene_sensor, nci_orbit_dir)
+        orbit_file = find_latest_orbit_covering_window(
+            orbit_files, scene_start, scene_stop
+        )
+    except OrbitNotFoundError:
+        logging.info("Orbit not found on NCI")
+        # format orbit types for API
+        if orbit_type == "either":
+            orbit_file_types = ["AUX_POEORB", "AUX_RESORB"]
+        else:
+            orbit_file_types = [f"AUX_{orbit_type}ORB"]
+        try:
+            orbit_file = find_orbit_file_from_api(
+                scene_id, orbit_file_types=orbit_file_types
+            )
+        except OrbitNotFoundError:
+            raise NCIMissingOrbitError(
+                f"Could not find orbit file in NCI filesystem or through pyssearch of Aus Cop Hub"
+            )
+
+    return orbit_file

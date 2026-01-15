@@ -23,6 +23,12 @@ VALID_ORBIT_DATA_SOURCES = ["AUS_COP_HUB", "ASF", "CDSE"]
 ValidOrbitDataSources = Literal["AUS_COP_HUB", "ASF", "CDSE"]
 
 
+class MissingEnvironmentError(Exception):
+    """Exception raised when no conda environment is supplied."""
+
+    pass
+
+
 class OrbitDownloadError(Exception):
     """Exception raised when the scene download fails."""
 
@@ -220,6 +226,8 @@ def download_orbits_from_aus_cop_hub(
         Folder where the scene should be downloaded to
     make_folder : bool, optional
         Make non-existing folders, by default True
+    search_buffer_days: int, optional
+        Days to buffer around scene times to find match.
     orbit_file_types:
         Preference for the type of orbit file to be downloaded. Default ["AUX_POEORB", "AUX_RESORB"].
     aus_cop_hub_login : str | None, optional
@@ -285,56 +293,19 @@ def download_orbits_from_aus_cop_hub(
     if make_folder:
         os.makedirs(download_folder, exist_ok=True)
 
-    # Run the initial query to get the base run command plus scene metadata.
-    pygssearch_conda_env = pygssearch_conda_env or os.getenv("PYGSSEARCH_CONDA_ENV")
-
-    # Set the command to use conda to execute a command using the pygssearch environment
-    environment_cmd = f"conda run -p {pygssearch_conda_env} "
-
-    # get the start and end dates for a scene
-    scene_st_datetime, scene_end_datetime = get_dates_from_scene_id(scene)
-    search_st = (scene_st_datetime - timedelta(days=search_buffer_days)).strftime(
-        "%Y-%m-%d"
+    orbit_metadata = query_orbit_from_aus_cop_hub(
+        scene,
+        pygssearch_conda_env=pygssearch_conda_env,
+        orbit_file_types=orbit_file_types,
+        search_buffer_days=search_buffer_days,
+        service=service,
     )
-    search_et = (scene_end_datetime + timedelta(days=search_buffer_days)).strftime(
-        "%Y-%m-%d"
-    )
-    orbit_file_name = None
-    for orbit_file_type in orbit_file_types:
-        logger.info(
-            f"Querying AUS_COP_HUB for orbit type {orbit_file_type} between {search_st} and {search_et}"
-        )
-        search_query = f"pygssearch --service {service} --mission 1 --product_type {orbit_file_type} --start {search_st} --end {search_et} --format _"
-        # Set the query for the scene -- no credentials required when querying
-        pygss_search_cmd = environment_cmd + search_query
-        # run the auscophub query
-        aus_cophub_orbit_metadata = _run_aus_cophub_query(
-            pygssearch_conda_env, pygss_search_cmd
-        )
-        logger.info(f"{len(aus_cophub_orbit_metadata)} results found.")
-        if len(aus_cophub_orbit_metadata) == 0:
-            logger.info(
-                f"Could not find orbit type {orbit_file_type} in provided time window"
-            )
-            if orbit_file_type == orbit_file_types[-1]:
-                return []
-        logger.info(f"Filtering for best orbit file")
-        for orb in aus_cophub_orbit_metadata:
-            orb_st = datetime.strptime(
-                orb["ContentDate"]["Start"], "%Y-%m-%dT%H:%M:%S.%fZ"
-            )
-            orb_et = datetime.strptime(
-                orb["ContentDate"]["End"], "%Y-%m-%dT%H:%M:%S.%fZ"
-            )
-            if (scene_st_datetime > orb_st) and (scene_end_datetime < orb_et):
-                orbit_file_name = orb["Name"]
-                logger.info(f"match': {orbit_file_name}")
-                break
-        if orbit_file_name:
-            break
-        if not orbit_file_name and orbit_file_type == orbit_file_types[-1]:
-            # exit with no file path found
-            return []
+
+    if not orbit_metadata:
+        return []
+    else:
+        orbit_file_name = orbit_metadata["Name"]
+        logger.info(f"match': {orbit_file_name}")
 
     # Add additional query parameters to the base command to enable downloading
     download_query = (
@@ -380,6 +351,90 @@ def download_orbits_from_aus_cop_hub(
 
     # form the orbit path
     return [Path(download_folder) / orbit_file_name]
+
+
+def query_orbit_from_aus_cop_hub(
+    scene: str,
+    pygssearch_conda_env: Optional[Union[str, Path]] = None,
+    orbit_file_types: list = ["AUX_POEORB", "AUX_RESORB"],
+    search_buffer_days: int = 2,
+    service: str = "https://catalogue.copernicus.gov.au/odata/v1",
+) -> dict:
+    """Query the orbit and retrieve associated metadata from the Copernicus
+    Australasia Regional Data Hub. Function makes use of pygssearch -
+    https://pypi.org/project/pygssearch/ which is installed in a separate conda environment
+    and called in a subprocess due to package conflicts.
+
+    Parameters
+    ----------
+    scene : str
+        scene name. e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
+    pygssearch_conda_env: Optional[Union[str, Path]]
+        Path to the conda environment containing an installation of pygssearch that
+        will be called in a subprocess. If not specified, If not specified env variable
+        PYGSSEARCH_CONDA_ENV will be used. e.g. /path/to/anaconda3/envs/pygssearch-env
+    orbit_file_types:
+        Preference for the type of orbit file to be downloaded. Default ["AUX_POEORB", "AUX_RESORB"].
+    service : str, optional
+        Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
+
+    Returns
+    -------
+    dict
+        Dict of metadata for matching orbit
+    """
+
+    # Run the initial query to get the base run command plus scene metadata.
+    pygssearch_conda_env = pygssearch_conda_env or os.getenv("PYGSSEARCH_CONDA_ENV")
+
+    # Set the command to use conda to execute a command using the pygssearch environment
+    environment_cmd = f"conda run -p {pygssearch_conda_env} "
+
+    scene_st_datetime, scene_end_datetime = get_dates_from_scene_id(scene)
+    search_st = (scene_st_datetime - timedelta(days=search_buffer_days)).strftime(
+        "%Y-%m-%d"
+    )
+    search_et = (scene_end_datetime + timedelta(days=search_buffer_days)).strftime(
+        "%Y-%m-%d"
+    )
+    orbit_file_name = None
+    for orbit_file_type in orbit_file_types:
+        logger.info(
+            f"Querying AUS_COP_HUB for orbit type {orbit_file_type} between {search_st} and {search_et}"
+        )
+        search_query = f"pygssearch --service {service} --mission 1 --product_type {orbit_file_type} --start {search_st} --end {search_et} --format _"
+        # Set the query for the scene -- no credentials required when querying
+        pygss_search_cmd = environment_cmd + search_query
+        # run the auscophub query
+        aus_cophub_orbit_metadata = _run_aus_cophub_query(
+            pygssearch_conda_env, pygss_search_cmd
+        )
+        logger.info(f"{len(aus_cophub_orbit_metadata)} results found.")
+        if len(aus_cophub_orbit_metadata) == 0:
+            logger.info(
+                f"Could not find orbit type {orbit_file_type} in provided time window"
+            )
+            if orbit_file_type == orbit_file_types[-1]:
+                return []
+        logger.info(f"Filtering for best orbit file")
+        for orbit_metadata in aus_cophub_orbit_metadata:
+            orb_st = datetime.strptime(
+                orbit_metadata["ContentDate"]["Start"], "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+            orb_et = datetime.strptime(
+                orbit_metadata["ContentDate"]["End"], "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+            if (scene_st_datetime > orb_st) and (scene_end_datetime < orb_et):
+                orbit_file_name = orbit_metadata["Name"]
+                logger.info(f"match': {orbit_file_name}")
+                break
+        if orbit_file_name:
+            break
+        if not orbit_file_name and orbit_file_type == orbit_file_types[-1]:
+            # exit with no file path found
+            return []
+
+    return orbit_metadata
 
 
 @log_timing

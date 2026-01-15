@@ -8,7 +8,7 @@ import rasterio
 
 from sar_pipeline.pipelines.pyrosar_gamma.filesystem import get_orbits_nci
 from sar_pipeline.pipelines.pyrosar_gamma.submission.pyrosar_gamma.prepare_input import (
-    get_orbit_and_dem,
+    get_dem_for_scene,
 )
 from sar_pipeline.preparation.etad import find_etad_for_scene
 from sar_pipeline.preparation.nci.orbits import (
@@ -22,6 +22,7 @@ from sar_pipeline.preparation.nci.scenes import (
     find_scene_file_from_id,
     NCIMissingSceneError,
 )
+from sar_pipeline.preparation.nci.orbits import find_orbit_from_id, NCIMissingOrbitError
 from sar_pipeline.utils.sentinel1 import is_s1_filename, is_s1_id
 from sar_pipeline.pipelines.pyrosar_gamma.processing.pyroSAR.pyrosar_geocode import (
     run_pyrosar_gamma_geocode,
@@ -122,7 +123,7 @@ def configure(ctx, param, filename):
         path_type=Path,
     ),
     required=True,
-    help="Path to where orbit files are stored",
+    help="Path to where orbit files are stored on NCI filesystem",
 )
 @click.option(
     "--orbit-type",
@@ -206,7 +207,8 @@ def submit_pyrosar_gamma_workflow(
 
     # set NCI required env variables
     REQUIRED_ENV_VARIABLES = [
-        "NCI_API_FILE_LOCATION",
+        "NCI_API_SCENE_FILE_LOCATION",
+        "NCI_API_ORBIT_FILE_LOCATION",
         "NCI_FILESYSTEM_FILE_LOCATION",
         "CONDA_EXE",
         "PYGSSEARCH_CONDA_ENV",
@@ -292,17 +294,17 @@ def submit_pyrosar_gamma_workflow(
                 f"{scene_id} has already been processed. Check output at {processed_path}"
             )
         else:
-            # Find file on NCI
+            # Find files on NCI
             try:
                 scene_file = find_scene_file_from_id(scene_id)
+                orbit_file = find_orbit_from_id(scene_id, orbit_type, orbit_dir)
 
                 submit_job(
                     scene=scene_file,
                     spacing=spacing,
                     scaling=scaling,
                     target_crs=target_crs,
-                    orbit_dir=orbit_dir,
-                    orbit_type=orbit_type,
+                    orbit_file=orbit_file,
                     etad_dir=etad_dir,
                     output_dir=output_dir,
                     log_dir=log_dir,
@@ -315,7 +317,7 @@ def submit_pyrosar_gamma_workflow(
 
                 submitted_scenes.append(scene_id)
 
-            except NCIMissingSceneError:
+            except (NCIMissingSceneError, NCIMissingOrbitError) as e:
                 continue
 
     if dry_run == True:
@@ -372,22 +374,14 @@ def submit_pyrosar_gamma_workflow(
     help="The EPSG number for the target coordinate reference system. Only 4326 and 3031 are supported",
 )
 @click.option(
-    "--orbit-dir",
+    "--orbit-path",
     type=click.Path(
         exists=True,
-        file_okay=False,
+        file_okay=True,
         path_type=Path,
     ),
     required=True,
-    help="Path to where orbit files are stored",
-)
-@click.option(
-    "--orbit-type",
-    type=click.Choice(
-        ["POE", "RES", "either"],
-    ),
-    required=True,
-    help="The orbit type to use, POE for precise, RES for restitutional, either for the most recent.",
+    help="Path to where orbit file is stored",
 )
 @click.option(
     "--etad-dir",
@@ -427,8 +421,7 @@ def run_pyrosar_gamma_workflow(
     spacing: int,
     scaling: Literal["linear", "db", "both"],
     target_crs: Literal["4326", "3031"],
-    orbit_dir: Path,
-    orbit_type: Literal["POE", "RES", "either"],
+    orbit_path: Path,
     etad_dir: Path | None,
     output_dir: Path,
     gamma_lib_dir: Path,
@@ -439,7 +432,8 @@ def run_pyrosar_gamma_workflow(
 
     # set NCI required env variables
     REQUIRED_ENV_VARIABLES = [
-        "NCI_API_FILE_LOCATION",
+        "NCI_API_SCENE_FILE_LOCATION",
+        "NCI_API_ORBIT_FILE_LOCATION",
         "NCI_FILESYSTEM_FILE_LOCATION",
         "CONDA_EXE",
         "PYGSSEARCH_CONDA_ENV",
@@ -448,12 +442,12 @@ def run_pyrosar_gamma_workflow(
     # Identify and load required environment variables
     identify_and_load_missing_env_vars(REQUIRED_ENV_VARIABLES, dotenv_location)
 
-    click.echo("Preparing orbit and DEM")
+    click.echo("Preparing DEM")
     dem_output_dir = output_dir / "data/dem"
 
-    orbit, dem = get_orbit_and_dem(scene, dem_output_dir, orbit_dir, orbit_type)
+    dem = get_dem_for_scene(scene, dem_output_dir)
 
-    click.echo(f"    Identified orbit: {orbit}")
+    click.echo(f"    Identified orbit: {orbit_path}")
     click.echo(f"    Identified DEM: {dem}")
 
     if etad_dir is not None:
@@ -471,7 +465,7 @@ def run_pyrosar_gamma_workflow(
     click.echo(f"    LD_LIBRARY_PATH (used by GAMMA): {gamma_env_var}")
     processed_scene_directory = run_pyrosar_gamma_geocode(
         scene=scene,
-        orbit=orbit,
+        orbit=orbit_path,
         dem=dem,
         output=output_dir,
         gamma_library=gamma_lib_dir,

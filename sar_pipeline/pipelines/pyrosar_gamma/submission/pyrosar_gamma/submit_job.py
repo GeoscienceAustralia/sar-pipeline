@@ -14,8 +14,7 @@ def submit_job(
     spacing: int,
     scaling: str,
     target_crs: str,
-    orbit_dir: Path,
-    orbit_type: str,
+    orbit_file: Path,
     etad_dir: Optional[Path],
     output_dir: Path,
     log_dir: Path,
@@ -69,8 +68,7 @@ def submit_job(
         f"--spacing {spacing} "
         f"--scaling {scaling} "
         f"--target-crs {target_crs} "
-        f"--orbit-dir {orbit_dir} "
-        f"--orbit-type {orbit_type} "
+        f"--orbit-path {orbit_file} "
         f"--output-dir {output_dir} "
         f"--gamma-lib-dir {gamma_lib_dir} "
         f"--gamma-env-var {gamma_env_var} "

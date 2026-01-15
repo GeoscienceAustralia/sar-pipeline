@@ -1,7 +1,9 @@
 from pathlib import Path
+import logging
 
-from sar_pipeline.preparation.nci.orbits import find_orbits
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
+
+logging.basicConfig(level=logging.INFO)
 
 
 def get_orbits_nci(
@@ -14,7 +16,7 @@ def get_orbits_nci(
     Parameters
     ----------
     orbit_type : str | None
-        One of 'POE', 'RES', or None. If None, both POE and RES orbits will be included
+        One of 'POE', 'RES', or "either". If "either", both POE and RES orbits will be included
     sensor : str
         Sensor (e.g. S1A or S1B) to search. Typically extracted from the scene ID
     nci_orbit_dir : Path, optional
@@ -38,18 +40,24 @@ def get_orbits_nci(
         orbit_type_directories = [POE_DIR]
     elif orbit_type == "RES":
         orbit_type_directories = [RES_DIR]
-    elif orbit_type is None:
+    elif orbit_type == "either":
         orbit_type_directories = [RES_DIR, POE_DIR]
     else:
-        raise ValueError("orbit_type must be one of 'POE', 'RES', or None")
+        raise ValueError("orbit_type must be one of 'POE', 'RES', or either")
 
     nci_orbit_directories = [
         nci_orbit_dir / orbit_dir / sensor for orbit_dir in orbit_type_directories
     ]
 
-    orbits = find_orbits(nci_orbit_directories)
+    logging.info(nci_orbit_directories)
 
-    return orbits
+    matching_files = []
+    extension = ".EOF"
+    for directory in nci_orbit_directories:
+        if directory.is_dir():
+            matching_files.extend(directory.glob(f"*{extension}"))
+
+    return matching_files
 
 
 def get_dem_nci(
