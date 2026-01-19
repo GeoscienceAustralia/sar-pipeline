@@ -110,8 +110,8 @@ def make_scene_completeness_report(
 
     completeness_report_name = COMPLETENESS_REPORT_FORMAT.format(
         report_dt=f"{report_dt.strftime('%Y%m%dT%H%M%S')}",
-        start_dt=f"_{start_dt.strftime('%Y%m%dT%H%M%S')}",
-        end_dt=f"_{end_dt.strftime('%Y%m%dT%H%M%S')}",
+        start_dt=f"{start_dt.strftime('%Y%m%dT%H%M%S')}",
+        end_dt=f"{end_dt.strftime('%Y%m%dT%H%M%S')}",
         report_type="scene",
     )
 
