@@ -118,6 +118,9 @@ test-nci-filesystem = "pytest tests/filesystem"
 ### GENERAL TASKS ###
 lint = "black sar_pipeline"
 
+[tool.black]
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
 [tool.pixi.feature.dev.dependencies]
 pre-commit = ">=4.2.0"
 pytest = ">=8.3.5"
@@ -133,4 +136,4 @@ conda env list | grep -q pygssearch-env || conda env create -f Conda/pygssearch/
 """
 
 [dependency-groups]
-dev = ["black>=25.1.0", "pytest-dependency>=0.6.0,<0.7"]
+dev = ["black==25.1.0", "pytest-dependency>=0.6.0,<0.7"]

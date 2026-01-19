@@ -10,6 +10,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Lint
-      uses: psf/black@stable
+      uses: psf/black@25.1.0
       with:
-        options: "--check --verbose"
+        options: "--check --verbose sar_pipeline"
