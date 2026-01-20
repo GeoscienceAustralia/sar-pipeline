@@ -1,5 +1,4 @@
 import boto3
-import re
 from datetime import datetime
 from pathlib import Path
 from typing import List
@@ -7,6 +6,7 @@ from typing import Literal
 import tempfile
 import logging
 import json
+from pprint import pformat
 
 from sar_pipeline.utils.aws import S3Util
 from sar_pipeline.pipelines.isce3_rtc.monitoring.generate_s1_iw_completeness_report import (
@@ -17,6 +17,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 ValidReportTypes = Literal["scene", "burst"]
+VALID_REPORT_TYPES = ["scene", "burst"]
 
 
 def _send_job_to_sqs(queue_url: str, job: dict) -> None:
@@ -58,6 +59,10 @@ def _parse_s3_folder_for_most_recent_completeness_reports(
     ValueError
         If no matching reports are found
     """
+
+    if report_type not in VALID_REPORT_TYPES:
+        raise ValueError(f"Invalid `report_type`. Must be one of {VALID_REPORT_TYPES}")
+
     s3 = boto3.client("s3")
 
     paginator = s3.get_paginator("list_objects_v2")
@@ -99,14 +104,22 @@ def _parse_s3_folder_for_most_recent_completeness_reports(
     return [key for _, key in report_names[:n_most]]
 
 
-def process_s1_iw_scene_completeness_report(
+def process_s1_iw_completeness_report(
     s3_bucket: str,
     s3_completeness_report_folder: str,
+    report_type: ValidReportTypes,
+    s1_nrb_sqs_url: str,
     report_name: str,
     n_most_recent_reports: int = None,
-    s1_rtc_sqs_url: str = "https://sqs.ap-southeast-2.amazonaws.com/451924316694/s1-rtc-simulate-batch-queue",
     dry_run: bool = False,
 ):
+
+    logger.info("Called process_s1_iw_scene_completeness_report with arguments:")
+    for k, v in locals().items():
+        logger.info(f"   {k} : {v}")
+
+    if report_type not in VALID_REPORT_TYPES:
+        raise ValueError(f"Invalid `report_type`. Must be one of {VALID_REPORT_TYPES}")
 
     if not (report_name or n_most_recent_reports) or (
         report_name and n_most_recent_reports
@@ -142,6 +155,10 @@ def process_s1_iw_scene_completeness_report(
 
     s3_downloader = S3Util()
 
+    # create a dict indexed by the s3_project_folder in case there are multiple
+    # target folders in the completion reports
+    scenes_to_reprocess = {}
+
     for i, completeness_report_s3_key in enumerate(completeness_report_s3_keys):
         logging.info(f"Processing report {i+1} of {len(completeness_report_s3_keys)}")
         logger.info(f"Report name : {Path(completeness_report_s3_key).name}")
@@ -152,40 +169,83 @@ def process_s1_iw_scene_completeness_report(
             )
             # rewind to start of file
             tmpfile.seek(0)
+
             # load JSON
             report_data = json.load(tmpfile)
 
-        # logger.info(f"report_time : {completeness_report['report_time']}")
-        # logger.info(f"search_start_time : {completeness_report['search_start_time']}")
-        # logger.info(f"search_end_time : {completeness_report['search_end_time']}")
-        # logger.info(f"search_geometry : {completeness_report['search_geometry']}")
-        # logger.info(f"summary : {json.dumps(completeness_report['summary'], indent=2)}")
+            # print key info from report
+            logger.info(f"report_time : {report_data['report_time']}")
+            logger.info(f"search_start_time : {report_data['search_start_time']}")
+            logger.info(f"search_end_time : {report_data['search_end_time']}")
+            logger.info(f"s3_project_folder : {report_data['s3_project_folder']}")
+            logger.info(f"summary : {json.dumps(report_data['summary'], indent=2)}")
 
+            s3_project_folder = report_data["s3_project_folder"]
 
-def process_s1_iw_burst_completeness_report(
-    s3_bucket: str,
-    s3_completeness_report_folder: str,
-    report_name: str = None,
-    n_most_recent_reports: int = None,
-    s1_rtc_sqs_url: str = "https://sqs.ap-southeast-2.amazonaws.com/451924316694/s1-rtc-simulate-batch-queue",
-    s1_rtc_static_sqs_url: str = "https://sqs.ap-southeast-2.amazonaws.com/451924316694/s1-rtc-static-queue",
-    dry_run: bool = False,
-): ...
+            # get the scenes to reprocess
+            for scene in report_data["results"]["scenes_to_reprocess"]:
+                if s3_project_folder not in scenes_to_reprocess.keys():
+                    scenes_to_reprocess[s3_project_folder] = []
+                if scene not in scenes_to_reprocess[s3_project_folder]:
+                    scenes_to_reprocess[s3_project_folder].append(scene)
+
+    for s3_project_folder in scenes_to_reprocess.keys():
+        logger.info(
+            f"{len(scenes_to_reprocess[s3_project_folder])} unique scene/s found to reprocess for "
+            f"s3_project_folder : {s3_project_folder}"
+        )
+
+    logger.info("Generating SQS messages")
+    if dry_run:
+        logging.warning(
+            f"dry_run, jobs will not be sent to s1-nrb sqs queue : {s1_nrb_sqs_url}"
+        )
+    else:
+        logging.info(f"Adding jobs to s1-nrb sqs queue : {s1_nrb_sqs_url}")
+
+    n_messages = 0
+    for s3_project_folder in scenes_to_reprocess.keys():
+        for scene in scenes_to_reprocess[s3_project_folder]:
+            # see example message in ./sqs_message_examples
+            start_date = scene[17:25]
+            product_unique_id = scene[-4:]
+            scene_sqs_message = {
+                "jobname": f"{start_date}_{product_unique_id}_reprocess",
+                "sceneId": scene,
+                "project": s3_project_folder,
+            }
+            n_messages += 1
+            if not dry_run:
+                _send_job_to_sqs(s1_nrb_sqs_url, scene_sqs_message)
+
+    if not dry_run:
+        logging.info(
+            f"{n_messages} scene/s successfully sent to reprocessing s1-nrb sqs queue : {s1_nrb_sqs_url}"
+        )
+    else:
+        logging.info(
+            f"dry_run, {n_messages} message/s prepared but not sent to s1-nrb sqs queue : {s1_nrb_sqs_url}"
+        )
 
 
 if __name__ == "__main__":
 
     s3_bucket = "deant-data-public-dev"
     s3_completeness_report_folder = "TMP/completeness_reports"
-    report_type = "burst"
+    s3_completeness_report_folder = "TMP/sar-pipeline/isce3_rtc/2025-12-23_23-48-14.173303/test_full_docker_workflow_run"
+    report_type = "scene"
+    s1_nrb_sqs_url = (
+        "https://sqs.ap-southeast-2.amazonaws.com/451924316694/dea-dev-s1-rtc-queue"
+    )
     report_name = ""
     n_most_recent_reports = 2
 
-    process_s1_iw_scene_completeness_report(
+    process_s1_iw_completeness_report(
         s3_bucket,
         s3_completeness_report_folder,
+        report_type="burst",
+        s1_nrb_sqs_url=s1_nrb_sqs_url,
         report_name=None,
-        n_most_recent_reports=1,
-        s1_rtc_sqs_url="https://sqs.ap-southeast-2.amazonaws.com/451924316694/s1-rtc-simulate-batch-queue",
-        dry_run=False,
+        n_most_recent_reports=n_most_recent_reports,
+        dry_run=True,
     )
