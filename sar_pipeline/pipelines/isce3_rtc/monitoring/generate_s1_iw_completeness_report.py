@@ -459,7 +459,7 @@ def make_burst_product_completeness_report(
     buffer = timedelta(seconds=10)
     n_stac_matches, stac_items = query_stac_for_metadata_in_period(
         start_dt=start_dt - buffer,
-        end_dt=end_dt - buffer,
+        end_dt=end_dt + buffer,
         geometry=shape(geometry),
         collections=collections_to_search,
         stac_catalog=stac_catalog,
@@ -590,7 +590,7 @@ def make_burst_product_completeness_report(
             buffer = timedelta(minutes=10)
             n_stac_matches, stac_items = query_stac_for_metadata_in_period(
                 start_dt=start_dt - buffer,
-                end_dt=end_dt - buffer,
+                end_dt=end_dt + buffer,
                 geometry=shape(geometry),
                 collections=["sentinel-1-slc"],
                 query={"sar:instrument_mode": {"eq": "IW"}},
