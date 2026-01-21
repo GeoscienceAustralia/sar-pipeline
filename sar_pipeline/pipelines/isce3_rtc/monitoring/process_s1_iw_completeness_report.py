@@ -110,6 +110,8 @@ def process_s1_iw_completeness_report(
     report_type: ValidReportTypes,
     s1_nrb_sqs_url: str,
     report_name: str,
+    s1_nrb_static_sqs_url: str = None,
+    s1_nrb_indexing_sqs_queue: str = None,
     n_most_recent_reports: int = None,
     dry_run: bool = False,
 ):
@@ -157,7 +159,10 @@ def process_s1_iw_completeness_report(
 
     # create a dict indexed by the s3_project_folder in case there are multiple
     # target folders in the completion reports
+    s3_project_folders = []
     scenes_to_reprocess = {}
+    scenes_w_missing_static_layers = {}
+    burst_products_to_index = {}
 
     for i, completeness_report_s3_key in enumerate(completeness_report_s3_keys):
         logging.info(f"Processing report {i+1} of {len(completeness_report_s3_keys)}")
@@ -181,6 +186,8 @@ def process_s1_iw_completeness_report(
             logger.info(f"summary : {json.dumps(report_data['summary'], indent=2)}")
 
             s3_project_folder = report_data["s3_project_folder"]
+            if s3_project_folder not in s3_project_folders:
+                s3_project_folders.append(s3_project_folder)
 
             # get the scenes to reprocess
             for scene in report_data["results"]["scenes_to_reprocess"]:
@@ -189,17 +196,64 @@ def process_s1_iw_completeness_report(
                 if scene not in scenes_to_reprocess[s3_project_folder]:
                     scenes_to_reprocess[s3_project_folder].append(scene)
 
-    for s3_project_folder in scenes_to_reprocess.keys():
-        logger.info(
-            f"{len(scenes_to_reprocess[s3_project_folder])} unique scene/s found to reprocess for "
-            f"s3_project_folder : {s3_project_folder}"
-        )
+            # Get the scenes with missing static layers and burst products that
+            # Exist but need to be indexed - ONLY AVAILABLE IN BURST REPORTS
+            if report_type == "burst":
+                # get the scenes with missing static layers to be sent to the
+                # static layer sqs queue
+                for scene in report_data["results"][
+                    "scenes_with_missing_static_layers_to_reprocess"
+                ]:
+                    if s3_project_folder not in scenes_w_missing_static_layers.keys():
+                        scenes_w_missing_static_layers[s3_project_folder] = []
+                    if scene not in scenes_w_missing_static_layers[s3_project_folder]:
+                        scenes_w_missing_static_layers[s3_project_folder].append(scene)
+
+                # get the existing burst products that are missing from the open data cube
+                # to be sent to indexing pipelines
+                for burst in report_data["results"]["burst_products_existing_to_index"]:
+                    if s3_project_folder not in burst_products_to_index.keys():
+                        burst_products_to_index[s3_project_folder] = []
+                    if burst not in burst_products_to_index[s3_project_folder]:
+                        # get the s3 folder containing the stac item
+                        burst_product_folder = report_data["results"][
+                            "burst_products_existing_to_index"
+                        ][burst]["expected_s3_product_folder"]
+                        burst_products_to_index[s3_project_folder].append(
+                            burst_product_folder
+                        )
+
+    # log the findings
+    for s3_project_folder in s3_project_folders:
+        if s3_project_folder in scenes_to_reprocess.keys():
+            logger.info(
+                f"{len(scenes_to_reprocess[s3_project_folder])} unique scene/s found to reprocess "
+                f" for s3_project_folder : {s3_project_folder}"
+            )
+        # the following will be empty lists for scene reports
+        if s3_project_folder in scenes_w_missing_static_layers.keys():
+            logger.info(
+                f"{len(scenes_w_missing_static_layers[s3_project_folder])} unique scene/s are found"
+                f" with missing static layers for s3_project_folder : {s3_project_folder}"
+            )
+        if s3_project_folder in burst_products_to_index.keys():
+            logger.info(
+                f"{len(burst_products_to_index[s3_project_folder])} unique burst products exist "
+                f" but are not indexed in the open data cube (ODC) : {s3_project_folder}"
+            )
 
     logger.info("Generating SQS messages")
     if dry_run:
         logging.warning(
             f"dry_run, jobs will not be sent to s1-nrb sqs queue : {s1_nrb_sqs_url}"
         )
+        if report_type == "burst":
+            logging.warning(
+                f"dry_run, jobs will not be sent to s1-nrb-static sqs queue : {s1_nrb_sqs_url}"
+            )
+            logging.warning(
+                f"dry_run, jobs will not be sent to ODC indexing queue : {s1_nrb_indexing_sqs_queue}"
+            )
     else:
         logging.info(f"Adding jobs to s1-nrb sqs queue : {s1_nrb_sqs_url}")
 
@@ -243,7 +297,7 @@ if __name__ == "__main__":
     process_s1_iw_completeness_report(
         s3_bucket,
         s3_completeness_report_folder,
-        report_type="burst",
+        report_type="scene",
         s1_nrb_sqs_url=s1_nrb_sqs_url,
         report_name=None,
         n_most_recent_reports=n_most_recent_reports,
