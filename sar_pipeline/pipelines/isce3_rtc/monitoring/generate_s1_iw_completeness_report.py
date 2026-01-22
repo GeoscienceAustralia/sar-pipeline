@@ -383,6 +383,7 @@ def make_burst_product_completeness_report(
         f"aws_s3_prefix_format : {RTC_S1_S3_PREFIX_FORMAT} "
     )
 
+    # TODO parallelise this
     for burst_id, azimuth_time in tqdm(
         expected_burst_product_dict.keys(), desc="Searching AWS for nrb products ..."
     ):
@@ -614,6 +615,12 @@ def make_burst_product_completeness_report(
                 f"aws_s3_prefix_format : {RTC_S1_STATIC_S3_PREFIX_FORMAT}"
             )
 
+            # temp supress logs for iteration
+            root_logger = logging.getLogger()
+            og_log_level = root_logger.level
+            root_logger.setLevel(logging.WARNING)
+
+            # TODO parallelise this
             for scene in tqdm(
                 scenes_to_process,
                 desc="Identifying missing static layers for unprocessed scenes",
@@ -673,6 +680,9 @@ def make_burst_product_completeness_report(
                         ] = expected_static_layer_s3_product_folder
                         if scene not in scenes_missing_static_layers:
                             scenes_missing_static_layers.append(scene)
+
+    # return logger to original level
+    root_logger.setLevel(og_log_level)
 
     # get the counts of the missing static layers
     n_bursts_missing_static_layers = len(bursts_missing_static_layers)
@@ -755,4 +765,5 @@ def make_burst_product_completeness_report(
             "ContentType": mimetypes.guess_type(local_path)[0] or "binary/octet-stream"
         },
     )
+    logger.info(f"summary : {json.dumps(completeness_json['summary'], indent=2)}")
     logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
