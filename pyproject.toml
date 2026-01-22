@@ -48,8 +48,8 @@ get-data-for-scene-and-make-run-config = "sar_pipeline.pipelines.isce3_rtc.cli:g
 make-rtc-opera-stac-and-upload-bursts = "sar_pipeline.pipelines.isce3_rtc.cli:make_rtc_opera_stac_and_upload_bursts"
 compare-isce3-rtc-products = "sar_pipeline.pipelines.isce3_rtc.cli:compare_products"
 get-burst-ids-for-scene = "sar_pipeline.pipelines.isce3_rtc.cli:get_bursts_ids_for_scene"
-monitoring-generate-s1-iw-burst-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:make_burst_product_completeness_report_cli"
-monitoring-generate-s1-iw-scene-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:make_scene_completeness_report_cli"
+monitoring-generate-s1-iw-burst-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:generate_s1_iw_burst_completeness_report_cli"
+monitoring-generate-s1-iw-scene-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:generate_s1_iw_scene_completeness_report_cli"
 
 [tool.setuptools_scm]
 version_file = "sar_pipeline/_version.py"
