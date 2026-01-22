@@ -58,9 +58,11 @@ ValidReportTypes = Literal["scene", "burst"]
 )
 @click.option(
     "--stac-catalog",
+    required=True,
     default="https://explorer.dev.dea.ga.gov.au/stac",
     type=str,
-    help="STAC catalog URL (e.g. https://explorer.dev.dea.ga.gov.au/stac).",
+    help="STAC catalog URL where GA products can be accessed "
+    "(e.g. https://explorer.dev.dea.ga.gov.au/stac).",
 )
 @click.option(
     "--s3-completeness-report-folder",
@@ -72,7 +74,7 @@ ValidReportTypes = Literal["scene", "burst"]
     "20251218T043403_20241214T000000_20241216T000000_completeness_report.json. If not provided,"
     "it will be set to {s3_report_folder}/monitoring/completeness_reports by default.",
 )
-def make_scene_completeness_report_cli(
+def generate_s1_iw_scene_completeness_report_cli(
     s3_bucket,
     s3_project_folder,
     collection_number,
@@ -172,7 +174,8 @@ def make_scene_completeness_report_cli(
     required=True,
     default="https://explorer.dev.dea.ga.gov.au/stac",
     type=str,
-    help="STAC catalog URL (e.g. https://explorer.dev.dea.ga.gov.au/stac).",
+    help="STAC catalog URL where GA products can be accessed "
+    "(e.g. https://explorer.dev.dea.ga.gov.au/stac).",
 )
 @click.option(
     "--s3-completeness-report-folder",
@@ -223,7 +226,7 @@ def make_scene_completeness_report_cli(
     help="Collection number of linked RTC_S1_STATIC layers."
     "Defaults to --collection-number if not provided.",
 )
-def make_burst_product_completeness_report_cli(
+def generate_s1_iw_burst_completeness_report_cli(
     s3_bucket,
     s3_project_folder,
     collection_number,
