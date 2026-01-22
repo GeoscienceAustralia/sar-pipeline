@@ -109,14 +109,14 @@ def process_s1_iw_completeness_report(
     s3_completeness_report_folder: str,
     report_type: ValidReportTypes,
     s1_nrb_sqs_url: str,
-    report_name: str,
+    report_name: str | None = None,
+    n_most_recent_reports: int = None,
     s1_nrb_static_sqs_url: str = None,
     s1_nrb_indexing_sqs_queue: str = None,
-    n_most_recent_reports: int = None,
     dry_run: bool = False,
 ):
 
-    logger.info("Called process_s1_iw_scene_completeness_report with arguments:")
+    logger.info("Called process_s1_iw_completeness_report with arguments:")
     for k, v in locals().items():
         logger.info(f"   {k} : {v}")
 
@@ -131,6 +131,13 @@ def process_s1_iw_completeness_report(
             "`n_most_recent_reports` parameter must be set to either process a specific report, or the most recent n reports. "
             "e.g. set `n_most_recent_reports = 1` to process the most recently created scene report. "
         )
+    if report_type == "burst":
+        if not (s1_nrb_static_sqs_url or s1_nrb_indexing_sqs_queue):
+            raise ValueError(
+                "Both `s1_nrb_static_sqs_url` and `s1_nrb_indexing_sqs_queue` must be set if `report_type` == 'burst'. "
+                "Missing static layers will be sent to reprocess and existing products not indexed will be added. "
+                f"s1_nrb_static_sqs_url = {s1_nrb_static_sqs_url}, s1_nrb_indexing_sqs_queue = {s1_nrb_indexing_sqs_queue}"
+            )
 
     if n_most_recent_reports:
         # find the n most recent report
@@ -210,7 +217,7 @@ def process_s1_iw_completeness_report(
                         scenes_w_missing_static_layers[s3_project_folder].append(scene)
 
                 # get the existing burst products that are missing from the open data cube
-                # to be sent to indexing pipelines
+                # to be sent to indexing pipelines - ONLY AVAILABLE IN BURST REPORTS
                 for burst in report_data["results"]["burst_products_existing_to_index"]:
                     if s3_project_folder not in burst_products_to_index.keys():
                         burst_products_to_index[s3_project_folder] = []
@@ -226,21 +233,35 @@ def process_s1_iw_completeness_report(
     # log the findings
     for s3_project_folder in s3_project_folders:
         if s3_project_folder in scenes_to_reprocess.keys():
-            logger.info(
-                f"{len(scenes_to_reprocess[s3_project_folder])} unique scene/s found to reprocess "
-                f" for s3_project_folder : {s3_project_folder}"
-            )
+            n_scenes_to_reprocess = len(scenes_to_reprocess[s3_project_folder])
+        else:
+            n_scenes_to_reprocess = 0
+
         # the following will be empty lists for scene reports
         if s3_project_folder in scenes_w_missing_static_layers.keys():
-            logger.info(
-                f"{len(scenes_w_missing_static_layers[s3_project_folder])} unique scene/s are found"
-                f" with missing static layers for s3_project_folder : {s3_project_folder}"
+            n_scenes_w_missing_static_layers = len(
+                scenes_w_missing_static_layers[s3_project_folder]
             )
+        else:
+            n_scenes_w_missing_static_layers = 0
+
         if s3_project_folder in burst_products_to_index.keys():
-            logger.info(
-                f"{len(burst_products_to_index[s3_project_folder])} unique burst products exist "
-                f" but are not indexed in the open data cube (ODC) : {s3_project_folder}"
-            )
+            n_burst_products_to_index = len(burst_products_to_index[s3_project_folder])
+        else:
+            n_burst_products_to_index = 0
+
+        logger.info(
+            f"{n_scenes_to_reprocess} unique scene/s found to reprocess "
+            f" for s3_project_folder : {s3_project_folder}"
+        )
+        logger.info(
+            f"{n_scenes_w_missing_static_layers} unique scene/s are found"
+            f" with missing static layers for s3_project_folder : {s3_project_folder}"
+        )
+        logger.info(
+            f"{n_burst_products_to_index} unique burst products exist "
+            f"but are not indexed in the open data cube (ODC) for s3_project_folder : {s3_project_folder}"
+        )
 
     logger.info("Generating SQS messages")
     if dry_run:
@@ -252,34 +273,84 @@ def process_s1_iw_completeness_report(
                 f"dry_run, jobs will not be sent to s1-nrb-static sqs queue : {s1_nrb_sqs_url}"
             )
             logging.warning(
-                f"dry_run, jobs will not be sent to ODC indexing queue : {s1_nrb_indexing_sqs_queue}"
+                f"dry_run, jobs will not be sent to odc-indexing queue : {s1_nrb_indexing_sqs_queue}"
             )
     else:
         logging.info(f"Adding jobs to s1-nrb sqs queue : {s1_nrb_sqs_url}")
 
-    n_messages = 0
-    for s3_project_folder in scenes_to_reprocess.keys():
-        for scene in scenes_to_reprocess[s3_project_folder]:
-            # see example message in ./sqs_message_examples
-            start_date = scene[17:25]
-            product_unique_id = scene[-4:]
-            scene_sqs_message = {
-                "jobname": f"{start_date}_{product_unique_id}_reprocess",
-                "sceneId": scene,
-                "project": s3_project_folder,
-            }
-            n_messages += 1
-            if not dry_run:
-                _send_job_to_sqs(s1_nrb_sqs_url, scene_sqs_message)
+    n_s1_nrb_messages = 0
+    n_s1_nrb_static_messages = 0
+    n_reindex_messages = 0
+
+    for s3_project_folder in s3_project_folders:
+        # send nrb messages to reprocess
+        if s3_project_folder in scenes_to_reprocess.keys():
+            for scene in scenes_to_reprocess[s3_project_folder]:
+                # see example message in ./sqs_message_examples
+                start_date = scene[17:25]
+                product_unique_id = scene[-4:]
+                scene_sqs_message = {
+                    "jobname": f"{start_date}_{product_unique_id}_reprocess",
+                    "sceneId": scene,
+                    "project": s3_project_folder,
+                }
+                n_s1_nrb_messages += 1
+                if not dry_run:
+                    _send_job_to_sqs(s1_nrb_sqs_url, scene_sqs_message)
+
+        if report_type == "burst":
+            # send static layer messages to reprocess
+            if s3_project_folder in scenes_w_missing_static_layers.keys():
+                for scene in scenes_w_missing_static_layers[s3_project_folder]:
+                    # see example message in ./sqs_message_examples
+                    start_date = scene[17:25]
+                    product_unique_id = scene[-4:]
+                    scene_sqs_message = {
+                        "jobname": f"{start_date}_{product_unique_id}_reprocess",
+                        "sceneId": scene,
+                        "project": s3_project_folder,
+                    }
+                    n_s1_nrb_static_messages += 1
+                    if not dry_run:
+                        _send_job_to_sqs(s1_nrb_static_sqs_url, scene_sqs_message)
+
+            # send burst products to re-indec
+            if s3_project_folder in burst_products_to_index.keys():
+                for s3_product_folder in burst_products_to_index[s3_project_folder]:
+                    # create the wildcard path to stac for indexing. i.e. the stac
+                    # file is stored in this project folder
+                    index_path = f"{s3_product_folder}/*stac.json"
+                    # TODO format the correct sqs message for indexing
+                    product_reindex_message = None
+                    n_reindex_messages += 1
+                    if not dry_run:
+                        _send_job_to_sqs(
+                            s1_nrb_indexing_sqs_queue, product_reindex_message
+                        )
 
     if not dry_run:
         logging.info(
-            f"{n_messages} scene/s successfully sent to reprocessing s1-nrb sqs queue : {s1_nrb_sqs_url}"
+            f"{n_s1_nrb_messages} scene/s successfully sent to reprocessing s1-nrb sqs queue : {s1_nrb_sqs_url}"
         )
+        if report_type == "burst":
+            logging.info(
+                f"{n_s1_nrb_static_messages} scene/s successfully sent to reprocessing s1-nrb sqs queue : {s1_nrb_static_sqs_url}"
+            )
+            logging.info(
+                f"{n_reindex_messages} burst products successfully sent to odc-indexing sqs queue : {s1_nrb_indexing_sqs_queue}"
+            )
+
     else:
         logging.info(
-            f"dry_run, {n_messages} message/s prepared but not sent to s1-nrb sqs queue : {s1_nrb_sqs_url}"
+            f"dry_run, {n_s1_nrb_messages} message/s prepared but not sent to s1-nrb sqs queue : {s1_nrb_sqs_url}"
         )
+        if report_type == "burst":
+            logging.info(
+                f"dry_run, {n_s1_nrb_static_messages} message/s prepared but not sent to s1-nrb-static sqs queue : {s1_nrb_static_sqs_url}"
+            )
+            logging.info(
+                f"dry_run, {n_reindex_messages} message/s prepared but not sent to odc-indexing sqs queue : {s1_nrb_indexing_sqs_queue}"
+            )
 
 
 if __name__ == "__main__":
@@ -297,9 +368,11 @@ if __name__ == "__main__":
     process_s1_iw_completeness_report(
         s3_bucket,
         s3_completeness_report_folder,
-        report_type="scene",
+        report_type=report_type,
         s1_nrb_sqs_url=s1_nrb_sqs_url,
         report_name=None,
         n_most_recent_reports=n_most_recent_reports,
+        s1_nrb_static_sqs_url="xx",
+        s1_nrb_indexing_sqs_queue="xx",
         dry_run=True,
     )
