@@ -2,15 +2,21 @@ import click
 from datetime import datetime
 from pathlib import Path
 import logging
+from typing import Literal
 
 from sar_pipeline.pipelines.isce3_rtc.monitoring.generate_s1_iw_completeness_report import (
     make_burst_product_completeness_report,
     make_scene_completeness_report,
 )
+from sar_pipeline.pipelines.isce3_rtc.monitoring.process_s1_iw_completeness_report import (
+    process_completeness_report,
+)
 from sar_pipeline.utils.aws import check_aws_environment_credentials
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+ValidReportTypes = Literal["scene", "burst"]
 
 
 @click.command()
@@ -61,7 +67,7 @@ logger = logging.getLogger(__name__)
     required=False,
     type=click.Path(file_okay=False, path_type=Path),
     help="S3 folder where the completeness report will be written. The report will have the structure "
-    "{s3_report_folder}/{report_time}_{start_time}_{end_time}_scene_completion_report.json "
+    "{s3_report_folder}/{report_time}_{start_time}_{end_time}_scene_completeness_report.json "
     "where time is of the format %Y%m%dT%H%M%S, e.g. "
     "20251218T043403_20241214T000000_20241216T000000_completeness_report.json. If not provided,"
     "it will be set to {s3_report_folder}/monitoring/completeness_reports by default.",
@@ -109,7 +115,7 @@ def make_scene_completeness_report_cli(
     missing_credentials = check_aws_environment_credentials(verbose=True)
     if missing_credentials:
         logging.warning(
-            "AWS credentials are missing. May not be able to publish completion report AWS S3."
+            "AWS credentials are missing. May not be able to publish completeness report AWS S3."
         )
 
     make_scene_completeness_report(
@@ -173,7 +179,7 @@ def make_scene_completeness_report_cli(
     required=False,
     type=click.Path(file_okay=False, path_type=Path),
     help="S3 folder where the completeness report will be written. The report will have the structure "
-    "{s3_report_folder}/{report_time}_{start_time}_{end_time}_scene_completion_report.json "
+    "{s3_report_folder}/{report_time}_{start_time}_{end_time}_burst_completeness_report.json "
     "where time is of the format %Y%m%dT%H%M%S, e.g. "
     "20251218T043403_20241214T000000_20241216T000000_completeness_report.json. If not provided,"
     "it will be set to {s3_report_folder}/monitoring/completeness_reports by default.",
@@ -286,7 +292,7 @@ def make_burst_product_completeness_report_cli(
     missing_credentials = check_aws_environment_credentials(verbose=True)
     if missing_credentials:
         logging.warning(
-            "AWS credentials are missing. May not be able to publish completion report AWS S3."
+            "AWS credentials are missing. May not be able to publish completeness report AWS S3."
         )
 
     make_burst_product_completeness_report(
@@ -304,4 +310,176 @@ def make_burst_product_completeness_report_cli(
         linked_static_layer_s3_bucket=linked_static_layer_s3_bucket,
         linked_static_layer_s3_project_folder=linked_static_layer_s3_project_folder,
         linked_static_layer_collection_number=linked_static_layer_collection_number,
+    )
+
+
+@click.command()
+@click.option(
+    "--s3-bucket",
+    required=True,
+    type=str,
+    help="S3 bucket where Sentinel-1 NRB products are stored.",
+)
+@click.option(
+    "--s3-completeness-report-folder",
+    required=True,
+    type=str,
+    help="S3 folder where scene completeness reports are stored.",
+)
+@click.option(
+    "--s1-nrb-sqs-url",
+    required=True,
+    type=str,
+    help="SQS queue URL to submit Sentinel-1 NRB jobs for reprocessing.",
+)
+@click.option(
+    "--report-name",
+    type=str,
+    default=None,
+    help="Optional. Name of a specific scene report in the to s3-completeness-report-folder "
+    "process. e.g. 20251219T010925_20241201T010000_20241210T000000_scene_completeness_report.json. ",
+)
+@click.option(
+    "--n-most-recent-reports",
+    type=int,
+    default=None,
+    help="Process the most recent n scene completeness reports. E.g. if --n-most-recent-reports = 2, "
+    "the two most recently created scene reports in the folder will be processed. This is based "
+    "on the first datetime in the filename of the report.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Run without actually submitting jobs to the sqs queues (sanity check for processing).",
+)
+def process_s1_iw_scene_completeness_report_cli(
+    s3_bucket: str,
+    s3_completeness_report_folder: str,
+    s1_nrb_sqs_url: str,
+    report_name: str | None,
+    n_most_recent_reports: int | None,
+    dry_run: bool,
+):
+    """
+    Process a scene completeness report that was created using the
+    make_scene_completeness_report_cli. The function will get the
+    requested scene reports from the specified s3 bucket and report folder.
+    A specific report can be defined using --report-name, or the --n-most-recent-reports
+    parameter can be used to find the n most recently created reports in the target
+    folder to process. The --dry-run parameter can be used to run the process
+    without actually sending the messages to the queues.
+
+    Only one job type is considered based on the contents of the scene report, that is
+    scenes that need to be reprocessed as they exist in our region of interest, but we do
+    not existing products. These jobs get sent to the following queue --s1-nrb-sqs-url
+
+    To consider missing static layers, individual burst products, or a burst products that
+    exist but have not been indexed in the open data cube, a burst completeness report must
+    be generated and processed.
+    """
+    process_completeness_report(
+        s3_bucket=s3_bucket,
+        s3_completeness_report_folder=s3_completeness_report_folder,
+        report_type="scene",
+        s1_nrb_sqs_url=s1_nrb_sqs_url,
+        report_name=report_name,
+        n_most_recent_reports=n_most_recent_reports,
+        dry_run=dry_run,
+    )
+
+
+@click.command()
+@click.option(
+    "--s3-bucket",
+    required=True,
+    type=str,
+    help="S3 bucket where Sentinel-1 NRB products are stored.",
+)
+@click.option(
+    "--s3-completeness-report-folder",
+    required=True,
+    type=str,
+    help="S3 folder where burst completeness reports are stored.",
+)
+@click.option(
+    "--s1-nrb-sqs-url",
+    required=True,
+    type=str,
+    help="SQS queue URL to submit Sentinel-1 NRB jobs for reprocessing.",
+)
+@click.option(
+    "--s1-nrb-static-sqs-url",
+    required=True,
+    type=str,
+    help="SQS queue URL to submit Sentinel-1 static layer jobs for reprocessing.",
+)
+@click.option(
+    "--s1-nrb-static-sqs-url",
+    required=True,
+    type=str,
+    help="SQS queue URL to submit open data cube re-indexing jobs for existing burst products.",
+)
+@click.option(
+    "--report-name",
+    type=str,
+    default=None,
+    help="Optional. Name of a specific burst report in the to s3-completeness-report-folder "
+    "process. e.g. 20251219T010925_20241201T010000_20241210T000000_burst_completeness_report.json. ",
+)
+@click.option(
+    "--n-most-recent-reports",
+    type=int,
+    default=None,
+    help="Process the most recent n burst completeness reports. E.g. if --n-most-recent-reports = 2, "
+    "the two most recently created burst reports in the folder will be processed. This is based "
+    "on the first datetime in the filename of the report. e.g. 20251219T010925 in above report "
+    "name example",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Run without actually submitting jobs to the sqs queues (sanity check for processing).",
+)
+def process_s1_iw_burst_completeness_report_cli(
+    s3_bucket: str,
+    s3_completeness_report_folder: str,
+    s1_nrb_sqs_url: str,
+    s1_nrb_static_sqs_url: str,
+    s1_nrb_indexing_sqs_url: str,
+    report_name: str | None,
+    n_most_recent_reports: int | None,
+    dry_run: bool,
+):
+    """
+    Process a burst completeness report that was created using the
+    make_burst_product_completeness_report_cli. The function will get the
+    requested burst reports from the specified s3 bucket and report folder.
+    A specific report can be defined using --report-name, or the --n-most-recent-reports
+    parameter can be used to find the n most recently created reports in the target
+    folder to process. The --dry-run parameter can be used to run the process
+    without actually sending the messages to the queues.
+
+    Jobs are sent to three possible sqs queues based on the report contents:
+        --s1-nrb-sqs-url where scenes with missing nrb products can be re-processed
+        --s1-nrb-static-sqs-url where bursts with missing static layers can be re-processed
+        --s1-nrb-indexing-sqs-url where existing products that have not been indexed can be indexed
+
+    It should be noted that although the burst report details individual burst products,
+    full scenes are sent to reprocessing via --s1-nrb-sqs-url and --s1-nrb-static-sqs-url. This is
+    to simplify the process, as only missing burst products will be created from the scene.
+    Individual burst products are however sent to --s1-nrb-indexing-sqs-url for indexing.
+    """
+
+    process_completeness_report(
+        s3_bucket=s3_bucket,
+        s3_completeness_report_folder=s3_completeness_report_folder,
+        report_type="burst",
+        s1_nrb_static_sqs_url=s1_nrb_static_sqs_url,
+        s1_nrb_indexing_sqs_url=s1_nrb_indexing_sqs_url,
+        s1_nrb_sqs_url=s1_nrb_sqs_url,
+        report_name=report_name,
+        n_most_recent_reports=n_most_recent_reports,
+        dry_run=dry_run,
     )

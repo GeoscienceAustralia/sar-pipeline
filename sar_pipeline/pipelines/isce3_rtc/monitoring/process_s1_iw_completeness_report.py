@@ -6,12 +6,8 @@ from typing import Literal
 import tempfile
 import logging
 import json
-from pprint import pformat
 
 from sar_pipeline.utils.aws import S3Util
-from sar_pipeline.pipelines.isce3_rtc.monitoring.generate_s1_iw_completeness_report import (
-    COMPLETENESS_REPORT_FORMAT,
-)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -104,7 +100,7 @@ def _parse_s3_folder_for_most_recent_completeness_reports(
     return [key for _, key in report_names[:n_most]]
 
 
-def process_s1_iw_completeness_report(
+def process_completeness_report(
     s3_bucket: str,
     s3_completeness_report_folder: str,
     report_type: ValidReportTypes,
@@ -112,7 +108,7 @@ def process_s1_iw_completeness_report(
     report_name: str | None = None,
     n_most_recent_reports: int = None,
     s1_nrb_static_sqs_url: str = None,
-    s1_nrb_indexing_sqs_queue: str = None,
+    s1_nrb_indexing_sqs_url: str = None,
     dry_run: bool = False,
 ):
 
@@ -132,11 +128,11 @@ def process_s1_iw_completeness_report(
             "e.g. set `n_most_recent_reports = 1` to process the most recently created scene report. "
         )
     if report_type == "burst":
-        if not (s1_nrb_static_sqs_url or s1_nrb_indexing_sqs_queue):
+        if not (s1_nrb_static_sqs_url or s1_nrb_indexing_sqs_url):
             raise ValueError(
-                "Both `s1_nrb_static_sqs_url` and `s1_nrb_indexing_sqs_queue` must be set if `report_type` == 'burst'. "
+                "Both `s1_nrb_static_sqs_url` and `s1_nrb_indexing_sqs_url` must be set if `report_type` == 'burst'. "
                 "Missing static layers will be sent to reprocess and existing products not indexed will be added. "
-                f"s1_nrb_static_sqs_url = {s1_nrb_static_sqs_url}, s1_nrb_indexing_sqs_queue = {s1_nrb_indexing_sqs_queue}"
+                f"s1_nrb_static_sqs_url = {s1_nrb_static_sqs_url}, s1_nrb_indexing_sqs_url = {s1_nrb_indexing_sqs_url}"
             )
 
     if n_most_recent_reports:
@@ -273,7 +269,7 @@ def process_s1_iw_completeness_report(
                 f"dry_run, jobs will not be sent to s1-nrb-static sqs queue : {s1_nrb_sqs_url}"
             )
             logging.warning(
-                f"dry_run, jobs will not be sent to odc-indexing queue : {s1_nrb_indexing_sqs_queue}"
+                f"dry_run, jobs will not be sent to odc-indexing queue : {s1_nrb_indexing_sqs_url}"
             )
     else:
         logging.info(f"Adding jobs to s1-nrb sqs queue : {s1_nrb_sqs_url}")
@@ -325,7 +321,7 @@ def process_s1_iw_completeness_report(
                     n_reindex_messages += 1
                     if not dry_run:
                         _send_job_to_sqs(
-                            s1_nrb_indexing_sqs_queue, product_reindex_message
+                            s1_nrb_indexing_sqs_url, product_reindex_message
                         )
 
     if not dry_run:
@@ -337,7 +333,7 @@ def process_s1_iw_completeness_report(
                 f"{n_s1_nrb_static_messages} scene/s successfully sent to reprocessing s1-nrb sqs queue : {s1_nrb_static_sqs_url}"
             )
             logging.info(
-                f"{n_reindex_messages} burst products successfully sent to odc-indexing sqs queue : {s1_nrb_indexing_sqs_queue}"
+                f"{n_reindex_messages} burst products successfully sent to odc-indexing sqs queue : {s1_nrb_indexing_sqs_url}"
             )
 
     else:
@@ -349,7 +345,7 @@ def process_s1_iw_completeness_report(
                 f"dry_run, {n_s1_nrb_static_messages} message/s prepared but not sent to s1-nrb-static sqs queue : {s1_nrb_static_sqs_url}"
             )
             logging.info(
-                f"dry_run, {n_reindex_messages} message/s prepared but not sent to odc-indexing sqs queue : {s1_nrb_indexing_sqs_queue}"
+                f"dry_run, {n_reindex_messages} message/s prepared but not sent to odc-indexing sqs queue : {s1_nrb_indexing_sqs_url}"
             )
 
 
@@ -373,6 +369,6 @@ if __name__ == "__main__":
         report_name=None,
         n_most_recent_reports=n_most_recent_reports,
         s1_nrb_static_sqs_url="xx",
-        s1_nrb_indexing_sqs_queue="xx",
+        s1_nrb_indexing_sqs_url="xx",
         dry_run=True,
     )
