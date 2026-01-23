@@ -49,10 +49,19 @@ for var in REQUIRED_ENV_VARIABLES + OPTIONAL_ENV_VARIABLES:
         ENV_VARS.append("-e")
         ENV_VARS.append(f"{var}={os.getenv(var)}")
 
-def run_job(name, row):
+
+def run_job(name, row, static_layer_run=False, backscatter_convention="gamma0"):
     """Run a single Docker job and write logs."""
     log_file = log_dir / f"{name}.log"
-    print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] Starting {name} (param={row}) → {log_file}")
+    print(
+        f"[{datetime.now():%Y-%m-%d %H:%M:%S}] Starting {name} (param={row}) → {log_file}"
+    )
+    if static_layer_run:
+        s3_folder = row.s3_folder_static_layers
+        product = "RTC_S1_STATIC"
+    else:
+        s3_folder = row.s3_folder
+        product = "RTC_S1"
     with log_file.open("w") as lf:
         cmd = [
             "docker",
@@ -67,18 +76,19 @@ def run_job(name, row):
             "--burst_id_list",
             row.bursts,
             "--product",
-            "RTC_S1",
+            product,
             "--dem_type",
             row.dem_type,
             "--backscatter_convention",
-            "gamma0",
+            backscatter_convention,
             "--collection_number",
             "0",
             "--s3_bucket",
             "deant-data-public-dev",
             "--s3_project_folder",
-            row.s3_folder,
-            "--skip_validate_stac"
+            s3_folder,
+            "--skip_validate_stac",
+            # "--make_existing_products",
         ]
         process = subprocess.run(
             cmd,
@@ -88,10 +98,11 @@ def run_job(name, row):
         )
     return name, process.returncode
 
+
 success = []
 failed = []
 
-df_run = pd.read_csv('rema-timeseries-runs.csv')
+df_run = pd.read_csv("rema-timeseries-runs.csv")
 print(df_run.scene)
 
 # Max number of concurrent jobs
@@ -99,24 +110,29 @@ MAX_WORKERS = 10
 
 # Run jobs concurrently with a limit
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-    #futures = {executor.submit(run_job, name, param): name for name, param in jobs}
-    futures = {executor.submit(run_job, f'{row.scene}_{row.dem_type}', row): f'{row.scene}_{row.dem_type}' for row in df_run.itertuples(index=False)}
+    # futures = {executor.submit(run_job, name, param): name for name, param in jobs}
+    futures = {
+        executor.submit(
+            run_job, f"{row.scene}_{row.dem_type}", row
+        ): f"{row.scene}_{row.dem_type}"
+        for row in df_run.itertuples(index=False)
+    }
 
     for future in as_completed(futures):
         name, code = future.result()
         if code == 0:
             success.append(name)
-            status = 'SUCCESS'
-            print(f'Job Successful : {name}')
-        else: 
+            status = "SUCCESS"
+            print(f"Job Successful : {name}")
+        else:
             failed.append(name)
-            print(f'Job Failed : {name}')
-            status = 'FAILED'
+            print(f"Job Failed : {name}")
+            status = "FAILED"
         print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {name} finished ({status})")
 
-print(f'{len(success)} jobs succeeded:')
+print(f"{len(success)} jobs succeeded:")
 for s in success:
     print(s)
-print(f'{len(failed)} jobs failed:')
+print(f"{len(failed)} jobs failed:")
 for s in failed:
     print(s)
