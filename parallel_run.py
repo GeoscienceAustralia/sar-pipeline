@@ -108,12 +108,17 @@ print(df_run.scene)
 # Max number of concurrent jobs
 MAX_WORKERS = 10
 
+backscatter_convention = "gamma0"
+
 # Run jobs concurrently with a limit
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
     # futures = {executor.submit(run_job, name, param): name for name, param in jobs}
     futures = {
         executor.submit(
-            run_job, f"{row.scene}_{row.dem_type}", row
+            run_job,
+            f"{row.scene}_{row.dem_type}",
+            row,
+            backscatter_convention=backscatter_convention,
         ): f"{row.scene}_{row.dem_type}"
         for row in df_run.itertuples(index=False)
     }
