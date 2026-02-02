@@ -25,6 +25,37 @@ def _send_job_to_sqs(queue_url: str, job: dict) -> None:
     )
 
 
+def _get_estimated_count_of_sqs_messages(queue_url: str):
+
+    sqs = boto3.client("sqs")
+    attrs = sqs.get_queue_attributes(
+        QueueUrl=queue_url,
+        AttributeNames=[
+            "ApproximateNumberOfMessages",
+            "ApproximateNumberOfMessagesNotVisible",
+            "ApproximateNumberOfMessagesDelayed",
+        ],
+    )
+    approx_visible = int(attrs["Attributes"]["ApproximateNumberOfMessages"])
+    approx_inflight = int(attrs["Attributes"]["ApproximateNumberOfMessagesNotVisible"])
+    approx_delayed = int(attrs["Attributes"]["ApproximateNumberOfMessagesDelayed"])
+
+    return approx_visible + approx_inflight + approx_delayed
+
+
+def _read_sqs_messages(queue_url, max_messages=10, wait_time=0):
+
+    sqs = boto3.client("sqs")
+
+    response = sqs.receive_message(
+        QueueUrl=queue_url,
+        MaxNumberOfMessages=max_messages,
+        WaitTimeSeconds=wait_time,  # long polling
+        VisibilityTimeout=60,  # seconds
+    )
+    return response.get("Messages", [])
+
+
 def _parse_s3_folder_for_most_recent_completeness_reports(
     report_type: ValidReportTypes,
     s3_bucket: str,
@@ -107,6 +138,8 @@ def process_completeness_report(
     s1_nrb_sqs_url: str,
     report_name: str | None = None,
     n_most_recent_reports: int = None,
+    remove_resubmitted_scenes_from_dlq=True,
+    s1_nrb_dlq_sqs_url: str | None = None,
     s1_nrb_static_sqs_url: str = None,
     s1_nrb_indexing_sqs_url: str = None,
     dry_run: bool = False,
@@ -118,6 +151,13 @@ def process_completeness_report(
 
     if report_type not in VALID_REPORT_TYPES:
         raise ValueError(f"Invalid `report_type`. Must be one of {VALID_REPORT_TYPES}")
+
+    if remove_resubmitted_scenes_from_dlq:
+        if not s1_nrb_dlq_sqs_url:
+            raise ValueError(
+                f"A dead-letter queue must be set with `s1_nrb_dlq_sqs_url` if "
+                "`remove_resubmitted_scenes_from_dlq` = True"
+            )
 
     if not (report_name or n_most_recent_reports) or (
         report_name and n_most_recent_reports
@@ -152,7 +192,7 @@ def process_completeness_report(
     else:
         # use the report specified
         completeness_report_s3_keys = [
-            Path(s3_completeness_report_folder) / report_name
+            str(Path(s3_completeness_report_folder) / report_name)
         ]
         logging.info(
             f"Attempting to use specified completion report : {completeness_report_s3_keys[0]}"
@@ -310,7 +350,7 @@ def process_completeness_report(
                     if not dry_run:
                         _send_job_to_sqs(s1_nrb_static_sqs_url, scene_sqs_message)
 
-            # send burst products to re-indec
+            # send burst products to re-index
             if s3_project_folder in burst_products_to_index.keys():
                 for s3_product_folder in burst_products_to_index[s3_project_folder]:
                     # create the wildcard path to stac for indexing. i.e. the stac
@@ -348,27 +388,83 @@ def process_completeness_report(
                 f"dry_run, {n_reindex_messages} message/s prepared but not sent to odc-indexing sqs queue : {s1_nrb_indexing_sqs_url}"
             )
 
+    already_resubmitted_jobs = {s3_folder: [] for s3_folder in s3_project_folders}
+    jobs_remaining_on_dlq = {s3_folder: [] for s3_folder in s3_project_folders}
+    n_dlq_messages_processed = 0
 
-if __name__ == "__main__":
+    if remove_resubmitted_scenes_from_dlq:
+        logging.info(
+            f"Checking the s1-nrb-dlq (dead letter queue) to remove jobs that have been re-submitted by this workflow"
+        )
+        if dry_run:
+            logging.info(
+                f"dry_run, messages will not be removed from s1-nrb-dlq: {s1_nrb_dlq_sqs_url}"
+            )
+        logging.info(
+            f"Getting estimated number of messages from dlq : {s1_nrb_dlq_sqs_url}"
+        )
+        dlq_message_count = _get_estimated_count_of_sqs_messages(s1_nrb_dlq_sqs_url)
+        logging.info(f"Estimated count of failed jobs on dlq : {dlq_message_count}")
+        logging.info(f"Iterating through messages...")
+        while True:
+            messages = _read_sqs_messages(s1_nrb_dlq_sqs_url)
 
-    s3_bucket = "deant-data-public-dev"
-    s3_completeness_report_folder = "TMP/completeness_reports"
-    s3_completeness_report_folder = "TMP/sar-pipeline/isce3_rtc/2025-12-23_23-48-14.173303/test_full_docker_workflow_run"
-    report_type = "scene"
-    s1_nrb_sqs_url = (
-        "https://sqs.ap-southeast-2.amazonaws.com/451924316694/dea-dev-s1-rtc-queue"
-    )
-    report_name = ""
-    n_most_recent_reports = 2
+            if not messages:
+                logging.info(f"All messages processed.")
+                break
 
-    process_s1_iw_completeness_report(
-        s3_bucket,
-        s3_completeness_report_folder,
-        report_type=report_type,
-        s1_nrb_sqs_url=s1_nrb_sqs_url,
-        report_name=None,
-        n_most_recent_reports=n_most_recent_reports,
-        s1_nrb_static_sqs_url="xx",
-        s1_nrb_indexing_sqs_url="xx",
-        dry_run=True,
-    )
+            for msg in messages:
+                n_dlq_messages_processed += 1
+                message_body = json.loads(msg["Body"])
+                dlq_failed_jobname = message_body["jobname"]
+                dlq_failed_scene = message_body["sceneId"]
+                dlq_failed_s3_folder = message_body["project"]
+
+                if dlq_failed_s3_folder not in s3_project_folders:
+                    # This was not in our reprocess list, leave it on the dlq for manual re-submission
+                    jobs_remaining_on_dlq.setdefault(dlq_failed_s3_folder, []).append(
+                        dlq_failed_scene
+                    )
+
+                elif dlq_failed_scene not in scenes_to_reprocess[dlq_failed_s3_folder]:
+                    # This was not in our reprocess list, leave it on the dlq for manual re-submission
+                    jobs_remaining_on_dlq[dlq_failed_s3_folder].append(dlq_failed_scene)
+
+                else:
+                    # job has been resubmitted and can be removed from the dlq
+                    already_resubmitted_jobs[dlq_failed_s3_folder].append(
+                        dlq_failed_scene
+                    )
+
+                    if not dry_run:
+                        # delete after processing
+                        sqs = boto3.client("sqs")
+                        sqs.delete_message(
+                            QueueUrl=s1_nrb_dlq_sqs_url,
+                            ReceiptHandle=msg["ReceiptHandle"],
+                        )
+
+        # log the dead-letter queue information
+        if n_dlq_messages_processed == 0:
+            logger.info(
+                f"No failed jobs found on the dead-letter queue : : {s1_nrb_dlq_sqs_url}"
+            )
+        else:
+            for s3_project_folder in already_resubmitted_jobs.keys():
+                n_resubmitted_jobs = len(already_resubmitted_jobs[s3_project_folder])
+                logger.info(
+                    f"{n_resubmitted_jobs} failed jobs have already been submitted and have been removed "
+                    "from the s1-nrb-dlq"
+                )
+            for s3_project_folder in jobs_remaining_on_dlq.keys():
+                n_jobs_still_remaining_on_dlq = len(
+                    jobs_remaining_on_dlq[s3_project_folder]
+                )
+                logger.warning(
+                    f"{n_jobs_still_remaining_on_dlq} failed jobs still remain on the dlq. These were not identified "
+                    "in the completeness report and need to be manually re-driven"
+                )
+            if dry_run:
+                logging.info(
+                    f"dry_run, messages not actually removed from s1-nrb-dlq: {s1_nrb_dlq_sqs_url}"
+                )

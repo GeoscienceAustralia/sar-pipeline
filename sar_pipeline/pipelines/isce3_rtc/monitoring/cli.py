@@ -52,7 +52,7 @@ ValidReportTypes = Literal["scene", "burst"]
 )
 @click.option(
     "--roi-geojson",
-    required=False,
+    required=True,
     type=str,
     help="URL or path to geometry with region of interest for scenes.",
 )
@@ -74,6 +74,12 @@ ValidReportTypes = Literal["scene", "burst"]
     "20251218T043403_20241214T000000_20241216T000000_completeness_report.json. If not provided,"
     "it will be set to {s3_report_folder}/monitoring/completeness_reports by default.",
 )
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Generate the report but do not upload it to the s3_completeness_report_folder",
+)
 def generate_s1_iw_scene_completeness_report_cli(
     s3_bucket,
     s3_project_folder,
@@ -83,6 +89,7 @@ def generate_s1_iw_scene_completeness_report_cli(
     roi_geojson,
     stac_catalog,
     s3_completeness_report_folder,
+    dry_run,
 ):
     """
     Generate a scene completeness report for normalised radar backscatter (nrb) products.
@@ -129,6 +136,7 @@ def generate_s1_iw_scene_completeness_report_cli(
         roi_geojson=roi_geojson,
         stac_catalog=stac_catalog,
         s3_completeness_report_folder=s3_completeness_report_folder,
+        dry_run=dry_run,
     )
 
 
@@ -165,7 +173,7 @@ def generate_s1_iw_scene_completeness_report_cli(
 )
 @click.option(
     "--roi-geojson",
-    required=False,
+    required=True,
     type=str,
     help="URL or path to geometry with region of interest for bursts.",
 )
@@ -226,6 +234,12 @@ def generate_s1_iw_scene_completeness_report_cli(
     help="Collection number of linked RTC_S1_STATIC layers."
     "Defaults to --collection-number if not provided.",
 )
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Generate the report but do not upload it to the s3_completeness_report_folder",
+)
 def generate_s1_iw_burst_completeness_report_cli(
     s3_bucket,
     s3_project_folder,
@@ -241,6 +255,7 @@ def generate_s1_iw_burst_completeness_report_cli(
     linked_static_layer_s3_bucket,
     linked_static_layer_s3_project_folder,
     linked_static_layer_collection_number,
+    dry_run,
 ):
     """
     Generate a burst-level completeness report for normalised radar backscatter (nrb) products.
@@ -313,6 +328,7 @@ def generate_s1_iw_burst_completeness_report_cli(
         linked_static_layer_s3_bucket=linked_static_layer_s3_bucket,
         linked_static_layer_s3_project_folder=linked_static_layer_s3_project_folder,
         linked_static_layer_collection_number=linked_static_layer_collection_number,
+        dry_run=dry_run,
     )
 
 
@@ -334,6 +350,20 @@ def generate_s1_iw_burst_completeness_report_cli(
     required=True,
     type=str,
     help="SQS queue URL to submit Sentinel-1 NRB jobs for reprocessing.",
+)
+@click.option(
+    "--s1-nrb-dlq-sqs-url",
+    required=True,
+    type=str,
+    help="Dead-letter SQS queue URL for failed Sentinel-1 NRB jobs.",
+)
+@click.option(
+    "--remove-resubmitted-scenes-from-dlq",
+    is_flag=True,
+    default=False,
+    help="If True, scenes that are sent for re-processing from the completeness report "
+    "Will be removed from the dead-letter queue (if existing). This will stop duplicate jobs. "
+    "For example, if a manual re-drive of the dead-letter queue is applied",
 )
 @click.option(
     "--report-name",
@@ -360,6 +390,8 @@ def process_s1_iw_scene_completeness_report_cli(
     s3_bucket: str,
     s3_completeness_report_folder: str,
     s1_nrb_sqs_url: str,
+    s1_nrb_dlq_sqs_url: str | None,
+    remove_resubmitted_scenes_from_dlq: bool,
     report_name: str | None,
     n_most_recent_reports: int | None,
     dry_run: bool,
@@ -375,7 +407,13 @@ def process_s1_iw_scene_completeness_report_cli(
 
     Only one job type is considered based on the contents of the scene report, that is
     scenes that need to be reprocessed as they exist in our region of interest, but we do
-    not existing products. These jobs get sent to the following queue --s1-nrb-sqs-url
+    not existing products. These jobs get sent to the following queue --s1-nrb-sqs-url.
+
+    Messages on the dead-letter queue for s1-nrb jobs can also be cleared if the given scene
+    is sent for re-processing based on the completion report using --remove-resubmitted-scenes-from-dlq.
+    This reduces duplicates and ensure messages on the dlq are failed scenes not covered by the completion
+    report
+        --s1-nrb-sqs-dlq-url : the dead-letter queue for failed s1-nrb jobs.
 
     To consider missing static layers, individual burst products, or a burst products that
     exist but have not been indexed in the open data cube, a burst completeness report must
@@ -386,6 +424,8 @@ def process_s1_iw_scene_completeness_report_cli(
         s3_completeness_report_folder=s3_completeness_report_folder,
         report_type="scene",
         s1_nrb_sqs_url=s1_nrb_sqs_url,
+        s1_nrb_dlq_sqs_url=s1_nrb_dlq_sqs_url,
+        remove_resubmitted_scenes_from_dlq=remove_resubmitted_scenes_from_dlq,
         report_name=report_name,
         n_most_recent_reports=n_most_recent_reports,
         dry_run=dry_run,
@@ -418,10 +458,24 @@ def process_s1_iw_scene_completeness_report_cli(
     help="SQS queue URL to submit Sentinel-1 static layer jobs for reprocessing.",
 )
 @click.option(
-    "--s1-nrb-static-sqs-url",
+    "--s1-nrb-indexing-sqs-url",
     required=True,
     type=str,
     help="SQS queue URL to submit open data cube re-indexing jobs for existing burst products.",
+)
+@click.option(
+    "--s1-nrb-dlq-sqs-url",
+    required=True,
+    type=str,
+    help="Dead-letter SQS queue URL for failed Sentinel-1 NRB jobs.",
+)
+@click.option(
+    "--remove-resubmitted-scenes-from-dlq",
+    is_flag=True,
+    default=False,
+    help="If True, scenes that are sent for re-processing from the completeness report "
+    "Will be removed from the dead-letter queue (if existing). This will stop duplicate jobs. "
+    "For example, if a manual re-drive of the dead-letter queue is applied",
 )
 @click.option(
     "--report-name",
@@ -451,6 +505,8 @@ def process_s1_iw_burst_completeness_report_cli(
     s1_nrb_sqs_url: str,
     s1_nrb_static_sqs_url: str,
     s1_nrb_indexing_sqs_url: str,
+    s1_nrb_dlq_sqs_url: str | None,
+    remove_resubmitted_scenes_from_dlq: bool,
     report_name: str | None,
     n_most_recent_reports: int | None,
     dry_run: bool,
@@ -465,9 +521,15 @@ def process_s1_iw_burst_completeness_report_cli(
     without actually sending the messages to the queues.
 
     Jobs are sent to three possible sqs queues based on the report contents:
-        --s1-nrb-sqs-url where scenes with missing nrb products can be re-processed
-        --s1-nrb-static-sqs-url where bursts with missing static layers can be re-processed
-        --s1-nrb-indexing-sqs-url where existing products that have not been indexed can be indexed
+        --s1-nrb-sqs-url : where scenes with missing nrb products can be re-processed
+        --s1-nrb-static-sqs-url : where bursts with missing static layers can be re-processed
+        --s1-nrb-indexing-sqs-url : where existing products that have not been indexed can be indexed
+
+    Messages on the dead-letter queue for s1-nrb jobs can also be cleared if the given scene
+    is sent for re-processing based on the completion report using --remove-resubmitted-scenes-from-dlq.
+    This reduces duplicates and ensure messages on the dlq are failed scenes not covered by the completion
+    report
+        --s1-nrb-sqs-dlq-url : the dead-letter queue for failed s1-nrb jobs.
 
     It should be noted that although the burst report details individual burst products,
     full scenes are sent to reprocessing via --s1-nrb-sqs-url and --s1-nrb-static-sqs-url. This is
@@ -482,6 +544,8 @@ def process_s1_iw_burst_completeness_report_cli(
         s1_nrb_static_sqs_url=s1_nrb_static_sqs_url,
         s1_nrb_indexing_sqs_url=s1_nrb_indexing_sqs_url,
         s1_nrb_sqs_url=s1_nrb_sqs_url,
+        s1_nrb_dlq_sqs_url=s1_nrb_dlq_sqs_url,
+        remove_resubmitted_scenes_from_dlq=remove_resubmitted_scenes_from_dlq,
         report_name=report_name,
         n_most_recent_reports=n_most_recent_reports,
         dry_run=dry_run,

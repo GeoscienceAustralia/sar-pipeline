@@ -91,6 +91,7 @@ def make_scene_completeness_report(
     roi_geojson: str | None,
     stac_catalog: str,
     s3_completeness_report_folder: str | None = None,
+    dry_run=False,
 ):
     """For variable descriptions and function docs see the cli:
     sar_pipeline/pipelines/isce3_rtc/monitoring/cli.py
@@ -246,7 +247,7 @@ def make_scene_completeness_report(
     missing_scene_set = expected_scene_set - processed_scenes_set
 
     logging.info(
-        f"{len(existing_scene_set)} of {len(expected_scene_set)} expected products have been processed"
+        f"{len(existing_scene_set)} of {len(expected_scene_set)} expected scenes have existing products."
     )
     logging.info(
         f"{len(missing_scene_set)} of {len(expected_scene_set)} expected scenes are missing. "
@@ -291,15 +292,21 @@ def make_scene_completeness_report(
     # upload the completeness report to the desired AWS S3 bucket
     local_path = f"TMP/monitoring/{completeness_report_name}"
     s3_key = str(Path(s3_completeness_report_folder) / completeness_report_name)
-    s3_utility.s3.upload_file(
-        local_path,
-        str(s3_bucket),
-        s3_key,
-        ExtraArgs={
-            "ContentType": mimetypes.guess_type(local_path)[0] or "binary/octet-stream"
-        },
-    )
-    logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
+    if not dry_run:
+        s3_utility.s3.upload_file(
+            local_path,
+            str(s3_bucket),
+            s3_key,
+            ExtraArgs={
+                "ContentType": mimetypes.guess_type(local_path)[0]
+                or "binary/octet-stream"
+            },
+        )
+        logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
+    else:
+        logging.info(
+            f"Dry run. Did not upload {local_path} to s3://{s3_bucket}/{s3_key}"
+        )
 
 
 @log_timing
@@ -318,6 +325,7 @@ def make_burst_product_completeness_report(
     linked_static_layer_s3_bucket: str | None = None,
     linked_static_layer_s3_project_folder: str | None = None,
     linked_static_layer_collection_number: str | None = None,
+    dry_run=False,
 ):
     """For variable descriptions and function docs see the cli:
     sar_pipeline/pipelines/isce3_rtc/monitoring/cli.py
@@ -681,8 +689,8 @@ def make_burst_product_completeness_report(
                         if scene not in scenes_missing_static_layers:
                             scenes_missing_static_layers.append(scene)
 
-    # return logger to original level
-    root_logger.setLevel(og_log_level)
+            # return logger to original level
+            root_logger.setLevel(og_log_level)
 
     # get the counts of the missing static layers
     n_bursts_missing_static_layers = len(bursts_missing_static_layers)
@@ -753,17 +761,25 @@ def make_burst_product_completeness_report(
     with open(f"TMP/monitoring/{completeness_report_name}", "w") as f:
         json.dump(completeness_json, f, indent=2)
 
+    # log the summary
+    logger.info(f"summary : {json.dumps(completeness_json['summary'], indent=2)}")
+
     # upload the completeness report to the desired AWS S3 bucket
-    s3_uploder = S3Util()
+    s3_uploader = S3Util()
     local_path = f"TMP/monitoring/{completeness_report_name}"
     s3_key = str(Path(s3_completeness_report_folder) / completeness_report_name)
-    s3_uploder.s3.upload_file(
-        local_path,
-        str(s3_bucket),
-        s3_key,
-        ExtraArgs={
-            "ContentType": mimetypes.guess_type(local_path)[0] or "binary/octet-stream"
-        },
-    )
-    logger.info(f"summary : {json.dumps(completeness_json['summary'], indent=2)}")
-    logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
+    if not dry_run:
+        s3_uploader.s3.upload_file(
+            local_path,
+            str(s3_bucket),
+            s3_key,
+            ExtraArgs={
+                "ContentType": mimetypes.guess_type(local_path)[0]
+                or "binary/octet-stream"
+            },
+        )
+        logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
+    else:
+        logging.info(
+            f"Dry run. Did not upload {local_path} to s3://{s3_bucket}/{s3_key}"
+        )
