@@ -95,14 +95,16 @@ PYGSSEARCH_CONDA_ENV=
 
 # Variables used on NCI only
 CONDA_EXE=
-NCI_API_FILE_LOCATION=
+NCI_API_SCENE_FILE_LOCATION=
+NCI_API_ORBIT_FILE_LOCATION=
 NCI_FILESYSTEM_FILE_LOCATION=
 ```
 
 The NCI variables have the following uses:
 * `CONDA_EXE`: the path to the Conda executable that has environments for sar-pipeline and pygssearch-env.
 Should be of the form `/path/to/conda/install/bin/conda`
-* `NCI_API_FILE_LOCATION`: the path to the filesystem containing the Aus Cop Hub data holdings for either Australia or Antarctica.
+* `NCI_API_SCENE_FILE_LOCATION`: the path to the filesystem containing the Aus Cop Hub scene data holdings for either Australia or Antarctica.
+* `NCI_API_ORBIT_FILE_LOCATION`: the path to the filesystem containing the Aus Cop Hub orbit data holdings for either Australia or Antarctica.
 * `NCI_FILESYSTEM_FILE_LOCATION`: the path to the (now non-updated) filesystem containing the original Aus Cop Hub data holdings, prior to the development and implementation of the API. 
 
 For questions about the location of files on the NCI filesystem, contact the Aus Cop Hub team at CopernicusAustralasia@ga.gov.au or via the [website](https://www.copernicus.gov.au/).

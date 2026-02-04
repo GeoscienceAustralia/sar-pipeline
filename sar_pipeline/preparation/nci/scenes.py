@@ -49,7 +49,7 @@ def find_scene_file_from_api(
         PYGSSEARCH_CONDA_ENV will be used. By default None
     api_scene_directory : Optional[Union[str, Path]], optional
         Directory on NCI that contains scene files for the pygssearch AusCopHub API.
-        If not specified, the env variable NCI_API_FILES will be used.
+        If not specified, the env variable NCI_API_SCENE_FILE_LOCATION will be used.
         By default None
     service : _type_, optional
         Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
@@ -82,12 +82,14 @@ def find_scene_file_from_api(
         )
 
     # Get directory on NCI that hosts the file system for the Aus Cop Hub API
-    api_scene_directory = api_scene_directory or os.getenv("NCI_API_FILE_LOCATION")
+    api_scene_directory = api_scene_directory or os.getenv(
+        "NCI_API_SCENE_FILE_LOCATION"
+    )
     if not api_scene_directory:
         raise NCIMissingFilePathVariableError(
             "Path to Aus Cop Hub API filesystem on NCI is missing. "
             "Please provide the api_scene_directory argument "
-            "Or set the NCI_API_FILE_LOCATION environment variable."
+            "Or set the NCI_API_SCENE_FILE_LOCATION environment variable."
         )
 
     # Get metadata by querying the scene ID using the API
