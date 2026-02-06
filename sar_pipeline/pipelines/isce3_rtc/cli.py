@@ -749,7 +749,7 @@ def get_data_for_scene_and_make_run_config(
     "RTC_S1_STATIC -> {s3_project_folder}/monitoring/processed_scenes_static_layers ",
 )
 @log_timing
-def make_rtc_opera_stac_and_upload_bursts(
+def make_metadata_and_upload_bursts(
     results_folder,
     run_config_path,
     scene,

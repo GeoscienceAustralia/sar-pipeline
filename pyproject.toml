@@ -35,16 +35,19 @@ Homepage = "https://github.com/GeoscienceAustralia/sar-pipleine.git"
 # Documentation = "XXX"
 
 [project.scripts]
+### GENERAL ###
+upload-files-in-folder-to-s3 = "sar_pipeline.pipelines.pyrosar_gamma.cli:upload_files_in_folder_to_s3"
+get-burst-ids-for-scene = "sar_pipeline.pipelines.isce3_rtc.cli:get_bursts_ids_for_scene"
+download-etad = "sar_pipeline.preparation.cli:download_etad"
+### NCI / PYROSAR_GAMMA ###
 find-scene = "sar_pipeline.pipelines.pyrosar_gamma.cli:find_scene_file"
 find-orbits = "sar_pipeline.pipelines.pyrosar_gamma.cli:find_orbits_for_scene"
-download-etad = "sar_pipeline.preparation.cli:download_etad"
 run-pyrosar-gamma-workflow = "sar_pipeline.pipelines.pyrosar_gamma.cli:run_pyrosar_gamma_workflow"
 submit-pyrosar-gamma-workflow = "sar_pipeline.pipelines.pyrosar_gamma.cli:submit_pyrosar_gamma_workflow"
-upload-files-in-folder-to-s3 = "sar_pipeline.pipelines.pyrosar_gamma.cli:upload_files_in_folder_to_s3"
-get-data-for-scene-and-make-run-config = "sar_pipeline.pipelines.isce3_rtc.cli:get_data_for_scene_and_make_run_config"
-make-rtc-opera-stac-and-upload-bursts = "sar_pipeline.pipelines.isce3_rtc.cli:make_rtc_opera_stac_and_upload_bursts"
-compare-isce3-rtc-products = "sar_pipeline.pipelines.isce3_rtc.cli:compare_products"
-get-burst-ids-for-scene = "sar_pipeline.pipelines.isce3_rtc.cli:get_bursts_ids_for_scene"
+## ISCE3_RTC ###
+isce3-rtc-get-data-for-scene-and-make-run-config = "sar_pipeline.pipelines.isce3_rtc.cli:get_data_for_scene_and_make_run_config"
+isce3-rtc-make-metadata-and-upload-bursts = "sar_pipeline.pipelines.isce3_rtc.cli:make_metadata_and_upload_bursts"
+isce3-rtc-compare-products = "sar_pipeline.pipelines.isce3_rtc.cli:compare_products"
 
 [tool.setuptools_scm]
 version_file = "sar_pipeline/_version.py"
@@ -102,8 +105,8 @@ test-scene-data-source-queries='pixi run install-pygssearch-env && export PYGSSE
 test-isce3-rtc = "pytest tests/sar_pipeline/isce3_rtc -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-full-docker-workflow-run = "pixi run export-conda && pytest tests/sar_pipeline/isce3_rtc/test_full_docker_workflow_run.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-burst-utils = "pytest tests/sar_pipeline/isce3_rtc/test_burst_utils.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
-test-isce3-rtc-cli-make-rtc-opera-stac-and-upload-bursts = "pytest tests/sar_pipeline/isce3_rtc/test_cli_make_rtc_opera_stac_and_upload_bursts.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
-test-isce3-rtc-cli-get-data-for-scene-and-make-run-config= "pytest tests/sar_pipeline/isce3_rtc/test_cli_get_data_for_scene_and_make_run_config.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+test-isce3-rtc-cli-make-metadata-and-upload-bursts = "pytest tests/sar_pipeline/isce3_rtc/test_cli_make_metadata_and_upload_bursts.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+test-isce3-rtc-cli-get-data-for-scene-and-make-run-config = "pytest tests/sar_pipeline/isce3_rtc/test_cli_get_data_for_scene_and_make_run_config.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-downloads= 'pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/isce3_rtc/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s'
 
 ### NCI Pipeline Tests ###
@@ -112,6 +115,9 @@ test-nci-filesystem = "pytest tests/filesystem"
 
 ### GENERAL TASKS ###
 lint = "black sar_pipeline"
+
+[tool.black]
+target-version = ["py38", "py39", "py310", "py311", "py312"]
 
 [tool.pixi.feature.dev.dependencies]
 pre-commit = ">=4.2.0"
@@ -128,4 +134,4 @@ conda env list | grep -q pygssearch-env || conda env create -f Conda/pygssearch/
 """
 
 [dependency-groups]
-dev = ["black>=25.1.0", "pytest-dependency>=0.6.0,<0.7"]
+dev = ["black==25.1.0", "pytest-dependency>=0.6.0,<0.7"]
