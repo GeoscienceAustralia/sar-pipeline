@@ -192,7 +192,7 @@ RUN_CONFIG_PATH="$out_folder/OPERA-RTC_runconfig.yaml"
 ## -- DOWNLOAD DATA AND MAKE THE RUN CONFIG --
 
 cmd=(
-    get-data-for-scene-and-make-run-config \
+    isce3-rtc-get-data-for-scene-and-make-run-config \
     --scene "$scene" \
     --resolution "$resolution" \
     --output-crs "$output_crs" \
@@ -260,7 +260,7 @@ if [ $exit_code -eq 102 ]; then
     exit 102
 fi
 if [ $exit_code -ne 0 ]; then
-    echo "Process failed (1): Error in get-data-for-scene-and-make-run-config process. Product: $product. Scene: $scene."
+    echo "Process failed (1): Error in isce3-rtc-get-data-for-scene-and-make-run-config process. Product: $product. Scene: $scene."
     exit 1
 fi
 
@@ -283,7 +283,7 @@ fi
 conda activate sar-pipeline
 
 cmd=(
-    make-rtc-opera-stac-and-upload-bursts \
+    isce3-rtc-make-metadata-and-upload-bursts \
     --results-folder "$out_folder" \
     --run-config-path "$RUN_CONFIG_PATH" \
     --scene "$scene" \
@@ -322,7 +322,7 @@ fi
 exit_code=$?
 
 if [ $exit_code -ne 0 ]; then
-    echo "Process failed (3): Error in make-rtc-opera-stac-and-upload-bursts process. Product: $product. Scene: $scene."
+    echo "Process failed (3): Error in isce3-rtc-make-metadata-and-upload-bursts process. Product: $product. Scene: $scene."
     exit 3
 else
     echo "Success (0): Required burst products have been created. Product: $product. Scene: $scene."

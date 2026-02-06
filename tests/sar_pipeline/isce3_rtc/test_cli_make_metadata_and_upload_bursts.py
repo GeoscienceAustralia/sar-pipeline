@@ -1,7 +1,7 @@
 from click.testing import CliRunner
 from dataclasses import dataclass
 from sar_pipeline.pipelines.isce3_rtc.cli import (
-    make_rtc_opera_stac_and_upload_bursts,
+    make_metadata_and_upload_bursts,
     compare_products,
 )
 from sar_pipeline.utils.aws import S3Util
@@ -90,7 +90,7 @@ TEST_1 = RunConfig(
 
 
 @pytest.mark.parametrize("test_run", [TEST_1])
-def test_cli_make_rtc_opera_stac_and_upload_bursts(test_run):
+def test_cli_make_metadata_and_upload_bursts(test_run):
 
     # first download the test product to a local folder
     logger.info(
@@ -136,13 +136,11 @@ def test_cli_make_rtc_opera_stac_and_upload_bursts(test_run):
     args += ["--link-static-layers"] if test_run.link_static_layers else []
     args += ["--validate-stac"] if test_run.validate_stac else []
 
-    logging.info(f"Running make_rtc_opera_stac_and_upload_bursts.")
+    logging.info(f"Running make_metadata_and_upload_bursts.")
     logging.info(
         f"Creating new metadata for the product stored at : {test_run.new_local_product_folder}."
     )
-    result = runner.invoke(
-        make_rtc_opera_stac_and_upload_bursts, args, catch_exceptions=True
-    )
+    result = runner.invoke(make_metadata_and_upload_bursts, args, catch_exceptions=True)
     if result.exception:
         logging.exception(
             "An error occurred during CLI invocation", exc_info=result.exception
