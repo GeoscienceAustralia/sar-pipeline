@@ -401,6 +401,7 @@ def query_orbit_from_aus_cop_hub(
     search_et = (scene_end_datetime + timedelta(days=search_buffer_days)).strftime(
         "%Y-%m-%d"
     )
+    platform = str(scene).split("_")[0]  # S1A, S1B, S1C etc
     orbit_file_name = None
     for orbit_file_type in orbit_file_types:
         logger.info(
@@ -422,13 +423,18 @@ def query_orbit_from_aus_cop_hub(
                 return []
         logger.info(f"Filtering for best orbit file")
         for orbit_metadata in aus_cophub_orbit_metadata:
+            orbit_file_platform = orbit_metadata["Name"].split("_")[0]
             orb_st = datetime.strptime(
                 orbit_metadata["ContentDate"]["Start"], "%Y-%m-%dT%H:%M:%S.%fZ"
             )
             orb_et = datetime.strptime(
                 orbit_metadata["ContentDate"]["End"], "%Y-%m-%dT%H:%M:%S.%fZ"
             )
-            if (scene_st_datetime > orb_st) and (scene_end_datetime < orb_et):
+            if (
+                (scene_st_datetime > orb_st)
+                and (scene_end_datetime < orb_et)
+                and (orbit_file_platform == platform)
+            ):
                 orbit_file_name = orbit_metadata["Name"]
                 logger.info(f"match': {orbit_file_name}")
                 break
