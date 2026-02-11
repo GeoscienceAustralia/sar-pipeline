@@ -716,7 +716,7 @@ def download_scene_from_preference_list(
     scene_data_source_preferences : list
         List of data sources to download the scene. Must be any of {VALID_SCENE_DATA_SOURCES}
     scene : str
-        scene name. e.g. 
+        scene name. e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
     download_folder : str | Path
         Location to download the scene
     unzip: bool
