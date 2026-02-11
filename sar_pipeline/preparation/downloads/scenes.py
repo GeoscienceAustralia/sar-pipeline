@@ -784,7 +784,7 @@ def download_scene_from_preference_list(
                     f"Scene could not be downloaded from any data source provided : {scene_data_source_preferences}"
                 ) from e
 
-    logger.info(f"Scene successfully downloaded from: {data_source}")
+    logger.info(f"Scene: {scene} successfully downloaded from: {data_source}")
     return SCENE_PATH, scene_polygon, scene_url
 
 
