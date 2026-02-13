@@ -341,7 +341,7 @@ def get_data_for_scene_and_make_run_config(
     if dem_type == "best":
         logger.info("Finding the best DEM for processing the scene")
         dem_type = get_best_dem_type_for_scene(scene_bounds)
-    logger.info(f"The {dem_type} DEM will be used for processing")
+    logger.info(f"The dem_type: {dem_type} will be used to process scene: {scene}")
 
     # The burst ids, times and geometries can be acquired from the CDSE.
     # We can therefore check if desired products already exist before needing to download the scene
