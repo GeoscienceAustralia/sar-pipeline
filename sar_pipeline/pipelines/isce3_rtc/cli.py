@@ -328,7 +328,9 @@ def get_data_for_scene_and_make_run_config(
     # check if the scene crosses the antimeridian
     scene_crosses_antimeridian = check_shape_crosses_antimeridian(scene_polygon)
     if scene_crosses_antimeridian:
-        logger.warning("The scene crosses the antimeridian")
+        logger.warning(
+            f"The scene crosses the antimeridian. scene : {scene}, original shape : {scene_polygon}"
+        )
         # use the full scene bounds for an antimeridian scene
         scene_bounds = get_bounds_for_antimeridian_shape(scene_polygon)
         logger.info(
