@@ -119,7 +119,7 @@ test-isce3-rtc-burst-utils = "pytest tests/sar_pipeline/isce3_rtc/test_burst_uti
 test-isce3-rtc-cli-make-metadata-and-upload-bursts = "pytest tests/sar_pipeline/isce3_rtc/test_cli_make_metadata_and_upload_bursts.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-cli-get-data-for-scene-and-make-run-config = "pytest tests/sar_pipeline/isce3_rtc/test_cli_get_data_for_scene_and_make_run_config.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-downloads = 'pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/isce3_rtc/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s'
-test-isce3-rtc-monitoring-generate-completeness-report = 'python /home/ec2-user/sar-pipeline/sar_pipeline/pipelines/isce3_rtc/monitoring/generate_s1_iw_completeness_report.py'
+test-isce3-rtc-monitoring-generate-completeness-report = 'python sar_pipeline/pipelines/isce3_rtc/monitoring/generate_s1_iw_completeness_report.py'
 
 ### NCI Pipeline Tests ###
 # nci specific tests that should be run locally on the nci
