@@ -39,7 +39,10 @@ def check_aws_environment_credentials(verbose=False) -> list[str]:
 
 
 def find_s3_filepaths_from_suffixes(
-    bucket_name: str, s3_folder: str, suffixes: list
+    bucket_name: str,
+    s3_folder: str,
+    suffixes: list,
+    warn_credentials=True,
 ) -> dict:
     """Search a folder within an s3 bucket for files
 
@@ -67,9 +70,10 @@ def find_s3_filepaths_from_suffixes(
     MISSING_CREDENTIALS = check_aws_environment_credentials()
     if MISSING_CREDENTIALS:
         # attempt to connect without authentication
-        logger.info(
-            f"Attempting to search bucket without complete credentials. Missing credentials : {MISSING_CREDENTIALS}"
-        )
+        if warn_credentials:
+            logger.info(
+                f"Attempting to search bucket without complete credentials. Missing credentials : {MISSING_CREDENTIALS}"
+            )
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
     else:
         s3 = boto3.client("s3")
@@ -91,27 +95,23 @@ def find_s3_filepaths_from_suffixes(
 
 
 class S3Util:
-    def __init__(
-        self,
-    ):
+    def __init__(self, unsigned=False):
         """
         Utility class for S3 operations.
 
         Parameters
         ----------
-        aws_access_key_id : str
-            AWS access key ID.
-        aws_secret_access_key : str
-            AWS secret access key.
-        region_name : str, optional
-            AWS region name, by default "ap-southeast-2".
+        unsigned : bool
+            Don't use credentials in env variables.
         """
 
-        check_aws_environment_credentials(verbose=True)
-
-        self.s3 = boto3.client(
-            "s3",
-        )
+        if unsigned:
+            self.s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+        else:
+            check_aws_environment_credentials(verbose=True)
+            self.s3 = boto3.client(
+                "s3",
+            )
 
     def download_folder(self, bucket_name: str, s3_folder: str | Path, local_dir: Path):
         """

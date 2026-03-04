@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import logging
 from pathlib import Path
 import os
-from shapely.geometry import shape
+from shapely.geometry import shape, Polygon, MultiPolygon
 from pystac_client.exceptions import APIError
 from tqdm import tqdm
 import time
@@ -40,7 +40,7 @@ COMPLETENESS_REPORT_FORMAT = (
     "{report_dt}_{start_dt}_{end_dt}_{report_type}_completeness_report.json"
 )
 DEFAULT_S3_COMPLETENESS_REPORT_FOLDER = (
-    "{s3_project_folder}/monitoring/completeness_reports"
+    "{s3_project_folder}/monitoring/{report_type}_completeness_reports"
 )
 
 
@@ -101,10 +101,10 @@ def make_scene_completeness_report(
     if not s3_completeness_report_folder:
         logging.info(
             "`s3_completeness_report_folder` not provided. Report will be saved to subfolder "
-            f"in provided `s3_project_folder` : {s3_project_folder}/monitoring/completeness_reports"
+            f"in provided `s3_project_folder` : {s3_project_folder}/monitoring/scene_completeness_reports"
         )
         s3_completeness_report_folder = DEFAULT_S3_COMPLETENESS_REPORT_FOLDER.format(
-            s3_project_folder=s3_project_folder
+            s3_project_folder=s3_project_folder, report_type="scene"
         )
 
     report_dt = datetime.now()
@@ -125,8 +125,7 @@ def make_scene_completeness_report(
         get_odc_product_name("RTC_S1", collection_number, ["HH", "HV"]),
     ]
 
-    if isinstance(roi_geojson, str):
-        geometry = load_geojson_as_multipolygon(roi_geojson).simplify(tolerance=0.1)
+    geometry = load_geojson_as_multipolygon(roi_geojson)
 
     logging.info("Query the CDSE STAC API for expected processed scene metadata")
 
@@ -170,7 +169,7 @@ def make_scene_completeness_report(
     )
 
     # query the folder for the filenames (scene.json)
-    s3_utility = S3Util()
+    s3_utility = S3Util(unsigned=True)
     paginator = s3_utility.s3.get_paginator("list_objects_v2")
     found_any_objects = False
 
@@ -237,7 +236,10 @@ def make_scene_completeness_report(
             except APIError as e:
                 retries += 1
                 if retries > max_retries:
-                    break
+                    logging.error(
+                        f"Max retries reached for finding scenes on GA STAC API"
+                    )
+                    raise e
                 logging.warning(f"STAC API error: {e}. Retrying in 10s...")
                 time.sleep(10)
 
@@ -292,6 +294,7 @@ def make_scene_completeness_report(
     # upload the completeness report to the desired AWS S3 bucket
     local_path = f"TMP/monitoring/{completeness_report_name}"
     s3_key = str(Path(s3_completeness_report_folder) / completeness_report_name)
+    s3_utility = S3Util()
     if not dry_run:
         s3_utility.s3.upload_file(
             local_path,
@@ -319,6 +322,7 @@ def make_burst_product_completeness_report(
     roi_geojson: str | None,
     stac_catalog: str,
     s3_completeness_report_folder: str | None = None,
+    check_indexed_products=True,
     identify_missing_linked_static_layers: bool = True,
     dem_type: ValidDemType = "best",
     static_layer_validity_start_date=20140403,
@@ -336,10 +340,10 @@ def make_burst_product_completeness_report(
     if not s3_completeness_report_folder:
         logging.info(
             "`s3_completeness_report_folder` not provided. Report will be saved to subfolder "
-            f"in provided `s3_project_folder` : {s3_project_folder}/monitoring/completeness_reports"
+            f"in provided `s3_project_folder` : {s3_project_folder}/monitoring/burst_completeness_reports"
         )
         s3_completeness_report_folder = DEFAULT_S3_COMPLETENESS_REPORT_FOLDER.format(
-            s3_project_folder=s3_project_folder
+            s3_project_folder=s3_project_folder, report_type="burst"
         )
 
     if dem_type not in VALID_DEMS:
@@ -357,8 +361,7 @@ def make_burst_product_completeness_report(
         report_type="burst",
     )
 
-    if isinstance(roi_geojson, str):
-        geometry = load_geojson_as_multipolygon(roi_geojson).simplify(tolerance=0.1)
+    geometry = load_geojson_as_multipolygon(roi_geojson)
 
     # Get the burst products we expect to have over the time period
     expected_burst_product_dict = query_cdse_for_bursts_in_period(
@@ -420,6 +423,7 @@ def make_burst_product_completeness_report(
             bucket_name=s3_bucket,
             s3_folder=expected_s3_product_folder,
             suffixes=["stac-item.json"],
+            warn_credentials=False,
         )
 
         if len(product_stac_file["stac-item.json"]) > 0:
@@ -448,138 +452,152 @@ def make_burst_product_completeness_report(
         f"{n_scenes_to_process} of {n_expected_scenes} scenes are missing burst products."
     )
 
-    # setup connection to the DEA STAC API
-    logging.info(
-        f"Connecting to STAC API catalog to check indexed products : {stac_catalog}"
-    )
+    if not check_indexed_products:
+        logging.warning("Not checking indexed products in ODC")
+        n_missing_from_odc = 0
+        n_existing_burst_products_to_index = 0
+        n_duplicate_products_to_archive = 0
+        existing_burst_products_to_index = {}
+        duplicate_products_to_archive = {}
+        collections_to_search = []
 
-    # get the collections to search based on polarisations and collection_number
-    # e.g. ga_s1_nrb_iw_hh_hv_1
-    collections_to_search = [
-        get_odc_product_name("RTC_S1", collection_number, ["VV"]),
-        get_odc_product_name("RTC_S1", collection_number, ["HH"]),
-        get_odc_product_name("RTC_S1", collection_number, ["VV", "VH"]),
-        get_odc_product_name("RTC_S1", collection_number, ["HH", "HV"]),
-    ]
+    else:
+        # setup connection to the DEA STAC API
+        logging.info(
+            f"Connecting to STAC API catalog to check indexed products : {stac_catalog}"
+        )
 
-    logging.info(f"Searching provided collections : {collections_to_search}")
+        # get the collections to search based on polarisations and collection_number
+        # e.g. ga_s1_nrb_iw_hh_hv_1
+        collections_to_search = [
+            get_odc_product_name("RTC_S1", collection_number, ["VV"]),
+            get_odc_product_name("RTC_S1", collection_number, ["HH"]),
+            get_odc_product_name("RTC_S1", collection_number, ["VV", "VH"]),
+            get_odc_product_name("RTC_S1", collection_number, ["HH", "HV"]),
+        ]
 
-    # stac query STAC for items with slight buffer in times
-    buffer = timedelta(seconds=10)
-    n_stac_matches, stac_items = query_stac_for_metadata_in_period(
-        start_dt=start_dt - buffer,
-        end_dt=end_dt + buffer,
-        geometry=shape(geometry),
-        collections=collections_to_search,
-        stac_catalog=stac_catalog,
-    )
-    logging.info(f"{n_stac_matches} items found")
+        logging.info(f"Searching provided collections : {collections_to_search}")
 
-    # check which products are indexed and if there are any duplicates
-    # that need to be archived.
-    burst_products_indexed = {}
-    burst_products_not_indexed = {}
-    duplicate_products_to_archive = {}
-    n_duplicate_products_to_archive = 0
+        # stac query STAC for items with slight buffer in times
+        buffer = timedelta(seconds=10)
+        n_stac_matches, stac_items = query_stac_for_metadata_in_period(
+            start_dt=start_dt - buffer,
+            end_dt=end_dt + buffer,
+            geometry=shape(geometry),
+            collections=collections_to_search,
+            stac_catalog=stac_catalog,
+        )
+        logging.info(f"{n_stac_matches} items found")
 
-    # determine which bursts are indexed
-    # for i in range(0, 2): # uncomment to iterate through twice and ensure duplicates are found
-    for burst_product in tqdm(
-        stac_items.items_as_dicts(),
-        total=n_stac_matches,
-        desc="Iterating STAC items",
-    ):
-        odc_id = burst_product["id"]
-        burst_id = burst_product["properties"]["sarard:burst_id"]
-        azimuth_time = burst_product["properties"]["datetime"]
-        created_time = burst_product["properties"]["created"]
-        # convert dts
-        azimuth_time = datetime.strptime(azimuth_time, "%Y-%m-%dT%H:%M:%S.%fZ")
-        created_time = datetime.strptime(created_time, "%Y-%m-%dT%H:%M:%S.%fZ")
+        # check which products are indexed and if there are any duplicates
+        # that need to be archived.
+        burst_products_indexed = {}
+        burst_products_not_indexed = {}
+        duplicate_products_to_archive = {}
+        n_duplicate_products_to_archive = 0
 
-        if (burst_id, azimuth_time) not in expected_burst_product_dict:
-            # additional product that is in the list of bursts from the CDSE
-            # We have picked up with the expanded time buffer. Ignore.
-            continue
+        # determine which bursts are indexed
+        # for i in range(0, 2): # uncomment to iterate through twice and ensure duplicates are found
+        for burst_product in tqdm(
+            stac_items.items_as_dicts(),
+            total=n_stac_matches,
+            desc="Iterating STAC items",
+        ):
+            odc_id = burst_product["id"]
+            burst_id = burst_product["properties"]["sarard:burst_id"]
+            azimuth_time = burst_product["properties"]["datetime"]
+            created_time = burst_product["properties"]["created"]
+            # convert dts
+            azimuth_time = datetime.strptime(azimuth_time, "%Y-%m-%dT%H:%M:%S.%fZ")
+            created_time = datetime.strptime(created_time, "%Y-%m-%dT%H:%M:%S.%fZ")
 
-        # Ensure the products is not already in our dictionary of indexed ones
-        # and is therefore not a duplicate
-        if (burst_id, azimuth_time) not in burst_products_indexed:
-            # add the product to the list of indexed products with the
-            # created time and odc product id
-            burst_products_indexed[(burst_id, azimuth_time)] = (
-                expected_burst_product_dict[(burst_id, azimuth_time)]
-            )
-            burst_products_indexed[(burst_id, azimuth_time)]["odc_id"] = odc_id
-            burst_products_indexed[(burst_id, azimuth_time)]["created"] = created_time
+            if (burst_id, azimuth_time) not in expected_burst_product_dict:
+                # additional product that is in the list of bursts from the CDSE
+                # We have picked up with the expanded time buffer. Ignore.
+                continue
 
-        # we are dealing with a duplicate item
-        else:
-
-            n_duplicate_products_to_archive += 1
-
-            # create a list of the duplicate products for a given burst
-            if (burst_id, azimuth_time) not in duplicate_products_to_archive:
-                duplicate_products_to_archive[(burst_id, azimuth_time)] = []
-
-            # get the created date of the product already in the index list
-            _existing_created_time = burst_products_indexed[(burst_id, azimuth_time)][
-                "created"
-            ]
-
-            # if the incoming product is newer, we want to keep that and
-            # archive the older product already in the dict
-            if created_time > _existing_created_time:
-                # incoming product is newer, add existing to list to archive
-                archive_product = burst_products_indexed[
-                    (burst_id, azimuth_time)
-                ].copy()
-                duplicate_products_to_archive[(burst_id, azimuth_time)].append(
-                    archive_product
+            # Ensure the products is not already in our dictionary of indexed ones
+            # and is therefore not a duplicate
+            if (burst_id, azimuth_time) not in burst_products_indexed:
+                # add the product to the list of indexed products with the
+                # created time and odc product id
+                burst_products_indexed[(burst_id, azimuth_time)] = (
+                    expected_burst_product_dict[(burst_id, azimuth_time)]
                 )
-
-                # update the information of the indexed product we want to keep
-                # with the new odc product and created time
                 burst_products_indexed[(burst_id, azimuth_time)]["odc_id"] = odc_id
                 burst_products_indexed[(burst_id, azimuth_time)][
                     "created"
                 ] = created_time
 
-            # the incoming product is older, we want to archive this and leave
-            # the current product in the indexed list
+            # we are dealing with a duplicate item
             else:
-                archive_product = burst_products_indexed[
+
+                n_duplicate_products_to_archive += 1
+
+                # create a list of the duplicate products for a given burst
+                if (burst_id, azimuth_time) not in duplicate_products_to_archive:
+                    duplicate_products_to_archive[(burst_id, azimuth_time)] = []
+
+                # get the created date of the product already in the index list
+                _existing_created_time = burst_products_indexed[
                     (burst_id, azimuth_time)
-                ].copy()
-                archive_product["created"] = created_time
-                archive_product["odc_id"] = odc_id
-                duplicate_products_to_archive[(burst_id, azimuth_time)].append(
-                    archive_product
-                )
+                ]["created"]
 
-    # make the dictionary of products not indexed
-    burst_products_not_indexed = {
-        k: v
-        for k, v in expected_burst_product_dict.items()
-        if k not in burst_products_indexed
-    }
-    n_missing_from_odc = len(burst_products_not_indexed)
+                # if the incoming product is newer, we want to keep that and
+                # archive the older product already in the dict
+                if created_time > _existing_created_time:
+                    # incoming product is newer, add existing to list to archive
+                    archive_product = burst_products_indexed[
+                        (burst_id, azimuth_time)
+                    ].copy()
+                    duplicate_products_to_archive[(burst_id, azimuth_time)].append(
+                        archive_product
+                    )
 
-    # get the products that need to be indexed. I.e. they exist in our storage
-    # but are not indexed in the odc
-    existing_burst_products_to_index = {
-        k: v for k, v in burst_products_not_indexed.items() if k in burst_products_in_s3
-    }
-    n_existing_burst_products_to_index = len(existing_burst_products_to_index)
+                    # update the information of the indexed product we want to keep
+                    # with the new odc product and created time
+                    burst_products_indexed[(burst_id, azimuth_time)]["odc_id"] = odc_id
+                    burst_products_indexed[(burst_id, azimuth_time)][
+                        "created"
+                    ] = created_time
 
-    logging.info(
-        f"{n_missing_from_odc} of {n_expected_products} expected burst "
-        f"products are not indexed and are missing from the ODC"
-    )
-    logging.info(
-        f"{n_duplicate_products_to_archive} duplicate products have been "
-        "found in the ODC and should be archived"
-    )
+                # the incoming product is older, we want to archive this and leave
+                # the current product in the indexed list
+                else:
+                    archive_product = burst_products_indexed[
+                        (burst_id, azimuth_time)
+                    ].copy()
+                    archive_product["created"] = created_time
+                    archive_product["odc_id"] = odc_id
+                    duplicate_products_to_archive[(burst_id, azimuth_time)].append(
+                        archive_product
+                    )
+
+        # make the dictionary of products not indexed
+        burst_products_not_indexed = {
+            k: v
+            for k, v in expected_burst_product_dict.items()
+            if k not in burst_products_indexed
+        }
+        n_missing_from_odc = len(burst_products_not_indexed)
+
+        # get the products that need to be indexed. I.e. they exist in our storage
+        # but are not indexed in the odc
+        existing_burst_products_to_index = {
+            k: v
+            for k, v in burst_products_not_indexed.items()
+            if k in burst_products_in_s3
+        }
+        n_existing_burst_products_to_index = len(existing_burst_products_to_index)
+
+        logging.info(
+            f"{n_missing_from_odc} of {n_expected_products} expected burst "
+            f"products are not indexed and are missing from the ODC"
+        )
+        logging.info(
+            f"{n_duplicate_products_to_archive} duplicate products have been "
+            "found in the ODC and should be archived"
+        )
 
     bursts_missing_static_layers = {}
     scenes_missing_static_layers = []
@@ -676,6 +694,7 @@ def make_burst_product_completeness_report(
                         bucket_name=s3_bucket,
                         s3_folder=expected_static_layer_s3_product_folder,
                         suffixes=[".h5"],
+                        warn_credentials=False,
                     )
 
                     if len(product_h5_file[".h5"]) == 0:
@@ -718,6 +737,7 @@ def make_burst_product_completeness_report(
         "stac_catalog": stac_catalog,
         "collections_searched": collections_to_search,
         "nrb_product_format": RTC_S1_S3_PREFIX_FORMAT,
+        "check_indexed_products": check_indexed_products,
         "identify_missing_linked_static_layers": identify_missing_linked_static_layers,
         "linked_static_layer_product_format": RTC_S1_STATIC_S3_PREFIX_FORMAT,
         "linked_static_layer_s3_bucket": linked_static_layer_s3_bucket,

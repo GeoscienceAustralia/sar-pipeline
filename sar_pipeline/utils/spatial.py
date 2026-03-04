@@ -4,6 +4,7 @@ from shapely import wkt
 from shapely.geometry import mapping, box, Polygon, shape, MultiPolygon
 from shapely import segmentize
 from shapely.ops import unary_union, orient
+import geopandas as gpd
 import numpy as np
 import rasterio
 from rasterio.features import shapes
@@ -380,10 +381,10 @@ def write_shape_to_geojson(
             json.dump(geojson, f)
 
 
-def load_geojson_as_multipolygon(shape_path: str) -> MultiPolygon:
+def load_geojson_as_multipolygon(geojson: str) -> MultiPolygon:
     """
-    Load a GeoJSON from a URL (or local file) and return a flattened
-    MultiPolygon.
+    Load a GeoJSON. Can be from a URL, local file, or
+    json objecy and return a flattened MultiPolygon.
 
     Handles GeoJSONs containing:
     - Polygon features
@@ -401,18 +402,17 @@ def load_geojson_as_multipolygon(shape_path: str) -> MultiPolygon:
         Flattened MultiPolygon containing all polygons from the GeoJSON.
     """
 
-    logger.info(f"Loading geojson into shape : {shape_path}")
+    if isinstance(geojson, str):
+        logger.info(f"Loading geojson into shape : {geojson}")
 
-    # Load GeoJSON (supports URL or local file)
-    if shape_path.startswith("http://") or shape_path.startswith("https://"):
-        resp = requests.get(shape_path)
-        resp.raise_for_status()
-        geojson = resp.json()
-    else:
-        import json
-
-        with open(shape_path, "r") as f:
-            geojson = json.load(f)
+        # Load GeoJSON (supports URL or local file)
+        if geojson.startswith("http://") or geojson.startswith("https://"):
+            resp = requests.get(geojson)
+            resp.raise_for_status()
+            geojson = resp.json()
+        else:
+            with open(geojson, "r") as f:
+                geojson = json.load(f)
 
     # Collect all geometries
     geometries = []
@@ -432,3 +432,25 @@ def load_geojson_as_multipolygon(shape_path: str) -> MultiPolygon:
 
     # Return a single flattened MultiPolygon
     return MultiPolygon(geometries)
+
+
+def wkt_to_geojson(wkt_str: str, crs=4326) -> dict:
+    """Convert wkt string to geojson dict object
+
+    Parameters
+    ----------
+    wkt_str : str
+        e.g. "POLYGON ((100 -65, 101 -65, 101 -64, 100 -64, 100 -65))"
+    """
+    # Build a GeoDataFrame with a geometry column and optional properties
+    gdf = gpd.GeoDataFrame(
+        [{"name": "roi", "source": "wkt"}],
+        geometry=gpd.GeoSeries.from_wkt([wkt_str]),
+        crs=f"EPSG:{crs}",  # set the CRS if your WKT is lon/lat (WGS84)
+    )
+
+    # Get a GeoJSON FeatureCollection JSON string
+    geojson_text = gdf.to_json()
+
+    # return a Python dict
+    return json.loads(geojson_text)

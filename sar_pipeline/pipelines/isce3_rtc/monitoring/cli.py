@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 import logging
 from typing import Literal
+from shapely import wkt
 
 from sar_pipeline.pipelines.isce3_rtc.monitoring.generate_s1_iw_completeness_report import (
     make_burst_product_completeness_report,
@@ -12,6 +13,7 @@ from sar_pipeline.pipelines.isce3_rtc.monitoring.process_s1_iw_completeness_repo
     process_completeness_report,
 )
 from sar_pipeline.utils.aws import check_aws_environment_credentials
+from sar_pipeline.utils.spatial import wkt_to_geojson
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,9 +54,17 @@ ValidReportTypes = Literal["scene", "burst"]
 )
 @click.option(
     "--roi-geojson",
-    required=True,
+    required=False,
+    default=None,
     type=str,
-    help="URL or path to geometry with region of interest for scenes.",
+    help="URL or path to geometry with region of interest for bursts.",
+)
+@click.option(
+    "--roi-wkt",
+    required=False,
+    default=None,
+    type=str,
+    help="a wkt string for the geometry with region of interest for bursts.",
 )
 @click.option(
     "--stac-catalog",
@@ -71,8 +81,8 @@ ValidReportTypes = Literal["scene", "burst"]
     help="S3 folder where the completeness report will be written. The report will have the structure "
     "{s3_report_folder}/{report_time}_{start_time}_{end_time}_scene_completeness_report.json "
     "where time is of the format %Y%m%dT%H%M%S, e.g. "
-    "20251218T043403_20241214T000000_20241216T000000_completeness_report.json. If not provided,"
-    "it will be set to {s3_report_folder}/monitoring/completeness_reports by default.",
+    "20251218T043403_20241214T000000_20241216T000000_scene_completeness_report.json. If not provided,"
+    "it will be set to {s3_report_folder}/monitoring/scene_completeness_reports by default.",
 )
 @click.option(
     "--dry-run",
@@ -87,6 +97,7 @@ def generate_s1_iw_scene_completeness_report_cli(
     start_dt,
     end_dt,
     roi_geojson,
+    roi_wkt,
     stac_catalog,
     s3_completeness_report_folder,
     dry_run,
@@ -120,6 +131,12 @@ def generate_s1_iw_scene_completeness_report_cli(
     # --- Parse datetimes ---
     start_dt = datetime.strptime(start_dt, "%Y-%m-%dT%H:%M:%SZ")
     end_dt = datetime.strptime(end_dt, "%Y-%m-%dT%H:%M:%SZ")
+
+    if not (roi_geojson or roi_wkt):
+        raise ValueError("roi-geojson or roi-wkt must be provided.")
+    if roi_wkt:
+        logger.info("roi-wkt passed. converting to geojson.")
+        roi_geojson = wkt_to_geojson(roi_wkt)
 
     missing_credentials = check_aws_environment_credentials(verbose=True)
     if missing_credentials:
@@ -173,9 +190,17 @@ def generate_s1_iw_scene_completeness_report_cli(
 )
 @click.option(
     "--roi-geojson",
-    required=True,
+    required=False,
+    default=None,
     type=str,
     help="URL or path to geometry with region of interest for bursts.",
+)
+@click.option(
+    "--roi-wkt",
+    required=False,
+    default=None,
+    type=str,
+    help="a wkt string for the geometry with region of interest for bursts.",
 )
 @click.option(
     "--stac-catalog",
@@ -192,8 +217,15 @@ def generate_s1_iw_scene_completeness_report_cli(
     help="S3 folder where the completeness report will be written. The report will have the structure "
     "{s3_report_folder}/{report_time}_{start_time}_{end_time}_burst_completeness_report.json "
     "where time is of the format %Y%m%dT%H%M%S, e.g. "
-    "20251218T043403_20241214T000000_20241216T000000_completeness_report.json. If not provided,"
-    "it will be set to {s3_report_folder}/monitoring/completeness_reports by default.",
+    "20251218T043403_20241214T000000_20241216T000000_burst_completeness_report.json. If not provided,"
+    "it will be set to {s3_report_folder}/monitoring/burst_completeness_reports by default.",
+)
+@click.option(
+    "--skip-check-indexed-products",
+    is_flag=True,
+    default=False,
+    help="Skip checking the GA STAC API to see which products are missing "
+    "from the ODC and need to be indexed.",
 )
 @click.option(
     "--skip-identify-missing-linked-static-layers",
@@ -247,8 +279,10 @@ def generate_s1_iw_burst_completeness_report_cli(
     start_dt,
     end_dt,
     roi_geojson,
+    roi_wkt,
     stac_catalog,
     s3_completeness_report_folder,
+    skip_check_indexed_products,
     skip_identify_missing_linked_static_layers,
     dem_type,
     static_layer_validity_start_date,
@@ -262,13 +296,13 @@ def generate_s1_iw_burst_completeness_report_cli(
 
     NOTE - small windows of <10 days should be used. For larger time spans, the
     make_scene_odc_completeness_report_cli should be used to identify unprocessed
-    scenes.
+    scenes, rather than individual bursts.
 
     First, the CDSE burst API is queried for burst_ids and datetimes within the provided
     time range and geometry. We expect to have a RTC_S1/nrb product for each of these
     bursts. Next, the provided AWS S3 bucket is searched to ensure the expected products exist.
     Next, the open data cube (odc) is queried to ensure the expected products are indexed and
-    available via the stac api.
+    available via the stac api (this can be skipped with --skip-check-indexed-products).
 
     By default, the static layers for the missing scenes will also be searched for, as the nrb
     product may have failed due to a missing static layer. If a large number of nrb products are
@@ -283,6 +317,18 @@ def generate_s1_iw_burst_completeness_report_cli(
     # --- Parse datetimes ---
     start_dt = datetime.strptime(start_dt, "%Y-%m-%dT%H:%M:%SZ")
     end_dt = datetime.strptime(end_dt, "%Y-%m-%dT%H:%M:%SZ")
+
+    # --- Check if we want to skip the indexed product check ---
+    if skip_check_indexed_products:
+        check_indexed_products = False
+    else:
+        check_indexed_products = True
+
+    if not (roi_geojson or roi_wkt):
+        raise ValueError("roi-geojson or roi-wkt must be provided.")
+    if roi_wkt:
+        logger.info("roi-wkt passed. converting to geojson.")
+        roi_geojson = wkt_to_geojson(roi_wkt)
 
     # --- Default linked static layer bucket if not directly set---
     if not skip_identify_missing_linked_static_layers:
@@ -302,7 +348,7 @@ def generate_s1_iw_burst_completeness_report_cli(
             logger.warning(
                 "--linked-static-layer-collection-number not provided. Setting to --collection-number"
             )
-            linked_static_layer_s3_project_folder = s3_project_folder
+            linked_static_layer_collection_number = collection_number
     else:
         logging.info("Missing static layers will be NOT be identified")
         identify_missing_linked_static_layers = False
@@ -322,6 +368,7 @@ def generate_s1_iw_burst_completeness_report_cli(
         roi_geojson=roi_geojson,
         stac_catalog=stac_catalog,
         s3_completeness_report_folder=s3_completeness_report_folder,
+        check_indexed_products=check_indexed_products,
         identify_missing_linked_static_layers=identify_missing_linked_static_layers,
         dem_type=dem_type,
         static_layer_validity_start_date=static_layer_validity_start_date,
