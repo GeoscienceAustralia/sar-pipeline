@@ -276,7 +276,7 @@ ln -s /g/data/<project>/<username>/miniforge3/envs/sar-pipeline/lib/libgdal.so.3
 You must supply an appropriate `gamma_env_var` path in the configuration file or at run time via the CLI.
 To ensure all lib files from the Conda environment are available, as well as the new symlink, use the following:
 ```toml
-gamma_env_var = "/g/data/<project>/<username>/micromamba/envs/sar-pipeline/lib:/g/data/<project>/<username>/gamma_symlinks"
+gamma_env_var = "/g/data/<project>/<username>/miniforge3/envs/sar-pipeline/lib:/g/data/<project>/<username>/gamma_symlinks"
 ```
 
 ### 4.5 Initialise pyroSAR
@@ -298,7 +298,7 @@ python
 3. Specify the required paths, set these as environment variables, then run the GAMMA `autoparse` function from `pyroSAR`:
 ```python
 >>> gamma_lib_dir = "/g/data/dg9/GAMMA/GAMMA_SOFTWARE-20230712"
->>> gamma_env_var = "/g/data/<project>/<username>/micromamba/envs/sar-pipeline/lib:/g/data/<project>/<username>/gamma_symlinks"
+>>> gamma_env_var = "/g/data/<project>/<username>/miniforge3/envs/sar-pipeline/lib:/g/data/<project>/<username>/gamma_symlinks"
 >>> from sar_pipeline.utils.gamma import set_gamma_env_variables
 >>> set_gamma_env_variables(gamma_lib_dir, gamma_env_var)
 >>> from pyroSAR.gamma.parser import autoparse
