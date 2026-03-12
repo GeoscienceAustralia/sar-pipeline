@@ -239,6 +239,7 @@ $CONDA_PREFIX/bin/conda init bash
 Once Conda is installed, make sure it's initialised (you should see `(base)` at the start of your terminal prompt), then navigate to the `sar-pipeline` repository.
 
 Run the following commands to install the required Conda environments:
+
 `sar-pipeline`
 ```bash
 conda env create -f environment.yaml && conda clean -afy
