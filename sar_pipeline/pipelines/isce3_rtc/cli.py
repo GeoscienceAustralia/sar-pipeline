@@ -11,6 +11,7 @@ import re
 from sar_pipeline.preparation.downloads.scenes import (
     download_scene_from_preference_list_with_timeout,
     query_scene_from_cdse,
+    query_scene_from_asf,
     VALID_SCENE_DATA_SOURCES,
     NonSingleSceneResultError,
 )
@@ -311,16 +312,28 @@ def get_data_for_scene_and_make_run_config(
     if backscatter_convention not in ["gamma0", "sigma0", "beta0"]:
         raise ValueError("backscatter_convention must be one of gamma0, sigma0, beta0")
 
-    # Query the CDSE to make sure the scene exists
-    cdse_scene_results = query_scene_from_cdse(scene)
-    if len(cdse_scene_results) != 1:
+    try:
+        # Query the CDSE to make sure the scene exists
+        logger.info(f"Searching CDSE for scene metadata : {scene}")
+        scene_results, metadata_src = query_scene_from_cdse(scene), "CDSE"
+    except Exception as e:
+        # Fallback to ASF
+        logger.error(f"CDSE Query failed. Error : {e}")
+        logger.info(f"Falling back to ASF search for scene metadata : {scene}")
+        logger.warning(f"ASF may not have the most recent data available from the CDSE")
+        scene_results, metadata_src = query_scene_from_asf(scene), "ASF"
+
+    if len(scene_results) != 1:
         raise NonSingleSceneResultError(
-            f"Expected 1 scene, found {len(cdse_scene_results)} results for scene id : {scene}. Check input scene."
+            f"Expected 1 scene, found {len(scene_results)} results for scene id : {scene}. Check input scene."
         )
     else:
-        logger.info(f"Scene metadata successfully retrieved from CDSE")
-        cdse_scene_metadata = cdse_scene_results[0]
-        scene_polygon = shapely.geometry.shape(cdse_scene_metadata["geometry"])
+        logger.info(f"Scene metadata successfully retrieved from {metadata_src}")
+        scene_metadata = scene_results[0]
+        if metadata_src == "CDSE":
+            scene_polygon = shapely.geometry.shape(scene_metadata["geometry"])
+        if metadata_src == "ASF":
+            scene_polygon = shapely.geometry.shape(scene_metadata.geometry)
         # show the original scene shape and bounds
         logger.info(f"The original scene shape is : {scene_polygon}")
         logger.info(f"The original scene bounds are : {scene_polygon.bounds}")
@@ -1260,16 +1273,28 @@ def get_bursts_ids_for_scene(
 ):
     logger.info(f"Finding burst ids for scene : {scene}")
 
-    # Query the CDSE to make sure the scene exists
-    cdse_scene_results = query_scene_from_cdse(scene)
-    if len(cdse_scene_results) != 1:
+    try:
+        # Query the CDSE to make sure the scene exists
+        logger.info(f"Searching CDSE for scene metadata : {scene}")
+        scene_results, metadata_src = query_scene_from_cdse(scene), "CDSE"
+    except Exception as e:
+        # Fallback to ASF
+        logger.error(f"CDSE Query failed. Error : {e}")
+        logger.info(f"Falling back to ASF search for scene metadata : {scene}")
+        logger.warning(f"ASF may not have the most recent data available from the CDSE")
+        scene_results, metadata_src = query_scene_from_asf(scene), "ASF"
+
+    if len(scene_results) != 1:
         raise NonSingleSceneResultError(
-            f"Expected 1 scene, found {len(cdse_scene_results)} results for scene id : {scene}. Check input scene."
+            f"Expected 1 scene, found {len(scene_results)} results for scene id : {scene}. Check input scene."
         )
     else:
-        logger.info(f"Scene metadata successfully retrieved from CDSE")
-        cdse_scene_metadata = cdse_scene_results[0]
-        scene_polygon = shapely.geometry.shape(cdse_scene_metadata["geometry"])
+        logger.info(f"Scene metadata successfully retrieved from {metadata_src}")
+        scene_metadata = scene_results[0]
+        if metadata_src == "CDSE":
+            scene_polygon = shapely.geometry.shape(scene_metadata["geometry"])
+        if metadata_src == "ASF":
+            scene_polygon = shapely.geometry.shape(scene_metadata.geometry)
         # show the original scene shape and bounds
         logger.info(f"The original scene shape is : {scene_polygon}")
         logger.info(f"The original scene bounds are : {scene_polygon.bounds}")
