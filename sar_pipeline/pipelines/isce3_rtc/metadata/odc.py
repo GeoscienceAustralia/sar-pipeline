@@ -172,7 +172,7 @@ def make_rtc_s1_static_product_browse_url(
     s3_bucket: str,
     rtc_s1_static_s3_prefix: str,
     s3_region: str = "ap-southeast-2",
-    base_url = None
+    base_url=None,
 ) -> str:
     """Make the browse url to the static layer product from the paths provided
 
@@ -198,14 +198,16 @@ def make_rtc_s1_static_product_browse_url(
     if not base_url:
         if s3_bucket == "deant-data-public-dev":
             url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/index.html?prefix={rtc_s1_static_s3_prefix}"
-        elif s3_bucket == "dea-public-data-dev" :
-            url = f'https://data.dev.dea.ga.gov.au/?prefix={rtc_s1_static_s3_prefix}'
+        elif s3_bucket == "dea-public-data-dev":
+            url = f"https://data.dev.dea.ga.gov.au/?prefix={rtc_s1_static_s3_prefix}"
         elif s3_bucket == "dea-public-data":
-            url = f'https://data.dea.ga.gov.au/?prefix={rtc_s1_static_s3_prefix}'
+            url = f"https://data.dea.ga.gov.au/?prefix={rtc_s1_static_s3_prefix}"
         else:
-            raise ValueError('Unknown browse URL for s3 bucket, please provide a `base_url`.')
+            raise ValueError(
+                "Unknown browse URL for s3 bucket, please provide a `base_url`."
+            )
     else:
-        url = f'{base_url}{rtc_s1_static_s3_prefix}'
+        url = f"{base_url}{rtc_s1_static_s3_prefix}"
 
     return url
 
@@ -214,7 +216,7 @@ def make_rtc_s1_product_browse_url(
     s3_bucket: str,
     rtc_s1_s3_prefix: str,
     s3_region: str = "ap-southeast-2",
-    base_url = None
+    base_url=None,
 ):
     """Make the browse url for the burst product.
 
@@ -237,18 +239,20 @@ def make_rtc_s1_product_browse_url(
         visibility
     """
 
-     # hardcode by bucket if an alternative base url not provided
+    # hardcode by bucket if an alternative base url not provided
     if not base_url:
         if s3_bucket == "deant-data-public-dev":
             url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/index.html?prefix={rtc_s1_s3_prefix}"
-        elif s3_bucket == "dea-public-data-dev" :
-            url = f'https://data.dev.dea.ga.gov.au/?prefix={rtc_s1_s3_prefix}'
+        elif s3_bucket == "dea-public-data-dev":
+            url = f"https://data.dev.dea.ga.gov.au/?prefix={rtc_s1_s3_prefix}"
         elif s3_bucket == "dea-public-data":
-            url = f'https://data.dea.ga.gov.au/?prefix={rtc_s1_s3_prefix}'
+            url = f"https://data.dea.ga.gov.au/?prefix={rtc_s1_s3_prefix}"
         else:
-            raise ValueError('Unknown browse URL for s3 bucket, please provide a `base_url`.')
+            raise ValueError(
+                "Unknown browse URL for s3 bucket, please provide a `base_url`."
+            )
     else:
-        url = f'{base_url}{rtc_s1_s3_prefix}'
+        url = f"{base_url}{rtc_s1_s3_prefix}"
 
     return url
 
@@ -315,12 +319,12 @@ def get_s3_bucket_from_product_browse_url(browse_url: str) -> str:
 
     """
     # hardcoded options for the bucket based on known browse urls:
-    if 'data.dev.dea.ga.gov.au' in browse_url:
+    if "data.dev.dea.ga.gov.au" in browse_url:
         s3_bucket = "dea-public-data-dev"
-    elif 'data.dea.ga.gov.au' in browse_url:
+    elif "data.dea.ga.gov.au" in browse_url:
         s3_bucket = "dea-public-data"
     else:
-        # attempt to search for the bucket (appropriate for deant-data-public-dev)    
+        # attempt to search for the bucket (appropriate for deant-data-public-dev)
         bucket_match = re.search(r"https:\/\/([^\.]+)\.s3", browse_url)
         if bucket_match:
             s3_bucket = bucket_match.group(1)

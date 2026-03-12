@@ -75,7 +75,6 @@ def query_scene_from_asf(scene: str) -> ASFSearchResults:
         Non supported product type
     """
 
-
     # Extract metadata from scene ID
     scene_metadata = extract_metadata_from_s1_id(scene)
 
@@ -276,7 +275,6 @@ def query_scene_from_cdse(scene: str) -> FeatureQuery:
     FeatureQuery
         Scene metadata as a FeatureQuery class
     """
-
 
     cdse_scenes_metadata = query_features(
         "Sentinel1",
