@@ -49,4 +49,3 @@ tests/sar_pipeline/data/isce3_rtc/TMP/*
 comparison
 
 timeseries-results
-burst_shapefiles
