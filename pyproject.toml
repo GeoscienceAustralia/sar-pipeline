@@ -23,7 +23,7 @@ dependencies = [
     "h5py>=3.13.0", 
     "ruamel-yaml>=0.18.10", 
     "s1-orbits>=0.1.3", 
-    "cdsetool>=0.2.13", 
+    "cdsetool @ git+https://github.com/CDSETool/CDSETool.git", 
     "python-dotenv>=1.1.1,<2", 
     "pystac[validation]==1.13.0", 
     "antimeridian>=0.4.3,<0.5", 

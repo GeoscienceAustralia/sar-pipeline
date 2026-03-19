@@ -7,6 +7,8 @@ environments:
     - url: https://conda.anaconda.org/s1-etad/
     indexes:
     - https://pypi.org/simple
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
@@ -318,7 +320,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.7-hb8e6e7a_2.conda
       - pypi: https://files.pythonhosted.org/packages/d7/fe/dcaa1c91a561c582afe815bdf01e482fb892c901867a36020cbab54c71d1/antimeridian-0.4.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/23/c2/38547d58f0bdddd42dc57a5f02e23565ee2027b7a1cb8cb9fbb504b9f546/asf_search-10.1.2-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
+      - pypi: git+https://github.com/CDSETool/CDSETool.git#6d9bb66c390183a79ecf1e8bde888c97b4bc7973
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
       - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=v0.2.6#1b322701483a4504eaf9d766fdc0664a5b1ec381
       - pypi: https://files.pythonhosted.org/packages/bf/9c/8c95d856233c1f82500c2450b8c68576b4cf1c871db3afac5c34ff84e6fd/jsonschema-4.25.1-py3-none-any.whl
@@ -632,7 +634,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-h6491c7d_2.conda
       - pypi: https://files.pythonhosted.org/packages/d7/fe/dcaa1c91a561c582afe815bdf01e482fb892c901867a36020cbab54c71d1/antimeridian-0.4.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/23/c2/38547d58f0bdddd42dc57a5f02e23565ee2027b7a1cb8cb9fbb504b9f546/asf_search-10.1.2-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
+      - pypi: git+https://github.com/CDSETool/CDSETool.git#6d9bb66c390183a79ecf1e8bde888c97b4bc7973
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
       - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=v0.2.6#1b322701483a4504eaf9d766fdc0664a5b1ec381
       - pypi: https://files.pythonhosted.org/packages/bf/9c/8c95d856233c1f82500c2450b8c68576b4cf1c871db3afac5c34ff84e6fd/jsonschema-4.25.1-py3-none-any.whl
@@ -659,6 +661,8 @@ environments:
     - url: https://conda.anaconda.org/s1-etad/
     indexes:
     - https://pypi.org/simple
+    options:
+      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
@@ -986,7 +990,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/fe/dcaa1c91a561c582afe815bdf01e482fb892c901867a36020cbab54c71d1/antimeridian-0.4.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/23/c2/38547d58f0bdddd42dc57a5f02e23565ee2027b7a1cb8cb9fbb504b9f546/asf_search-10.1.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/6f/22/b99efca33f1f3a1d2552c714b1e1b5ae92efac6c43e790ad539a163d1754/black-25.1.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl
-      - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
+      - pypi: git+https://github.com/CDSETool/CDSETool.git#6d9bb66c390183a79ecf1e8bde888c97b4bc7973
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
       - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=v0.2.6#1b322701483a4504eaf9d766fdc0664a5b1ec381
       - pypi: https://files.pythonhosted.org/packages/bf/9c/8c95d856233c1f82500c2450b8c68576b4cf1c871db3afac5c34ff84e6fd/jsonschema-4.25.1-py3-none-any.whl
@@ -1319,7 +1323,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/d7/fe/dcaa1c91a561c582afe815bdf01e482fb892c901867a36020cbab54c71d1/antimeridian-0.4.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/23/c2/38547d58f0bdddd42dc57a5f02e23565ee2027b7a1cb8cb9fbb504b9f546/asf_search-10.1.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/13/f3/89aac8a83d73937ccd39bbe8fc6ac8860c11cfa0af5b1c96d081facac844/black-25.1.0-cp312-cp312-macosx_11_0_arm64.whl
-      - pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
+      - pypi: git+https://github.com/CDSETool/CDSETool.git#6d9bb66c390183a79ecf1e8bde888c97b4bc7973
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
       - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=v0.2.6#1b322701483a4504eaf9d766fdc0664a5b1ec381
       - pypi: https://files.pythonhosted.org/packages/bf/9c/8c95d856233c1f82500c2450b8c68576b4cf1c871db3afac5c34ff84e6fd/jsonschema-4.25.1-py3-none-any.whl
@@ -2483,22 +2487,20 @@ packages:
   purls: []
   size: 2862262
   timestamp: 1730914758286
-- pypi: https://files.pythonhosted.org/packages/0d/66/92cca3129442856b19d1b94b0551dfa461bd60b302fdae64390bc928dce6/cdsetool-0.2.13-py3-none-any.whl
+- pypi: git+https://github.com/CDSETool/CDSETool.git#6d9bb66c390183a79ecf1e8bde888c97b4bc7973
   name: cdsetool
   version: 0.2.13
-  sha256: 2b9f287d58495778cc0f78ee863f56681a242c3e9d8614eb313eb5df50d7f594
   requires_dist:
   - typer>=0.9,<1
-  - rich>=13.6,<14
+  - rich>=13.6,<15
   - requests>=2.28.1,<3
-  - pyjwt[crypto]>=2.8,<2.10
+  - pyjwt[crypto]>=2.8,<2.13
   - geopandas>=0.13.2
-  - pylint==3.3.1 ; extra == 'test'
-  - pytest==8.3.3 ; extra == 'test'
-  - pytest-cov==5.0.0 ; extra == 'test'
+  - pylint==3.3.9 ; extra == 'test'
+  - pytest==8.4.2 ; extra == 'test'
+  - pytest-cov==7.0.0 ; extra == 'test'
   - requests-mock==1.12.1 ; extra == 'test'
-  - ruff==0.6.6 ; extra == 'test'
-  - pytest-mock==3.14.0 ; extra == 'test'
+  - pytest-mock==3.15.1 ; extra == 'test'
   requires_python: '>=3.9'
 - conda: https://conda.anaconda.org/conda-forge/noarch/certifi-2025.10.5-pyhd8ed1ab_0.conda
   sha256: 955bac31be82592093f6bc006e09822cd13daf52b28643c9a6abd38cd5f4a306
@@ -7684,8 +7686,8 @@ packages:
   timestamp: 1740681675666
 - pypi: ./
   name: sar-pipeline
-  version: 0.4.2.dev2+g46b0d443a.d20260206
-  sha256: 2da125c7dfecf101840968d786b70dc3cda078572dfcfb45b2291b14d8492264
+  version: 0.5.2.dev8+g5a1c3a7c0.d20260319
+  sha256: b314b13bf7155be6ca07a8e706abaecf8f5a677b57aa7415d4b2a877d08ff7f4
   requires_dist:
   - asf-search>=9.0.9
   - boto3>=1.37.1
@@ -7693,13 +7695,12 @@ packages:
   - h5py>=3.13.0
   - ruamel-yaml>=0.18.10
   - s1-orbits>=0.1.3
-  - cdsetool>=0.2.13
+  - cdsetool @ git+https://github.com/CDSETool/CDSETool.git
   - python-dotenv>=1.1.1,<2
   - pystac[validation]==1.13.0
   - antimeridian>=0.4.3,<0.5
   - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.6
   requires_python: '>=3.8'
-  editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.7.2-py312h4f0b9e3_0.conda
   sha256: 27e2f65075556804a7524dc6bcc34829602f986621728100c0ef07b404168aa8
   md5: ee36c7b06c5d7c0ae750147ed9faee8a
