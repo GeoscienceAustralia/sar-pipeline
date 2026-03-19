@@ -7724,8 +7724,8 @@ packages:
   timestamp: 1740681675666
 - pypi: ./
   name: sar-pipeline
-  version: 0.5.2.dev14+g651c62c0f.d20260319
-  sha256: 427fc22e94d84d142b01a93c7bb5e707cc640d3ed3d7a0d9b627299f841f4559
+  version: 0.5.2.dev19+g20666fd06.d20260319
+  sha256: 05b2285016ce499ff6c7a8c120ce534b1594c5235874b8b116f8acdfd478554f
   requires_dist:
   - asf-search>=9.0.9
   - boto3>=1.37.1
