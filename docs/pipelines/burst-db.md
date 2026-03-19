@@ -24,9 +24,9 @@ sh scripts/make_upload_burst_db.sh
 The inputs that can be a passed to the script are:
 
 ```bash
---AWS_S3_BUCKET="deant-data-public-dev" 
---AWS_S3_FOLDER="persistent/burst_db"
---BURST_DB_VERSION_TAG="0.9.0"
+--AWS_S3_BUCKET="dea-public-data-dev" # 
+--AWS_S3_FOLDER="projects/s1_nrb/burst_db"
+--BURST_DB_VERSION_TAG="0.9.0" 
 
 - `AWS_S3_BUCKET` -> The S3 bucket to upload the database to
 - `AWS_S3_FOLDER` -> The folder within the S3 bucket to upload to 

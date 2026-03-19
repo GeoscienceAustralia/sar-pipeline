@@ -6,8 +6,8 @@
 
 # Default values for uploading the burst-db file
 # Version of the github code to make the burst-db
-AWS_S3_BUCKET="deant-data-public-dev" # 
-AWS_S3_FOLDER="persistent/burst_db"
+AWS_S3_BUCKET="dea-public-data-dev" # 
+AWS_S3_FOLDER="projects/s1_nrb/burst_db"
 BURST_DB_VERSION_TAG="0.9.0" 
 
 # Parse named arguments
