@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# See docs/workflows/aws.md for instructions and argument descriptions
+# See docs/pipelines/isce3.md for instructions and argument descriptions
 ## -- WORKFLOW INPUTS FOR PRODUCT CREATION -> RTC_S1 or RTC_S1_STATIC --
 scene=""
 burst_id_list=()
@@ -10,9 +10,9 @@ dem_type="best" # logic to chose best DEM between REMA_32 and glo_cop30
 product="RTC_S1"
 backscatter_convention=gamma0 # gamma0, sigma0 or beta0
 static_layer_validity_start_date=20140403 
-s3_bucket="deant-data-public-dev"
+s3_bucket="dea-public-data-dev"
 s3_project_folder="baseline"
-collection_number=0
+collection_number=1
 make_existing_products=false
 skip_upload_to_s3=false
 scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
@@ -23,9 +23,9 @@ skip_rtc=false
 ## -- WORKFLOW INPUTS TO LINK RTC_S1_STATIC in RTC_S1 metadata--
 # if link_static_layers, RTC_S1_STATIC products must exist for all RTC_S1 bursts being processed
 link_static_layers=false
-linked_static_layers_s3_bucket="deant-data-public-dev"
+linked_static_layers_s3_bucket="dea-public-data-dev"
 linked_static_layers_s3_project_folder="baseline"
-linked_static_layers_collection_number=0
+linked_static_layers_collection_number=1
 
 # Final product output paths have the following structure
 # RTC_S1

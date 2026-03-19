@@ -1087,7 +1087,7 @@ import json
 @click.option(
     "--s3-bucket",
     required=False,
-    default="deant-data-public-dev",
+    default="dea-public-data-dev",
     type=str,
     help="S3 where outputs are being stored. Required if s3 folders are set as input",
 )
