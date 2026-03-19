@@ -7,8 +7,6 @@ environments:
     - url: https://conda.anaconda.org/s1-etad/
     indexes:
     - https://pypi.org/simple
-    options:
-      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
@@ -661,8 +659,6 @@ environments:
     - url: https://conda.anaconda.org/s1-etad/
     indexes:
     - https://pypi.org/simple
-    options:
-      pypi-prerelease-mode: if-necessary-or-explicit
     packages:
       linux-64:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/_libgcc_mutex-0.1-conda_forge.tar.bz2
@@ -7701,6 +7697,7 @@ packages:
   - antimeridian>=0.4.3,<0.5
   - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.6
   requires_python: '>=3.8'
+  editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.7.2-py312h4f0b9e3_0.conda
   sha256: 27e2f65075556804a7524dc6bcc34829602f986621728100c0ef07b404168aa8
   md5: ee36c7b06c5d7c0ae750147ed9faee8a
