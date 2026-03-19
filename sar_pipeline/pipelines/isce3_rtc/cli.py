@@ -49,7 +49,6 @@ from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
 from dem_handler.utils.spatial import check_dem_type_in_bounds
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
