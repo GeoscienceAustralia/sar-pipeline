@@ -148,7 +148,7 @@ The CLI has the following options:
 * `orbit-dir` -> Path to where orbit files are stored on NCI.
 * `orbit-type` -> The orbit type to use, one of `POE` for precise, `RES` for restitutional, or `either` for the most recent.
 * `etad-dir` -> Path to where ETAD correction files are stored. If provided, the ETAD correction will be applied.
-* `output-dir` -> Path to where outputs will be stored.
+* `output-dir` -> Path to where outputs will be stored. Must be an absolute path, relative paths will result in an error.
 * `gamma-lib-dir` -> Path to GAMMA software binaries.
 * `gamma-env-var` -> Environment variable to point to symlinked .so objects to ensure GAMMA runs.
 * `ncpu` -> Number of CPU to request.
