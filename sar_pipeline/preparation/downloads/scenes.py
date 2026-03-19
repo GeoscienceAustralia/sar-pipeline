@@ -277,9 +277,9 @@ def query_scene_from_cdse(scene: str) -> FeatureQuery:
     """
 
     cdse_scenes_metadata = query_features(
-        "Sentinel1",
+        "SENTINEL-1",
         {
-            "productIdentifier": scene,
+            "name": scene,
         },
     )
 
