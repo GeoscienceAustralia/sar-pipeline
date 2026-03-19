@@ -120,9 +120,9 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --product="RTC_S1"
 --backscatter_convention=gamma0 # gamma0, sigma0 or beta0
 --static_layer_validity_start_date=20140403
---s3_bucket="deant-data-public-dev"
+--s3_bucket="dea-public-data-dev"
 --s3_project_folder="baseline"
---collection_number=0
+--collection_number=1
 --make_existing_products=false
 --skip_upload_to_s3=false
 --scene_data_source=("AUS_COP_HUB" "ASF" "CDSE") # order of preference
@@ -133,9 +133,9 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 # Required inputs for linking RTC_S1_STATIC to RTC_S1
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
 --link_static_layers=false           
---linked_static_layers_s3_bucket="deant-data-public-dev"
+--linked_static_layers_s3_bucket="dea-public-data-dev"
 --linked_static_layers_s3_project_folder="baseline" 
---linked_static_layers_collection_number=0 
+--linked_static_layers_collection_number=1 
 
 ```
 - `scene` -> A valid sentinel-1 IW scene (e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD)
