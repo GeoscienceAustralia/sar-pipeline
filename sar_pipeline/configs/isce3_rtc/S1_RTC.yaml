@@ -42,7 +42,7 @@ runconfig:
             # <collection_number>.<minor_version>.<patch_version>
             # note the collection_number is set by the pipeline script
             # at runtime and should align to this value
-            product_version: 0.1.0
+            product_version: 1.0.0
 
             # Directory where PGE will place results
             product_path: .

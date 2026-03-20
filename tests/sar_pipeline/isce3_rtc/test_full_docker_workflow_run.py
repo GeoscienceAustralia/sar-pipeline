@@ -281,6 +281,8 @@ def _run_docker_for_scene(
         "--s3_project_folder",
         s3_project_folder,
         "--link_static_layers",
+        "--linked_static_layers_s3_bucket",
+        s3_bucket,
         "--linked_static_layers_s3_project_folder",
         s3_project_folder,
         "--linked_static_layers_collection_number",
