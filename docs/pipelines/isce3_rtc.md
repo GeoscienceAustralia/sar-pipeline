@@ -304,6 +304,8 @@ To test downloads from all data providers.
 pixi run test-isce3-rtc-downloads
 ```
 
+Note - The full test may take >2 hours, as it builds and runs the docker image for different products. 
+
 ### 5.2 Updating Test Data
 
 If large breaking changes are made to the pipeline, the tests may fail as the benchmark data we compare
