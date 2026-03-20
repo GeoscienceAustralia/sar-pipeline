@@ -265,6 +265,8 @@ pixi run test-nci-filesystem
 
 ### ISCE3 Tests
 
+More on testing is provided in the [isce3_rtc](../pipelines/isce3_rtc.md) docs.
+
 The following credentials must be set in a `.env` file at the project 
 root for a complete test of code functionality :
 

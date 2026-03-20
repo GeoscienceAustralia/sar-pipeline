@@ -420,7 +420,7 @@ def ensure_static_layers_in_s3(
             f"{missing_info}\n"
             f"Example AWS S3 path searched : {static_layers_s3_bucket}/{static_layers_s3_folder}\n"
             f"Check linked location arguments or create the missing static layers. "
-            f"E.g. re-run the workflow using `--product RTC_S1_STATIC --collection rtc_s1_static_c1.`\n"
-            f"See workflow docs for details at docs/workflows/aws.md."
+            f"E.g. re-run the workflow using `--product RTC_S1_STATIC`\n"
+            f"See workflow docs for details at docs/pipelines/isce3-rtc.md."
         )
         sys.exit(early_exit_code)

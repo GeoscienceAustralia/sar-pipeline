@@ -14,13 +14,15 @@
     - [4.2. Build the Docker Image](#42-build-the-docker-image)
     - [4.3. Setting Up a Development Environment](#43-setting-up-a-development-environment)
     - [4.4 Mounting Filesystem at Runtime](#44-mounting-filesystem-at-runtime)
-  - [5. Running Tests](#5-running-tests)
+  - [5. Tests](#5-tests)
+    - [5.1 Running Tests](#51-running-tests)
+    - [5.2 Updating Test Data](#52-updating-test-data)
   - [6. Release Guide](#6-release-guide)
   - [7. Command Line Interfaces (CLI's)](#7-command-line-interfaces-clis)
-  - [7.1. get-burst-ids-for-scene](#71-get-burst-ids-for-scene)
-  - [7.2. isce3-rtc-get-data-for-scene-and-make-run-config](#72-isce3-rtc-get-data-for-scene-and-make-run-config)
-  - [7.3. isce3-rtc-make-metadata-and-upload-burst](#73-isce3-rtc-make-metadata-and-upload-burst)
-  - [7.4. isce3-rtc-compare-products](#74-isce3-rtc-compare-products)
+    - [7.1. get-burst-ids-for-scene](#71-get-burst-ids-for-scene)
+    - [7.2. isce3-rtc-get-data-for-scene-and-make-run-config](#72-isce3-rtc-get-data-for-scene-and-make-run-config)
+    - [7.3. isce3-rtc-make-metadata-and-upload-burst](#73-isce3-rtc-make-metadata-and-upload-burst)
+    - [7.4. isce3-rtc-compare-products](#74-isce3-rtc-compare-products)
   - [8. Examples](#8-examples)
     - [8.1. Finding the Burst-ID's for a Scene](#81-finding-the-burst-ids-for-a-scene)
     - [8.2. Create RTC Backscatter (RTC\_S1) Without Linking Static Layers](#82-create-rtc-backscatter-rtc_s1-without-linking-static-layers)
@@ -276,7 +278,9 @@ docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/wor
 docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst_id_list t070_149815_iw3 t070_149821_iw1 --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products
 ```
 
-## 5. Running Tests
+## 5. Tests
+
+### 5.1 Running Tests
 
 This is also discussed in the [Developer setup docs](../development/developer_pixi.md).
 
@@ -288,7 +292,7 @@ To run all [isce3_rtc related tests](../../tests/sar_pipeline/isce3_rtc), the fo
 pixi run test-isce3-rtc
 ```
 
-The following test is a complete test of the image build and run for two products. It will compare the products made in the test to accepted products stored on AWS S3 to ensure no breaking changes have been made. It must be run before updates to the main branch.
+The following test is a complete test of the image build and run for two products. It will compare the products made in the test to accepted [benchmark products](https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/) stored on AWS S3 to ensure no breaking changes have been made. It must be run before updates to the main branch.
 
 ```bash
 pixi run test-isce3-rtc-full-docker-workflow-run
@@ -299,6 +303,33 @@ To test downloads from all data providers.
 ```bash
 pixi run test-isce3-rtc-downloads
 ```
+
+### 5.2 Updating Test Data
+
+If large breaking changes are made to the pipeline, the tests may fail as the benchmark data we compare
+is now outdated. For example, if you do any of the following: 
+
+- Updating the version of isce3 with improvements to the algorithm that will change the data.
+- Work with a re-processed version of the source input data.
+- Updating the product version in the ([S1_RTC.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC.yaml) or 
+[S1_RTC_STATIC.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_STATIC.yaml)),
+- Including additional products are included (e.g. DEM)
+
+The [benchmark data]((https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/)) is stored in AWS and is downloaded for the tests.
+
+To update this, you can run change the test [settings.py](../../tests/sar_pipeline/isce3_rtc/settings.py) file, by setting `UPDATE_BENCHMARK_TEST_DATA = True` and run the following test:
+
+```bash
+pixi run test-isce3-rtc-full-docker-workflow-run
+```
+
+This will then re-create the products and upload them to the `BENCHMARK_S3_PROJECT_FOLDER`.
+
+> [!WARNING]
+> 1. To do this successfully, you need write access to the `TEST_S3_BUCKET`
+> 2. You should also move the existing files from the `BENCHMARK_S3_PROJECT_FOLDER`
+
+
 
 ## 6. Release Guide
 
@@ -350,7 +381,7 @@ full set of inputs, run the following commands.
 3. `pixi run isce3-rtc-make-metadata-and-upload-bursts --help`
 4. `pixi run isce3-rtc-compare-products --help` 
 
-## 7.1. get-burst-ids-for-scene
+### 7.1. get-burst-ids-for-scene
 
 ```bash
 pixi run get-burst-ids-for-scene --help
@@ -368,7 +399,7 @@ Options:
   ....
 ```
 
-## 7.2. isce3-rtc-get-data-for-scene-and-make-run-config
+### 7.2. isce3-rtc-get-data-for-scene-and-make-run-config
 
 ```bash
 pixi run isce3-rtc-get-data-for-scene-and-make-run-config --help
@@ -392,7 +423,7 @@ Options:
   ...
 ```
 
-## 7.3. isce3-rtc-make-metadata-and-upload-burst
+### 7.3. isce3-rtc-make-metadata-and-upload-burst
 
 ```bash
 pixi run isce3-rtc-make-metadata-and-upload-bursts --help
@@ -416,7 +447,7 @@ Options:
   ...
 ```
 
-## 7.4. isce3-rtc-compare-products
+### 7.4. isce3-rtc-compare-products
 
 ```bash
 pixi run isce3-rtc-compare-products --help
