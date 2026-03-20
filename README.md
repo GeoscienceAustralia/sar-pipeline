@@ -56,7 +56,7 @@ mkdir data
 ```
 
 ```bash
-docker run --env-file .env -v ${PWD}/data:/home/rtc_user/working sar-pipeline:v0.6.0 \
+docker run --env-file .env -v ${PWD}/data:/home/rtc_user/working sar-pipeline \
 --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD \
 --burst_id_list t070_149815_iw3 \
 --skip_upload_to_s3 \
