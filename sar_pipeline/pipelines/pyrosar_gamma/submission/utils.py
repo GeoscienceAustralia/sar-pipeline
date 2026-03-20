@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 SUBMISSION_DIR = Path(__file__).resolve().parent
 SUBMISSION_TEMPLATE = SUBMISSION_DIR / "pbs_template.txt"
 STORAGE = "gdata/yp75+gdata/dg9+gdata/fj7+gdata/v10"

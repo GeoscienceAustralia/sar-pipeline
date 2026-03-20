@@ -123,12 +123,10 @@ def create_asf_netrc_file(asf_login: str, asf_pass: str) -> Path:
 
     logger.info(f"Creating temporary .netrc file with ASF/Earthdata credentials")
     with tempfile.NamedTemporaryFile("w", delete=False) as f:
-        f.write(
-            f"""machine urs.earthdata.nasa.gov
+        f.write(f"""machine urs.earthdata.nasa.gov
         login {asf_login}
         password {asf_pass}
-        """
-        )
+        """)
         netrc_path = f.name
 
     logger.info(f"Temporary .netrc created at {netrc_path}")
