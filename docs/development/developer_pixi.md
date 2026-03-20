@@ -16,7 +16,7 @@ This is because:
 * It allows us to keep packages needed for development in their own [environment](https://pixi.sh/latest/workspace/environment/).
 * It allows us to define useful [tasks](https://pixi.sh/latest/workspace/advanced_tasks/) (similar to a Makefile) all within the `pyproject.toml` file.
 
-Follow the steps below, and refer back to them as needed.
+Follow the steps below, and /docs/en/overview#build-features-and-fix-bugsrefer back to them as needed.
 
 > [!IMPORTANT]
 > We recommend using pixi for all package management
