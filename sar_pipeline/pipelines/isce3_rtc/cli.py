@@ -1269,7 +1269,7 @@ def compare_products(
     "--scene",
     required=True,
     type=str,
-    help="Scene to get the list of bursts ids for. " \
+    help="Scene to get the list of bursts ids for. "
     "e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
 )
 @click.option(
@@ -1277,7 +1277,7 @@ def compare_products(
     required=False,
     default=None,
     type=click.Path(file_okay=False, path_type=Path),
-    help="Folder to save the geometries to as a geojson. " \
+    help="Folder to save the geometries to as a geojson. "
     "Useful for visualisation of burst locations. Path will be "
     "{save_geometries}/{scene}_burst_geoms.json",
 )
