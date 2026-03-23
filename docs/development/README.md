@@ -20,7 +20,7 @@ git clone https://github.com/GeoscienceAustralia/sar-pipeline.git
 We have different recommendations for how you install from source depending on whether you are using the package, or developing it. 
 
 - If you are a developer, see [developer set up](developer_pixi.md)
-- If you want to use the package, without modifying the code, see [user set up](user_conda.md)
+- If you want to use the package, without modifying the code, see [user set up](user.md)
 
 ## Alternatives
 
