@@ -6,8 +6,8 @@ import logging
 from typing import Literal
 import rasterio
 
-from sar_pipeline.pipelines.pyrosar_gamma.filesystem import get_orbits_nci
-from sar_pipeline.pipelines.pyrosar_gamma.submission.pyrosar_gamma.prepare_input import (
+from sar_pipeline.pipelines.pyrosar_gamma.nci.filesystem import get_orbits_nci
+from sar_pipeline.pipelines.pyrosar_gamma.nci.submission.pyrosar_gamma.prepare_input import (
     get_dem_for_scene,
 )
 from sar_pipeline.preparation.etad import find_etad_for_scene
@@ -27,7 +27,7 @@ from sar_pipeline.utils.sentinel1 import is_s1_filename, is_s1_id
 from sar_pipeline.pipelines.pyrosar_gamma.processing.pyroSAR.pyrosar_geocode import (
     run_pyrosar_gamma_geocode,
 )
-from sar_pipeline.pipelines.pyrosar_gamma.submission.pyrosar_gamma.submit_job import (
+from sar_pipeline.pipelines.pyrosar_gamma.nci.submission.pyrosar_gamma.submit_job import (
     submit_job,
 )
 from sar_pipeline.utils.aws import S3Util

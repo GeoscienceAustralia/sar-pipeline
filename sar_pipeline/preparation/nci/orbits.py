@@ -14,7 +14,7 @@ from sar_pipeline.preparation.downloads.orbits import (
     OrbitNotFoundError,
     MissingEnvironmentError,
 )
-from sar_pipeline.pipelines.pyrosar_gamma.filesystem import get_orbits_nci
+from sar_pipeline.pipelines.pyrosar_gamma.nci.filesystem import get_orbits_nci
 
 logging.basicConfig(level=logging.INFO)
 

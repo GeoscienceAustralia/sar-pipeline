@@ -10,8 +10,8 @@ See [Project set up](setup/README.md)
 ## Environment set up
 
 * For developers, we recommend pixi: see [Developer set up](setup/developer_pixi.md)
-* For users, we recommend micromamba: see [User set up](setup/user_conda.md)
+* For users see [User set up](setup/user.md)
 
-## Workflows
+## Pipelines
 
-For more information see [Workflows](workflows/README.md)
+For more information see [Pipelines](pipelines/README.md)

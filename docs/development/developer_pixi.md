@@ -251,7 +251,7 @@ root for a complete test of code functionality :
 
 ```text
 # Variables used on NCI only
-CONDA_EXE=<determine from [setup](../pipelines/pyrosar_gamma.md) >
+CONDA_EXE=<determine from [setup](../pipelines/nci_pyrosar_gamma.md) >
 NCI_API_SCENE_FILE_LOCATION=/g/data/fj7/DEAnt/Sentinel-1
 NCI_API_ORBIT_FILE_LOCATION=/g/data/fj7/CopHub/Sentinel-1
 NCI_FILESYSTEM_FILE_LOCATION=/g/data/fj7/Copernicus/Sentinel-1/C-SAR/

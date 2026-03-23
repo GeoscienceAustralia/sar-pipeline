@@ -5,7 +5,7 @@ import shapely
 from shapely.geometry import MultiPolygon
 import logging
 
-from sar_pipeline.pipelines.pyrosar_gamma.filesystem import get_dem_nci
+from sar_pipeline.pipelines.pyrosar_gamma.nci.filesystem import get_dem_nci
 from sar_pipeline.utils.antimeridian import (
     check_shape_crosses_antimeridian,
     get_bounds_for_antimeridian_shape,

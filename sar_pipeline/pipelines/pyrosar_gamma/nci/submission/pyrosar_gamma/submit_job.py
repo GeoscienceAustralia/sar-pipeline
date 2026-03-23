@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 from typing import Optional, Union
 
-from sar_pipeline.pipelines.pyrosar_gamma.submission.utils import populate_pbs_template
+from sar_pipeline.pipelines.pyrosar_gamma.nci.submission.utils import populate_pbs_template
 from sar_pipeline.preparation.downloads.scenes import MissingEnvironmentError
 
 logger = logging.getLogger(__name__)
