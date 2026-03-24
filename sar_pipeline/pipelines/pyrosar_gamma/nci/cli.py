@@ -41,7 +41,7 @@ from sar_pipeline.utils.environment_variables import identify_and_load_missing_e
 logging.basicConfig(level=logging.INFO)
 
 CURRENT_DIR = Path(__file__).parent.resolve()
-PROJECT_ROOT = CURRENT_DIR.parents[2]
+PROJECT_ROOT = CURRENT_DIR.parents[3]
 
 
 # find_scene_file
