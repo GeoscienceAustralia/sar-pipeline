@@ -355,6 +355,9 @@ class BurstH5toStacManager:
             "identification/productVersion"
         )
 
+        # add dea dataset maturity can be ["final", "interim", "nrt"]
+        self.item.properties["dea:dataset_maturity"] = "interim"
+
         # add product stac extension properties
         self.item.properties["product:type"] = self.product
         # remove timeliness as not required. May re-add if approach is determined.
