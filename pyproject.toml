@@ -36,7 +36,7 @@ Homepage = "https://github.com/GeoscienceAustralia/sar-pipleine.git"
 
 [project.scripts]
 ### GENERAL ###
-upload-files-in-folder-to-s3 = "sar_pipeline.pipelines.pyrosar_gamma.cli:upload_files_in_folder_to_s3"
+upload-files-in-folder-to-s3 = "sar_pipeline.pipelines.pyrosar_gamma.nci.cli:upload_files_in_folder_to_s3"
 get-burst-ids-for-scene = "sar_pipeline.pipelines.isce3_rtc.cli:get_bursts_ids_for_scene"
 download-etad = "sar_pipeline.preparation.cli:download_etad"
 ### NCI / PYROSAR_GAMMA ###
