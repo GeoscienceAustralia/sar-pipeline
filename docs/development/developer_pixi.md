@@ -208,6 +208,8 @@ nci-pyrosar-gamma-rtc-submit-workflow  = "sar_pipeline.pipelines.pyrosar_gamma.c
 isce3-rtc-get-data-for-scene-and-make-run-config = "sar_pipeline.pipelines.isce3_rtc.cli:get_data_for_scene_and_make_run_config"
 isce3-rtc-make-metadata-and-upload-bursts = "sar_pipeline.pipelines.isce3_rtc.cli:make_metadata_and_upload_bursts"
 isce3-rtc-compare-products = "sar_pipeline.pipelines.isce3_rtc.cli:compare_products"
+### AWS / PyroSAR_GAMMA ###
+pyrosar-gamma-rtc-run-workflow = "sar_pipeline.pipelines.pyrosar_gamma.aws.cli:run_pyrosar_gamma_workflow"
 ```
 
 ## Running Tests
