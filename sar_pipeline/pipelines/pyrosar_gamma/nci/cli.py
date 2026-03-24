@@ -69,7 +69,7 @@ def find_scene_file(scene, dotenv_location):
 
 # Set up default configuration for use in CLI
 DEFAULT_CONFIGURATION = (
-    Path(__file__).resolve().parents[2] / "configs/pyrosar_gamma/s1_rtc.toml"
+    Path(__file__).resolve().parents[3] / "configs/pyrosar_gamma/s1_rtc.toml"
 )
 
 
