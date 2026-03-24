@@ -63,8 +63,11 @@ def get_dem_for_scene(
             scene_geometry = MultiPolygon(
                 [g if g.geom_type == "Polygon" else list(g.geoms)[0] for g in geoms]
             )
-
-        scene_crosses_antimeridian = check_shape_crosses_antimeridian(scene_geometry)
+        logging.info(f"Scene geometry: {scene_geometry}")
+        scene_crosses_antimeridian = check_shape_crosses_antimeridian(
+            scene_geometry,
+            max_antimeridian_crossing_degrees=40,
+        )
     else:
         scene_crosses_antimeridian = False  # skip check
 
