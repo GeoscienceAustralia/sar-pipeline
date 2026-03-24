@@ -66,7 +66,7 @@ def submit_job(
 
     # Ensure there is a trailing white space for each line
     job_command = (
-        f"nci-pyrosar-gamma-rtc-run-workflow{scene} "
+        f"nci-pyrosar-gamma-rtc-run-workflow {scene} "
         f"--spacing {spacing} "
         f"--scaling {scaling} "
         f"--target-crs {target_crs} "
