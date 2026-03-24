@@ -200,10 +200,10 @@ upload-files-in-folder-to-s3 = "sar_pipeline.pipelines.pyrosar_gamma.cli:upload_
 get-burst-ids-for-scene = "sar_pipeline.pipelines.isce3_rtc.cli:get_bursts_ids_for_scene"
 download-etad = "sar_pipeline.preparation.cli:download_etad"
 ### NCI / PYROSAR_GAMMA ###
-find-scene = "sar_pipeline.pipelines.pyrosar_gamma.cli:find_scene_file"
-find-orbits = "sar_pipeline.pipelines.pyrosar_gamma.cli:find_orbits_for_scene"
-run-pyrosar-gamma-workflow = "sar_pipeline.pipelines.pyrosar_gamma.cli:run_pyrosar_gamma_workflow"
-submit-pyrosar-gamma-workflow = "sar_pipeline.pipelines.pyrosar_gamma.cli:submit_pyrosar_gamma_workflow"
+nci-find-scene = "sar_pipeline.pipelines.pyrosar_gamma.cli:find_scene_file"
+nci-find-orbits = "sar_pipeline.pipelines.pyrosar_gamma.cli:find_orbits_for_scene"
+nci-pyrosar-gamma-rtc-run-workflow= "sar_pipeline.pipelines.pyrosar_gamma.cli:run_pyrosar_gamma_workflow"
+nci-pyrosar-gamma-rtc-submit-workflow  = "sar_pipeline.pipelines.pyrosar_gamma.cli:submit_pyrosar_gamma_workflow"
 ## ISCE3_RTC ###
 isce3-rtc-get-data-for-scene-and-make-run-config = "sar_pipeline.pipelines.isce3_rtc.cli:get_data_for_scene_and_make_run_config"
 isce3-rtc-make-metadata-and-upload-bursts = "sar_pipeline.pipelines.isce3_rtc.cli:make_metadata_and_upload_bursts"

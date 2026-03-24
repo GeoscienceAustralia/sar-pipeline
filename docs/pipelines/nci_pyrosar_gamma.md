@@ -1,30 +1,30 @@
 # NCI pyroSAR + GAMMA Pipeline (Sentinel-1 EW NRB)
 
 - [NCI pyroSAR + GAMMA Pipeline (Sentinel-1 EW NRB)](#nci-pyrosar--gamma-pipeline-sentinel-1-ew-nrb)
-    - [About](#1-about)
-        - [Requirements](#11-requirements)
-    - [Example products](#2-example-products)
-    - [Running the pipeline](#3-running-the-pipeline)
-        - [Overview](#31-overview)
-        - [Environment variables](#32-environment-variables)
-        - [Pipeline arguments and configuration](#33-pipeline-arguments-and-configuration)
-        - [Example product outputs](#34-example-product-outputs)
-        - [Logs and errors](#35-logs-and-errors)
-        - [Troubleshooting](#36-troubleshooting)
-        - [Setting permissions for external access](#37-setting-permissions-for-external-access)
-    - [Project setup](#4-project-setup)
-        - [Conda install](#41-conda-install)
-        - [Add required Conda environments](#42-add-required-conda-environments)
-        - [Update the Conda exe environment variable](#43-update-the-conda-exe-environment-variable)
-        - [Set up symlink for GAMMA](#44-set-up-symlink-for-gamma)
-        - [Initialise pyroSAR](#45-initialise-pyrosar)
-    - [Examples](#5-examples)
-        - [Configuration file](#51-configuration-file)
-        - [Submit a single scene](#52-submit-a-single-scene)
-        - [Submit a list of scenes](#53-submit-a-list-of-scenes)
-        - [Submit a list of scenes to a new output directory](#54-submit-a-list-of-scenes-to-a-new-output-directory)
-        - [Submit a list of scenes to a new output directory, with increased memory and walltime](#55-submit-a-list-of-scenes-to-a-new-output-directory-with-increased-memory-and-walltime)
-    - [Development environment setup](#6-development-environment-setup) 
+  - [1. About](#1-about)
+    - [1.1. Requirements](#11-requirements)
+  - [2. Example products](#2-example-products)
+  - [3. Running the pipeline](#3-running-the-pipeline)
+    - [3.1. Overview](#31-overview)
+    - [3.2. Environment variables](#32-environment-variables)
+    - [3.3. Pipeline arguments and configuration](#33-pipeline-arguments-and-configuration)
+    - [3.4 Example product outputs](#34-example-product-outputs)
+    - [3.5 Logs and errors](#35-logs-and-errors)
+    - [3.6 Troubleshooting](#36-troubleshooting)
+    - [3.7 Setting permissions for external access](#37-setting-permissions-for-external-access)
+  - [4. Project setup](#4-project-setup)
+    - [4.1. Conda install](#41-conda-install)
+    - [4.2. Add required Conda environments](#42-add-required-conda-environments)
+    - [4.3. Update the Conda exe environment variable](#43-update-the-conda-exe-environment-variable)
+    - [4.4. Set up symlink for GAMMA](#44-set-up-symlink-for-gamma)
+    - [4.5 Initialise pyroSAR](#45-initialise-pyrosar)
+  - [5. Examples](#5-examples)
+    - [5.1 Configuration file](#51-configuration-file)
+    - [5.2. Submit a single scene](#52-submit-a-single-scene)
+    - [5.3. Submit a list of scenes](#53-submit-a-list-of-scenes)
+    - [5.4. Submit a list of scenes to a new output directory](#54-submit-a-list-of-scenes-to-a-new-output-directory)
+    - [5.5. Submit a list of scenes to a new output directory, with increased memory and walltime](#55-submit-a-list-of-scenes-to-a-new-output-directory-with-increased-memory-and-walltime)
+  - [6. Development environment setup](#6-development-environment-setup)
 
 ## 1. About
 
@@ -111,10 +111,10 @@ For questions about the location of files on the NCI filesystem, contact the Aus
 
 ### 3.3. Pipeline arguments and configuration
 
-At runtime, the [submit-pyrosar-gamma-workflow](../../sar_pipeline/pipelines/pyrosar_gamma/cli.py) CLI is run, with the following usage:
+At runtime, the [nci-pyrosar-gamma-rtc-submit-workflow ](../../sar_pipeline/pipelines/nci/pyrosar_gamma/cli.py) CLI is run, with the following usage:
 
 ```bash
-submit-pyrosar-gamma-workflow [OPTIONS] SCENE
+nci-pyrosar-gamma-rtc-submit-workflow  [OPTIONS] SCENE
 ```
 where `SCENE` is an individual scene ID, path to a scene as a .zip file, or path to a list of scene IDs/paths contained in a single .txt file`. 
 
@@ -324,28 +324,28 @@ An example [configuration .toml](../../sar_pipeline/configs/pyrosar_gamma/s1_rtc
 
 ```bash
 conda activate sar-pipeline
-submit-pyrosar-gamma-workflow -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml S1A_EW_GRDM_1SSH_20250419T221041_20250419T221148_058831_074A60_9416
+nci-pyrosar-gamma-rtc-submit-workflow  -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml S1A_EW_GRDM_1SSH_20250419T221041_20250419T221148_058831_074A60_9416
 ```
 
 ### 5.3. Submit a list of scenes
 
 ```bash
 conda activate sar-pipeline
-submit-pyrosar-gamma-workflow -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml /g/data/<project>/<username>/list_of_scenes.txt
+nci-pyrosar-gamma-rtc-submit-workflow  -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml /g/data/<project>/<username>/list_of_scenes.txt
 ```
 
 ### 5.4. Submit a list of scenes to a new output directory
 
 ```bash
 conda activate sar-pipeline
-submit-pyrosar-gamma-workflow -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml /g/data/<project>/<username>/list_of_scenes.txt --output-dir /g/data/<project>/<desired_output_dir>
+nci-pyrosar-gamma-rtc-submit-workflow  -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml /g/data/<project>/<username>/list_of_scenes.txt --output-dir /g/data/<project>/<desired_output_dir>
 ```
 
 ### 5.5. Submit a list of scenes to a new output directory, with increased memory and walltime
 
 ```bash
 conda activate sar-pipeline
-submit-pyrosar-gamma-workflow -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml /g/data/<project>/<username>/list_of_scenes.txt --output-dir /g/data/<project>/<desired_output_dir> --mem 60 --walltime 03:00:00
+nci-pyrosar-gamma-rtc-submit-workflow  -c /g/data/<project>/<username>/sar-pipeline/s1_rtc.toml /g/data/<project>/<username>/list_of_scenes.txt --output-dir /g/data/<project>/<desired_output_dir> --mem 60 --walltime 03:00:00
 ```
 
 ## 6. Development environment setup

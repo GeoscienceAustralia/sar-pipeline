@@ -79,7 +79,7 @@ def configure(ctx, param, filename):
     ctx.default_map = configuration_dictionary
 
 
-# submit-pyrosar-gamma-workflow
+# nci-pyrosar-gamma-rtc-submit-workflow 
 @click.command()
 @click.argument("scene", type=str)
 @click.option(
