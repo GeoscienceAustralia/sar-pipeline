@@ -3,7 +3,9 @@ import logging
 from pathlib import Path
 from typing import Optional, Union
 
-from sar_pipeline.pipelines.pyrosar_gamma.submission.utils import populate_pbs_template
+from sar_pipeline.pipelines.pyrosar_gamma.nci.submission.utils import (
+    populate_pbs_template,
+)
 from sar_pipeline.preparation.downloads.scenes import MissingEnvironmentError
 
 logger = logging.getLogger(__name__)
@@ -64,7 +66,7 @@ def submit_job(
 
     # Ensure there is a trailing white space for each line
     job_command = (
-        f"run-pyrosar-gamma-workflow {scene} "
+        f"nci-pyrosar-gamma-rtc-run-workflow {scene} "
         f"--spacing {spacing} "
         f"--scaling {scaling} "
         f"--target-crs {target_crs} "
