@@ -36,7 +36,7 @@ Note that pixi updates regularly, as it is in active development, so regularly r
 
 > [!IMPORTANT]
 > Ensure the pixi version being used locally matches the version run in the [CI/CD workflow](../../.github/workflows/run-pytest.yaml).
-> If the localy pixi is updated, the workflow version should too.
+> If the local pixi is updated, the workflow version should be too.
 
 ### Install pixi environments
 Environments are associated with the project.
