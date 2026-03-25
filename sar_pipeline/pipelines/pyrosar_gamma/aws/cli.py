@@ -167,7 +167,7 @@ def run_pyrosar_gamma_workflow(
     Returns None. The final geocoded products are written to the specified output folder.
     """
 
-    # set NCI required env variables
+    # set required env variables
     REQUIRED_ENV_VARIABLES = [
         "EARTHDATA_LOGIN",
         "EARTHDATA_PASSWORD",
@@ -272,15 +272,13 @@ def run_pyrosar_gamma_workflow(
     logger.info(f"The dem_type: {dem_type} will be used to process scene: {scene}")
 
     # iterate through the preferences for the scene data source and download the scene
-    SCENE_PATH, scene_polygon, input_scene_url = (
-        download_scene_from_preference_list_with_timeout(
-            timeout_mins=60,
-            early_exit_code=102,
-            scene_data_source_preferences=scene_data_sources,
-            scene=scene,
-            download_folder=scene_folder,
-            unzip=True,
-        )
+    SCENE_PATH, scene_polygon, _ = download_scene_from_preference_list_with_timeout(
+        timeout_mins=60,
+        early_exit_code=102,
+        scene_data_source_preferences=scene_data_sources,
+        scene=scene,
+        download_folder=scene_folder,
+        unzip=True,
     )
 
     # # download the orbits
