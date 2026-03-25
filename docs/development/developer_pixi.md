@@ -26,7 +26,17 @@ Follow the steps below, and refer back to them as needed.
 ### Install pixi in home directory
 Follow the [pixi installation guide](https://pixi.sh/latest/#installation).
 
+At the time of writing, version `0.59.0` of pixi is being used. This can be installed with:
+
+```bash
+pixi self-update --version 0.59.0
+```
+
 Note that pixi updates regularly, as it is in active development, so regularly run `pixi self-update`
+
+> [!IMPORTANT]
+> Ensure the pixi version being used locally matches the version run in the [CI/CD workflow](../../.github/workflows/run-pytest.yaml).
+> If the localy pixi is updated, the workflow version should too.
 
 ### Install pixi environments
 Environments are associated with the project.
