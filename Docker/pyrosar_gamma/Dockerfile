@@ -13,10 +13,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Pixi using the official install script
-# Official method: curl -fsSL https://pixi.sh/install.sh | sh
 RUN curl -fsSL https://pixi.sh/install.sh | sh
 
-# Ensure Pixi is available on PATH for all shells
+# Ensure Pixi is available on PATH 
 ENV PATH="/root/.pixi/bin:${PATH}"
 
 # copy files across to /app and install the environment with pixi
