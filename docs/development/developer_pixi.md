@@ -26,7 +26,17 @@ Follow the steps below, and refer back to them as needed.
 ### Install pixi in home directory
 Follow the [pixi installation guide](https://pixi.sh/latest/#installation).
 
+At the time of writing, version `0.59.0` of pixi is being used. This can be installed with:
+
+```bash
+pixi self-update --version 0.59.0
+```
+
 Note that pixi updates regularly, as it is in active development, so regularly run `pixi self-update`
+
+> [!IMPORTANT]
+> Ensure the pixi version being used locally matches the version run in the [CI/CD workflow](../../.github/workflows/run-pytest.yaml).
+> If the local pixi is updated, the workflow version should be too.
 
 ### Install pixi environments
 Environments are associated with the project.
@@ -208,6 +218,8 @@ nci-pyrosar-gamma-rtc-submit-workflow  = "sar_pipeline.pipelines.pyrosar_gamma.c
 isce3-rtc-get-data-for-scene-and-make-run-config = "sar_pipeline.pipelines.isce3_rtc.cli:get_data_for_scene_and_make_run_config"
 isce3-rtc-make-metadata-and-upload-bursts = "sar_pipeline.pipelines.isce3_rtc.cli:make_metadata_and_upload_bursts"
 isce3-rtc-compare-products = "sar_pipeline.pipelines.isce3_rtc.cli:compare_products"
+### AWS / PyroSAR_GAMMA ###
+pyrosar-gamma-rtc-run-workflow = "sar_pipeline.pipelines.pyrosar_gamma.aws.cli:run_pyrosar_gamma_workflow"
 ```
 
 ## Running Tests

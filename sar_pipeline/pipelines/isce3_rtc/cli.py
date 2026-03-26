@@ -203,7 +203,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--scene-data-source",
     required=False,
-    default=["AUS_COP_HUB", "ASF", "CDSE"],
+    default="AUS_COP_HUB ASF CDSE",
     type=str,
     help="Where to download the scene from. "
     "Can be passed as a string or list of preferences separated by a space. "
@@ -216,7 +216,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--orbit-data-source",
     required=False,
-    default=["ASF", "CDSE"],
+    default="ASF CDSE",
     type=str,
     help="Where to download the orbit files from. "
     "Can be passed as a string or list of preferences separated by a space. "
