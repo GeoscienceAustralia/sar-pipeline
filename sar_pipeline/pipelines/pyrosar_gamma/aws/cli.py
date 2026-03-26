@@ -97,7 +97,7 @@ PROJECT_ROOT = CURRENT_DIR.parents[3]
     "--gamma-library",
     required=False,
     type=click.Path(file_okay=False, path_type=Path),
-    default=Path("/gamma/"),
+    default=Path("/usr/local/GAMMA_SOFTWARE-20230712"),
     help="Path to the gamma library for processing",
 )
 @click.option(
@@ -166,7 +166,7 @@ def run_pyrosar_gamma_workflow(
 
     Returns None. The final geocoded products are written to the specified output folder.
     """
-
+ 
     # set required env variables
     REQUIRED_ENV_VARIABLES = [
         "EARTHDATA_LOGIN",
