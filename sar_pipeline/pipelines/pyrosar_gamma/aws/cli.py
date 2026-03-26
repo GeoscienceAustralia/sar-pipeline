@@ -75,10 +75,10 @@ PROJECT_ROOT = CURRENT_DIR.parents[3]
     help="Where to download the scene from. "
     "Can be passed as a string or list of preferences separated by a space. "
     "If the scene cannot be found at the first preference, the next will be used. "
-    "E.g. `--scene-data-source AUS_COP_HUB CDSE` will first try to download the scene from "
+    "E.g. `--scene-data-source 'AUS_COP_HUB CDSE'` will first try to download the scene from "
     "The Copernicus Australasia Regional Data Hub before moving to try from the European CDSE. "
     "Credentials for the desired data source must be set as environment variables."
-    f"Values must be one of {VALID_SCENE_DATA_SOURCES}",
+    f"Values must be one of {VALID_SCENE_DATA_SOURCES} passed as a space separated string. E.g. `--scene-data-source 'AUS_COP_HUB ASF CDSE'`",
 )
 @click.option(
     "--orbit-data-source",
@@ -88,10 +88,10 @@ PROJECT_ROOT = CURRENT_DIR.parents[3]
     help="Where to download the orbit files from. "
     "Can be passed as a string or list of preferences separated by a space. "
     "If the orbits files cannot be found at the first preference, the next will be used. "
-    "E.g. `--orbit-data-source CDSE ASF` will first try to download the orbit files from "
+    "E.g. `--orbit-data-source 'CDSE ASF'` will first try to download the orbit files from "
     "The CDSE before moving to try from the ASF. "
     "Credentials for the desired data source must be set as environment variables."
-    f"Values must be one of {VALID_ORBIT_DATA_SOURCES}",
+    f"Values must be one of {VALID_ORBIT_DATA_SOURCES} passed as a space separated string. E.g. `--orbit-data-source 'CDSE ASF'`",
 )
 @click.option(
     "--gamma-library",
