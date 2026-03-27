@@ -104,7 +104,7 @@ PROJECT_ROOT = CURRENT_DIR.parents[3]
     "--gamma-env",
     required=False,
     type=str,
-    default=f"/{Path.home()}/micromamba/envs/sar-pipeline/lib:/{Path.home()}/gamma_symlinks",
+    default=f"{PROJECT_ROOT}/.pixi/envs/default/lib:{Path.home()}/gamma_symlinks",
     help="Name of the gamma environment for processing. This should be set up with the gamma library specified by --gamma-library",
 )
 @click.option(
@@ -332,10 +332,10 @@ def run_pyrosar_gamma_workflow(
         raise ValueError(f"dem_type must be one of {VALID_DEMS}")
 
     run_pyrosar_gamma_geocode(
-        scene=SCENE_PATH,
-        orbit=ORBIT_PATH,
-        dem=DEM_PATH,
-        output=out_folder,
+        scene=SCENE_PATH.resolve(),
+        orbit=ORBIT_PATH.resolve(),
+        dem=DEM_PATH.resolve(),
+        output=out_folder.resolve(),
         gamma_library=gamma_library,
         gamma_env=gamma_env,
         geocode_spacing=geocode_spacing,
