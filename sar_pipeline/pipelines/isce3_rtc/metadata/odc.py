@@ -9,31 +9,31 @@ RTC_S1_S3_PREFIX_FORMAT = "{s3_project_folder}/{odc_product_name}/{burst_id}/{bu
 RTC_S1_STATIC_S3_PREFIX_FORMAT = "{s3_project_folder}/{odc_product_name}/{burst_id}/{static_layer_validity_start_date}/{dem_type}"
 
 
-def get_odc_product_name(product, collection_number, polarisations):
+def get_odc_product_name(product, collection_number, polarisations, acquisition_mode="iw"):
     """get the odc product name. WARNING this must align with
     the DEA product name at indexing into the datacube.
     These are hard-coded and set by the provided `collection_number`.
     """
     if product == "RTC_S1":
         if all([pol in polarisations for pol in ["VV", "VH"]]):
-            return f"ga_s1_nrb_iw_vv_vh_{collection_number}"
+            return f"ga_s1_nrb_{acquisition_mode.lower()}_vv_vh_{collection_number}"
         elif all([pol in polarisations for pol in ["HH", "HV"]]):
-            return f"ga_s1_nrb_iw_hh_hv_{collection_number}"
+            return f"ga_s1_nrb_{acquisition_mode.lower()}_hh_hv_{collection_number}"
         elif polarisations == ["VV"]:
-            return f"ga_s1_nrb_iw_vv_{collection_number}"
+            return f"ga_s1_nrb_{acquisition_mode.lower()}_vv_{collection_number}"
         elif polarisations == ["HH"]:
-            return f"ga_s1_nrb_iw_hh_{collection_number}"
+            return f"ga_s1_nrb_{acquisition_mode.lower()}_hh_{collection_number}"
         else:
             raise ValueError(
                 "could not create odc product name from; "
-                f"product: {product}, collection_number: {collection_number}, polarisations: {polarisations}"
+                f"product: {product}, collection_number: {collection_number}, polarisations: {polarisations}, acquisition mode : {acquisition_mode}"
             )
     elif product == "RTC_S1_STATIC":
-        return f"ga_s1_nrb_iw_static_{collection_number}"
+        return f"ga_s1_nrb_{acquisition_mode.lower()}_static_{collection_number}"
     else:
         raise ValueError(
             "could not create odc product name from; "
-            f"product: {product}, collection_number: {collection_number}, polarisations: {polarisations}"
+            f"product: {product}, collection_number: {collection_number}, polarisations: {polarisations}, acquisition mode : {acquisition_mode}"
         )
 
 
