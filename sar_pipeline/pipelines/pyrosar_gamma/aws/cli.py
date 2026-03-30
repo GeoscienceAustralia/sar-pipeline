@@ -2,6 +2,7 @@ import click
 import logging
 from pathlib import Path
 import shapely
+import rasterio
 
 from sar_pipeline.preparation.downloads.scenes import (
     download_scene_from_preference_list_with_timeout,
@@ -28,6 +29,12 @@ from sar_pipeline.utils.antimeridian import (
 from sar_pipeline.utils.dem import get_best_dem_type_for_scene, VALID_DEMS
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
+
+from sar_pipeline.utils.post_processing import (
+    gdal_reproject,
+    gdal_update_nodata,
+    gdal_add_overviews,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -140,6 +147,15 @@ PROJECT_ROOT = CURRENT_DIR.parents[3]
     ),
     default=PROJECT_ROOT,
 )
+@click.option(
+    "--target-crs",
+    type=click.Choice(
+        ["4326", "3031"],
+    ),
+    required=False,
+    default="3031",
+    help="The EPSG number for the target coordinate reference system. Only 4326 and 3031 are supported",
+)
 @log_timing
 def run_pyrosar_gamma_workflow(
     scene,
@@ -155,6 +171,7 @@ def run_pyrosar_gamma_workflow(
     etad,
     make_folders,
     dotenv_location,
+    target_crs,
 ) -> None:
     """
     Retrieve all required inputs for RTC_S1, including scene data, orbit files,
@@ -331,7 +348,7 @@ def run_pyrosar_gamma_workflow(
     else:
         raise ValueError(f"dem_type must be one of {VALID_DEMS}")
 
-    run_pyrosar_gamma_geocode(
+    processed_scene_directory = run_pyrosar_gamma_geocode(
         scene=SCENE_PATH.resolve(),
         orbit=ORBIT_PATH.resolve(),
         dem=DEM_PATH.resolve(),
@@ -342,5 +359,58 @@ def run_pyrosar_gamma_workflow(
         geocode_scaling=geocode_scaling,
         etad=etad,
     )
+
+    # Check file projection and compare to target projection
+    output_geocoded_tif_files = list(processed_scene_directory.glob("*_geo*.tif"))
+
+    output_geocoded_crs_values = []
+    for tif_file in output_geocoded_tif_files:
+        with rasterio.open(tif_file) as src:
+            output_geocoded_crs_values.append(src.crs.to_epsg())
+
+    unique_crs_values = list(set(output_geocoded_crs_values))
+
+    if len(unique_crs_values) == 1:
+        file_crs = str(unique_crs_values[0])
+    else:
+        raise ValueError(
+            f"Geocoded outputs have more than one CRS value. Values are {unique_crs_values}. Check the geocoding process."
+        )
+
+    # If check if files have the target crs, and reproject if not
+    if file_crs == target_crs:
+        click.echo("Output files are already in target projection.")
+        # Add a suffix to the file to make it very clear what projection files are in
+        for file in output_geocoded_tif_files:
+            updated_path = file.with_stem(file.stem + f"_{file_crs}")
+            file.replace(updated_path)
+    else:
+        click.echo(f"Performing reprojection to EPSG:{target_crs}")
+        for file in output_geocoded_tif_files:
+            output_file = file.parent / (file.stem + f"_{target_crs}" + file.suffix)
+
+            gdal_reproject(
+                src_file=file,
+                dst_file=output_file,
+                dst_epsg=int(target_crs),
+                dst_resolution=geocode_spacing,
+                resample_algorithm="bilinear",
+            )
+
+            # also update original geocoded files to make the source crs explicit
+            updated_path = file.with_stem(file.stem + f"_{file_crs}")
+            file.replace(updated_path)
+
+    # For all geocoded files, update all no-data values to nan and add overviews
+    # Glob needs to be run again to pick up any scenes that have been reprojected
+    files_to_update = list(processed_scene_directory.glob("*_geo*.tif"))
+
+    for file in files_to_update:
+        click.echo(f"{file}: Setting nodata to nan and adding overviews")
+        # update nodata - overwrite original file
+        gdal_update_nodata(file, file, "nan")
+
+        # add overviews - done inplace
+        gdal_add_overviews(file)
 
     return None
