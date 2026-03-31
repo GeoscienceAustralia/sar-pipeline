@@ -148,6 +148,7 @@ PROJECT_ROOT = CURRENT_DIR.parents[3]
         path_type=Path,
     ),
     default=PROJECT_ROOT,
+    help="Location of the environment file (.env). Assumed to be the project root directory if not provided.",
 )
 @click.option(
     "--target-crs",
