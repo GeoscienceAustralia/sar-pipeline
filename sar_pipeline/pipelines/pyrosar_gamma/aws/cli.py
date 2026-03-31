@@ -124,7 +124,9 @@ PROJECT_ROOT = CURRENT_DIR.parents[3]
 @click.option(
     "--geocode-scaling",
     required=False,
-    type=str,
+    type=click.Choice(
+        ["linear", "db", "both"],
+    ),
     default="both",
     help="The scaling convention for the geocoded output. Default is 'both', which rescales the values using linear and decibel scaling.",
 )
@@ -183,7 +185,7 @@ def run_pyrosar_gamma_workflow(
 
     Returns None. The final geocoded products are written to the specified output folder.
     """
- 
+
     # set required env variables
     REQUIRED_ENV_VARIABLES = [
         "EARTHDATA_LOGIN",
@@ -380,26 +382,16 @@ def run_pyrosar_gamma_workflow(
     # If check if files have the target crs, and reproject if not
     if file_crs == target_crs:
         click.echo("Output files are already in target projection.")
-        # Add a suffix to the file to make it very clear what projection files are in
-        for file in output_geocoded_tif_files:
-            updated_path = file.with_stem(file.stem + f"_{file_crs}")
-            file.replace(updated_path)
     else:
         click.echo(f"Performing reprojection to EPSG:{target_crs}")
         for file in output_geocoded_tif_files:
-            output_file = file.parent / (file.stem + f"_{target_crs}" + file.suffix)
-
             gdal_reproject(
                 src_file=file,
-                dst_file=output_file,
+                dst_file=file,
                 dst_epsg=int(target_crs),
                 dst_resolution=geocode_spacing,
                 resample_algorithm="bilinear",
             )
-
-            # also update original geocoded files to make the source crs explicit
-            updated_path = file.with_stem(file.stem + f"_{file_crs}")
-            file.replace(updated_path)
 
     # For all geocoded files, update all no-data values to nan and add overviews
     # Glob needs to be run again to pick up any scenes that have been reprojected
