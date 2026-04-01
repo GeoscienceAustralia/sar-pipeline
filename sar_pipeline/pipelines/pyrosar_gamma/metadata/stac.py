@@ -102,7 +102,7 @@ class GammaNRBtoSTAC:
             product="RTC_S1",
             collection_number=1,
             polarisations=self.polarisations,
-            mode=self.acquisition_mode.lower()
+            acquisition_mode=self.acquisition_mode.lower()
         )
         self.s3_product_folder = make_gamma_rtc_s1_product_s3_prefix(
             s3_project_folder=s3_project_folder,

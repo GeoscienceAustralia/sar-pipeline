@@ -52,7 +52,7 @@ def make_gamma_rtc_s1_product_s3_prefix(
 
     # get the correct odc product name
     odc_product_name = get_odc_product_name(
-        "RTC_S1", collection_number, polarisations, mode=mode
+        "RTC_S1", collection_number, polarisations, acquisition_mode=mode
     )
 
     # update the string format
