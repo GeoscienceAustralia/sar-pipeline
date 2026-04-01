@@ -9,10 +9,11 @@
     - [3.2. Environment variables](#32-environment-variables)
     - [3.3. Pipeline arguments and configuration](#33-pipeline-arguments-and-configuration)
   - [4. Project setup](#4-project-setup)
-    - [4.1. Gamma software](#41-gamma-software)
-        - [4.1.1. Standalone GAMMA software](#411-standalone-gamma-software)
-    - [4.2. Docker image](#42-docker-image)
-    - [4.3. Development setup](#43-development-setup)
+    - [4.1. Development setup](#41-development-setup)
+    - [4.2. Gamma software](#42-gamma-software)
+        - [4.2.1. Standalone GAMMA software](#421-standalone-gamma-software)
+    - [4.3. Docker image](#42-docker-image)
+
 
 ## 1. About
 
@@ -130,13 +131,19 @@ The CLI has the following options:
 ## 4. Project setup
 Clone the repository to a project folder that you own, where you have read, write and execution permissions.
 
-### 4.1 GAMMA software
+### 4.1. Development setup
+The project uses Pixi to install the required environment locally for implementing and testing the code. You need to first install Pixi on your system following the link:
+[Pixi installation](https://pixi.prefix.dev/latest/installation/)
+
+After installing pixi run `pixi install --all` to install both default and dev environments. You can activate each environment by running `pixi shell -e <env name>`
+
+### 4.2 GAMMA software
 
 You need to have GAMMA software locally present in you system. The preferred location for the software is `/usr/local/GAMMA_SOFTWARE-20230712`.
 
 Follow the steps below to setup your GAMMA software.
 
-1. Copy the files to this location if you haven't already. You might need to give execution permission access to the folder. Run `chmod -R a+x /usr/local/GAMMA_SOFTWARE-20230712`
+1. Copy the GAMMA software's files to `/usr/local/GAMMA_SOFTWARE-20230712` if you haven't already. You might need to give execution permission access to the folder. Run `chmod -R a+x /usr/local/GAMMA_SOFTWARE-20230712`
 
 2. Install the dependencies required to run the software
 
@@ -216,7 +223,7 @@ msp.py
 __pycache__
 ```
 
-#### 4.1.1. Standalone GAMMA software
+#### 4.2.1. Standalone GAMMA software
 If you wanted to run GAMMA software as an standalone tool and not via the `sar-pipeline` package, you should follow the GAMMA software's installation documentation and as part of it install GDAL and PROJ. In some cases installing GDAL and PROJ from package manager will not install the right version and there will be missing libraries. If you are getting GDAL or PROJ related errors, you will need to build the packages from source then.
 
 In section 4 of the `INSTALL_linux.html` file from GAMMA software's documentation, the Follow PROJ gamma GDAL installation under `CentOS/RHEL 7` to build from source. Build PROJ first and When gdal zip file is downloaded and unzipped go to the unzipped folder and do this first:
@@ -226,7 +233,7 @@ Add `#include <limits>` to the top of `gdal-2.4.2/ogr/ogrsf_frmts/cad/libopencad
 If you have followed the installation guide correctly (specially when setting the environment variables) GAMMA commands such as `disras` should work.
 
 
-### 4.2. Docker image
+### 4.3. Docker image
 
 The workflow could be run using a docker image. The docker file can be found at [Docker/pyrosar_gamma/Dockerfile](../../Docker/pyrosar_gamma/Dockerfile). 
 You can build the docker image via the command: 
@@ -243,10 +250,4 @@ pyrosar-gamma-rtc-run-container --scene SCENE
 This will assume that you have a `.env` file present in the root folder of your project and GAMMA software is locate locally at `/usr/local/GAMMA_SOFTWARE-20230712`
 Again running the image will download and generate files in the default folders as explained in [3.3](#33-pipeline-arguments-and-configuration). 
 
-Alternatively you can run the image via `docker run` command and pass the desired argument to the entry point.  
-
-### 4.3. Development setup
-The project uses Pixi to install the required environment locally for implementing and testing the code. You need to first install Pixi on your system following the link:
-[Pixi installation](https://pixi.prefix.dev/latest/installation/)
-
-After installing pixi run `pixi install --all` to install both default and dev environments. You can activate each environment by running `pixi shell -e <env name>`
+Alternatively you can run the image via `docker run` command and pass the desired arguments to the entry point.  

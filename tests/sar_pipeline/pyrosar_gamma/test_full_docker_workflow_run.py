@@ -11,19 +11,10 @@ The test is run for three scene
 Test steps:
 1.  A .env file in the project root is required. The file could be created by copying the .env.example file and filling in the required values.
 2.  The docker image for the current state is built and tagged.
-3.  The container is run, creating static layers (RTC_S1_STATIC) and uploading them to a
-    temporary folder in the AWS `TEST_S3_BUCKET` and `TEST_S3_PROJECT_FOLDER` set below.
-4. The newly created products are compared to benchmark products stored at the
-    BENCHMARK_S3_PROJECT_FOLDER to understand any differences that have been introduced (e.g.
+3.  The container is run, creating the RTC products and (TODO) uploading them to a
+    temporary folder in the AWS S3.
+4. (TODO) The newly created products are compared to benchmark products stored in S3 (e.g.
     breaking differences in Geotiff data and changes in metadata).
-
-Creating and updating the benchmark test data:
-1. In step 5 above, the created products are compared to existing products that are stored
-   in the BENCHMARK_S3_PROJECT_FOLDER. If planned product changes have been made, these benchmark
-   comparison products should be updated for future tests. These can be replaced by new products
-   by setting the UPDATE_BENCHMARK_TEST_DATA to True in the settings.py file and re-running the tests.
-   NOTE - existing products should be manually deleted from the BENCHMARK_S3_PROJECT_FOLDER prior
-   to recreating them.
 """
 
 import subprocess
@@ -32,17 +23,8 @@ import os
 import logging
 from pathlib import Path
 import sys
-from datetime import datetime
-from typing import Literal
-import re
 import shutil
-
-import sar_pipeline
-from sar_pipeline.utils.environment_variables import identify_and_load_missing_env_vars
-from sar_pipeline.pipelines.isce3_rtc.cli import compare_products
-from sar_pipeline.analysis.compare_cog import check_tifs_have_changed
-from sar_pipeline.analysis.compare_folder import check_files_have_changed
-from click.testing import CliRunner
+from datetime import datetime
 
 logging.basicConfig(
     level=logging.DEBUG,  # or INFO
@@ -55,6 +37,12 @@ CURRENT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = CURRENT_DIR.parents[2]
 
 TEST_SCENE = "S1A_EW_GRDM_1SDH_20250303T112244_20250303T112308_058139_072E6F_DB7E"
+
+RUN_DATETIME = str(datetime.now()).replace(" ", "_").replace(":", "-")
+TEST_NAME = Path(__file__).stem
+TEST_S3_PROJECT_FOLDER = (
+    f"TMP/sar-pipeline/pyrosar_gamma_rtc/{RUN_DATETIME}/{TEST_NAME}"
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -91,17 +79,6 @@ def build_image():
         result.returncode == 0
     ), f"Docker build failed: {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
 
-    yield  # Run the tests
-
-    if os.path.exists(PROJECT_ROOT / "sar-processing"):
-        subprocess.run(
-            ["sudo", "chmod", "-R", "777", PROJECT_ROOT / "sar-processing"],
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-            text=True,
-        )
-        shutil.rmtree(PROJECT_ROOT / "sar-processing")
-
 
 def _run_docker_for_scene(
     scene: str,
@@ -120,7 +97,7 @@ def _run_docker_for_scene(
         "-v",
         f"{PROJECT_ROOT}/.env:/app/.env",
         "-v",
-        f"{PROJECT_ROOT}/sar-processing:/app/sar-processing",
+        f"{TEST_S3_PROJECT_FOLDER}:/app/sar-processing",
         "-v",
         "/usr/local/GAMMA_SOFTWARE-20230712:/usr/local/GAMMA_SOFTWARE-20230712",
         "sar-pipeline",
