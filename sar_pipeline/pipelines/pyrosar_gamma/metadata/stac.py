@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Literal
 import json
@@ -80,6 +81,7 @@ class GammaNRBtoSTAC:
         self.scene_src_metadata = self._get_scene_metadata_from_cdse(scene_id)
         # get additional attributes that contain information about acquisition
         self.scene_attributes = self.scene_src_metadata["Attributes"][0]
+        self.all_scene_attributes = self.scene_src_metadata["Attributes"]
         self.geometry_4326 = self.scene_src_metadata["GeoFootprint"]
         self.start_dt = isoparse(self.scene_src_metadata["ContentDate"]["Start"])
         self.end_dt = isoparse(self.scene_src_metadata["ContentDate"]["End"])
@@ -159,6 +161,12 @@ class GammaNRBtoSTAC:
         crs, res = get_data_crs_and_resolution_from_tif(tif_file)
         return geometry, bbox, crs, res
 
+    def _get_attribute_by_name(self, name):
+        for attribute in self.all_scene_attributes:
+            if attribute["Name"] == name:
+                return attribute["Value"]
+        return None
+
     def _handle_antimeridian_crossing(self):
         """Correct the geometries for STAC at the antimeridian"""
         corrected_bounds = get_bounds_for_antimeridian_shape(shape(self.geometry_4326))
@@ -211,7 +219,9 @@ class GammaNRBtoSTAC:
             self.odc_product_name
         )  # this needs to  dynamic based on the pol files and match odc product
         self.item.properties["odc:product_family"] = "sar_ard"
-        self.item.properties["odc:region_code"] = "TODO"  # Set as relative orbit
+        self.item.properties["odc:region_code"] = self._get_attribute_by_name(
+            "relativeOrbitNumber"
+        )
         self.item.properties["odc:producer"] = "ga.gov.au"
         self.item.properties["odc:dataset_version"] = "0.1.0"
 
@@ -250,13 +260,15 @@ class GammaNRBtoSTAC:
         self.item.properties["sar:instrument_mode"] = self.acquisition_mode
 
         # add sat stac extension properties
-        # self.item.properties["sat:orbit_state"] = self.h5.search_value(
-        #     "orbitPassDirection"
-        # )
-        # self.item.properties["sat:absolute_orbit"] = self.h5.search_value(
-        #     "absoluteOrbitNumber"
-        # )
-        # self.item.properties["sat:relative_orbit"] = self.h5.search_value("trackNumber")
+        self.item.properties["sat:orbit_state"] = self._get_attribute_by_name(
+            "orbitDirection"
+        )
+        self.item.properties["sat:absolute_orbit"] = self._get_attribute_by_name(
+            "orbitNumber"
+        )
+        self.item.properties["sat:relative_orbit"] = self._get_attribute_by_name(
+            "relativeOrbitNumber"
+        )
         self.item.properties["sat:orbit_cycle"] = 12
 
         # # add sentinel-1 stac extension properties - https://github.com/stac-extensions/sentinel-1
@@ -268,7 +280,7 @@ class GammaNRBtoSTAC:
         self.item.properties["processing:datetime"] = str(self.created_dt)
         self.item.properties["processing:version"] = "0.1.0"
         self.item.properties["processing:software"] = {
-            "GAMMA": "TODO",
+            "GAMMA": Path(os.getenv("GAMMA_HOME", ".")).name,
             "sar-pipeline": sar_pipeline.__version__,
             "dem-handler": dem_handler.__version__,
         }
