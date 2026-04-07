@@ -34,7 +34,7 @@ The dependant codebases managed by GA used in the pipeline are:
 - [dem-handler](https://github.com/GeoscienceAustralia/dem-handler)
 - [sar-pipeline](https://github.com/GeoscienceAustralia/sar-pipeline/tree/main/sar_pipeline)
 
-The primary output from the pyrosar_gamma pipeline is Normalised Radar Backscatter, including ancillary layers (e.g. local incidence angle).
+The primary output from the `pyrosar_gamma` pipeline is Normalised Radar Backscatter, including ancillary layers (e.g. local incidence angle).
 There are no static layers, and outputs are provided at the level of a scene, rather than bursts.
 
 ### 1.1. Requirements
@@ -68,7 +68,7 @@ S1A__EW___A_20250419T221041_pix_ratio_geo_4326.tif
 
 The pipeline has been set up to run via command line interface (CLI) calls on the NCI.
 The CLI is available if you have activated a Conda environment that has sar-pipeline installed.
-The CLI functions can be found in the pyrosar_gamma [cli.py](../../sar_pipeline/pipelines/pyrosar_gamma/cli.py).
+The CLI functions can be found in the `pyrosar_gamma` [cli.py](../../sar_pipeline/pipelines/pyrosar_gamma/cli.py).
 
 The login node of the NCI has very limited internet access, so the pipeline is designed to access Sentinel-1 files directly from the NCI.
 The main approach uses the Copernicus Australasian Datahub (Aus Cop Hub) API to search for a scene's UUID, which is then converted to an NCI path.
@@ -81,7 +81,7 @@ At runtime, the pipeline expects the following environment variables to be set.
 These can be passed in using an environment file (`.env`).
 
 Credentials for the Aus Cop Hub were provided internally.
-The Aus Cop Hub can be contacted at CopernicusAustralasia@ga.gov.au or via the [website](https://www.copernicus.gov.au/).
+The Aus Cop Hub can be contacted at `CopernicusAustralasia@ga.gov.au` or via the [website](https://www.copernicus.gov.au/).
 
 [.env.example](../../.env.example)
 
@@ -107,7 +107,7 @@ Should be of the form `/path/to/conda/install/bin/conda`
 * `NCI_API_ORBIT_FILE_LOCATION`: the path to the filesystem containing the Aus Cop Hub orbit data holdings for either Australia or Antarctica.
 * `NCI_FILESYSTEM_FILE_LOCATION`: the path to the (now non-updated) filesystem containing the original Aus Cop Hub data holdings, prior to the development and implementation of the API.
 
-For questions about the location of files on the NCI filesystem, contact the Aus Cop Hub team at CopernicusAustralasia@ga.gov.au or via the [website](https://www.copernicus.gov.au/).
+For questions about the location of files on the NCI filesystem, contact the Aus Cop Hub team at `CopernicusAustralasia@ga.gov.au` or via the [website](https://www.copernicus.gov.au/).
 
 ### 3.3. Pipeline arguments and configuration
 
@@ -116,7 +116,8 @@ At runtime, the [nci-pyrosar-gamma-rtc-submit-workflow ](../../sar_pipeline/pipe
 ```bash
 nci-pyrosar-gamma-rtc-submit-workflow  [OPTIONS] SCENE
 ```
-where `SCENE` is an individual scene ID, path to a scene as a .zip file, or path to a list of scene IDs/paths contained in a single .txt file`.
+
+where `SCENE` is an individual scene ID, path to a scene as a .zip file, or path to a list of scene IDs/paths contained in a single `.txt` file.
 
 The CLI has the following options:
 
@@ -141,7 +142,7 @@ The CLI has the following options:
 --help
 ```
 
-* `config` -> A .toml file that specifies values for all the above options, which will be used by default if no other value is provided.
+* `config` -> A `.toml` file that specifies values for all the above options, which will be used by default if no other value is provided.
 * `spacing` -> The target resolution for the output product, typically 40 for EW.
 * `scaling` -> The value scaling of the backscatter values; one of `linear`, `db` or `both`.
 * `target-crs` -> The EPSG number for the target coordinate reference system. Only 4326 and 3031 are supported.
@@ -150,14 +151,14 @@ The CLI has the following options:
 * `etad-dir` -> Path to where ETAD correction files are stored. If provided, the ETAD correction will be applied.
 * `output-dir` -> Path to where outputs will be stored.
 * `gamma-lib-dir` -> Path to GAMMA software binaries.
-* `gamma-env-var` -> Environment variable to point to symlinked .so objects to ensure GAMMA runs.
-* `ncpu` -> Number of CPU to request.
+* `gamma-env-var` -> Environment variable to point to symlinked `.so` objects to ensure GAMMA runs.
+* `ncpu` -> Number of CPUs to request.
 * `mem` -> Amount of memory to request in GB.
 * `queue` -> NCI queue to submit to.
 * `project` -> NCI project to submit to.
 * `walltime` -> Amount of walltime to request for the job.
 * `dry-run` -> Flag for dry-run. Produces the submission script without launching it.
-* `dotenv-location` -> Location of the environment file (.env). Assumed to be the project root directory if not provided.
+* `dotenv-location` -> Location of the environment file (`.env`). Assumed to be the project root directory if not provided.
 * `help` -> Show the CLI help message.
 
 ### 3.4 Example product outputs
@@ -235,7 +236,7 @@ $CONDA_PREFIX/bin/conda init bash
 ```
 
 ### 4.2. Add required Conda environments
-Once Conda is installed, make sure it's initialised (you should see `(base)` at the start of your terminal prompt), then, navigate to the `sar-pipeline repository`.
+Once Conda is installed, make sure it's initialised (you should see `(base)` at the start of your terminal prompt), then navigate to the `sar-pipeline` repository.
 
 Run the following commands to install the required Conda environments:
 `sar-pipeline`
@@ -280,7 +281,7 @@ gamma_env_var = "/g/data/<project>/<username>/micromamba/envs/sar-pipeline/lib:/
 
 ### 4.5 Initialise pyroSAR
 
-The pyroSAR library is a python wrapper for various GAMMA command line utilities.
+The `pyroSAR` library is a python wrapper for various GAMMA command line utilities.
 As such, it needs to read the GAMMA commands and create the appropriate Python wrapper functions before first use.
 
 You can check whether it exists by seeing if you have a folder at `~/.pyrosar/gammaparse`.
@@ -294,7 +295,7 @@ conda activate sar-pipeline
 ```bash
 python
 ```
-3. Specify the required paths, set these as environment variables, then run the GAMMA `autoparse` function from pyroSAR:
+3. Specify the required paths, set these as environment variables, then run the GAMMA `autoparse` function from `pyroSAR`:
 ```python
 >>> gamma_lib_dir = "/g/data/dg9/GAMMA/GAMMA_SOFTWARE-20230712"
 >>> gamma_env_var = "/g/data/<project>/<username>/micromamba/envs/sar-pipeline/lib:/g/data/<project>/<username>/gamma_symlinks"
@@ -350,9 +351,10 @@ nci-pyrosar-gamma-rtc-submit-workflow  -c /g/data/<project>/<username>/sar-pipel
 
 ## 6. Development environment setup
 
-Install pixi into your home directory on NCI
+Install `pixi` into your home directory on NCI
 ```bash
 curl -fsSL https://pixi.sh/install.sh | bash
 ```
 
-From there, you should be able to run pixi commands on NCI.
+From there, you should be able to run `pixi` commands on NCI systems.
+
