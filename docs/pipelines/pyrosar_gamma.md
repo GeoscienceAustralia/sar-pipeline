@@ -11,8 +11,9 @@
   - [4. Project setup](#4-project-setup)
     - [4.1. Development setup](#41-development-setup)
     - [4.2. Gamma software](#42-gamma-software)
-        - [4.2.1. Standalone GAMMA software](#421-standalone-gamma-software)
-    - [4.3. Docker image](#42-docker-image)
+    - [4.3. Running sar-pipeline in Docker image](#43-running-sar-pipeline-in-docker-image)
+    - [4.4. Running sar-pipeline locally](#44-running-sar-pipeline-locally)
+    - [4.5. Standalone GAMMA software](#45-standalone-gamma-software)
 
 
 ## 1. About
@@ -141,18 +142,37 @@ After installing pixi run `pixi install --all` to install both default and dev e
 
 You need to have GAMMA software locally present in you system. The preferred location for the software is `/usr/local/GAMMA_SOFTWARE-20230712`.
 
-Follow the steps below to setup your GAMMA software.
+Copy the GAMMA software's files to `/usr/local/GAMMA_SOFTWARE-20230712` if you haven't already. You might need to give execution permission access to the folder. Run `chmod -R a+x /usr/local/GAMMA_SOFTWARE-20230712`
 
-1. Copy the GAMMA software's files to `/usr/local/GAMMA_SOFTWARE-20230712` if you haven't already. You might need to give execution permission access to the folder. Run `chmod -R a+x /usr/local/GAMMA_SOFTWARE-20230712`
+### 4.3. Running sar-pipeline in Docker image
 
-2. Install the dependencies required to run the software
+The workflow could be run using a docker image. The docker file can be found at [Docker/pyrosar_gamma/Dockerfile](../../Docker/pyrosar_gamma/Dockerfile). 
+You can build the docker image via the command: 
+
+```bash
+docker build -t sar-pipeline -f Docker/pyrosar_gamma/Dockerfile .
+```
+
+The docker image could be run via the pixi command:
+```bash
+pyrosar-gamma-rtc-run-docker-container --scene SCENE
+```
+
+This will assume that you have a `.env` file present in the root folder of your project and GAMMA software is locate locally at `/usr/local/GAMMA_SOFTWARE-20230712`
+Again running the image will download and generate files in the default folders as explained in [3.3](#33-pipeline-arguments-and-configuration). 
+
+Alternatively you can run the image via `docker run` command and pass the desired arguments to the entry point. 
+
+### 4.4. Running sar-pipeline locally 
+
+1. Install the dependencies required to run the software
 
 ```bash
 sudo apt update 
 sudo apt-get install libsqlite3-dev libzstd-dev libwebp-dev libjson-c-dev libgtk-3-0
 ```
 
-3. Create a symlink to the required library by GAMMA software.
+2. Create a symlink to the required library by GAMMA software.
 The version of GAMMA currently used by the pipeline (20230712) requires a symlink for `libgdal.so.20`, as this lib file is not available in the Pixi environment. 
 The following steps are used to create the symlink:
 
@@ -176,13 +196,13 @@ If you don't have your project root directory in an environment variable, you ne
 
 Pixi will install GDAL inside its environment. The symlink you created before should point GAMMA to the right libraries [Development setup](#43-development-setup)
 
-4. Set the correct environment variables either in your `~/.bashrc` file or at runtime. If setting in `~/.bashrc` you might need to run `source ~/.bashrc` to activate the new variables.
+3. Set the correct environment variables either in your `~/.bashrc` file or at runtime. If setting in `~/.bashrc` you might need to run `source ~/.bashrc` to activate the new variables.
 ```bash
 export GAMMA_HOME="/usr/local/GAMMA_SOFTWARE-20230712"
 export LD_LIBRARY_PATH="$PROJECT_ROOT/.pixi/envs/default/lib:$HOME/gamma_symlinks"
 ```
 
-5. The pyroSAR library is a python wrapper for various GAMMA command line utilities.
+4. The pyroSAR library is a python wrapper for various GAMMA command line utilities.
 As such, it needs to read the GAMMA commands and create the appropriate Python wrapper functions before first use.
 You can check whether it exists by seeing if you have a folder at `~/.pyrosar/gammaparse`. 
 If the files do not exist, they will be automatically generated when you run the pipeline. If they exist, the automatic generation will be skipped.
@@ -223,7 +243,9 @@ msp.py
 __pycache__
 ```
 
-#### 4.2.1. Standalone GAMMA software
+### 4.5. Standalone GAMMA software 
+**Note**: <I>**This is not required for running `sar-pipeline`.**</I> This is just to install the software and use it via its own commands and python bindings if required. `sar-pipeline` uses different libraries for the GAMMA software's python bindings which is explained in previous sections.
+
 If you wanted to run GAMMA software as an standalone tool and not via the `sar-pipeline` package, you should follow the GAMMA software's installation documentation and as part of it install GDAL and PROJ. In some cases installing GDAL and PROJ from package manager will not install the right version and there will be missing libraries. If you are getting GDAL or PROJ related errors, you will need to build the packages from source then.
 
 In section 4 of the `INSTALL_linux.html` file from GAMMA software's documentation, the Follow PROJ gamma GDAL installation under `CentOS/RHEL 7` to build from source. Build PROJ first and When gdal zip file is downloaded and unzipped go to the unzipped folder and do this first:
@@ -231,23 +253,4 @@ In section 4 of the `INSTALL_linux.html` file from GAMMA software's documentatio
 Add `#include <limits>` to the top of `gdal-2.4.2/ogr/ogrsf_frmts/cad/libopencad/dwg/r2000.cpp` file and then build GDAL.
 
 If you have followed the installation guide correctly (specially when setting the environment variables) GAMMA commands such as `disras` should work.
-
-
-### 4.3. Docker image
-
-The workflow could be run using a docker image. The docker file can be found at [Docker/pyrosar_gamma/Dockerfile](../../Docker/pyrosar_gamma/Dockerfile). 
-You can build the docker image via the command: 
-
-```bash
-docker build -t sar-pipeline -f Docker/pyrosar_gamma/Dockerfile .
-```
-
-The docker image could be run via the pixi command:
-```bash
-pyrosar-gamma-rtc-run-container --scene SCENE
-```
-
-This will assume that you have a `.env` file present in the root folder of your project and GAMMA software is locate locally at `/usr/local/GAMMA_SOFTWARE-20230712`
-Again running the image will download and generate files in the default folders as explained in [3.3](#33-pipeline-arguments-and-configuration). 
-
-Alternatively you can run the image via `docker run` command and pass the desired arguments to the entry point.  
+ 
