@@ -24,12 +24,12 @@ The dependant codebases managed by GA used in the pipeline are:
 - [dem-handler](https://github.com/GeoscienceAustralia/dem-handler)
 - [sar-pipeline](https://github.com/GeoscienceAustralia/sar-pipeline/tree/main/sar_pipeline)
 
-The primary output from the pyrosar_gamma pipeline is Normalised Radar Backscatter, including ancillary layers (e.g. local incidence angle). 
+The primary output from the pyrosar_gamma pipeline is Normalised Radar Backscatter, including ancillary layers (e.g. local incidence angle).
 There are no static layers, and outputs are provided at the level of a scene, rather than bursts.
 
 ### 1.1. Requirements
 
-You will need an AWS EC2 instance to run the code in. (TODO add specs!) 
+You will need an AWS EC2 instance to run the code in. (TODO add specs!)
 
 ## 2. Example products
 
@@ -53,7 +53,7 @@ S1A__EW___A_20250419T221041_pix_ratio_geo.tif
 ### 3.1. Overview
 
 The pipeline has been set up to run via command line interface (CLI) calls on the AWS EC2 instance.
-**NOTE**: The CLI is available if you have activated a Pixi environment that has sar-pipeline installed. 
+**NOTE**: The CLI is available if you have activated a Pixi environment that has sar-pipeline installed.
 The CLI functions can be found in the pyrosar_gamma [cli.py](../../sar_pipeline/pipelines/pyrosar_gamma/aws/cli.py).
 
 ### 3.2. Environment variables
@@ -88,7 +88,7 @@ After activating the required Pixi environment and at runtime, the [pyrosar-gamm
 ```bash
 ../../sar_pipeline/pipelines/pyrosar_gamma/aws/cli.py  --scene SCENE [OPTIONS]
 ```
-where `SCENE` is an individual scene ID. 
+where `SCENE` is an individual scene ID.
 
 This command will by default create and use `sar-processing` directory inside the project root. The intermediate files will be downloaded to `sar-processing/downloads` and the outputs will go into `sar-processing/r1_rtc` folder. These paths could be controlled via `--download-folder` and `--out-folder` arguments.
 
@@ -106,7 +106,7 @@ The CLI has the following options:
 --geocode-spacing INTEGER
 --geocode-scaling [linear|db|both]
 --etad DIRECTORY
---make-folders 
+--make-folders
 --dotenv-location TEXT
 --target-crs [4326|3031]
 --help
@@ -118,7 +118,7 @@ The CLI has the following options:
 * `out-folder` -> Path to the folder where final products will be written.
 * `scene-data-source` -> Where to download the scene from. Can be passed as a string or list of preferences separated by a space. If the scene cannot be found at the first preference, the next will be used. One or a space separated list of `AUS_COP_HUB`, `CDSE`, `ASF`.
 * `orbit-data-source` -> Where to download the orbit files from. Can be passed as a string or list of preferences separated by a space. If the orbits files cannot be found at the first preference, the next will be used. One or a space separated list of `AUS_COP_HUB`, `CDSE`, `ASF`.
-* `gamma-library` -> Path to the gamma library for processing. 
+* `gamma-library` -> Path to the gamma library for processing.
 * `gamma-env` -> Name of the gamma environment for processing. This should be set up with the gamma library specified by --gamma-library. By default set to "<Project_root>/.pixi/envs/default/lib:$HOME/gamma_symlinks" .
 * `geocode-spacing` -> The geocoding grid spacing in meters. Default is 20m..
 * `geocode-scaling` -> The scaling convention for the geocoded output. Default is 'both', which rescales the values using linear and decibel scaling; one of `linear`, `db` or `both`.
@@ -146,8 +146,8 @@ Copy the GAMMA software's files to `/usr/local/GAMMA_SOFTWARE-20230712` if you h
 
 ### 4.3. Running sar-pipeline in Docker image
 
-The workflow could be run using a docker image. The docker file can be found at [Docker/pyrosar_gamma/Dockerfile](../../Docker/pyrosar_gamma/Dockerfile). 
-You can build the docker image via the command: 
+The workflow could be run using a docker image. The docker file can be found at [Docker/pyrosar_gamma/Dockerfile](../../Docker/pyrosar_gamma/Dockerfile).
+You can build the docker image via the command:
 
 ```bash
 docker build -t sar-pipeline -f Docker/pyrosar_gamma/Dockerfile .
@@ -159,21 +159,21 @@ pyrosar-gamma-rtc-run-docker-container --scene SCENE
 ```
 
 This will assume that you have a `.env` file present in the root folder of your project and GAMMA software is locate locally at `/usr/local/GAMMA_SOFTWARE-20230712`
-Again running the image will download and generate files in the default folders as explained in [3.3](#33-pipeline-arguments-and-configuration). 
+Again running the image will download and generate files in the default folders as explained in [3.3](#33-pipeline-arguments-and-configuration).
 
-Alternatively you can run the image via `docker run` command and pass the desired arguments to the entry point. 
+Alternatively you can run the image via `docker run` command and pass the desired arguments to the entry point.
 
-### 4.4. Running sar-pipeline locally 
+### 4.4. Running sar-pipeline locally
 
 1. Install the dependencies required to run the software
 
 ```bash
-sudo apt update 
+sudo apt update
 sudo apt-get install libsqlite3-dev libzstd-dev libwebp-dev libjson-c-dev libgtk-3-0
 ```
 
 2. Create a symlink to the required library by GAMMA software.
-The version of GAMMA currently used by the pipeline (20230712) requires a symlink for `libgdal.so.20`, as this lib file is not available in the Pixi environment. 
+The version of GAMMA currently used by the pipeline (20230712) requires a symlink for `libgdal.so.20`, as this lib file is not available in the Pixi environment.
 The following steps are used to create the symlink:
 
   * Create a directory for symlinks
@@ -186,7 +186,7 @@ cd $PROJECT_ROOT/.pixi/envs/default/lib
 find . -name "libgdal*"
 ```
 Where `$PROJECT_ROOT` is the absolute path to the root directory of your project.
-  * Confirm that `./libgdal.so.38` appears in the list. version number `38` could change depending on the version of GDAL installed, therefore you might see a different number. 
+  * Confirm that `./libgdal.so.38` appears in the list. version number `38` could change depending on the version of GDAL installed, therefore you might see a different number.
   * Create the symlink
 ```bash
 cd ~/gamma_symlinks
@@ -204,19 +204,19 @@ export LD_LIBRARY_PATH="$PROJECT_ROOT/.pixi/envs/default/lib:$HOME/gamma_symlink
 
 4. The pyroSAR library is a python wrapper for various GAMMA command line utilities.
 As such, it needs to read the GAMMA commands and create the appropriate Python wrapper functions before first use.
-You can check whether it exists by seeing if you have a folder at `~/.pyrosar/gammaparse`. 
+You can check whether it exists by seeing if you have a folder at `~/.pyrosar/gammaparse`.
 If the files do not exist, they will be automatically generated when you run the pipeline. If they exist, the automatic generation will be skipped.
 If the files are not generated at runtime, the most likely underlying reasons fo the issue are:
   * The prerequisites are not installed properly (step 2).
   * The symlink is not created correctly.
-  * The environment variables are not set correctly 
+  * The environment variables are not set correctly
 
 
 **Note** It is not required but you can also pre-generate the pyroSAR python bindings by running the script below:
 
   1. Activate the sar-pipeline conda environment
 ```bash
-pixi shell 
+pixi shell
 ```
   2. Set the `PROJECT_ROOT` environment variable via an `export` command.
   3. Run a new Python REPL
@@ -243,7 +243,7 @@ msp.py
 __pycache__
 ```
 
-### 4.5. Standalone GAMMA software 
+### 4.5. Standalone GAMMA software
 **Note**: <I>**This is not required for running `sar-pipeline`.**</I> This is just to install the software and use it via its own commands and python bindings if required. `sar-pipeline` uses different libraries for the GAMMA software's python bindings which is explained in previous sections.
 
 If you wanted to run GAMMA software as an standalone tool and not via the `sar-pipeline` package, you should follow the GAMMA software's installation documentation and as part of it install GDAL and PROJ. In some cases installing GDAL and PROJ from package manager will not install the right version and there will be missing libraries. If you are getting GDAL or PROJ related errors, you will need to build the packages from source then.
@@ -253,4 +253,4 @@ In section 4 of the `INSTALL_linux.html` file from GAMMA software's documentatio
 Add `#include <limits>` to the top of `gdal-2.4.2/ogr/ogrsf_frmts/cad/libopencad/dwg/r2000.cpp` file and then build GDAL.
 
 If you have followed the installation guide correctly (specially when setting the environment variables) GAMMA commands such as `disras` should work.
- 
+
