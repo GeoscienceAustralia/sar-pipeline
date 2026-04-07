@@ -10,6 +10,7 @@ import sar_pipeline
 import dem_handler
 import rasterio
 import numpy as np
+import re
 
 from sar_pipeline.preparation.downloads.scenes import (
     query_scene_from_cdse,
@@ -141,8 +142,8 @@ class GammaNRBtoSTAC:
         else:
             return query_results[0]
 
-    def _get_metadata_from_tif(self):
-        """get the geometry and bbox in tif crs from a tif"""
+    def _get_tif_file_name(self):
+        """get the tif file name for the backscatter convention"""
 
         matches = [
             p
@@ -155,11 +156,21 @@ class GammaNRBtoSTAC:
                 f"Could not find {self.backscatter_convention} .tif file in product folder : {self.product_folder}"
             )
 
-        tif_file = matches[0]
+        return matches[0]
+
+    def _get_metadata_from_tif(self):
+        """get the geometry and bbox in tif crs from a tif"""
+        tif_file = self._get_tif_file_name()
         geometry = get_valid_data_min_rect_polygon_from_tif(tif_file, n_segments=5)
         bbox = geometry.bounds
         crs, res = get_data_crs_and_resolution_from_tif(tif_file)
         return geometry, bbox, crs, res
+
+    def get_output_filename_prefix(self):
+        tif_file = self._get_tif_file_name()
+        pattern = r"\d{8}T\d{6}"
+        match_last_idx = re.search(pattern, tif_file.name).span()[1]
+        return tif_file.name[:match_last_idx]
 
     def _get_attribute_by_name(self, name):
         for attribute in self.all_scene_attributes:

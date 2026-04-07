@@ -8,8 +8,8 @@ stac = GammaNRBtoSTAC(
     product_folder=SCENE_DIR,
     backscatter_convention="gamma0",
     collection_number=1,
-    s3_bucket="TMP",
-    s3_project_folder="TMP",
+    s3_bucket="dea-public-data-dev",
+    s3_project_folder="experimental/baseline",
 )
 
 
