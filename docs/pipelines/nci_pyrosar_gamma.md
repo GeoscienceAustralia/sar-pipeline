@@ -34,7 +34,7 @@ The dependant codebases managed by GA used in the pipeline are:
 - [dem-handler](https://github.com/GeoscienceAustralia/dem-handler)
 - [sar-pipeline](https://github.com/GeoscienceAustralia/sar-pipeline/tree/main/sar_pipeline)
 
-The primary output from the pyrosar_gamma pipeline is Normalised Radar Backscatter, including ancillary layers (e.g. local incidence angle). 
+The primary output from the pyrosar_gamma pipeline is Normalised Radar Backscatter, including ancillary layers (e.g. local incidence angle).
 There are no static layers, and outputs are provided at the level of a scene, rather than bursts.
 
 ### 1.1. Requirements
@@ -67,11 +67,11 @@ S1A__EW___A_20250419T221041_pix_ratio_geo_4326.tif
 ### 3.1. Overview
 
 The pipeline has been set up to run via command line interface (CLI) calls on the NCI.
-The CLI is available if you have activated a Conda environment that has sar-pipeline installed. 
+The CLI is available if you have activated a Conda environment that has sar-pipeline installed.
 The CLI functions can be found in the pyrosar_gamma [cli.py](../../sar_pipeline/pipelines/pyrosar_gamma/cli.py).
 
-The login node of the NCI has very limited internet access, so the pipeline is designed to access Sentinel-1 files directly from the NCI. 
-The main approach uses the Copernicus Australasian Datahub (Aus Cop Hub) API to search for a scene's UUID, which is then converted to an NCI path. 
+The login node of the NCI has very limited internet access, so the pipeline is designed to access Sentinel-1 files directly from the NCI.
+The main approach uses the Copernicus Australasian Datahub (Aus Cop Hub) API to search for a scene's UUID, which is then converted to an NCI path.
 If this fails, the pipeline will fall back to searching the older (and no longer updated) filesystem.
 This back-up can be useful in the case of accessing scenes captured prior to mid-2025 if they're not available through the Aus Cop Hub API.
 
@@ -105,7 +105,7 @@ The NCI variables have the following uses:
 Should be of the form `/path/to/conda/install/bin/conda`
 * `NCI_API_SCENE_FILE_LOCATION`: the path to the filesystem containing the Aus Cop Hub scene data holdings for either Australia or Antarctica.
 * `NCI_API_ORBIT_FILE_LOCATION`: the path to the filesystem containing the Aus Cop Hub orbit data holdings for either Australia or Antarctica.
-* `NCI_FILESYSTEM_FILE_LOCATION`: the path to the (now non-updated) filesystem containing the original Aus Cop Hub data holdings, prior to the development and implementation of the API. 
+* `NCI_FILESYSTEM_FILE_LOCATION`: the path to the (now non-updated) filesystem containing the original Aus Cop Hub data holdings, prior to the development and implementation of the API.
 
 For questions about the location of files on the NCI filesystem, contact the Aus Cop Hub team at CopernicusAustralasia@ga.gov.au or via the [website](https://www.copernicus.gov.au/).
 
@@ -116,7 +116,7 @@ At runtime, the [nci-pyrosar-gamma-rtc-submit-workflow ](../../sar_pipeline/pipe
 ```bash
 nci-pyrosar-gamma-rtc-submit-workflow  [OPTIONS] SCENE
 ```
-where `SCENE` is an individual scene ID, path to a scene as a .zip file, or path to a list of scene IDs/paths contained in a single .txt file`. 
+where `SCENE` is an individual scene ID, path to a scene as a .zip file, or path to a list of scene IDs/paths contained in a single .txt file`.
 
 The CLI has the following options:
 
@@ -175,7 +175,7 @@ The corresponding logs and submission script for the above example output can be
 
 Errors to be aware of:
 **Out of memory**
-In the `.ER` file, you will see a message like 
+In the `.ER` file, you will see a message like
 ```text
 Job 154132534 has exceeded memory allocation on node gadi-cpu-clx-2232.gadi.nci.org.au
 ```
@@ -183,15 +183,15 @@ You should resubmit the job with a larger `--mem` value.
 
 ### 3.6 Troubleshooting
 If processing a large number of scenes, the easiest way to check if they've all been processed is to re-submit the same CLI options with the `--dry-run` flag.
-This will create a `missing_scenes_YYYY_MM_DD_HH_MM_SS.txt` in the output folder. 
+This will create a `missing_scenes_YYYY_MM_DD_HH_MM_SS.txt` in the output folder.
 If this file contains any scenes, you can then investigate the logs for those scenes and resubmit once the problem is resolved.
 
 ### 3.7 Setting permissions for external access
 
-Typically, this pipeline is used to process EW scenes for selected users with NCI accounts. 
+Typically, this pipeline is used to process EW scenes for selected users with NCI accounts.
 To ensure they can access their data, you must enable open access on the output folder using `chmod`.
 
-When all scenes have been processed, run 
+When all scenes have been processed, run
 ```bash
 chmod -R +777 /path/to/output/directory
 ```
@@ -253,14 +253,14 @@ For `CONDA_EXE`, this should be set as `/g/data/<project>/<username>/miniforge3/
 
 ### 4.4. Set up symlink for GAMMA
 
-The version of GAMMA currently used by the pipeline (20230712) requires a symlink for `libgdal.so.20`, as this lib file is not available in the Conda environment. 
+The version of GAMMA currently used by the pipeline (20230712) requires a symlink for `libgdal.so.20`, as this lib file is not available in the Conda environment.
 The following steps are used to create the symlink:
 
 1. Create a directory for symlinks
 ```bash
 mkdir /g/data/<project>/<username>/gamma_symlinks
 ```
-2. Identify the location of gdal library files in your Conda environement
+2. Identify the location of gdal library files in your Conda environment
 ```bash
 cd /g/data/<project>/<username>/miniforge3/envs/sar-pipeline/lib
 find . -name "libgdal*"
@@ -272,7 +272,7 @@ cd /g/data/<project>/<username>/gamma_symlinks
 ln -s /g/data/<project>/<username>/miniforge3/envs/sar-pipeline/lib/libgdal.so.36 libgdal.so.20
 ```
 
-You must supply an appropriate `gamma_env_var` path in the configuration file or at run time via the CLI. 
+You must supply an appropriate `gamma_env_var` path in the configuration file or at run time via the CLI.
 To ensure all lib files from the Conda environment are available, as well as the new symlink, use the following:
 ```toml
 gamma_env_var = "/g/data/<project>/<username>/micromamba/envs/sar-pipeline/lib:/g/data/<project>/<username>/gamma_symlinks"
