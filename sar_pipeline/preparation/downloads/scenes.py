@@ -281,7 +281,7 @@ def query_scene_from_cdse(scene: str, expand_attributes=False) -> FeatureQuery:
         {
             "name": scene,
         },
-        options={"expand_attributes": expand_attributes}
+        options={"expand_attributes": expand_attributes},
     )
 
     return cdse_scenes_metadata

@@ -9,7 +9,9 @@ RTC_S1_S3_PREFIX_FORMAT = "{s3_project_folder}/{odc_product_name}/{burst_id}/{bu
 RTC_S1_STATIC_S3_PREFIX_FORMAT = "{s3_project_folder}/{odc_product_name}/{burst_id}/{static_layer_validity_start_date}/{dem_type}"
 
 
-def get_odc_product_name(product, collection_number, polarisations, acquisition_mode="iw"):
+def get_odc_product_name(
+    product, collection_number, polarisations, acquisition_mode="iw"
+):
     """get the odc product name. WARNING this must align with
     the DEA product name at indexing into the datacube.
     These are hard-coded and set by the provided `collection_number`.

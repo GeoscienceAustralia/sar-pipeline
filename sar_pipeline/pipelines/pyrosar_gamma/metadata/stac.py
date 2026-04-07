@@ -12,13 +12,14 @@ import numpy as np
 
 from sar_pipeline.preparation.downloads.scenes import (
     query_scene_from_cdse,
-    NonSingleSceneResultError
+    NonSingleSceneResultError,
 )
 
 from sar_pipeline.utils.sentinel1 import extract_metadata_from_s1_id
 
 from sar_pipeline.utils.spatial import (
     get_valid_data_min_rect_polygon_from_tif,
+    get_data_crs_and_resolution_from_tif,
 )
 
 from sar_pipeline.utils.antimeridian import (
@@ -28,7 +29,8 @@ from sar_pipeline.utils.antimeridian import (
 )
 
 from sar_pipeline.pipelines.pyrosar_gamma.metadata.odc import (
-    get_odc_product_name, make_gamma_rtc_s1_product_s3_prefix
+    get_odc_product_name,
+    make_gamma_rtc_s1_product_s3_prefix,
 )
 
 from sar_pipeline.pipelines.pyrosar_gamma.metadata.filetypes import (
@@ -46,11 +48,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 pol_str_to_list = {
-    "SH" : ["HH"],
-    "SV" : ["VV"],
-    "DH" : ["HH","HV"],
-    "DV" : ["VV","VH"],
+    "SH": ["HH"],
+    "SV": ["VV"],
+    "DH": ["HH", "HV"],
+    "DV": ["VV", "VH"],
 }
+
 
 class GammaNRBtoSTAC:
     """utility to create a stac document from pyroSAR-GAMMA outputs"""
@@ -60,8 +63,6 @@ class GammaNRBtoSTAC:
         scene_id: Path,
         product_folder: Path,
         backscatter_convention: Literal["gamma0", "sigma0", "beta0"],
-        crs: int,
-        resolution: int,
         collection_number: int,
         s3_bucket: str,
         s3_project_folder: str,
@@ -71,8 +72,6 @@ class GammaNRBtoSTAC:
         self.scene_id = scene_id
         self.product_folder = product_folder
         self.backscatter_convention = backscatter_convention
-        self.crs = crs
-        self.resolution = resolution
         self.collection_number = collection_number
         self.s3_bucket = s3_bucket
         self.s3_project_folder = s3_project_folder
@@ -82,14 +81,18 @@ class GammaNRBtoSTAC:
         # get additional attributes that contain information about acquisition
         self.scene_attributes = self.scene_src_metadata["Attributes"][0]
         self.geometry_4326 = self.scene_src_metadata["GeoFootprint"]
-        self.start_dt =isoparse(self.scene_src_metadata["ContentDate"]["Start"])
+        self.start_dt = isoparse(self.scene_src_metadata["ContentDate"]["Start"])
         self.end_dt = isoparse(self.scene_src_metadata["ContentDate"]["End"])
         self.created_dt = datetime.now()
         self.bbox_4326 = shape(self.geometry_4326).bounds
         # get the geometry and bbox from an actual tif in tif crs
-        self.geometry, self.bbox = self._get_geometry_and_bbox_from_tif()
+        self.geometry, self.bbox, self.crs, self.resolution = (
+            self._get_metadata_from_tif()
+        )
         # handle the antimeridian
-        if check_shape_crosses_antimeridian(shape(self.geometry_4326), max_antimeridian_crossing_degrees=40):
+        if check_shape_crosses_antimeridian(
+            shape(self.geometry_4326), max_antimeridian_crossing_degrees=40
+        ):
             logger.warning(f"STAC geometry crosses the antimeridian. reformatting")
             self._handle_antimeridian_crossing()
 
@@ -102,15 +105,15 @@ class GammaNRBtoSTAC:
             product="RTC_S1",
             collection_number=1,
             polarisations=self.polarisations,
-            acquisition_mode=self.acquisition_mode.lower()
+            acquisition_mode=self.acquisition_mode.lower(),
         )
         self.s3_product_folder = make_gamma_rtc_s1_product_s3_prefix(
             s3_project_folder=s3_project_folder,
             collection_number=self.collection_number,
             polarisations=self.polarisations,
-            mode = self.acquisition_mode,
+            mode=self.acquisition_mode,
             scene_id=self.scene_id,
-            start_dt=self.start_dt
+            start_dt=self.start_dt,
         )
         # stac extensions
         self.stac_extensions = [
@@ -127,7 +130,6 @@ class GammaNRBtoSTAC:
         self.bucket_href = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
         self.base_href = f"{self.bucket_href}/{self.s3_product_folder}"
 
-
     def _get_scene_metadata_from_cdse(self, scene_id):
         query_results = query_scene_from_cdse(scene_id, expand_attributes=True)
         if len(query_results) != 1:
@@ -137,24 +139,26 @@ class GammaNRBtoSTAC:
         else:
             return query_results[0]
 
-    def _get_geometry_and_bbox_from_tif(self):
+    def _get_metadata_from_tif(self):
         """get the geometry and bbox in tif crs from a tif"""
 
         matches = [
-            p for p in Path(self.product_folder).rglob("*.tif")
+            p
+            for p in Path(self.product_folder).rglob("*.tif")
             if f"{self.backscatter_convention}" in p.name.lower()
         ]
 
         if not matches:
             raise FileNotFoundError(
                 f"Could not find {self.backscatter_convention} .tif file in product folder : {self.product_folder}"
-                )
+            )
 
         tif_file = matches[0]
         geometry = get_valid_data_min_rect_polygon_from_tif(tif_file, n_segments=5)
         bbox = geometry.bounds
-        return geometry, bbox
-        
+        crs, res = get_data_crs_and_resolution_from_tif(tif_file)
+        return geometry, bbox, crs, res
+
     def _handle_antimeridian_crossing(self):
         """Correct the geometries for STAC at the antimeridian"""
         corrected_bounds = get_bounds_for_antimeridian_shape(shape(self.geometry_4326))
@@ -198,7 +202,7 @@ class GammaNRBtoSTAC:
             properties=base_properties,
             stac_extensions=self.stac_extensions,
         )
-    
+
     def add_properties(self):
         """Map required properties from the .h5 file"""
 
@@ -207,7 +211,7 @@ class GammaNRBtoSTAC:
             self.odc_product_name
         )  # this needs to  dynamic based on the pol files and match odc product
         self.item.properties["odc:product_family"] = "sar_ard"
-        self.item.properties["odc:region_code"] = "TODO"
+        self.item.properties["odc:region_code"] = "TODO"  # Set as relative orbit
         self.item.properties["odc:producer"] = "ga.gov.au"
         self.item.properties["odc:dataset_version"] = "0.1.0"
 
@@ -240,12 +244,8 @@ class GammaNRBtoSTAC:
         self.item.properties["sarard:center_frequency_unit"] = "GHz"
         self.item.properties["sar:polarizations"] = self.polarisations
         # add as a string for odc explorer
-        self.item.properties["sarard:polarization_mode"] = "+".join(
-                self.polarisations
-            )
-        # self.item.properties["sar:observation_direction"] = self.h5.search_value(
-        #     "lookDirection"
-        # )
+        self.item.properties["sarard:polarization_mode"] = "+".join(self.polarisations)
+        self.item.properties["sar:observation_direction"] = "right"
         # self.item.properties["sar:beam_ids"] = [self.h5.search_value("subSwathID")]
         self.item.properties["sar:instrument_mode"] = self.acquisition_mode
 
@@ -257,7 +257,7 @@ class GammaNRBtoSTAC:
         #     "absoluteOrbitNumber"
         # )
         # self.item.properties["sat:relative_orbit"] = self.h5.search_value("trackNumber")
-        # self.item.properties["sat:orbit_cycle"] = 12
+        self.item.properties["sat:orbit_cycle"] = 12
 
         # # add sentinel-1 stac extension properties - https://github.com/stac-extensions/sentinel-1
         # self.item.properties["s1:orbit_source"] = self.h5.search_value("orbitType")
@@ -275,7 +275,7 @@ class GammaNRBtoSTAC:
 
         # proposed sarard stac extension properties
         self.item.properties["sarard:source_id"] = self.scene_id + ".SAFE"
-        #self.item.properties["sarard:source_geometry"] = "slant range"
+        # self.item.properties["sarard:source_geometry"] = "slant range"
         self.item.properties["sarard:scene_id"] = self.scene_id
 
         # self.item.properties["sarard:orbit_file"] = self.h5.search_value("orbitFiles")[
@@ -288,8 +288,8 @@ class GammaNRBtoSTAC:
         self.item.properties["sarard:pixel_spacing_x"] = self.resolution
         self.item.properties["sarard:pixel_spacing_y"] = self.resolution
         self.item.properties["sarard:pixel_spacing_unit"] = "metre"
-        self.item.properties["sarard:resolution_x"] = "TODO" 
-        self.item.properties["sarard:resolution_y"] = "TODO"
+        self.item.properties["sarard:resolution_x"] = self.resolution
+        self.item.properties["sarard:resolution_y"] = self.resolution
         self.item.properties["sarard:resolution_unit"] = "metre"
         self.item.properties["sarard:speckle_filter_applied"] = "FALSE"
         self.item.properties["sarard:speckle_filter_type"] = ""
@@ -345,7 +345,7 @@ class GammaNRBtoSTAC:
         #     self.zero_doppler_end_time.isoformat(timespec="microseconds").replace(
         #         "+00:00", "Z"
         #     )
-        #)
+        # )
 
         # add the storage stac extension properties
         self.item.properties["storage:schemes"] = {
@@ -382,7 +382,7 @@ class GammaNRBtoSTAC:
                 media_type=pystac.media_type.STAC_JSON,
             )
         )
-    
+
     def rename_asset_files(self):
         """Rename the assets in the output folder. Backscatter files will include the normalization
         convention type in the filename. Other assets renamed for clarity.
@@ -400,17 +400,15 @@ class GammaNRBtoSTAC:
                 new_suffix = new_suffix.replace(
                     "BACKSCATTER-CONVENTION", self.backscatter_convention
                 )
-                #logger.info(f'{str(f.name)}, {old_suffix_}, {new_suffix}')
+                # logger.info(f'{str(f.name)}, {old_suffix_}, {new_suffix}')
                 if str(f.name).endswith(old_suffix_):
-                    logger.info(f'renaming {old_suffix_} -> {new_suffix}')
+                    logger.info(f"renaming {old_suffix_} -> {new_suffix}")
                     # backscatter convention will be added here
                     new_path = f.with_name(f.name.replace(old_suffix_, new_suffix))
                     f.rename(new_path)
                     break  # once renamed, move to next file
 
-    def add_assets(
-        self, add_shape_transform_to_properties: bool = True
-    ):
+    def add_assets(self, add_shape_transform_to_properties: bool = True):
         """Add the asset files from the local burst folder
 
         Parameters
@@ -437,13 +435,14 @@ class GammaNRBtoSTAC:
             for p in ["HH", "HV", "VV", "VH"]
             if p not in pols
         ]
-        included_pol_assets = [
-            f"_{p}-{self.backscatter_convention}.tif" for p in pols
+        # ignore the db files
+        ignore_assets += [i.replace(".tif", "_db.tif") for i in ignore_assets]
+        # optional assets that may not be present
+        included_pol_assets = [f"_{p}-{self.backscatter_convention}.tif" for p in pols]
+        required_asset_filetypes = REQUIRED_ASSET_FILETYPES[self.backscatter_convention]
+        required_asset_filetypes = [
+            f for f in required_asset_filetypes if f not in ignore_assets
         ]
-        required_asset_filetypes = REQUIRED_ASSET_FILETYPES[
-            self.backscatter_convention
-        ]
-        required_asset_filetypes = [f for f in required_asset_filetypes if f not in ignore_assets]
 
         # iterate through the included/required assets and add to the STAC item
         for asset_filetype in required_asset_filetypes:
@@ -567,5 +566,3 @@ class GammaNRBtoSTAC:
         """
         with open(save_path, "w") as fp:
             json.dump(self.item.to_dict(), fp, indent=4)
-
-        

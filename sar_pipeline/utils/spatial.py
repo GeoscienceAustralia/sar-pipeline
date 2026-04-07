@@ -216,6 +216,14 @@ def load_burst_geometry_from_geojson(geojson_path: Path, burst_id: str):
     raise KeyError(f"Burst ID {burst_id} not found in {geojson_path}")
 
 
+def get_data_crs_and_resolution_from_tif(tif_path: Path) -> tuple[int, float]:
+    """Extract the CRS and resolution from a GeoTIFF file."""
+    with rasterio.open(tif_path) as ds:
+        crs = ds.crs.to_epsg()
+        res = ds.res[0]  # Assuming square pixels, take the x resolution
+    return crs, res
+
+
 def get_valid_data_min_rect_polygon_from_tif(
     tif_path: Path,
     n_segments: int = 4,

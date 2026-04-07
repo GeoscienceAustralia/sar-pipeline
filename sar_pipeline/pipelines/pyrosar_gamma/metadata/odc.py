@@ -3,8 +3,8 @@ import re
 
 from sar_pipeline.pipelines.isce3_rtc.metadata.odc import get_odc_product_name
 
-
 GAMMA_RTC_S1_S3_PREFIX_FORMAT = "{s3_project_folder}/{odc_product_name}/{start_year}/{start_month}/{start_day}/{scene_id}"
+
 
 def make_gamma_rtc_s1_product_s3_prefix(
     s3_project_folder: str,
@@ -45,9 +45,7 @@ def make_gamma_rtc_s1_product_s3_prefix(
     start_month = f"{start_dt.month:02d}"
     start_day = f"{start_dt.day:02d}"
 
-    start_dt = start_dt.strftime(
-        "%Y%m%dT%H%M%S"
-    )  # formatted timestamp without UTC 'Z'
+    start_dt = start_dt.strftime("%Y%m%dT%H%M%S")  # formatted timestamp without UTC 'Z'
     # zero padded day and month strings
 
     # get the correct odc product name
@@ -62,7 +60,7 @@ def make_gamma_rtc_s1_product_s3_prefix(
         start_year=start_year,
         start_month=start_month,
         start_day=start_day,
-        scene_id=scene_id
+        scene_id=scene_id,
     )
 
     return gamma_rtc_s1_s3_prefix
