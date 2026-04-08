@@ -9,9 +9,16 @@ import os
 
 # Directories
 CURRENT_DIR = Path(__file__).parent.resolve()
-LOCAL_TEST_OUTPUTS_DIR = f"/data/working"
 
 DOCKER_TAG = "rema-timeseries"
+LOCAL_TEST_OUTPUTS_DIR = f"/data/working/{DOCKER_TAG}"
+df_run = pd.read_csv("rema-timeseries-runs.csv")
+print(df_run.scene)
+
+# DOCKER_TAG  rema-timeseries / rema_timeseries_same_year -> normal timeseries run
+# DOCKER_TAG  rema_timeseries_next_year  -> e.g. will use 2022 DEM for 2021 scene  
+# DOCKER_TAG  rema_timeseries_prev_year  -> e.g. will use 2020 DEM for 2021 scene  
+# DOCKER_TAG  rema_timeseries_2_prev_year  -> e.g. will use 2019 DEM for 2021 scene  
 
 # Log directory
 log_dir = Path("logs")
@@ -52,7 +59,7 @@ for var in REQUIRED_ENV_VARIABLES + OPTIONAL_ENV_VARIABLES:
 
 def run_job(name, row, static_layer_run=False, backscatter_convention="gamma0"):
     """Run a single Docker job and write logs."""
-    log_file = log_dir / f"{name}.log"
+    log_file = log_dir / f"{name}_{DOCKER_TAG}.log"
     print(
         f"[{datetime.now():%Y-%m-%d %H:%M:%S}] Starting {name} (param={row}) → {log_file}"
     )
@@ -101,9 +108,6 @@ def run_job(name, row, static_layer_run=False, backscatter_convention="gamma0"):
 
 success = []
 failed = []
-
-df_run = pd.read_csv("rema-timeseries-runs.csv")
-print(df_run.scene)
 
 # Max number of concurrent jobs
 MAX_WORKERS = 10
