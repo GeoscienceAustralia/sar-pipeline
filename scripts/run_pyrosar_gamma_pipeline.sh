@@ -53,7 +53,7 @@ if [[ -z "$scene" ]]; then
     exit 1
 fi
 
-results_folder="$out_folder/data/processed_scene/$scene"
+results_folder="$out_folder/data/final_product/$scene"
 
 echo ""
 echo The input variables are:
@@ -79,7 +79,6 @@ echo skip_upload_processed_scene_tracking_file : "$skip_upload_processed_scene_t
 echo product_version : "$product_version"
 echo ""
 
-
 # run the cli with pixi
 pixi run pyrosar-gamma-rtc-run-workflow --scene "$scene" \
     --dem-type "$dem_type" \
@@ -91,6 +90,16 @@ pixi run pyrosar-gamma-rtc-run-workflow --scene "$scene" \
     --geocode-scaling "$geocode_scaling" \
     --target-crs "$target_crs" \
     ${etad:+--etad "$etad"}
+
+
+# Create results folder and copy processed scene data to it. 
+# This is because PyroSAR-GAMMA will check the already existing products in the processed_scene folder 
+# to determine if the product has already been made, and if so, it will skip making the product again. 
+# metadata cli will rename this files to their final product format and pyroSAR-GAMMA will not find them as existing files if we are to rerun it. 
+# It will recreate the files and eventually the pipeline will fail because there will be files with different CRSs in the same folder.
+mkdir -p "$results_folder"
+cp "$out_folder/data/processed_scene/$scene"/* "$results_folder"/
+
 
 pixi run pyrosar-gamma-make-metadata-and-upload-product --scene "$scene" \
     --results-folder "$results_folder" \
