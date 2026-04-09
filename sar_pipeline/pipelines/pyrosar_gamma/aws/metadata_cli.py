@@ -27,6 +27,12 @@ logger = logging.getLogger(__name__)
     help="Path to the folder containing the product outputs from pyrosar-GAMMA.",
 )
 @click.option(
+    "--orbit-source-folder",
+    required=True,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Path to the folder containing the orbit source information.",
+)
+@click.option(
     "--backscatter-convention",
     required=False,
     default="gamma0",
@@ -109,6 +115,7 @@ def make_metadata_and_upload_product(
     validate_stac,
     skip_upload_processed_scene_tracking_file,
     product_version,
+    orbit_source_folder,
 ):
     """
     Generate STAC metadata for pyroSAR-GAMMA products, reorganise and standardise product filenames,
@@ -119,6 +126,35 @@ def make_metadata_and_upload_product(
     and handles overwrite rules for pre‑existing S3 content. It also maintains a processed‑scene tracking record and,
     unless disabled, uploads this summary to a monitoring location within the project’s S3 folder structure.
     """
+
+    # Checking and reading the orbit source folder
+    if not orbit_source_folder.is_dir():
+        logger.error(f"Orbit source folder does not exist: {orbit_source_folder}")
+        raise FileNotFoundError(
+            f"Orbit source folder does not exist: {orbit_source_folder}"
+        )
+    else:
+        orbit_source_files = list(Path(orbit_source_folder).glob("*"))
+        assert (
+            len(orbit_source_files) == 1
+        ), f"Expected exactly one file in the orbit source folder, found {len(orbit_source_files)}: {orbit_source_files}"
+        orbit_source_file = orbit_source_files[0]
+        if "POEORB" in orbit_source_file.name:
+            logger.info(
+                f"Using precise orbit ephemeris data from file: {orbit_source_file}"
+            )
+            orbit_source = "POE precise orbit"
+        elif "RESORB" in orbit_source_file.name:
+            logger.info(
+                f"Using restituted orbit ephemeris data from file: {orbit_source_file}"
+            )
+            orbit_source = "RES restituted orbit"
+        else:
+            raise ValueError(
+                f"Orbit source file name does not contain expected keywords (POEORB or RESORB). "
+                f"Please verify that the correct file is being used: {orbit_source_file}"
+            )
+        logger.info(f"Orbit source information loaded from {orbit_source_file}")
 
     # tracking file for processed scenes to assist with completion checking
     processed_scene_json = {"scene_id": scene, "stac": []}
@@ -152,6 +188,7 @@ def make_metadata_and_upload_product(
         backscatter_convention=backscatter_convention,
         collection_number=collection_number,
         s3_bucket=s3_bucket,
+        orbit_source=orbit_source,
         s3_project_folder=s3_project_folder,
     )
 
@@ -162,6 +199,10 @@ def make_metadata_and_upload_product(
 
     output_file_prefix = stac_object.get_output_filename_prefix()
     stac_filepath = results_folder / f"{output_file_prefix}_stac-item.json"
+
+    stac_object.add_metadata_links(stac_filepath)
+    stac_object.add_collection_link()
+
     stac_object.save(stac_filepath)
 
     # create a placeholder checksum file to link in stac metadata

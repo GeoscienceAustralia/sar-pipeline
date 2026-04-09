@@ -55,6 +55,8 @@ fi
 
 results_folder="$out_folder/data/final_product/$scene"
 
+orbit_source_folder="$download_folder/orbits/$scene"
+
 echo ""
 echo The input variables are:
 echo scene : "$scene"
@@ -77,6 +79,7 @@ echo make_existing_products : "$make_existing_products"
 echo validate_stac : "$validate_stac"
 echo skip_upload_processed_scene_tracking_file : "$skip_upload_processed_scene_tracking_file"
 echo product_version : "$product_version"
+echo orbit_source_folder : "$orbit_source_folder"
 echo ""
 
 # run the cli with pixi
@@ -108,6 +111,7 @@ pixi run pyrosar-gamma-make-metadata-and-upload-product --scene "$scene" \
     --s3-bucket "$s3_bucket" \
     --s3-project-folder "$s3_project_folder" \
     --product-version "$product_version" \
+    --orbit-source-folder "$orbit_source_folder" \
     $([[ "$skip_upload_to_s3" = true ]] && printf -- '--skip-upload-to-s3') \
     $([[ "$make_existing_products" = true ]] && printf -- '--make-existing-products') \
     $([[ "$validate_stac" = true ]] && printf -- '--validate-stac') \

@@ -209,7 +209,7 @@ def run_pyrosar_gamma_workflow(
     logger.info(f"Data source for orbit download : {orbit_data_source}")
 
     # sub-folders for downloads
-    orbit_folder = download_folder / "orbits"
+    orbit_folder = download_folder / "orbits" / scene
     scene_folder = download_folder / "scenes"
 
     if make_folders:

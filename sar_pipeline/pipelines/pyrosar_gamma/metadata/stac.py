@@ -68,6 +68,7 @@ class GammaNRBtoSTAC:
         collection_number: int,
         s3_bucket: str,
         s3_project_folder: str,
+        orbit_source: str,
         s3_region: str = "ap-southeast-2",
     ):
         # set input variables
@@ -77,6 +78,7 @@ class GammaNRBtoSTAC:
         self.collection_number = collection_number
         self.s3_bucket = s3_bucket
         self.s3_project_folder = s3_project_folder
+        self.orbit_source = orbit_source
         self.s3_region = s3_region
         # get the source scene metadata from the cdse
         self.scene_src_metadata = self._get_scene_metadata_from_cdse(scene_id)
@@ -86,7 +88,7 @@ class GammaNRBtoSTAC:
         self.geometry_4326 = self.scene_src_metadata["GeoFootprint"]
         self.start_dt = isoparse(self.scene_src_metadata["ContentDate"]["Start"])
         self.end_dt = isoparse(self.scene_src_metadata["ContentDate"]["End"])
-        self.created_dt = datetime.now()
+        self.created_dt = f"{datetime.now().isoformat()}Z"
         self.bbox_4326 = shape(self.geometry_4326).bounds
         # get the geometry and bbox from an actual tif in tif crs
         self.geometry, self.bbox, self.crs, self.resolution = (
@@ -166,12 +168,6 @@ class GammaNRBtoSTAC:
         crs, res = get_data_crs_and_resolution_from_tif(tif_file)
         return geometry, bbox, crs, res
 
-    def get_output_filename_prefix(self):
-        tif_file = self._get_tif_file_name()
-        pattern = r"\d{8}T\d{6}"
-        match_last_idx = re.search(pattern, tif_file.name).span()[1]
-        return tif_file.name[:match_last_idx]
-
     def _get_attribute_by_name(self, name):
         """ "This helper function extracts values from the CDSE metadata. e.g. 'orbitDirection'"""
         for attribute in self.all_scene_attributes:
@@ -196,6 +192,15 @@ class GammaNRBtoSTAC:
             logger.info(
                 f"Antimeridian geometry is already multipolygon, assuming correct : {shape(self.geometry_4326)}"
             )
+
+    def get_output_filename_prefix(self):
+        """Get the output filename prefix for the stac and checksum files.
+        This is based on the tif file name up to the datetime to ensure it is unique and identifiable.
+        """
+        tif_file = self._get_tif_file_name()
+        pattern = r"\d{8}T\d{6}"
+        match_last_idx = re.search(pattern, tif_file.name).span()[1]
+        return tif_file.name[:match_last_idx]
 
     def make_stac_item(self):
         """Make a pystac.item.Item for the given burst using key properties."""
@@ -269,7 +274,7 @@ class GammaNRBtoSTAC:
         # add sat stac extension properties
         self.item.properties["sat:orbit_state"] = self._get_attribute_by_name(
             "orbitDirection"
-        )
+        ).lower()
         self.item.properties["sat:absolute_orbit"] = self._get_attribute_by_name(
             "orbitNumber"
         )
@@ -277,9 +282,7 @@ class GammaNRBtoSTAC:
             "relativeOrbitNumber"
         )
         self.item.properties["sat:orbit_cycle"] = 12
-
-        # # add sentinel-1 stac extension properties - https://github.com/stac-extensions/sentinel-1
-        # self.item.properties["s1:orbit_source"] = self.h5.search_value("orbitType")
+        self.item.properties["s1:orbit_source"] = self.orbit_source
 
         # # add processing stac extension specification
         self.item.properties["processing:level"] = "Level-2"
@@ -398,6 +401,46 @@ class GammaNRBtoSTAC:
             pystac.Link(
                 rel="self",
                 target=f"{self.base_href}/{Path(stac_filepath).name}",
+                media_type=pystac.media_type.STAC_JSON,
+            )
+        )
+
+    def add_collection_link(
+        self,
+        prod_stac_href: str = "https://explorer.dea.ga.gov.au/stac/collections",
+        dev_stac_href: str = "https://explorer.dev.dea.ga.gov.au/stac/collections",
+        PRODUCTION: bool = True,
+    ):
+        """Add the link the the stac collection. The link is different pending
+        if the product is to be indexed into the dev or prod ODC. This is handled
+        as a downstream process and must be communicated to ensure this collection
+        link is correct.
+
+        Parameters
+        ----------
+        prod_stac_href : str, optional
+            Link to production collection, by default "https://explorer.dea.ga.gov.au/stac/collections"
+        dev_stac_href : str, optional
+            link to to development collection, by default "https://explorer.dev.dea.ga.gov.au/stac/collections"
+        PRODUCTION : bool, optional
+            Whether to use the production collection, by default True. Set False for testing in dev odc.
+        """
+
+        if PRODUCTION:
+            stac_href = f"{prod_stac_href}/{self.odc_product_name}"
+            logger.info(
+                f"STAC collection references the production environment: {stac_href}"
+            )
+        else:
+            stac_href = f"{dev_stac_href}/{self.odc_product_name}"
+            logger.warning(
+                f"STAC collection references the development environment: {stac_href}"
+            )
+
+        self.item.add_link(
+            pystac.Link(
+                rel="collection",
+                target=stac_href,
                 media_type=pystac.media_type.STAC_JSON,
             )
         )
