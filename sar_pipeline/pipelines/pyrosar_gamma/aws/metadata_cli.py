@@ -74,7 +74,7 @@ logger = logging.getLogger(__name__)
     "--validate-stac",
     required=False,
     is_flag=True,
-    default=False,
+    default=True,
     help="Whether to validate the stac document within the code. "
     "If the stac is not valid, an error is raised and the products "
     "will not be uploaded.",
@@ -89,6 +89,13 @@ logger = logging.getLogger(__name__)
     "By default, it will be uploaded to the following folder: "
     "{s3_project_folder}/monitoring/processed_scenes ",
 )
+@click.option(
+    "--product-version",
+    required=False,
+    default="1-0-0",
+    type=str,
+    help="The version of the product.",
+)
 @log_timing
 def make_metadata_and_upload_product(
     results_folder,
@@ -101,11 +108,12 @@ def make_metadata_and_upload_product(
     make_existing_products,
     validate_stac,
     skip_upload_processed_scene_tracking_file,
+    product_version,
 ):
     """
     Generate STAC metadata for pyroSAR-GAMMA products, reorganise and standardise product filenames,
     build supporting metadata files (STAC JSON, checksums), and optionally upload each product set to an S3 bucket
-    following the RTC_S1 storage layout.
+    following the `GAMMA_RTC_S1_S3_PREFIX_FORMAT` format in `odc.py`.
     The function converts metadata into STAC items, applies optional geometry updates using valid-data masks,
     creates linked assets and metadata references, validates STAC documents if requested, computes checksums,
     and handles overwrite rules for pre‑existing S3 content. It also maintains a processed‑scene tracking record and,
@@ -128,12 +136,11 @@ def make_metadata_and_upload_product(
     )
     for product_file in results_folder.iterdir():
         if product_file.is_file():
-            # step 1: remove 'v' before version numbers
-            name = re.sub(r"v(?=\d)", "", product_file.name)
-            # step 2: replace version pattern digits.digits.digits → digits-digits-digits
-            name = re.sub(r"(\d+)\.(\d+)\.(\d+)", r"\1-\2-\3", name)
-            # step 3: lowercase the platform (S1 + single letter, anywhere)
-            name = re.sub(r"S1[A-Z]", lambda m: m.group(0).lower(), name)
+            name = re.sub(
+                r"S1[A-Z]",
+                lambda m: f"ga_{m.group(0).lower()}_nrb_{product_version}",
+                product_file.name,
+            )
             new_path = product_file.with_name(name)
             if new_path != product_file:
                 logger.info(f"Renaming: {product_file.name} -> {new_path.name}")
@@ -148,7 +155,7 @@ def make_metadata_and_upload_product(
         s3_project_folder=s3_project_folder,
     )
 
-    stac_object.make_stac_item_from_h5()
+    stac_object.make_stac_item()
     stac_object.add_properties()
     stac_object.rename_asset_files()
     stac_object.add_assets()

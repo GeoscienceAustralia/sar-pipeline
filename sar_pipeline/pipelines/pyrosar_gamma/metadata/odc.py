@@ -10,12 +10,12 @@ def make_gamma_rtc_s1_product_s3_prefix(
     s3_project_folder: str,
     collection_number: int,
     polarisations: list,
-    mode: str,
+    acquisition_mode: str,
     scene_id: str,
     start_dt: str | datetime.datetime,
 ) -> str:
-    """Structure for the RTC_S1 product sub-folders. These include
-    information about when the burst was acquired.
+    """Structure for the RTC_S1 pyrosar-GAMMA product sub-folders. These include
+    information about when the product was acquired.
 
     Parameters
     ----------
@@ -25,12 +25,12 @@ def make_gamma_rtc_s1_product_s3_prefix(
         collection number as an integer
     polarisations: list
         list of polarisations
-    mode: str
+    acquisition_mode: str
         Acquisition mode of sensor. E.g. IW, EW
     scene_id : str
-        burst_id. e.g. S1A_EW_GRDM_1SDH_20190103T112546_20190103T112656_025312_02CCF2_83F6
+        scene_id. e.g. S1A_EW_GRDM_1SDH_20190103T112546_20190103T112656_025312_02CCF2_83F6
     start_dt : str | datetime.datetime
-        The starting datetime for the the burst acquisition.
+        The starting datetime for the the product acquisition.
 
     Returns
     -------
@@ -42,15 +42,16 @@ def make_gamma_rtc_s1_product_s3_prefix(
     # get the odc product name which includes the collection number
     # get the time values
     start_year = f"{start_dt.year}"
+    # zero padded day and month strings
     start_month = f"{start_dt.month:02d}"
     start_day = f"{start_dt.day:02d}"
 
-    start_dt = start_dt.strftime("%Y%m%dT%H%M%S")  # formatted timestamp without UTC 'Z'
-    # zero padded day and month strings
+    # formatted timestamp without UTC 'Z'
+    start_dt = start_dt.strftime("%Y%m%dT%H%M%S")
 
     # get the correct odc product name
     odc_product_name = get_odc_product_name(
-        "RTC_S1", collection_number, polarisations, acquisition_mode=mode
+        "RTC_S1", collection_number, polarisations, acquisition_mode=acquisition_mode
     )
 
     # update the string format

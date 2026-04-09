@@ -13,7 +13,7 @@ stac = GammaNRBtoSTAC(
 )
 
 
-stac.make_stac_item_from_h5()
+stac.make_stac_item()
 stac.add_properties()
 stac.rename_asset_files()
 stac.add_assets()

@@ -6,7 +6,7 @@ dem_type="best"
 download_folder="sar-processing/downloads"
 out_folder="sar-processing/s1_rtc"
 scene_data_source="AUS_COP_HUB ASF CDSE"
-orbit_data_source="ASF CDSE"
+orbit_data_source="AUS_COP_HUB ASF CDSE"
 geocode_spacing=20
 geocode_scaling="both"
 etad=""
@@ -17,8 +17,9 @@ s3_bucket="dea-public-data-dev"
 s3_project_folder="experimental/baseline"
 skip_upload_to_s3=false
 make_existing_products=false
-validate_stac=false
+validate_stac=true
 skip_upload_processed_scene_tracking_file=false
+product_version="1-0-0"
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
@@ -41,6 +42,7 @@ while [[ "$#" -gt 0 ]]; do
         --make-existing-products) make_existing_products="$2"; shift 2 ;;
         --validate-stac) validate_stac="$2"; shift 2 ;;
         --skip-upload-processed-scene-tracking-file) skip_upload_processed_scene_tracking_file="$2"; shift 2 ;;
+        --product-version) product_version="$2"; shift 2 ;;
         *) echo "Unknown parameter: $1"; exit 1 ;;
     esac
 done
@@ -74,6 +76,7 @@ echo skip_upload_to_s3 : "$skip_upload_to_s3"
 echo make_existing_products : "$make_existing_products"
 echo validate_stac : "$validate_stac"
 echo skip_upload_processed_scene_tracking_file : "$skip_upload_processed_scene_tracking_file"
+echo product_version : "$product_version"
 echo ""
 
 
@@ -87,7 +90,7 @@ pixi run pyrosar-gamma-rtc-run-workflow --scene "$scene" \
     --geocode-spacing "$geocode_spacing" \
     --geocode-scaling "$geocode_scaling" \
     --target-crs "$target_crs" \
-    ${etad:+--etad "$etad"} 
+    ${etad:+--etad "$etad"}
 
 pixi run pyrosar-gamma-make-metadata-and-upload-product --scene "$scene" \
     --results-folder "$results_folder" \
@@ -95,6 +98,7 @@ pixi run pyrosar-gamma-make-metadata-and-upload-product --scene "$scene" \
     --collection-number "$collection_number" \
     --s3-bucket "$s3_bucket" \
     --s3-project-folder "$s3_project_folder" \
+    --product-version "$product_version" \
     $([[ "$skip_upload_to_s3" = true ]] && printf -- '--skip-upload-to-s3') \
     $([[ "$make_existing_products" = true ]] && printf -- '--make-existing-products') \
     $([[ "$validate_stac" = true ]] && printf -- '--validate-stac') \

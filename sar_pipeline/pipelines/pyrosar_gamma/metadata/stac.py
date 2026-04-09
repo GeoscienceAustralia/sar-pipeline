@@ -173,6 +173,7 @@ class GammaNRBtoSTAC:
         return tif_file.name[:match_last_idx]
 
     def _get_attribute_by_name(self, name):
+        """ "This helper function extracts values from the CDSE metadata. e.g. 'orbitDirection'"""
         for attribute in self.all_scene_attributes:
             if attribute["Name"] == name:
                 return attribute["Value"]
@@ -196,10 +197,8 @@ class GammaNRBtoSTAC:
                 f"Antimeridian geometry is already multipolygon, assuming correct : {shape(self.geometry_4326)}"
             )
 
-    def make_stac_item_from_h5(self):
-        """Make a pystac.item.Item for the given burst using key properties
-        taken from the .h5 file.
-        """
+    def make_stac_item(self):
+        """Make a pystac.item.Item for the given burst using key properties."""
 
         # Some base properties need to be defined
         base_properties = {
@@ -223,7 +222,7 @@ class GammaNRBtoSTAC:
         )
 
     def add_properties(self):
-        """Map required properties from the .h5 file"""
+        """Map required properties."""
 
         # add odc specific fields
         self.item.properties["odc:product"] = (
@@ -255,9 +254,6 @@ class GammaNRBtoSTAC:
         # add projection (proj) stac extension properties
         self.item.properties["proj:code"] = f"EPSG:{self.crs}"
         self.item.properties["proj:bbox"] = self.bbox
-        # self.item.properties["proj:wkt2"] = pyproj.CRS.from_epsg(
-        #     self.projection_epsg
-        # ).to_wkt() # causing issues in explorer, value set in XML
 
         # add the sar stac extension properties
         self.item.properties["sar:frequency_band"] = "C"
@@ -416,18 +412,12 @@ class GammaNRBtoSTAC:
 
         for f in files:
             for old_suffix in RENAME_ASSET_FILETYPES.keys():
-                old_suffix_ = old_suffix.replace(
-                    "BACKSCATTER-CONVENTION", self.backscatter_convention
-                )
-                new_suffix = RENAME_ASSET_FILETYPES[old_suffix_]
-                new_suffix = new_suffix.replace(
-                    "BACKSCATTER-CONVENTION", self.backscatter_convention
-                )
+                new_suffix = RENAME_ASSET_FILETYPES[old_suffix]
                 # logger.info(f'{str(f.name)}, {old_suffix_}, {new_suffix}')
-                if str(f.name).endswith(old_suffix_):
-                    logger.info(f"renaming {old_suffix_} -> {new_suffix}")
+                if str(f.name).endswith(old_suffix):
+                    logger.info(f"renaming {old_suffix} -> {new_suffix}")
                     # backscatter convention will be added here
-                    new_path = f.with_name(f.name.replace(old_suffix_, new_suffix))
+                    new_path = f.with_name(f.name.replace(old_suffix, new_suffix))
                     f.rename(new_path)
                     break  # once renamed, move to next file
 
@@ -453,6 +443,7 @@ class GammaNRBtoSTAC:
         # list the files in the burst folder
         asset_files = [x for x in Path(self.product_folder).iterdir()]
         pols = self.polarisations
+        # Ignores the polarisations that are not included in the product.
         ignore_assets = [
             f"_{p}-{self.backscatter_convention}.tif"
             for p in ["HH", "HV", "VV", "VH"]
@@ -460,7 +451,7 @@ class GammaNRBtoSTAC:
         ]
         # ignore the db files
         ignore_assets += [i.replace(".tif", "_db.tif") for i in ignore_assets]
-        # optional assets that may not be present
+
         included_pol_assets = [f"_{p}-{self.backscatter_convention}.tif" for p in pols]
         required_asset_filetypes = REQUIRED_ASSET_FILETYPES[self.backscatter_convention]
         required_asset_filetypes = [

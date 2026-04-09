@@ -90,7 +90,7 @@ PROJECT_ROOT = CURRENT_DIR.parents[3]
 @click.option(
     "--orbit-data-source",
     required=False,
-    default="ASF CDSE",
+    default="AUS_COP_HUB ASF CDSE",
     type=str,
     help="Where to download the orbit files from. "
     "Can be passed as a string or list of preferences separated by a space. "

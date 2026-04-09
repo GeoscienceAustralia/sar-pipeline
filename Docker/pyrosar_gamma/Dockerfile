@@ -53,6 +53,6 @@ RUN set -eux; \
 ENV LD_LIBRARY_PATH="/app/.pixi/envs/default/lib:/root/gamma_symlinks"
 
 # Run shell script for pyrosar-gamma inside the pixi env
-ENTRYPOINT ["scripts/run_pyrosar_gamma_workflow.sh"]
+ENTRYPOINT ["scripts/run_pyrosar_gamma_pipeline.sh"]
 CMD []
 
