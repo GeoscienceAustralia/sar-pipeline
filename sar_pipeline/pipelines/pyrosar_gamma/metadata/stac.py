@@ -114,7 +114,7 @@ class GammaNRBtoSTAC:
             s3_project_folder=s3_project_folder,
             collection_number=self.collection_number,
             polarisations=self.polarisations,
-            mode=self.acquisition_mode,
+            acquisition_mode=self.acquisition_mode,
             scene_id=self.scene_id,
             start_dt=self.start_dt,
         )
