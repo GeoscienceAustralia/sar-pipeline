@@ -105,7 +105,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--processed-scene-tracking-file-s3-folder",
     required=False,
-    default="projects/n1_nrb/monitoring/iw",
+    default="projects/s1_nrb/monitoring/iw",
     type=click.Path(file_okay=False, path_type=Path),
     help="The folder within the project’s S3 folder structure to upload the processed scene tracking file.",
 )
