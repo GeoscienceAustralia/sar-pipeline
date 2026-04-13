@@ -20,7 +20,7 @@ orbit_data_source=("AUS_COP_HUB" "ASF" "CDSE")
 skip_validate_stac=false
 skip_upload_processed_scene_tracking_file=false
 skip_rtc=false
-processed_scene_tracking_file_s3_folder="projects/s1_nrb/monitoring/iw"
+processed_scene_tracking_file_s3_folder="projects/s1_nrb/monitoring"
 ## -- WORKFLOW INPUTS TO LINK RTC_S1_STATIC in RTC_S1 metadata--
 # if link_static_layers, RTC_S1_STATIC products must exist for all RTC_S1 bursts being processed
 link_static_layers=false

@@ -522,7 +522,7 @@ def process_s1_iw_scene_completeness_report_cli(
     "--re-index-missing-products",
     is_flag=True,
     default=False,
-    help="If True, existing products that have been created, but have not been indexed" \
+    help="If True, existing products that have been created, but have not been indexed"
     "into the open data cube (ODC). Will be sent for re-indexing.",
 )
 @click.option(
@@ -580,7 +580,7 @@ def process_s1_iw_burst_completeness_report_cli(
 
     The flag --re-index-missing-products will re-initiate the automated indexing pipeline
     for products that exist in the s3-bucket, but are not indexed in the ODC.
-    
+
     It should be noted that although the burst report details individual burst products,
     full scenes are sent to reprocessing via --s1-nrb-sqs-url and --s1-nrb-static-sqs-url. This is
     to simplify the process, as only missing burst products will be created from the scene.

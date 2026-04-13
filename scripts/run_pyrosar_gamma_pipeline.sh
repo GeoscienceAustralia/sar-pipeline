@@ -20,7 +20,7 @@ make_existing_products=false
 validate_stac=true
 skip_upload_processed_scene_tracking_file=false
 product_version="1-0-0"
-processed_scene_tracking_file_s3_folder="projects/s1_nrb/monitoring/iw"
+processed_scene_tracking_file_s3_folder="projects/s1_nrb/monitoring"
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do

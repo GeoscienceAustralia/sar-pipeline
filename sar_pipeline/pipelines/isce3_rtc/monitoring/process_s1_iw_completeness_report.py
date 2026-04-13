@@ -17,6 +17,7 @@ VALID_REPORT_TYPES = ["scene", "burst"]
 
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes, S3Util
 
+
 def _send_job_to_sqs(queue_url: str, job: dict) -> None:
 
     sqs = boto3.client("sqs")
@@ -139,7 +140,7 @@ def process_completeness_report(
     s1_nrb_sqs_url: str,
     report_name: str | None = None,
     n_most_recent_reports: int = None,
-    remove_resubmitted_scenes_from_dlq: bool =True,
+    remove_resubmitted_scenes_from_dlq: bool = True,
     re_index_missing_products: bool = True,
     s1_nrb_dlq_sqs_url: str | None = None,
     s1_nrb_static_sqs_url: str | None = None,
@@ -175,7 +176,9 @@ def process_completeness_report(
                 f"Missing static layers will be sent to reprocess. s1_nrb_static_sqs_url = {s1_nrb_static_sqs_url},"
             )
         if not re_index_missing_products:
-            logging.warning('re_index_missing_products = false. Existing products will not be sent for re-indexing.')
+            logging.warning(
+                "re_index_missing_products = false. Existing products will not be sent for re-indexing."
+            )
 
     if n_most_recent_reports:
         # find the n most recent report
@@ -310,9 +313,7 @@ def process_completeness_report(
             logging.warning(
                 f"dry_run, jobs will not be sent to s1-nrb-static sqs queue : {s1_nrb_sqs_url}"
             )
-            logging.warning(
-                f"dry_run, missing products will not be re-indexed."
-            )
+            logging.warning(f"dry_run, missing products will not be re-indexed.")
     else:
         logging.info(f"Adding jobs to s1-nrb sqs queue : {s1_nrb_sqs_url}")
 
@@ -359,7 +360,9 @@ def process_completeness_report(
             # https://bitbucket.org/geoscienceaustralia/dea-serverless/src/master/s3-to-stac-sns/
             # In which case, indexing will be triggered by re-uploading the stac document to the original location.
             if not re_index_missing_products:
-                logger.info('re_index_missing_scenes = false. Any existing products are not being re-indexed.')
+                logger.info(
+                    "re_index_missing_scenes = false. Any existing products are not being re-indexed."
+                )
             if re_index_missing_products:
                 s3_helper = S3Util()
                 if s3_project_folder in burst_products_to_index.keys():
@@ -373,7 +376,9 @@ def process_completeness_report(
                         )
                         # download the product stac file
                         product_stac_s3_prefix = product_stac_files["stac-item.json"]
-                        result = s3_helper.s3.get_object(Bucket=s3_bucket, Key=product_stac_s3_prefix)
+                        result = s3_helper.s3.get_object(
+                            Bucket=s3_bucket, Key=product_stac_s3_prefix
+                        )
                         product_stac_item = json.loads(result["Body"].read().decode())
 
                         # re-upload to existing path to kick off downstream auto indexing
@@ -381,10 +386,12 @@ def process_completeness_report(
                             s3_helper.s3.put_object(
                                 Bucket=s3_bucket,
                                 Key=product_stac_s3_prefix,
-                                Body=json.dumps(product_stac_item, indent=2).encode("utf-8"),
+                                Body=json.dumps(product_stac_item, indent=2).encode(
+                                    "utf-8"
+                                ),
                                 ContentType="application/json",
                             )
-                                    
+
                         n_reindexed += 1
 
     if not dry_run:
