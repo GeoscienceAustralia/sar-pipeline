@@ -359,10 +359,12 @@ def process_completeness_report(
                     # TODO format the correct sqs message for indexing
                     product_reindex_message = None
                     n_reindex_messages += 1
-                    if not dry_run:
-                        _send_job_to_sqs(
-                            s1_nrb_indexing_sqs_url, product_reindex_message
-                        )
+
+                    # TODO Need to follow this up with the DE Australia team to understand the correct message format.
+                    # if not dry_run:
+                    # _send_job_to_sqs(
+                    #     s1_nrb_indexing_sqs_url, product_reindex_message
+                    # )
 
     if not dry_run:
         logging.info(

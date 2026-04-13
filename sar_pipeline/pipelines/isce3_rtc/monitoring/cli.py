@@ -506,7 +506,8 @@ def process_s1_iw_scene_completeness_report_cli(
 )
 @click.option(
     "--s1-nrb-indexing-sqs-url",
-    required=True,
+    required=False,  # TODO make this required after the indexing queue is set up and we understand the message format for it.
+    default="",
     type=str,
     help="SQS queue URL to submit open data cube re-indexing jobs for existing burst products.",
 )
