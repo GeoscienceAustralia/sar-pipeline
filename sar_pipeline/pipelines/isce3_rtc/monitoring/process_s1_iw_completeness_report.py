@@ -331,6 +331,7 @@ def process_completeness_report(
                     "jobName": f"{start_date}_{product_unique_id}_reprocess",
                     "sceneId": scene,
                     "project": s3_project_folder,
+                    "bucket": s3_bucket,
                 }
                 n_s1_nrb_messages += 1
                 if not dry_run:
@@ -347,6 +348,7 @@ def process_completeness_report(
                         "jobName": f"{start_date}_{product_unique_id}_reprocess",
                         "sceneId": scene,
                         "project": s3_project_folder,
+                        "bucket": s3_bucket,
                     }
                     n_s1_nrb_static_messages += 1
                     if not dry_run:
