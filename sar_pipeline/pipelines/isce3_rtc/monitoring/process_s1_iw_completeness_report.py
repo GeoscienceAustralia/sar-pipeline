@@ -328,7 +328,7 @@ def process_completeness_report(
                 start_date = scene[17:25]
                 product_unique_id = scene[-4:]
                 scene_sqs_message = {
-                    "jobname": f"{start_date}_{product_unique_id}_reprocess",
+                    "jobName": f"{start_date}_{product_unique_id}_reprocess",
                     "sceneId": scene,
                     "project": s3_project_folder,
                 }
@@ -344,7 +344,7 @@ def process_completeness_report(
                     start_date = scene[17:25]
                     product_unique_id = scene[-4:]
                     scene_sqs_message = {
-                        "jobname": f"{start_date}_{product_unique_id}_reprocess",
+                        "jobName": f"{start_date}_{product_unique_id}_reprocess",
                         "sceneId": scene,
                         "project": s3_project_folder,
                     }
