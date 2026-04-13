@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Literal, get_args
 
 # Taken from https://sentiwiki.copernicus.eu/web/s1-products#S1Products-SARNamingConventionS1-Products-SAR-Naming-Convention
-Mission = Literal["S1A", "S1B", "S1C"]
+Mission = Literal["S1A", "S1B", "S1C", "S1D"]
 ModeBeam = Literal[
     "S1",
     "S2",
@@ -56,7 +56,7 @@ class Sentinel1SceneId:
 
 
 SENTINEL_1_ID_PATTERN = (
-    r"(S1[ABC])_"  # MMM: S1A, S1B, S1C
+    r"(S1[ABC])_"  # MMM: S1A, S1B, S1C, S1D
     r"(S1|S2|S3|S4|S5|S6|IW|EW|WV|EN|N[1-6]|Z[IEW1-6])_"  # BB: Beam identifiers
     r"(RAW|SLC|GRD|OCN|ETA)"  # TTT: Product Type
     r"([FHM_])_"  # R: Resolution class

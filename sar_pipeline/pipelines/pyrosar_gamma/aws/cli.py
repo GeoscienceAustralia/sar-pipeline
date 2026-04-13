@@ -90,7 +90,7 @@ PROJECT_ROOT = CURRENT_DIR.parents[3]
 @click.option(
     "--orbit-data-source",
     required=False,
-    default="ASF CDSE",
+    default="AUS_COP_HUB ASF CDSE",
     type=str,
     help="Where to download the orbit files from. "
     "Can be passed as a string or list of preferences separated by a space. "
@@ -209,7 +209,7 @@ def run_pyrosar_gamma_workflow(
     logger.info(f"Data source for orbit download : {orbit_data_source}")
 
     # sub-folders for downloads
-    orbit_folder = download_folder / "orbits"
+    orbit_folder = download_folder / "orbits" / scene
     scene_folder = download_folder / "scenes"
 
     if make_folders:
