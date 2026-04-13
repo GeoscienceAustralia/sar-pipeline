@@ -505,13 +505,6 @@ def process_s1_iw_scene_completeness_report_cli(
     help="SQS queue URL to submit Sentinel-1 static layer jobs for reprocessing.",
 )
 @click.option(
-    "--s1-nrb-indexing-sqs-url",
-    required=False,  # TODO make this required after the indexing queue is set up and we understand the message format for it.
-    default="",
-    type=str,
-    help="SQS queue URL to submit open data cube re-indexing jobs for existing burst products.",
-)
-@click.option(
     "--s1-nrb-dlq-sqs-url",
     required=True,
     type=str,
@@ -524,6 +517,13 @@ def process_s1_iw_scene_completeness_report_cli(
     help="If True, scenes that are sent for re-processing from the completeness report "
     "Will be removed from the dead-letter queue (if existing). This will stop duplicate jobs. "
     "For example, if a manual re-drive of the dead-letter queue is applied",
+)
+@click.option(
+    "--re-index-missing-products",
+    is_flag=True,
+    default=False,
+    help="If True, existing products that have been created, but have not been indexed" \
+    "into the open data cube (ODC). Will be sent for re-indexing.",
 )
 @click.option(
     "--report-name",
@@ -552,9 +552,9 @@ def process_s1_iw_burst_completeness_report_cli(
     s3_completeness_report_folder: str,
     s1_nrb_sqs_url: str,
     s1_nrb_static_sqs_url: str,
-    s1_nrb_indexing_sqs_url: str,
     s1_nrb_dlq_sqs_url: str | None,
     remove_resubmitted_scenes_from_dlq: bool,
+    re_index_missing_products: bool,
     report_name: str | None,
     n_most_recent_reports: int | None,
     dry_run: bool,
@@ -568,10 +568,9 @@ def process_s1_iw_burst_completeness_report_cli(
     folder to process. The --dry-run parameter can be used to run the process
     without actually sending the messages to the queues.
 
-    Jobs are sent to three possible sqs queues based on the report contents:
+    Jobs are sent to two possible sqs queues based on the report contents:
         --s1-nrb-sqs-url : where scenes with missing nrb products can be re-processed
         --s1-nrb-static-sqs-url : where bursts with missing static layers can be re-processed
-        --s1-nrb-indexing-sqs-url : where existing products that have not been indexed can be indexed
 
     Messages on the dead-letter queue for s1-nrb jobs can also be cleared if the given scene
     is sent for re-processing based on the completion report using --remove-resubmitted-scenes-from-dlq.
@@ -579,6 +578,9 @@ def process_s1_iw_burst_completeness_report_cli(
     report
         --s1-nrb-sqs-dlq-url : the dead-letter queue for failed s1-nrb jobs.
 
+    The flag --re-index-missing-products will re-initiate the automated indexing pipeline
+    for products that exist in the s3-bucket, but are not indexed in the ODC.
+    
     It should be noted that although the burst report details individual burst products,
     full scenes are sent to reprocessing via --s1-nrb-sqs-url and --s1-nrb-static-sqs-url. This is
     to simplify the process, as only missing burst products will be created from the scene.
@@ -590,10 +592,10 @@ def process_s1_iw_burst_completeness_report_cli(
         s3_completeness_report_folder=s3_completeness_report_folder,
         report_type="burst",
         s1_nrb_static_sqs_url=s1_nrb_static_sqs_url,
-        s1_nrb_indexing_sqs_url=s1_nrb_indexing_sqs_url,
         s1_nrb_sqs_url=s1_nrb_sqs_url,
         s1_nrb_dlq_sqs_url=s1_nrb_dlq_sqs_url,
         remove_resubmitted_scenes_from_dlq=remove_resubmitted_scenes_from_dlq,
+        re_index_missing_products=re_index_missing_products,
         report_name=report_name,
         n_most_recent_reports=n_most_recent_reports,
         dry_run=dry_run,

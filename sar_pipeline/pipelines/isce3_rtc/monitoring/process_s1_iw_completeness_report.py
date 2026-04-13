@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 ValidReportTypes = Literal["scene", "burst"]
 VALID_REPORT_TYPES = ["scene", "burst"]
 
+from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes, S3Util
 
 def _send_job_to_sqs(queue_url: str, job: dict) -> None:
 
@@ -138,10 +139,10 @@ def process_completeness_report(
     s1_nrb_sqs_url: str,
     report_name: str | None = None,
     n_most_recent_reports: int = None,
-    remove_resubmitted_scenes_from_dlq=True,
+    remove_resubmitted_scenes_from_dlq: bool =True,
+    re_index_missing_products: bool = True,
     s1_nrb_dlq_sqs_url: str | None = None,
-    s1_nrb_static_sqs_url: str = None,
-    s1_nrb_indexing_sqs_url: str = None,
+    s1_nrb_static_sqs_url: str | None = None,
     dry_run: bool = False,
 ):
 
@@ -168,12 +169,13 @@ def process_completeness_report(
             "e.g. set `n_most_recent_reports = 1` to process the most recently created scene report. "
         )
     if report_type == "burst":
-        if not (s1_nrb_static_sqs_url or s1_nrb_indexing_sqs_url):
+        if not s1_nrb_static_sqs_url:
             raise ValueError(
-                "Both `s1_nrb_static_sqs_url` and `s1_nrb_indexing_sqs_url` must be set if `report_type` == 'burst'. "
-                "Missing static layers will be sent to reprocess and existing products not indexed will be added. "
-                f"s1_nrb_static_sqs_url = {s1_nrb_static_sqs_url}, s1_nrb_indexing_sqs_url = {s1_nrb_indexing_sqs_url}"
+                "`s1_nrb_static_sqs_url` must be set if `report_type` == 'burst'"
+                f"Missing static layers will be sent to reprocess. s1_nrb_static_sqs_url = {s1_nrb_static_sqs_url},"
             )
+        if not re_index_missing_products:
+            logging.warning('re_index_missing_products = false. Existing products will not be sent for re-indexing.')
 
     if n_most_recent_reports:
         # find the n most recent report
@@ -309,14 +311,14 @@ def process_completeness_report(
                 f"dry_run, jobs will not be sent to s1-nrb-static sqs queue : {s1_nrb_sqs_url}"
             )
             logging.warning(
-                f"dry_run, jobs will not be sent to odc-indexing queue : {s1_nrb_indexing_sqs_url}"
+                f"dry_run, missing products will not be re-indexed."
             )
     else:
         logging.info(f"Adding jobs to s1-nrb sqs queue : {s1_nrb_sqs_url}")
 
     n_s1_nrb_messages = 0
     n_s1_nrb_static_messages = 0
-    n_reindex_messages = 0
+    n_reindexed = 0
 
     for s3_project_folder in s3_project_folders:
         # send nrb messages to reprocess
@@ -350,21 +352,38 @@ def process_completeness_report(
                     if not dry_run:
                         _send_job_to_sqs(s1_nrb_static_sqs_url, scene_sqs_message)
 
-            # send burst products to re-index
-            if s3_project_folder in burst_products_to_index.keys():
-                for s3_product_folder in burst_products_to_index[s3_project_folder]:
-                    # create the wildcard path to stac for indexing. i.e. the stac
-                    # file is stored in this project folder
-                    index_path = f"{s3_product_folder}/*stac.json"
-                    # TODO format the correct sqs message for indexing
-                    product_reindex_message = None
-                    n_reindex_messages += 1
+            # Re index existing burst products. This assumes the pipeline is a part of the
+            # Automated indexing process used by de-aus (s3-stac-to-sns)
+            # https://bitbucket.org/geoscienceaustralia/dea-serverless/src/master/s3-to-stac-sns/
+            # In which case, indexing will be triggered by re-uploading the stac document to the original location.
+            if not re_index_missing_products:
+                logger.info('re_index_missing_scenes = false. Any existing products are not being re-indexed.')
+            if re_index_missing_products:
+                s3_helper = S3Util()
+                if s3_project_folder in burst_products_to_index.keys():
+                    for s3_product_folder in burst_products_to_index[s3_project_folder]:
+                        # search for the stac file in the folder
+                        product_stac_files = find_s3_filepaths_from_suffixes(
+                            bucket_name=s3_bucket,
+                            s3_folder=s3_product_folder,
+                            suffixes=["stac-item.json"],
+                            warn_credentials=False,
+                        )
+                        # download the product stac file
+                        product_stac_s3_prefix = product_stac_files["stac-item.json"]
+                        result = s3_helper.s3.get_object(Bucket=s3_bucket, Key=product_stac_s3_prefix)
+                        product_stac_item = json.loads(result["Body"].read().decode())
 
-                    # TODO Need to follow this up with the DE Australia team to understand the correct message format.
-                    # if not dry_run:
-                    # _send_job_to_sqs(
-                    #     s1_nrb_indexing_sqs_url, product_reindex_message
-                    # )
+                        # re-upload to existing path to kick off downstream auto indexing
+                        if not dry_run:
+                            s3_helper.s3.put_object(
+                                Bucket=s3_bucket,
+                                Key=product_stac_s3_prefix,
+                                Body=json.dumps(product_stac_item, indent=2).encode("utf-8"),
+                                ContentType="application/json",
+                            )
+                                    
+                        n_reindexed += 1
 
     if not dry_run:
         logging.info(
@@ -372,10 +391,10 @@ def process_completeness_report(
         )
         if report_type == "burst":
             logging.info(
-                f"{n_s1_nrb_static_messages} scene/s successfully sent to reprocessing s1-nrb sqs queue : {s1_nrb_static_sqs_url}"
+                f"{n_s1_nrb_static_messages} scene/s successfully sent to reprocessing s1-nrb-static sqs queue : {s1_nrb_static_sqs_url}"
             )
             logging.info(
-                f"{n_reindex_messages} burst products successfully sent to odc-indexing sqs queue : {s1_nrb_indexing_sqs_url}"
+                f"{n_reindexed} burst product stac-items successfully uploaded for automated re-indexing process"
             )
 
     else:
@@ -387,7 +406,7 @@ def process_completeness_report(
                 f"dry_run, {n_s1_nrb_static_messages} message/s prepared but not sent to s1-nrb-static sqs queue : {s1_nrb_static_sqs_url}"
             )
             logging.info(
-                f"dry_run, {n_reindex_messages} message/s prepared but not sent to odc-indexing sqs queue : {s1_nrb_indexing_sqs_url}"
+                f"dry_run, {n_reindexed} burst product stac-items prepared but uploaded for automated re-indexing process"
             )
 
     already_resubmitted_jobs = {s3_folder: [] for s3_folder in s3_project_folders}

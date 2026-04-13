@@ -72,9 +72,9 @@ class BurstProcessConfig:
     s3_completeness_report_folder: str
     s1_nrb_sqs_url: str
     s1_nrb_static_sqs_url: str
-    s1_nrb_indexing_sqs_url: str
     s1_nrb_dlq_sqs_url: Optional[str]
     remove_resubmitted_scenes_from_dlq: bool
+    re_index_missing_products: bool
     report_name: Optional[str]
     n_most_recent_reports: Optional[int]
     dry_run: bool
@@ -151,9 +151,9 @@ BURST_TEST_WITH_REPORT = BurstProcessConfig(
     s3_completeness_report_folder="persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/monitoring/burst_completion_reports",
     s1_nrb_sqs_url="https://sqs.ap-southeast-2.amazonaws.com/123456789012/s1-nrb",
     s1_nrb_static_sqs_url="https://sqs.ap-southeast-2.amazonaws.com/123456789012/s1-nrb-static",
-    s1_nrb_indexing_sqs_url="https://sqs.ap-southeast-2.amazonaws.com/123456789012/s1-nrb-indexing",
     s1_nrb_dlq_sqs_url="https://sqs.ap-southeast-2.amazonaws.com/123456789012/s1-nrb-dlq",
     remove_resubmitted_scenes_from_dlq=False,
+    re_index_missing_products=False,
     report_name="20260304T015903_20241214T040000_20241214T080000_burst_completeness_report.json",
     n_most_recent_reports=None,
     dry_run=True,
@@ -164,9 +164,9 @@ BURST_TEST_WITH_N_MOST_RECENT = BurstProcessConfig(
     s3_completeness_report_folder="persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/monitoring/burst_completion_reports",
     s1_nrb_sqs_url="https://sqs.ap-southeast-2.amazonaws.com/123456789012/s1-nrb",
     s1_nrb_static_sqs_url="https://sqs.ap-southeast-2.amazonaws.com/123456789012/s1-nrb-static",
-    s1_nrb_indexing_sqs_url="https://sqs.ap-southeast-2.amazonaws.com/123456789012/s1-nrb-indexing",
     s1_nrb_dlq_sqs_url="https://sqs.ap-southeast-2.amazonaws.com/123456789012/s1-nrb-dlq",
     remove_resubmitted_scenes_from_dlq=False,
+    re_index_missing_products=False,
     report_name=None,
     n_most_recent_reports=3,
     dry_run=True,
@@ -329,11 +329,12 @@ def test_process_s1_iw_burst_report_cli(cfg: BurstProcessConfig):
     args += ["--s3-completeness-report-folder", cfg.s3_completeness_report_folder]
     args += ["--s1-nrb-sqs-url", cfg.s1_nrb_sqs_url]
     args += ["--s1-nrb-static-sqs-url", cfg.s1_nrb_static_sqs_url]
-    args += ["--s1-nrb-indexing-sqs-url", cfg.s1_nrb_indexing_sqs_url]
     if cfg.s1_nrb_dlq_sqs_url:
         args += ["--s1-nrb-dlq-sqs-url", cfg.s1_nrb_dlq_sqs_url]
     if cfg.remove_resubmitted_scenes_from_dlq:
         args += ["--remove-resubmitted-scenes-from-dlq"]
+    if cfg.re_index_missing_products:
+        args += ["--re-index-missing-products"]
     if cfg.report_name:
         args += ["--report-name", cfg.report_name]
     if cfg.n_most_recent_reports is not None:

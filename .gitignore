@@ -50,3 +50,5 @@ comparison
 
 # ignore the default output folder of the workflow
 sar-processing/
+
+TMP/*
