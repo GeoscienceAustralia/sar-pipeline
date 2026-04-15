@@ -375,10 +375,12 @@ def process_completeness_report(
                             warn_credentials=False,
                         )
                         # download the product stac file
-                        if len(product_stac_files["stac-item.json"])==0:
-                            raise ValueError('Could not find stac-item.json for product ' \
-                            f'needing to be re-indexed. Path searched : {s3_product_folder}')
-                        
+                        if len(product_stac_files["stac-item.json"]) == 0:
+                            raise ValueError(
+                                "Could not find stac-item.json for product "
+                                f"needing to be re-indexed. Path searched : {s3_product_folder}"
+                            )
+
                         product_stac_s3_prefix = product_stac_files["stac-item.json"][0]
                         result = s3_helper.s3.get_object(
                             Bucket=s3_bucket, Key=product_stac_s3_prefix
