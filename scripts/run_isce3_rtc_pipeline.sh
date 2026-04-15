@@ -20,6 +20,7 @@ orbit_data_source=("AUS_COP_HUB" "ASF" "CDSE")
 skip_validate_stac=false
 skip_upload_processed_scene_tracking_file=false
 skip_rtc=false
+processed_scene_tracking_file_s3_folder="projects/s1_nrb/monitoring"
 ## -- WORKFLOW INPUTS TO LINK RTC_S1_STATIC in RTC_S1 metadata--
 # if link_static_layers, RTC_S1_STATIC products must exist for all RTC_S1 bursts being processed
 link_static_layers=false
@@ -57,6 +58,7 @@ while [[ "$#" -gt 0 ]]; do
         --linked_static_layers_s3_bucket) linked_static_layers_s3_bucket="$2"; shift 2 ;;
         --linked_static_layers_collection_number) linked_static_layers_collection_number="$2"; shift 2 ;;
         --linked_static_layers_s3_project_folder) linked_static_layers_s3_project_folder="$2"; shift 2 ;;
+        --processed_scene_tracking_file_s3_folder) processed_scene_tracking_file_s3_folder="$2"; shift 2 ;;
         --scene_data_source) 
             scene_data_source=()  # clear the default
             shift
@@ -152,6 +154,7 @@ echo skip_upload_to_s3 : "$skip_upload_to_s3"
 echo scene_data_source : ${scene_data_source[*]}
 echo orbit_data_source : ${orbit_data_source[*]}
 echo skip_validate_stac : "$skip_validate_stac"
+echo processed_scene_tracking_file_s3_folder : "$processed_scene_tracking_file_s3_folder"
 echo skip_rtc : "$skip_rtc"
 
 # warn the user about linking static layers
@@ -291,7 +294,8 @@ cmd=(
     --backscatter-convention "$backscatter_convention" \
     --collection-number "$collection_number" \
     --s3-bucket "$s3_bucket" \
-    --s3-project-folder "$s3_project_folder" 
+    --s3-project-folder "$s3_project_folder" \
+    --processed-scene-tracking-file-s3-folder "$processed_scene_tracking_file_s3_folder"
 )
 
 if [ "$skip_upload_to_s3" = true ] ; then

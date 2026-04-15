@@ -1,0 +1,602 @@
+import click
+from datetime import datetime
+from pathlib import Path
+import logging
+from typing import Literal
+from shapely import wkt
+
+from sar_pipeline.pipelines.isce3_rtc.monitoring.generate_s1_iw_completeness_report import (
+    make_burst_product_completeness_report,
+    make_scene_completeness_report,
+)
+from sar_pipeline.pipelines.isce3_rtc.monitoring.process_s1_iw_completeness_report import (
+    process_completeness_report,
+)
+from sar_pipeline.utils.aws import check_aws_environment_credentials
+from sar_pipeline.utils.spatial import wkt_to_geojson
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+ValidReportTypes = Literal["scene", "burst"]
+
+
+@click.command()
+@click.option(
+    "--s3-bucket",
+    required=True,
+    type=str,
+    help="S3 bucket where the burst products are stored.",
+)
+@click.option(
+    "--s3-project-folder",
+    required=True,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Project folder in the S3 bucket containing the burst products.",
+)
+@click.option(
+    "--collection-number",
+    required=True,
+    type=str,
+    help="Collection number of the products.",
+)
+@click.option(
+    "--start-dt",
+    required=True,
+    type=str,
+    help="Start datetime (ISO format, e.g. 2024-01-01T00:00:00Z).",
+)
+@click.option(
+    "--end-dt",
+    required=True,
+    type=str,
+    help="End datetime (ISO format, e.g. 2024-01-31T23:59:59Z).",
+)
+@click.option(
+    "--roi-geojson",
+    required=False,
+    default=None,
+    type=str,
+    help="URL or path to geometry with region of interest for bursts.",
+)
+@click.option(
+    "--roi-wkt",
+    required=False,
+    default=None,
+    type=str,
+    help="a wkt string for the geometry with region of interest for bursts.",
+)
+@click.option(
+    "--stac-catalog",
+    required=True,
+    default="https://explorer.dev.dea.ga.gov.au/stac",
+    type=str,
+    help="STAC catalog URL where GA products can be accessed "
+    "(e.g. https://explorer.dev.dea.ga.gov.au/stac).",
+)
+@click.option(
+    "--s3-completeness-report-folder",
+    required=False,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="S3 folder where the completeness report will be written. The report will have the structure "
+    "{s3_report_folder}/{report_time}_{start_time}_{end_time}_scene_completeness_report.json "
+    "where time is of the format %Y%m%dT%H%M%S, e.g. "
+    "20251218T043403_20241214T000000_20241216T000000_scene_completeness_report.json. If not provided,"
+    "it will be set to {s3_report_folder}/monitoring/scene_completeness_reports by default.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Generate the report but do not upload it to the s3_completeness_report_folder",
+)
+def generate_s1_iw_scene_completeness_report_cli(
+    s3_bucket,
+    s3_project_folder,
+    collection_number,
+    start_dt,
+    end_dt,
+    roi_geojson,
+    roi_wkt,
+    stac_catalog,
+    s3_completeness_report_folder,
+    dry_run,
+):
+    """
+    Generate a scene completeness report for normalised radar backscatter (nrb) products.
+
+    NOTE - The following only considers scenes that have been processed, and not
+    individual burst products. For a detailed report, the cli make_burst_product_completeness_report_cli
+    should be used.
+
+    First, the CDSE is queried for scene_ids within the provided time range and geometry to get
+    an expected list of processed scenes. Next, the function will search the monitoring folder
+    for the scene tracking files that get uploaded with every run to:
+            - {s3_project_folder}/monitoring/processed_scenes/{scene}.json.
+
+    The list of scenes in this folder is then compared to the list of expected scenes, resulting
+    in a list of scenes that have not been processed in the expected time-range. These scenes
+    should be re-sent for processing.
+
+    However, if the processed_scenes monitoring folder is empty, a warning is raised and the function
+    falls back to querying the the open data cube (odc) via the stac-api to determine the processed
+    scenes associated with the burst products. We can then determine if any of the expected scenes are
+    missing from the odc (i.e. have no associated burst products). This process is much slower than
+    checking the monitoring folder and may not be suitable for large timeframes.
+
+    A completeness report (.json) is created detailing the missing scenes that need reprocessing.
+    This report should be monitored by another process.
+    """
+
+    # --- Parse datetimes ---
+    start_dt = datetime.strptime(start_dt, "%Y-%m-%dT%H:%M:%SZ")
+    end_dt = datetime.strptime(end_dt, "%Y-%m-%dT%H:%M:%SZ")
+
+    if not (roi_geojson or roi_wkt):
+        raise ValueError("roi-geojson or roi-wkt must be provided.")
+    if roi_wkt:
+        logger.info("roi-wkt passed. converting to geojson.")
+        roi_geojson = wkt_to_geojson(roi_wkt)
+
+    missing_credentials = check_aws_environment_credentials(verbose=True)
+    if missing_credentials:
+        logging.warning(
+            "AWS credentials are missing. May not be able to publish completeness report AWS S3."
+        )
+
+    make_scene_completeness_report(
+        s3_bucket=s3_bucket,
+        s3_project_folder=s3_project_folder,
+        collection_number=collection_number,
+        start_dt=start_dt,
+        end_dt=end_dt,
+        roi_geojson=roi_geojson,
+        stac_catalog=stac_catalog,
+        s3_completeness_report_folder=s3_completeness_report_folder,
+        dry_run=dry_run,
+    )
+
+
+@click.command()
+@click.option(
+    "--s3-bucket",
+    required=True,
+    type=str,
+    help="S3 bucket where the burst products are stored.",
+)
+@click.option(
+    "--s3-project-folder",
+    required=True,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Project folder in the S3 bucket containing the burst products.",
+)
+@click.option(
+    "--collection-number",
+    required=True,
+    type=str,
+    help="Collection number of the product.",
+)
+@click.option(
+    "--start-dt",
+    required=True,
+    type=str,
+    help="Start datetime (ISO format, e.g. 2024-01-01T00:00:00Z).",
+)
+@click.option(
+    "--end-dt",
+    required=True,
+    type=str,
+    help="End datetime (ISO format, e.g. 2024-01-31T23:59:59Z).",
+)
+@click.option(
+    "--roi-geojson",
+    required=False,
+    default=None,
+    type=str,
+    help="URL or path to geometry with region of interest for bursts.",
+)
+@click.option(
+    "--roi-wkt",
+    required=False,
+    default=None,
+    type=str,
+    help="a wkt string for the geometry with region of interest for bursts.",
+)
+@click.option(
+    "--stac-catalog",
+    required=True,
+    default="https://explorer.dev.dea.ga.gov.au/stac",
+    type=str,
+    help="STAC catalog URL where GA products can be accessed "
+    "(e.g. https://explorer.dev.dea.ga.gov.au/stac).",
+)
+@click.option(
+    "--s3-completeness-report-folder",
+    required=False,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="S3 folder where the completeness report will be written. The report will have the structure "
+    "{s3_report_folder}/{report_time}_{start_time}_{end_time}_burst_completeness_report.json "
+    "where time is of the format %Y%m%dT%H%M%S, e.g. "
+    "20251218T043403_20241214T000000_20241216T000000_burst_completeness_report.json. If not provided,"
+    "it will be set to {s3_report_folder}/monitoring/burst_completeness_reports by default.",
+)
+@click.option(
+    "--skip-check-indexed-products",
+    is_flag=True,
+    default=False,
+    help="Skip checking the GA STAC API to see which products are missing "
+    "from the ODC and need to be indexed.",
+)
+@click.option(
+    "--skip-identify-missing-linked-static-layers",
+    is_flag=True,
+    default=False,
+    help="Skip identification of missing linked static layers.",
+)
+@click.option(
+    "--dem-type",
+    default="best",
+    type=str,
+    help="DEM type to use when resolving static layers.",
+)
+@click.option(
+    "--static-layer-validity-start-date",
+    default=20140403,
+    type=int,
+    help="Static layer validity start date (YYYYMMDD).",
+)
+@click.option(
+    "--linked-static-layer-s3-bucket",
+    required=False,
+    type=str,
+    help="S3 bucket containing linked RTC_S1_STATIC layers. "
+    "Defaults to --s3-bucket if not provided.",
+)
+@click.option(
+    "--linked-static-layer-s3-project-folder",
+    required=False,
+    type=str,
+    help="S3 project folder containing linked RTC_S1_STATIC layers. "
+    "Defaults to --s3-project-folder if not provided.",
+)
+@click.option(
+    "--linked-static-layer-collection-number",
+    required=False,
+    type=str,
+    help="Collection number of linked RTC_S1_STATIC layers."
+    "Defaults to --collection-number if not provided.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Generate the report but do not upload it to the s3_completeness_report_folder",
+)
+def generate_s1_iw_burst_completeness_report_cli(
+    s3_bucket,
+    s3_project_folder,
+    collection_number,
+    start_dt,
+    end_dt,
+    roi_geojson,
+    roi_wkt,
+    stac_catalog,
+    s3_completeness_report_folder,
+    skip_check_indexed_products,
+    skip_identify_missing_linked_static_layers,
+    dem_type,
+    static_layer_validity_start_date,
+    linked_static_layer_s3_bucket,
+    linked_static_layer_s3_project_folder,
+    linked_static_layer_collection_number,
+    dry_run,
+):
+    """
+    Generate a burst-level completeness report for normalised radar backscatter (nrb) products.
+
+    NOTE - small windows of <10 days should be used. For larger time spans, the
+    make_scene_odc_completeness_report_cli should be used to identify unprocessed
+    scenes, rather than individual bursts.
+
+    First, the CDSE burst API is queried for burst_ids and datetimes within the provided
+    time range and geometry. We expect to have a RTC_S1/nrb product for each of these
+    bursts. Next, the provided AWS S3 bucket is searched to ensure the expected products exist.
+    Next, the open data cube (odc) is queried to ensure the expected products are indexed and
+    available via the stac api (this can be skipped with --skip-check-indexed-products).
+
+    By default, the static layers for the missing scenes will also be searched for, as the nrb
+    product may have failed due to a missing static layer. If a large number of nrb products are
+    missing, this may take a long time. In this case --skip-identify-missing-linked-static-layers
+    should be set.
+
+    A detailed report (.json) is then created detailing the missing bursts, static layers and
+    scenes that need either reprocessing, or indexing in to the odc. This report should be
+    monitored by another process.
+    """
+
+    # --- Parse datetimes ---
+    start_dt = datetime.strptime(start_dt, "%Y-%m-%dT%H:%M:%SZ")
+    end_dt = datetime.strptime(end_dt, "%Y-%m-%dT%H:%M:%SZ")
+
+    # --- Check if we want to skip the indexed product check ---
+    if skip_check_indexed_products:
+        check_indexed_products = False
+    else:
+        check_indexed_products = True
+
+    if not (roi_geojson or roi_wkt):
+        raise ValueError("roi-geojson or roi-wkt must be provided.")
+    if roi_wkt:
+        logger.info("roi-wkt passed. converting to geojson.")
+        roi_geojson = wkt_to_geojson(roi_wkt)
+
+    # --- Default linked static layer bucket if not directly set---
+    if not skip_identify_missing_linked_static_layers:
+        logging.info("Missing static layers will be identified")
+        identify_missing_linked_static_layers = True
+        if not linked_static_layer_s3_bucket:
+            logger.warning(
+                "--linked-static-layer-s3-bucket not provided. Setting to --s3-bucket"
+            )
+            linked_static_layer_s3_bucket = s3_bucket
+        if not linked_static_layer_s3_project_folder:
+            logger.warning(
+                "--linked-static-layer-s3-project-folder not provided. Setting to --s3-project-folder"
+            )
+            linked_static_layer_s3_project_folder = s3_project_folder
+        if not linked_static_layer_collection_number:
+            logger.warning(
+                "--linked-static-layer-collection-number not provided. Setting to --collection-number"
+            )
+            linked_static_layer_collection_number = collection_number
+    else:
+        logging.info("Missing static layers will be NOT be identified")
+        identify_missing_linked_static_layers = False
+
+    missing_credentials = check_aws_environment_credentials(verbose=True)
+    if missing_credentials:
+        logging.warning(
+            "AWS credentials are missing. May not be able to publish completeness report AWS S3."
+        )
+
+    make_burst_product_completeness_report(
+        s3_bucket=s3_bucket,
+        s3_project_folder=s3_project_folder,
+        collection_number=collection_number,
+        start_dt=start_dt,
+        end_dt=end_dt,
+        roi_geojson=roi_geojson,
+        stac_catalog=stac_catalog,
+        s3_completeness_report_folder=s3_completeness_report_folder,
+        check_indexed_products=check_indexed_products,
+        identify_missing_linked_static_layers=identify_missing_linked_static_layers,
+        dem_type=dem_type,
+        static_layer_validity_start_date=static_layer_validity_start_date,
+        linked_static_layer_s3_bucket=linked_static_layer_s3_bucket,
+        linked_static_layer_s3_project_folder=linked_static_layer_s3_project_folder,
+        linked_static_layer_collection_number=linked_static_layer_collection_number,
+        dry_run=dry_run,
+    )
+
+
+@click.command()
+@click.option(
+    "--s3-bucket",
+    required=True,
+    type=str,
+    help="S3 bucket where Sentinel-1 NRB products are stored.",
+)
+@click.option(
+    "--s3-completeness-report-folder",
+    required=True,
+    type=str,
+    help="S3 folder where scene completeness reports are stored.",
+)
+@click.option(
+    "--s1-nrb-sqs-url",
+    required=True,
+    type=str,
+    help="SQS queue URL to submit Sentinel-1 NRB jobs for reprocessing.",
+)
+@click.option(
+    "--s1-nrb-dlq-sqs-url",
+    required=True,
+    type=str,
+    help="Dead-letter SQS queue URL for failed Sentinel-1 NRB jobs.",
+)
+@click.option(
+    "--remove-resubmitted-scenes-from-dlq",
+    is_flag=True,
+    default=False,
+    help="If True, scenes that are sent for re-processing from the completeness report "
+    "Will be removed from the dead-letter queue (if existing). This will stop duplicate jobs. "
+    "For example, if a manual re-drive of the dead-letter queue is applied",
+)
+@click.option(
+    "--report-name",
+    type=str,
+    default=None,
+    help="Optional. Name of a specific scene report in the to s3-completeness-report-folder "
+    "process. e.g. 20251219T010925_20241201T010000_20241210T000000_scene_completeness_report.json. ",
+)
+@click.option(
+    "--n-most-recent-reports",
+    type=int,
+    default=None,
+    help="Process the most recent n scene completeness reports. E.g. if --n-most-recent-reports = 2, "
+    "the two most recently created scene reports in the folder will be processed. This is based "
+    "on the first datetime in the filename of the report.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Run without actually submitting jobs to the sqs queues (sanity check for processing).",
+)
+def process_s1_iw_scene_completeness_report_cli(
+    s3_bucket: str,
+    s3_completeness_report_folder: str,
+    s1_nrb_sqs_url: str,
+    s1_nrb_dlq_sqs_url: str | None,
+    remove_resubmitted_scenes_from_dlq: bool,
+    report_name: str | None,
+    n_most_recent_reports: int | None,
+    dry_run: bool,
+):
+    """
+    Process a scene completeness report that was created using the
+    make_scene_completeness_report_cli. The function will get the
+    requested scene reports from the specified s3 bucket and report folder.
+    A specific report can be defined using --report-name, or the --n-most-recent-reports
+    parameter can be used to find the n most recently created reports in the target
+    folder to process. The --dry-run parameter can be used to run the process
+    without actually sending the messages to the queues.
+
+    Only one job type is considered based on the contents of the scene report, that is
+    scenes that need to be reprocessed as they exist in our region of interest, but we do
+    not existing products. These jobs get sent to the following queue --s1-nrb-sqs-url.
+
+    Messages on the dead-letter queue for s1-nrb jobs can also be cleared if the given scene
+    is sent for re-processing based on the completion report using --remove-resubmitted-scenes-from-dlq.
+    This reduces duplicates and ensure messages on the dlq are failed scenes not covered by the completion
+    report
+        --s1-nrb-sqs-dlq-url : the dead-letter queue for failed s1-nrb jobs.
+
+    To consider missing static layers, individual burst products, or a burst products that
+    exist but have not been indexed in the open data cube, a burst completeness report must
+    be generated and processed.
+    """
+    process_completeness_report(
+        s3_bucket=s3_bucket,
+        s3_completeness_report_folder=s3_completeness_report_folder,
+        report_type="scene",
+        s1_nrb_sqs_url=s1_nrb_sqs_url,
+        s1_nrb_dlq_sqs_url=s1_nrb_dlq_sqs_url,
+        remove_resubmitted_scenes_from_dlq=remove_resubmitted_scenes_from_dlq,
+        report_name=report_name,
+        n_most_recent_reports=n_most_recent_reports,
+        dry_run=dry_run,
+    )
+
+
+@click.command()
+@click.option(
+    "--s3-bucket",
+    required=True,
+    type=str,
+    help="S3 bucket where Sentinel-1 NRB products are stored.",
+)
+@click.option(
+    "--s3-completeness-report-folder",
+    required=True,
+    type=str,
+    help="S3 folder where burst completeness reports are stored.",
+)
+@click.option(
+    "--s1-nrb-sqs-url",
+    required=True,
+    type=str,
+    help="SQS queue URL to submit Sentinel-1 NRB jobs for reprocessing.",
+)
+@click.option(
+    "--s1-nrb-static-sqs-url",
+    required=True,
+    type=str,
+    help="SQS queue URL to submit Sentinel-1 static layer jobs for reprocessing.",
+)
+@click.option(
+    "--s1-nrb-dlq-sqs-url",
+    required=True,
+    type=str,
+    help="Dead-letter SQS queue URL for failed Sentinel-1 NRB jobs.",
+)
+@click.option(
+    "--remove-resubmitted-scenes-from-dlq",
+    is_flag=True,
+    default=False,
+    help="If True, scenes that are sent for re-processing from the completeness report "
+    "Will be removed from the dead-letter queue (if existing). This will stop duplicate jobs. "
+    "For example, if a manual re-drive of the dead-letter queue is applied",
+)
+@click.option(
+    "--re-index-missing-products",
+    is_flag=True,
+    default=False,
+    help="If True, existing products that have been created, but have not been indexed"
+    "into the open data cube (ODC). Will be sent for re-indexing.",
+)
+@click.option(
+    "--report-name",
+    type=str,
+    default=None,
+    help="Optional. Name of a specific burst report in the to s3-completeness-report-folder "
+    "process. e.g. 20251219T010925_20241201T010000_20241210T000000_burst_completeness_report.json. ",
+)
+@click.option(
+    "--n-most-recent-reports",
+    type=int,
+    default=None,
+    help="Process the most recent n burst completeness reports. E.g. if --n-most-recent-reports = 2, "
+    "the two most recently created burst reports in the folder will be processed. This is based "
+    "on the first datetime in the filename of the report. e.g. 20251219T010925 in above report "
+    "name example",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Run without actually submitting jobs to the sqs queues (sanity check for processing).",
+)
+def process_s1_iw_burst_completeness_report_cli(
+    s3_bucket: str,
+    s3_completeness_report_folder: str,
+    s1_nrb_sqs_url: str,
+    s1_nrb_static_sqs_url: str,
+    s1_nrb_dlq_sqs_url: str | None,
+    remove_resubmitted_scenes_from_dlq: bool,
+    re_index_missing_products: bool,
+    report_name: str | None,
+    n_most_recent_reports: int | None,
+    dry_run: bool,
+):
+    """
+    Process a burst completeness report that was created using the
+    make_burst_product_completeness_report_cli. The function will get the
+    requested burst reports from the specified s3 bucket and report folder.
+    A specific report can be defined using --report-name, or the --n-most-recent-reports
+    parameter can be used to find the n most recently created reports in the target
+    folder to process. The --dry-run parameter can be used to run the process
+    without actually sending the messages to the queues.
+
+    Jobs are sent to two possible sqs queues based on the report contents:
+        --s1-nrb-sqs-url : where scenes with missing nrb products can be re-processed
+        --s1-nrb-static-sqs-url : where bursts with missing static layers can be re-processed
+
+    Messages on the dead-letter queue for s1-nrb jobs can also be cleared if the given scene
+    is sent for re-processing based on the completion report using --remove-resubmitted-scenes-from-dlq.
+    This reduces duplicates and ensure messages on the dlq are failed scenes not covered by the completion
+    report
+        --s1-nrb-sqs-dlq-url : the dead-letter queue for failed s1-nrb jobs.
+
+    The flag --re-index-missing-products will re-initiate the automated indexing pipeline
+    for products that exist in the s3-bucket, but are not indexed in the ODC.
+
+    It should be noted that although the burst report details individual burst products,
+    full scenes are sent to reprocessing via --s1-nrb-sqs-url and --s1-nrb-static-sqs-url. This is
+    to simplify the process, as only missing burst products will be created from the scene.
+    Individual burst products are however sent to --s1-nrb-indexing-sqs-url for indexing.
+    """
+
+    process_completeness_report(
+        s3_bucket=s3_bucket,
+        s3_completeness_report_folder=s3_completeness_report_folder,
+        report_type="burst",
+        s1_nrb_static_sqs_url=s1_nrb_static_sqs_url,
+        s1_nrb_sqs_url=s1_nrb_sqs_url,
+        s1_nrb_dlq_sqs_url=s1_nrb_dlq_sqs_url,
+        remove_resubmitted_scenes_from_dlq=remove_resubmitted_scenes_from_dlq,
+        re_index_missing_products=re_index_missing_products,
+        report_name=report_name,
+        n_most_recent_reports=n_most_recent_reports,
+        dry_run=dry_run,
+    )

@@ -774,9 +774,17 @@ def get_data_for_scene_and_make_run_config(
     "That can be used to track which scenes have been processed. "
     "The filename will be {scene}.json and it's contents include "
     "a list of burst_ids and stac filepaths in s3. By default, it "
-    "will be uploaded to the following folders: "
-    "RTC_S1 -> {s3_project_folder}/monitoring/processed_scenes "
-    "RTC_S1_STATIC -> {s3_project_folder}/monitoring/processed_scenes_static_layers ",
+    "will be uploaded to the folder described by --processed-scene-tracking-file-s3-folder",
+)
+@click.option(
+    "--processed-scene-tracking-file-s3-folder",
+    required=False,
+    default="projects/s1_nrb/monitoring",
+    type=click.Path(file_okay=False, path_type=Path),
+    help="The folder within the project’s S3 folder structure to upload the processed scene tracking file. "
+    "final path will be one of the below depending on the product"
+    "RTC_S1 -> {processed_scene_tracking_file_s3_folder}/{acquisition_mode}/processed_scenes "
+    "RTC_S1_STATIC -> {processed_scene_tracking_file_s3_folder}/{acquisition_mode}/processed_scenes_static_layers",
 )
 @log_timing
 def make_metadata_and_upload_bursts(
@@ -793,6 +801,7 @@ def make_metadata_and_upload_bursts(
     link_static_layers,
     validate_stac,
     skip_upload_processed_scene_tracking_file,
+    processed_scene_tracking_file_s3_folder,
 ):
     """
     Generate STAC metadata for OPERA RTC burst products, reorganise and standardise product filenames,
@@ -1032,14 +1041,17 @@ def make_metadata_and_upload_bursts(
 
     # upload the tracking file to a sub folder where it can be checked
     if not (skip_upload_processed_scene_tracking_file or skip_upload_to_s3):
-        monitoring_folder = Path(s3_project_folder) / "monitoring"
+        product_mode = scene.split("_")[1].lower()
+
         if product == "RTC_S1":
             processed_scene_tracking_file_s3_folder = str(
-                monitoring_folder / "processed_scenes"
+                processed_scene_tracking_file_s3_folder
+                / f"{product_mode}/processed_scenes"
             )
         elif product == "RTC_S1_STATIC":
             processed_scene_tracking_file_s3_folder = str(
-                monitoring_folder / "processed_scenes_static_layers"
+                processed_scene_tracking_file_s3_folder
+                / f"{product_mode}/processed_scenes_static_layers"
             )
 
         processed_scene_tracking_file_s3_key = (

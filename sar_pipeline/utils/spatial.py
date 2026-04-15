@@ -4,11 +4,13 @@ from shapely import wkt
 from shapely.geometry import mapping, box, Polygon, shape, MultiPolygon
 from shapely import segmentize
 from shapely.ops import unary_union, orient
+import geopandas as gpd
 import numpy as np
 import rasterio
 from rasterio.features import shapes
 import json
 from pathlib import Path
+import requests
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -377,3 +379,78 @@ def write_shape_to_geojson(
             json.dump(geojson, f, indent=4)
         else:
             json.dump(geojson, f)
+
+
+def load_geojson_as_multipolygon(geojson: str) -> MultiPolygon:
+    """
+    Load a GeoJSON. Can be from a URL, local file, or
+    json objecy and return a flattened MultiPolygon.
+
+    Handles GeoJSONs containing:
+    - Polygon features
+    - MultiPolygon features
+    - Mix of both
+
+    Parameters
+    ----------
+    url : str
+        URL or local path to the GeoJSON.
+
+    Returns
+    -------
+    MultiPolygon
+        Flattened MultiPolygon containing all polygons from the GeoJSON.
+    """
+
+    if isinstance(geojson, str):
+        logger.info(f"Loading geojson into shape : {geojson}")
+
+        # Load GeoJSON (supports URL or local file)
+        if geojson.startswith("http://") or geojson.startswith("https://"):
+            resp = requests.get(geojson)
+            resp.raise_for_status()
+            geojson = resp.json()
+        else:
+            with open(geojson, "r") as f:
+                geojson = json.load(f)
+
+    # Collect all geometries
+    geometries = []
+
+    features = geojson.get("features", [])
+    for feat in features:
+        geom = shape(feat["geometry"])
+        if isinstance(geom, Polygon):
+            geometries.append(geom)
+        elif isinstance(geom, MultiPolygon):
+            geometries.extend(geom.geoms)
+        else:
+            raise ValueError(f"Unexpected geometry type: {type(geom)}")
+
+    if not geometries:
+        raise ValueError("No Polygon/MultiPolygon geometries found in GeoJSON.")
+
+    # Return a single flattened MultiPolygon
+    return MultiPolygon(geometries)
+
+
+def wkt_to_geojson(wkt_str: str, crs=4326) -> dict:
+    """Convert wkt string to geojson dict object
+
+    Parameters
+    ----------
+    wkt_str : str
+        e.g. "POLYGON ((100 -65, 101 -65, 101 -64, 100 -64, 100 -65))"
+    """
+    # Build a GeoDataFrame with a geometry column and optional properties
+    gdf = gpd.GeoDataFrame(
+        [{"name": "roi", "source": "wkt"}],
+        geometry=gpd.GeoSeries.from_wkt([wkt_str]),
+        crs=f"EPSG:{crs}",  # set the CRS if your WKT is lon/lat (WGS84)
+    )
+
+    # Get a GeoJSON FeatureCollection JSON string
+    geojson_text = gdf.to_json()
+
+    # return a Python dict
+    return json.loads(geojson_text)

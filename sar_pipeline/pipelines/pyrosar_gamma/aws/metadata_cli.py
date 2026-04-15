@@ -92,8 +92,8 @@ logger = logging.getLogger(__name__)
     default=False,
     help="Whether to skip uploading a json with very basic information"
     "That can be used to track which scenes have been processed. "
-    "By default, it will be uploaded to the following folder: "
-    "{s3_project_folder}/monitoring/processed_scenes ",
+    "By default, it will be uploaded to the folder described by"
+    "--processed-scene-tracking-file-s3-folder",
 )
 @click.option(
     "--product-version",
@@ -101,6 +101,14 @@ logger = logging.getLogger(__name__)
     default="1-0-0",
     type=str,
     help="The version of the product.",
+)
+@click.option(
+    "--processed-scene-tracking-file-s3-folder",
+    required=False,
+    default="projects/s1_nrb/monitoring",
+    type=click.Path(file_okay=False, path_type=Path),
+    help="The folder within the project’s S3 folder structure to upload the processed scene tracking file. "
+    "final path will : {processed_scene_tracking_file_s3_folder}/{acquisition_mode}/processed_scenes ",
 )
 @log_timing
 def make_metadata_and_upload_product(
@@ -116,6 +124,7 @@ def make_metadata_and_upload_product(
     skip_upload_processed_scene_tracking_file,
     product_version,
     orbit_source_folder,
+    processed_scene_tracking_file_s3_folder,
 ):
     """
     Generate STAC metadata for pyroSAR-GAMMA products, reorganise and standardise product filenames,
@@ -270,9 +279,11 @@ def make_metadata_and_upload_product(
 
     # upload the tracking file to a sub folder where it can be checked
     if not (skip_upload_processed_scene_tracking_file or skip_upload_to_s3):
-        monitoring_folder = Path(s3_project_folder) / "monitoring"
+
+        product_mode = scene.split("_")[1].lower()
+
         processed_scene_tracking_file_s3_folder = str(
-            monitoring_folder / "processed_scenes"
+            processed_scene_tracking_file_s3_folder / f"{product_mode}/processed_scenes"
         )
 
         processed_scene_tracking_file_s3_key = (
