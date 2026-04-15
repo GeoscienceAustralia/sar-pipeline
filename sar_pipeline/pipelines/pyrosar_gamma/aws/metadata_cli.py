@@ -92,8 +92,8 @@ logger = logging.getLogger(__name__)
     default=False,
     help="Whether to skip uploading a json with very basic information"
     "That can be used to track which scenes have been processed. "
-    "By default, it will be uploaded to the following folder: "
-    "{s3_project_folder}/monitoring/processed_scenes ",
+    "By default, it will be uploaded to the folder described by"
+    "--processed-scene-tracking-file-s3-folder",
 )
 @click.option(
     "--product-version",
@@ -107,7 +107,8 @@ logger = logging.getLogger(__name__)
     required=False,
     default="projects/s1_nrb/monitoring",
     type=click.Path(file_okay=False, path_type=Path),
-    help="The folder within the project’s S3 folder structure to upload the processed scene tracking file.",
+    help="The folder within the project’s S3 folder structure to upload the processed scene tracking file. "
+    "final path will : {processed_scene_tracking_file_s3_folder}/{acquisition_mode}/processed_scenes ",
 )
 @log_timing
 def make_metadata_and_upload_product(
