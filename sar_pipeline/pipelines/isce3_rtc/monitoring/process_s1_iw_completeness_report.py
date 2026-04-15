@@ -146,7 +146,7 @@ def process_completeness_report(
     s1_nrb_static_sqs_url: str | None = None,
     dry_run: bool = False,
 ):
-
+    """for description of input variables, see cli.py"""
     logger.info("Called process_s1_iw_completeness_report with arguments:")
     for k, v in locals().items():
         logger.info(f"   {k} : {v}")
