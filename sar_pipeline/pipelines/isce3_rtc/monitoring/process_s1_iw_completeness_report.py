@@ -488,7 +488,7 @@ def process_completeness_report(
                 n_resubmitted_jobs = len(already_resubmitted_jobs[s3_project_folder])
                 logger.info(
                     f"{n_resubmitted_jobs} failed jobs have already been submitted and have been removed "
-                    "from the s1-nrb-dlq"
+                    f"from the s1-nrb-dlq for s3_project_folder : {s3_project_folder}"
                 )
             for s3_project_folder in jobs_remaining_on_dlq.keys():
                 n_jobs_still_remaining_on_dlq = len(
@@ -496,7 +496,7 @@ def process_completeness_report(
                 )
                 logger.warning(
                     f"{n_jobs_still_remaining_on_dlq} failed jobs still remain on the dlq. These were not identified "
-                    "in the completeness report and need to be manually re-driven"
+                    f"in the completeness report and need to be manually re-driven for s3_project_folder : {s3_project_folder}"
                 )
             if dry_run:
                 logging.info(
