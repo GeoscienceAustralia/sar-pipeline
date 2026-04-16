@@ -2,6 +2,11 @@ from datetime import datetime
 import pystac_client
 from odc.stac import configure_s3_access
 from shapely.geometry import Polygon, MultiPolygon
+from pystac import Link
+from pystac.stac_io import DefaultStacIO
+from typing import Union, Any
+from urllib.parse import urlparse
+import boto3
 
 from sar_pipeline.utils.general import log_timing, format_dt_utc
 
@@ -60,3 +65,35 @@ def query_stac_for_metadata_in_period(
     n_stac_items = stac_items.matched()
 
     return n_stac_items, stac_items
+
+
+class S3StacIO(DefaultStacIO):
+    """Custom StacIO class to read and write from S3 buckets"""
+
+    def __init__(self):
+        self.s3 = boto3.resource("s3")
+        super().__init__()
+
+    def read_text(self, source: Union[str, Link], *args: Any, **kwargs: Any) -> str:
+        """Read text from a source, which can be a string or a Link. If the source is an S3 path, read from S3, otherwise use the default method."""
+        parsed = urlparse(source)
+        if parsed.scheme == "s3":
+            bucket = parsed.netloc
+            key = parsed.path[1:]
+
+            obj = self.s3.Object(bucket, key)
+            return obj.get()["Body"].read().decode("utf-8")
+        else:
+            return super().read_text(source, *args, **kwargs)
+
+    def write_text(
+        self, dest: Union[str, Link], txt: str, *args: Any, **kwargs: Any
+    ) -> None:
+        """Write text to a destination, which can be a string or a Link. If the destination is an S3 path, write to S3, otherwise use the default method."""
+        parsed = urlparse(dest)
+        if parsed.scheme == "s3":
+            bucket = parsed.netloc
+            key = parsed.path[1:]
+            self.s3.Object(bucket, key).put(Body=txt, ContentEncoding="utf-8")
+        else:
+            super().write_text(dest, txt, *args, **kwargs)
