@@ -20,9 +20,27 @@ ENV PATH="/root/.pixi/bin:${PATH}"
 
 # copy files across to /app and install the environment with pixi
 WORKDIR /app
+
 COPY . /app
 RUN chmod +x -R /app
+
+# Install Miniforge
+ENV CONDA_PREFIX=/app/miniforge3
+ENV PATH=$CONDA_PREFIX/bin:$PATH
+
+RUN curl -sSL https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -o miniforge.sh &&\
+    bash miniforge.sh -b -p $CONDA_PREFIX &&\
+    rm miniforge.sh &&\
+    $CONDA_PREFIX/bin/conda init bash
+    
 RUN pixi install
+
+# Create conda environment for pygssearch. Installed outside of sar-pipeline due to package conflicts. 
+# This is required for downloading data from AUS_COP_HUB and will be called by a subprocess in the scene download function.
+RUN conda env create -f /app/Conda/pygssearch/environment.yaml && conda clean -afy
+
+# set the conda environment as a path
+ENV PYGSSEARCH_CONDA_ENV=$CONDA_PREFIX/envs/pygssearch-env
 
 # Install additional dependencies for pyrosar-gamma
 RUN apt-get update
