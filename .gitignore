@@ -52,3 +52,5 @@ comparison
 sar-processing/
 
 TMP/*
+
+notebooks/**/*.parquet
