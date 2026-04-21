@@ -280,7 +280,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/s3transfer-0.11.3-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.8.0-np2py312h3226591_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/scipy-1.17.1-py312h54fa4ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/sentineleof-0.11.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-82.0.1-pyh332efcf_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-9.2.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools_scm-9.2.2-hd8ed1ab_0.conda
@@ -343,7 +342,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/50/cc/f1f8a798820dfa339f8321e3b92f5cda38b0e4b2a0bd38f9d7a64bca26ca/antimeridian-0.4.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ec/f4/c52dad8cbf90b16e7c891df44a14584559e7ee0ddf906bb357cc415b3a26/asf_search-12.0.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/06/f3/39cf3367b8107baa44f861dc802cbf16263c945b62d8265d36034fc07bea/cachetools-7.0.5-py3-none-any.whl
-      - pypi: git+https://github.com/CDSETool/CDSETool.git#6d3b07d619419d0f99ef0802ed60b8e73a4d3f7c
+      - pypi: git+https://github.com/CDSETool/CDSETool.git#4d3dbba77cbb34f231087861bfba0fa0c371ad2c
       - pypi: https://files.pythonhosted.org/packages/88/39/799be3f2f0f38cc727ee3b4f1445fe6d5e4133064ec2e4115069418a5bb6/cloudpickle-3.1.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4a/f3/00bb1e867fba351e2d784170955713bee200c43ea306c59f30bd7e748192/dask-2026.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
@@ -367,6 +366,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/60/1b/6f8f29f3f995c7ffdde46a626ddccd7c63aefc0efae881dc13b6e5d5bb16/rpds_py-0.30.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/9d/0a/0e7d9741406a044f01a918894b850067c9c7b7e92e17c533cf5fdcac4fb4/s1_orbits-0.2.0-py3-none-any.whl
+      - pypi: git+https://github.com/scottstanie/sentineleof?rev=a1c47e99a18140cae33e611cbf17db1b855b14a1#a1c47e99a18140cae33e611cbf17db1b855b14a1
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fb/12/5911ae3eeec47800503a238d971e51722ccea5feb8569b735184d5fcdbc0/toolz-1.1.0-py3-none-any.whl
@@ -635,7 +635,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/s3transfer-0.11.3-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/scikit-learn-1.8.0-np2py312he5ca3e3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/scipy-1.17.1-py312h0f234b1_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/sentineleof-0.11.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-82.0.1-pyh332efcf_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-9.2.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools_scm-9.2.2-hd8ed1ab_0.conda
@@ -689,7 +688,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/50/cc/f1f8a798820dfa339f8321e3b92f5cda38b0e4b2a0bd38f9d7a64bca26ca/antimeridian-0.4.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/ec/f4/c52dad8cbf90b16e7c891df44a14584559e7ee0ddf906bb357cc415b3a26/asf_search-12.0.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/06/f3/39cf3367b8107baa44f861dc802cbf16263c945b62d8265d36034fc07bea/cachetools-7.0.5-py3-none-any.whl
-      - pypi: git+https://github.com/CDSETool/CDSETool.git#6d3b07d619419d0f99ef0802ed60b8e73a4d3f7c
+      - pypi: git+https://github.com/CDSETool/CDSETool.git#4d3dbba77cbb34f231087861bfba0fa0c371ad2c
       - pypi: https://files.pythonhosted.org/packages/88/39/799be3f2f0f38cc727ee3b4f1445fe6d5e4133064ec2e4115069418a5bb6/cloudpickle-3.1.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4a/f3/00bb1e867fba351e2d784170955713bee200c43ea306c59f30bd7e748192/dask-2026.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
@@ -713,6 +712,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4d/a1/bca7fd3d452b272e13335db8d6b0b3ecde0f90ad6f16f3328c6fb150c889/rpds_py-0.30.0-cp312-cp312-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/9d/0a/0e7d9741406a044f01a918894b850067c9c7b7e92e17c533cf5fdcac4fb4/s1_orbits-0.2.0-py3-none-any.whl
+      - pypi: git+https://github.com/scottstanie/sentineleof?rev=a1c47e99a18140cae33e611cbf17db1b855b14a1#a1c47e99a18140cae33e611cbf17db1b855b14a1
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fb/12/5911ae3eeec47800503a238d971e51722ccea5feb8569b735184d5fcdbc0/toolz-1.1.0-py3-none-any.whl
@@ -1015,7 +1015,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/s3transfer-0.11.3-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.8.0-np2py312h3226591_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/scipy-1.17.1-py312h54fa4ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/sentineleof-0.11.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-82.0.1-pyh332efcf_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-9.2.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools_scm-9.2.2-hd8ed1ab_0.conda
@@ -1081,7 +1080,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/ec/f4/c52dad8cbf90b16e7c891df44a14584559e7ee0ddf906bb357cc415b3a26/asf_search-12.0.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/7b/8b/712a3ae8f17c1f3cd6f9ac2fffb167a27192f5c7aba68724e8c4ab8474ad/black-26.3.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/06/f3/39cf3367b8107baa44f861dc802cbf16263c945b62d8265d36034fc07bea/cachetools-7.0.5-py3-none-any.whl
-      - pypi: git+https://github.com/CDSETool/CDSETool.git#6d3b07d619419d0f99ef0802ed60b8e73a4d3f7c
+      - pypi: git+https://github.com/CDSETool/CDSETool.git#4d3dbba77cbb34f231087861bfba0fa0c371ad2c
       - pypi: https://files.pythonhosted.org/packages/88/39/799be3f2f0f38cc727ee3b4f1445fe6d5e4133064ec2e4115069418a5bb6/cloudpickle-3.1.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4a/f3/00bb1e867fba351e2d784170955713bee200c43ea306c59f30bd7e748192/dask-2026.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
@@ -1109,6 +1108,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/60/1b/6f8f29f3f995c7ffdde46a626ddccd7c63aefc0efae881dc13b6e5d5bb16/rpds_py-0.30.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/9d/0a/0e7d9741406a044f01a918894b850067c9c7b7e92e17c533cf5fdcac4fb4/s1_orbits-0.2.0-py3-none-any.whl
+      - pypi: git+https://github.com/scottstanie/sentineleof?rev=a1c47e99a18140cae33e611cbf17db1b855b14a1#a1c47e99a18140cae33e611cbf17db1b855b14a1
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fb/12/5911ae3eeec47800503a238d971e51722ccea5feb8569b735184d5fcdbc0/toolz-1.1.0-py3-none-any.whl
@@ -1391,7 +1391,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/s3transfer-0.11.3-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/scikit-learn-1.8.0-np2py312he5ca3e3_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/scipy-1.17.1-py312h0f234b1_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/sentineleof-0.11.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-82.0.1-pyh332efcf_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-9.2.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools_scm-9.2.2-hd8ed1ab_0.conda
@@ -1448,7 +1447,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/ec/f4/c52dad8cbf90b16e7c891df44a14584559e7ee0ddf906bb357cc415b3a26/asf_search-12.0.7-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/f2/c3/8c56e73283326bc92a36101c660228fff09a2403a57a03cacf3f7f84cf62/black-26.3.0-cp312-cp312-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/06/f3/39cf3367b8107baa44f861dc802cbf16263c945b62d8265d36034fc07bea/cachetools-7.0.5-py3-none-any.whl
-      - pypi: git+https://github.com/CDSETool/CDSETool.git#6d3b07d619419d0f99ef0802ed60b8e73a4d3f7c
+      - pypi: git+https://github.com/CDSETool/CDSETool.git#4d3dbba77cbb34f231087861bfba0fa0c371ad2c
       - pypi: https://files.pythonhosted.org/packages/88/39/799be3f2f0f38cc727ee3b4f1445fe6d5e4133064ec2e4115069418a5bb6/cloudpickle-3.1.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4a/f3/00bb1e867fba351e2d784170955713bee200c43ea306c59f30bd7e748192/dask-2026.3.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
@@ -1476,6 +1475,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4d/a1/bca7fd3d452b272e13335db8d6b0b3ecde0f90ad6f16f3328c6fb150c889/rpds_py-0.30.0-cp312-cp312-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/9d/0a/0e7d9741406a044f01a918894b850067c9c7b7e92e17c533cf5fdcac4fb4/s1_orbits-0.2.0-py3-none-any.whl
+      - pypi: git+https://github.com/scottstanie/sentineleof?rev=a1c47e99a18140cae33e611cbf17db1b855b14a1#a1c47e99a18140cae33e611cbf17db1b855b14a1
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fb/12/5911ae3eeec47800503a238d971e51722ccea5feb8569b735184d5fcdbc0/toolz-1.1.0-py3-none-any.whl
@@ -2750,7 +2750,7 @@ packages:
   purls: []
   size: 3157856
   timestamp: 1773686772019
-- pypi: git+https://github.com/CDSETool/CDSETool.git#6d3b07d619419d0f99ef0802ed60b8e73a4d3f7c
+- pypi: git+https://github.com/CDSETool/CDSETool.git#4d3dbba77cbb34f231087861bfba0fa0c371ad2c
   name: cdsetool
   version: 0.2.13
   requires_dist:
@@ -8636,8 +8636,8 @@ packages:
   timestamp: 1740681675666
 - pypi: ./
   name: sar-pipeline
-  version: 0.6.3.dev97+g17973416c.d20260417
-  sha256: e1bdee66c3eae4e13c0fe726576911319412e96f07b662bdfb75f9cd43b2a105
+  version: 0.7.1.dev0+g3aacd0381.d20260421
+  sha256: 950e302895e6bb5374bbe64ea55d252d861c62f37f0352b858b1cb5e23886720
   requires_dist:
   - asf-search>=9.0.9
   - boto3>=1.37.1
@@ -8653,6 +8653,7 @@ packages:
   - odc-stac>=0.5.0,<0.6
   - pystac-client>=0.9.0,<0.10
   - tqdm>=4.67.1,<5
+  - sentineleof @ git+https://github.com/scottstanie/sentineleof@a1c47e99a18140cae33e611cbf17db1b855b14a1
   requires_python: '>=3.8'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.8.0-np2py312h3226591_1.conda
@@ -8743,20 +8744,13 @@ packages:
   - pkg:pypi/scipy?source=hash-mapping
   size: 13966986
   timestamp: 1771881089893
-- conda: https://conda.anaconda.org/conda-forge/noarch/sentineleof-0.11.1-pyhd8ed1ab_0.conda
-  sha256: 36a5de7fc245678a4950c600c24b8a9cbe417a3b35dcbe1a865fd8c86cc1f963
-  md5: 1dc0e9e35285eec9f586e2e9348c249b
-  depends:
-  - click
-  - python >=3.9
-  - python-dateutil
+- pypi: git+https://github.com/scottstanie/sentineleof?rev=a1c47e99a18140cae33e611cbf17db1b855b14a1#a1c47e99a18140cae33e611cbf17db1b855b14a1
+  name: sentineleof
+  version: 0.11.1
+  requires_dist:
   - requests
-  license: MIT
-  license_family: MIT
-  purls:
-  - pkg:pypi/sentineleof?source=hash-mapping
-  size: 32773
-  timestamp: 1753437556805
+  - click
+  - python-dateutil
 - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-82.0.1-pyh332efcf_0.conda
   sha256: 82088a6e4daa33329a30bc26dc19a98c7c1d3f05c0f73ce9845d4eab4924e9e1
   md5: 8e194e7b992f99a5015edbd4ebd38efd

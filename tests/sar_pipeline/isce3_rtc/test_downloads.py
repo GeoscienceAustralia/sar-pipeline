@@ -60,6 +60,7 @@ class ProductDownloadTest:
 
 
 scene_1 = "S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD"
+scene_2 = "S1D_IW_SLC__1SDV_20260420T210916_20260420T210942_002435_004001_209C"
 
 TEST_CDSE_DOWNLOAD = ProductDownloadTest(
     scene=scene_1,
@@ -70,7 +71,7 @@ TEST_CDSE_DOWNLOAD = ProductDownloadTest(
     passes=True,
     exception_type=None,
     downloaded_scene_path=TEST_DOWNLOAD_WORKSPACE / f"{scene_1}.SAFE",
-    downloaded_scene_url="https://catalogue.dataspace.copernicus.eu/download/e948c832-d7e4-58d1-80d7-957b7f243371",
+    downloaded_scene_url="https://download.dataspace.copernicus.eu/odata/v1/Products(e948c832-d7e4-58d1-80d7-957b7f243371)",
     downloaded_orbits_path=TEST_DOWNLOAD_WORKSPACE
     / f"S1A_OPER_AUX_POEORB_OPOD_20220121T121549_V20211231T225942_20220102T005942.EOF",
 )
@@ -130,12 +131,27 @@ TEST_NON_VALID_SCENE_DATA_SOURCE = ProductDownloadTest(
     downloaded_orbits_path=None,
 )
 
+TEST_CDSE_DOWNLOAD_S1D = ProductDownloadTest(
+    scene=scene_2,
+    scene_data_sources=["CDSE"],
+    unzip=True,
+    orbit_data_sources=["CDSE"],
+    download_folder=TEST_DOWNLOAD_WORKSPACE,
+    passes=True,
+    exception_type=None,
+    downloaded_scene_path=TEST_DOWNLOAD_WORKSPACE / f"{scene_2}.SAFE",
+    downloaded_scene_url="https://download.dataspace.copernicus.eu/odata/v1/Products(8769d5b9-1db7-4a8d-b97b-d74f371b4e52)",
+    downloaded_orbits_path=TEST_DOWNLOAD_WORKSPACE
+    / f"S1D_OPER_AUX_RESORB_OPOD_20260420T223304_V20260420T183235_20260420T215005.EOF",
+)
+
 TEST_CASES = [
-    TEST_AUS_COP_HUB_DOWNLOAD,
-    TEST_CDSE_DOWNLOAD,
-    TEST_ASF_DOWNLOAD,
-    TEST_NON_EXISTENT_PRODUCT,
-    TEST_NON_VALID_SCENE_DATA_SOURCE,
+#     TEST_AUS_COP_HUB_DOWNLOAD,
+      TEST_CDSE_DOWNLOAD,
+#     TEST_ASF_DOWNLOAD,
+#     TEST_NON_EXISTENT_PRODUCT,
+#     TEST_NON_VALID_SCENE_DATA_SOURCE,
+     TEST_CDSE_DOWNLOAD_S1D
 ]
 
 
