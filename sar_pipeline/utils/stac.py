@@ -8,6 +8,10 @@ from typing import Union, Any
 from urllib.parse import urlparse
 import boto3
 import tqdm
+import tempfile
+import stac_geoparquet.arrow
+from pathlib import Path
+from sar_pipeline.utils.aws import S3Util
 
 from sar_pipeline.utils.general import log_timing, format_dt_utc
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
@@ -160,3 +164,52 @@ def read_stac_items_from_s3(
         loop.set_postfix({"Last read": filepath})
 
     return items
+
+
+def create_and_upload_geoparquet(
+    items: list[Item], output_path: str | None = None, aws_profile: str | None = None
+) -> Any:
+    """Converts a list of pystac.Items to pyarrow Table and optionally writes it to an output path.
+    The output path could be an s3 url, in which case the file is uploaded to the provided s3 url.
+
+    Parameters
+    ----------
+    items: list[Item]
+        List of pystac.Items to convert and optionally upload
+    output_path: str | None, optional
+        The output path to write the parquet file. Can be a local path or an S3 URL. Defaults to None.
+    aws_profile: str | None, optional
+        AWS profile name to use for authentication. If None, uses default credentials. Defaults to None.
+
+    Returns
+    -------
+    Any:
+        The resulting pyarrow Table containing the STAC items.
+    """
+    record_batch_reader = stac_geoparquet.arrow.parse_stac_items_to_arrow(items)
+    table = record_batch_reader.read_all()
+
+    if output_path:
+        parsed = urlparse(output_path)
+        is_s3 = False
+        if parsed and parsed.scheme == "s3":
+            bucket = parsed.netloc
+            key = parsed.path[1:]
+            is_s3 = True
+            print(f"Uploading to S3 bucket: {bucket}, key: {key}")
+        if is_s3:
+            if aws_profile:
+                boto3.setup_default_session(profile_name=aws_profile)
+            s3uploader = S3Util()
+            with tempfile.TemporaryDirectory() as tmpdir:
+                local_parquet_path = Path(tmpdir) / "temp.parquet"
+                stac_geoparquet.arrow.to_parquet(table, local_parquet_path)
+                s3uploader.s3.put_object(
+                    Bucket=bucket,
+                    Key=key,
+                    Body=local_parquet_path.read_bytes(),
+                    ContentType="application/octet-stream",
+                )
+        else:
+            stac_geoparquet.arrow.to_parquet(table, output_path)
+    return table

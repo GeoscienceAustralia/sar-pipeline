@@ -30,8 +30,11 @@ dependencies = [
     "dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.6", 
     "odc-stac>=0.5.0,<0.6", 
     "pystac-client>=0.9.0,<0.10", 
-    "sentineleof @ git+https://github.com/scottstanie/sentineleof@v0.11.2"
-    "tqdm>=4.67.1,<5", "black[jupyter]>=26.3.0,<27", "ipykernel>=7.2.0,<8", "stac-geoparquet>=0.7.0,<0.8", 
+    "sentineleof @ git+https://github.com/scottstanie/sentineleof@v0.11.2",
+    "tqdm>=4.67.1,<5", 
+    "black[jupyter]>=26.3.0,<27", 
+    "ipykernel>=7.2.0,<8", 
+    "stac-geoparquet>=0.7.0,<0.8"
 ]
 
 [project.urls]
