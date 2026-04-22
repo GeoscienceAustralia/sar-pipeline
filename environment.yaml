@@ -38,4 +38,4 @@ dependencies:
   - odc-stac>=0.5.0, <0.6
   - pystac-client>=0.9.0, <0.10
   - tqdm>=4.67.1, <5
-  - sentineleof @ git+https://github.com/scottstanie/sentineleof@a1c47e99a18140cae33e611cbf17db1b855b14a1
+  - sentineleof @ git+https://github.com/scottstanie/sentineleof@v0.11.2
