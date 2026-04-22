@@ -366,7 +366,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/60/1b/6f8f29f3f995c7ffdde46a626ddccd7c63aefc0efae881dc13b6e5d5bb16/rpds_py-0.30.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/9d/0a/0e7d9741406a044f01a918894b850067c9c7b7e92e17c533cf5fdcac4fb4/s1_orbits-0.2.0-py3-none-any.whl
-      - pypi: git+https://github.com/scottstanie/sentineleof?rev=a1c47e99a18140cae33e611cbf17db1b855b14a1#a1c47e99a18140cae33e611cbf17db1b855b14a1
+      - pypi: git+https://github.com/scottstanie/sentineleof?rev=v0.11.2#a1c47e99a18140cae33e611cbf17db1b855b14a1
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fb/12/5911ae3eeec47800503a238d971e51722ccea5feb8569b735184d5fcdbc0/toolz-1.1.0-py3-none-any.whl
@@ -712,7 +712,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4d/a1/bca7fd3d452b272e13335db8d6b0b3ecde0f90ad6f16f3328c6fb150c889/rpds_py-0.30.0-cp312-cp312-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/9d/0a/0e7d9741406a044f01a918894b850067c9c7b7e92e17c533cf5fdcac4fb4/s1_orbits-0.2.0-py3-none-any.whl
-      - pypi: git+https://github.com/scottstanie/sentineleof?rev=a1c47e99a18140cae33e611cbf17db1b855b14a1#a1c47e99a18140cae33e611cbf17db1b855b14a1
+      - pypi: git+https://github.com/scottstanie/sentineleof?rev=v0.11.2#a1c47e99a18140cae33e611cbf17db1b855b14a1
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fb/12/5911ae3eeec47800503a238d971e51722ccea5feb8569b735184d5fcdbc0/toolz-1.1.0-py3-none-any.whl
@@ -1108,7 +1108,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/60/1b/6f8f29f3f995c7ffdde46a626ddccd7c63aefc0efae881dc13b6e5d5bb16/rpds_py-0.30.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/9d/0a/0e7d9741406a044f01a918894b850067c9c7b7e92e17c533cf5fdcac4fb4/s1_orbits-0.2.0-py3-none-any.whl
-      - pypi: git+https://github.com/scottstanie/sentineleof?rev=a1c47e99a18140cae33e611cbf17db1b855b14a1#a1c47e99a18140cae33e611cbf17db1b855b14a1
+      - pypi: git+https://github.com/scottstanie/sentineleof?rev=v0.11.2#a1c47e99a18140cae33e611cbf17db1b855b14a1
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fb/12/5911ae3eeec47800503a238d971e51722ccea5feb8569b735184d5fcdbc0/toolz-1.1.0-py3-none-any.whl
@@ -1475,7 +1475,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4d/a1/bca7fd3d452b272e13335db8d6b0b3ecde0f90ad6f16f3328c6fb150c889/rpds_py-0.30.0-cp312-cp312-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/9d/0a/0e7d9741406a044f01a918894b850067c9c7b7e92e17c533cf5fdcac4fb4/s1_orbits-0.2.0-py3-none-any.whl
-      - pypi: git+https://github.com/scottstanie/sentineleof?rev=a1c47e99a18140cae33e611cbf17db1b855b14a1#a1c47e99a18140cae33e611cbf17db1b855b14a1
+      - pypi: git+https://github.com/scottstanie/sentineleof?rev=v0.11.2#a1c47e99a18140cae33e611cbf17db1b855b14a1
       - pypi: https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/fb/12/5911ae3eeec47800503a238d971e51722ccea5feb8569b735184d5fcdbc0/toolz-1.1.0-py3-none-any.whl
@@ -8636,8 +8636,8 @@ packages:
   timestamp: 1740681675666
 - pypi: ./
   name: sar-pipeline
-  version: 0.7.1.dev0+g3aacd0381.d20260421
-  sha256: 950e302895e6bb5374bbe64ea55d252d861c62f37f0352b858b1cb5e23886720
+  version: 0.7.1.dev2+g1cfdec598.d20260422
+  sha256: 25d883edb67dc5777e485d6acb4cc276c7bc4433d4bbfb9068d395ed35d7a898
   requires_dist:
   - asf-search>=9.0.9
   - boto3>=1.37.1
@@ -8653,7 +8653,7 @@ packages:
   - odc-stac>=0.5.0,<0.6
   - pystac-client>=0.9.0,<0.10
   - tqdm>=4.67.1,<5
-  - sentineleof @ git+https://github.com/scottstanie/sentineleof@a1c47e99a18140cae33e611cbf17db1b855b14a1
+  - sentineleof @ git+https://github.com/scottstanie/sentineleof@v0.11.2
   requires_python: '>=3.8'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/linux-64/scikit-learn-1.8.0-np2py312h3226591_1.conda
@@ -8744,7 +8744,7 @@ packages:
   - pkg:pypi/scipy?source=hash-mapping
   size: 13966986
   timestamp: 1771881089893
-- pypi: git+https://github.com/scottstanie/sentineleof?rev=a1c47e99a18140cae33e611cbf17db1b855b14a1#a1c47e99a18140cae33e611cbf17db1b855b14a1
+- pypi: git+https://github.com/scottstanie/sentineleof?rev=v0.11.2#a1c47e99a18140cae33e611cbf17db1b855b14a1
   name: sentineleof
   version: 0.11.1
   requires_dist:

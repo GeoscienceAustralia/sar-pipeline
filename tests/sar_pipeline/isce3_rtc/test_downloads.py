@@ -146,12 +146,12 @@ TEST_CDSE_DOWNLOAD_S1D = ProductDownloadTest(
 )
 
 TEST_CASES = [
-#     TEST_AUS_COP_HUB_DOWNLOAD,
-      TEST_CDSE_DOWNLOAD,
-#     TEST_ASF_DOWNLOAD,
-#     TEST_NON_EXISTENT_PRODUCT,
-#     TEST_NON_VALID_SCENE_DATA_SOURCE,
-     TEST_CDSE_DOWNLOAD_S1D
+    TEST_AUS_COP_HUB_DOWNLOAD,
+    TEST_CDSE_DOWNLOAD,
+    TEST_ASF_DOWNLOAD,
+    TEST_NON_EXISTENT_PRODUCT,
+    TEST_NON_VALID_SCENE_DATA_SOURCE,
+    TEST_CDSE_DOWNLOAD_S1D
 ]
 
 
@@ -174,7 +174,7 @@ def test_product_downloads(test_case):
         assert SCENE_PATH == test_case.downloaded_scene_path
         assert scene_url == test_case.downloaded_scene_url
 
-        # # download the orbits
+        # download the orbits
         ORBIT_PATHS = download_orbits_from_preference_list(
             scene_safe_file=test_case.scene + ".SAFE",
             download_folder=test_case.download_folder,
