@@ -756,10 +756,13 @@ def download_scene_from_preference_list(
                 SCENE_PATH, cdse_scene_metadata = download_scene_from_cdse(
                     scene, download_folder, unzip=unzip
                 )
-                scene_polygon = shapely.geometry.shape(cdse_scene_metadata["geometry"])
-                scene_url = cdse_scene_metadata["properties"]["services"]["download"][
-                    "url"
-                ]
+                scene_polygon = shapely.geometry.shape(
+                    cdse_scene_metadata["GeoFootprint"]
+                )
+                cdse_base_url = (
+                    "https://download.dataspace.copernicus.eu/odata/v1/Products"
+                )
+                scene_url = cdse_base_url + "(" + cdse_scene_metadata["Id"] + ")"
                 break
 
             elif data_source == "AUS_COP_HUB":

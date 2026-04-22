@@ -31,6 +31,7 @@ dependencies = [
     "odc-stac>=0.5.0,<0.6", 
     "pystac-client>=0.9.0,<0.10", 
     "tqdm>=4.67.1,<5", 
+    "sentineleof @ git+https://github.com/scottstanie/sentineleof@v0.11.2"
 ]
 
 [project.urls]
@@ -93,7 +94,6 @@ spatialist = ">=0.14.0,<0.17"
 s1etad = ">=0.5.5"
 s1etad_tools = ">=0.8.1"
 tomli = ">=2.2.1"
-sentineleof = ">=0.11.0"
 s1reader = ">=0.2.4"
 aioboto3 = "==14.1.0"
 
