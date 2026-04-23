@@ -132,6 +132,7 @@ def download_orbits_from_asf(
             force_asf=True,
             asf_user=asf_user,
             asf_password=asf_password,
+            s1reader_compat=True,
         )
     except:
         # authentication through session credentials may have failed (ASF bug)
@@ -143,6 +144,7 @@ def download_orbits_from_asf(
             cdse_user=None,
             cdse_password=None,
             force_asf=True,
+            s1reader_compat=True,
         )
     return orbit_paths
 
@@ -194,6 +196,7 @@ def download_orbits_from_cdse(
         cdse_user=cdse_user,
         cdse_password=cdse_password,
         force_asf=False,
+        s1reader_compat=True,
     )
     return orbit_paths
 
