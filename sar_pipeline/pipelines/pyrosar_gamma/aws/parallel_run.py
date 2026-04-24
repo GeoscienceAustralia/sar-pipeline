@@ -7,8 +7,6 @@ from pathlib import Path
 import pandas as pd
 import logging
 import click
-from time import sleep
-from random import uniform
 from sar_pipeline.utils.aws import (
     is_sso_session_expired,
     retrieve_aws_secrets,
@@ -18,10 +16,11 @@ from sar_pipeline.utils.aws import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DOTENV_PATH = ".env"
-DOCKERFILE_DIR = "Docker/pyrosar_gamma"
+CURRENT_DIR = Path(__file__).parent.resolve()
+PROJECT_ROOT = CURRENT_DIR.parents[3]
 
-SLEEP_JITTER_MAX_SECONDS = 10
+DOTENV_PATH = PROJECT_ROOT / ".env"
+DOCKERFILE_DIR = PROJECT_ROOT / "Docker/pyrosar_gamma"
 
 dotenv_status = load_dotenv(DOTENV_PATH)
 if not dotenv_status:
@@ -51,6 +50,7 @@ def run_docker_container(
     make_existing_products,
     image_name,
     aws_profile,
+    start_time,
 ) -> tuple[str, int]:
 
     container_env_vars = env_vars.copy()
@@ -58,54 +58,58 @@ def run_docker_container(
         secrets = retrieve_aws_secrets(aws_profile=aws_profile)
         if secrets is None:
             logger.error(
-                "AWS SSO session has expired and credentials could not be retrieved. Please re-authenticate using 'aws sso login'."
+                f"{scene}: AWS SSO session has expired and credentials could not be retrieved. Please re-authenticate using 'aws sso login'."
             )
             return scene, -1
         container_env_vars.update(secrets)
         logger.info(
-            f"Credentials for AWS profile '{aws_profile}' retrieved successfully."
+            f"{scene}: Credentials for AWS profile '{aws_profile}' retrieved successfully."
         )
-        sleep(
-            uniform(0, SLEEP_JITTER_MAX_SECONDS)
-        )  # This jitter is to help mitigate the thundering herd problem of multiple threads trying to refresh credentials at the same time
     else:
         logger.error(
-            "AWS SSO session has expired. Please re-authenticate using 'aws sso login'."
+            f"{scene}: AWS SSO session has expired. Please re-authenticate using 'aws sso login'."
         )
         return scene, -1
 
-    with docker.from_env() as client:
-        try:
-            command = [
-                "--scene",
-                scene,
-                "--s3-bucket",
-                s3_bucket,
-                "--s3-project-folder",
-                s3_project_folder,
-                "--processed-scene-tracking-file-s3-folder",
-                processed_scene_tracking_file_s3_folder,
-                "--make-existing-products",
-                str(make_existing_products).lower(),
-            ]
+    container_logs_file = f"Container_logs/{start_time}/{scene.replace('/', '_')}.log"
 
-            container = client.containers.run(
-                image=image_name,
-                command=command,
-                volumes=[
-                    "/usr/local/GAMMA_SOFTWARE-20230712:/usr/local/GAMMA_SOFTWARE-20230712",
-                    "./sar-processing:/app/sar-processing",
-                ],
-                environment=container_env_vars,
-                detach=True,
-                auto_remove=True,
-            )
-            logger.info(f"Started container {container.id} for image {image_name}")
-            status = container.wait()
-            return scene, status["StatusCode"]
-        except Exception as e:
-            logger.error(f"Error running container for scene {scene}: {e}")
-            return scene, -1
+    client = docker.from_env()
+    try:
+        command = [
+            "--scene",
+            scene,
+            "--s3-bucket",
+            s3_bucket,
+            "--s3-project-folder",
+            s3_project_folder,
+            "--processed-scene-tracking-file-s3-folder",
+            processed_scene_tracking_file_s3_folder,
+            "--make-existing-products",
+            str(make_existing_products).lower(),
+        ]
+
+        container = client.containers.run(
+            image=image_name,
+            command=command,
+            volumes=[
+                "/usr/local/GAMMA_SOFTWARE-20230712:/usr/local/GAMMA_SOFTWARE-20230712",
+                f"{str(PROJECT_ROOT)}/sar-processing:/app/sar-processing",
+            ],
+            environment=container_env_vars,
+            detach=True,
+            auto_remove=True,
+        )
+        logger.info(f"{scene}: Started container {container.id} for image {image_name}")
+        with open(container_logs_file, "wb") as log_file:
+            for line in container.logs(stream=True, follow=True):
+                log_file.write(line)
+        status = container.wait()
+        client.close()
+        return scene, status["StatusCode"]
+    except Exception as e:
+        logger.error(f"{scene}: Error running container for scene {scene}: {e}")
+        client.close()
+        return scene, -1
 
 
 @click.command()
@@ -125,7 +129,7 @@ def run_docker_container(
     "--s3-project-folder",
     required=False,
     default="experimental/baseline",
-    type=click.Path(file_okay=False, path_type=Path),
+    type=str,
     help="The folder within the bucket to upload the files. Note the "
     "final path follows the pattern in the description of this function.",
 )
@@ -133,7 +137,7 @@ def run_docker_container(
     "--processed-scene-tracking-file-s3-folder",
     required=False,
     default="projects/s1_nrb/monitoring",
-    type=click.Path(file_okay=False, path_type=Path),
+    type=str,
     help="The folder within the project’s S3 folder structure to upload the processed scene tracking file. "
     "final path will : {processed_scene_tracking_file_s3_folder}/{acquisition_mode}/processed_scenes ",
 )
@@ -171,28 +175,30 @@ def run_jobs(
     if is_sso_session_expired():
         sso_login(aws_profile=aws_profile)
 
-    with docker.from_env() as image_checking_client:
+    image_checking_client = docker.from_env()
+    try:
+        image_checking_client.images.get(image_name)
+        logger.info(f"Docker image '{image_name}' found locally.")
+        image_checking_client.close()
+    except docker.errors.ImageNotFound:
+        logger.error(
+            f"Docker image '{image_name}' not found locally. Trying to build it from the Dockerfile."
+        )
         try:
-            image_checking_client.images.get(image_name)
-            logger.info(f"Docker image '{image_name}' found locally.")
-        except docker.errors.ImageNotFound:
-            logger.error(
-                f"Docker image '{image_name}' not found locally. Trying to build it from the Dockerfile."
+            _, build_logs = image_checking_client.images.build(
+                path=DOCKERFILE_DIR, tag=image_name, rm=True
             )
-            try:
-                _, build_logs = image_checking_client.images.build(
-                    path=DOCKERFILE_DIR, tag=image_name, rm=True
-                )
-                for line in build_logs:
-                    if "stream" in line:
-                        logger.info(line["stream"].strip())
-                logger.info(f"Docker image '{image_name}' built successfully.")
-            except Exception as e:
-                logger.error(f"Error building Docker image '{image_name}': {e}")
-                return
+            for line in build_logs:
+                if "stream" in line:
+                    logger.info(line["stream"].strip())
+            logger.info(f"Docker image '{image_name}' built successfully.")
+            image_checking_client.close()
         except Exception as e:
-            logger.error(f"Error checking for Docker image '{image_name}': {e}")
+            logger.error(f"Error building Docker image '{image_name}': {e}")
             return
+    except Exception as e:
+        logger.error(f"Error checking for Docker image '{image_name}': {e}")
+        return
 
     logger.info(f"Starting parallel processing with image: {image_name}")
     logger.info(f"Scenes CSV: {scenes_csv}")
@@ -204,7 +210,11 @@ def run_jobs(
     logger.info(f"Make existing products: {make_existing_products}")
     logger.info(f"Maximum workers: {max_workers}")
 
-    logger.info("Job started at: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    start_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    logger.info("Job started at: " + start_time)
+
+    os.makedirs(f"Container_logs/{start_time}", exist_ok=True)
+    logger.info(f"Container logs will be saved to: Container_logs/{start_time}/")
 
     success = []
     failed = []
@@ -223,6 +233,7 @@ def run_jobs(
                 make_existing_products,
                 image_name,
                 aws_profile,
+                start_time,
             )
             for scene in scenes
         ]
@@ -243,7 +254,8 @@ def run_jobs(
                     )
                 logger.info(f"Scene: {name}, Status: {status}")
 
-    logger.info("Job ended at: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    logger.info("Job ended at: " + end_time)
 
     logger.info(f"Total scenes processed: {len(scenes)}")
     logger.info(f"Successful scenes: {len(success)}")
