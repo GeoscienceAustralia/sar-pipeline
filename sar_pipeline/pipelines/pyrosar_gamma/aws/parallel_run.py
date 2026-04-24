@@ -7,13 +7,21 @@ from pathlib import Path
 import pandas as pd
 import logging
 import click
-import boto3
+from time import sleep
+from random import uniform
+from sar_pipeline.utils.aws import (
+    is_sso_session_expired,
+    retrieve_aws_secrets,
+    sso_login,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 DOTENV_PATH = ".env"
 DOCKERFILE_DIR = "Docker/pyrosar_gamma"
+
+SLEEP_JITTER_MAX_SECONDS = 10
 
 dotenv_status = load_dotenv(DOTENV_PATH)
 if not dotenv_status:
@@ -24,9 +32,6 @@ if not dotenv_status:
 REQUIRED_ENV_VARIABLES = [
     "EARTHDATA_LOGIN",
     "EARTHDATA_PASSWORD",
-    "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY",
-    "AWS_SESSION_TOKEN",
     "AWS_DEFAULT_REGION",
     "CDSE_LOGIN",
     "CDSE_PASSWORD",
@@ -45,7 +50,30 @@ def run_docker_container(
     processed_scene_tracking_file_s3_folder,
     make_existing_products,
     image_name,
+    aws_profile,
 ) -> tuple[str, int]:
+
+    container_env_vars = env_vars.copy()
+    if not is_sso_session_expired():
+        secrets = retrieve_aws_secrets(aws_profile=aws_profile)
+        if secrets is None:
+            logger.error(
+                "AWS SSO session has expired and credentials could not be retrieved. Please re-authenticate using 'aws sso login'."
+            )
+            return scene, -1
+        container_env_vars.update(secrets)
+        logger.info(
+            f"Credentials for AWS profile '{aws_profile}' retrieved successfully."
+        )
+        sleep(
+            uniform(0, SLEEP_JITTER_MAX_SECONDS)
+        )  # This jitter is to help mitigate the thundering herd problem of multiple threads trying to refresh credentials at the same time
+    else:
+        logger.error(
+            "AWS SSO session has expired. Please re-authenticate using 'aws sso login'."
+        )
+        return scene, -1
+
     with docker.from_env() as client:
         try:
             command = [
@@ -68,7 +96,7 @@ def run_docker_container(
                     "/usr/local/GAMMA_SOFTWARE-20230712:/usr/local/GAMMA_SOFTWARE-20230712",
                     "./sar-processing:/app/sar-processing",
                 ],
-                environment=env_vars,
+                environment=container_env_vars,
                 detach=True,
                 auto_remove=True,
             )
@@ -140,6 +168,9 @@ def run_jobs(
     aws_profile,
 ):
 
+    if is_sso_session_expired():
+        sso_login(aws_profile=aws_profile)
+
     with docker.from_env() as image_checking_client:
         try:
             image_checking_client.images.get(image_name)
@@ -162,8 +193,6 @@ def run_jobs(
         except Exception as e:
             logger.error(f"Error checking for Docker image '{image_name}': {e}")
             return
-
-    boto3.setup_default_session(profile_name=aws_profile)
 
     logger.info(f"Starting parallel processing with image: {image_name}")
     logger.info(f"Scenes CSV: {scenes_csv}")
@@ -193,6 +222,7 @@ def run_jobs(
                 processed_scene_tracking_file_s3_folder,
                 make_existing_products,
                 image_name,
+                aws_profile,
             )
             for scene in scenes
         ]

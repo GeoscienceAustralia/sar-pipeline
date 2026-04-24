@@ -7,6 +7,10 @@ from botocore.exceptions import ClientError
 import logging
 import mimetypes
 from pathlib import Path
+import glob
+import json
+from datetime import datetime, timezone
+from subprocess import run
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -219,3 +223,130 @@ class S3Util:
                     ExtraArgs={"ContentType": file_mime_type or "binary/octet-stream"},
                 )
                 logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
+
+
+def is_sso_session_expired(sso_cache_path: str = "~/.aws/sso/cache/*.json") -> bool:
+    """Checks if there is a valid AWS SSO session by looking at the SSO cache files."""
+    # SSO cache is typically in ~/.aws/sso/cache/
+    cache_path = os.path.expanduser(sso_cache_path)
+    cache_files = glob.glob(cache_path)
+
+    if not cache_files:
+        return True  # No session found
+
+    # Get the most recently modified cache file
+    latest_cache = max(cache_files, key=os.path.getmtime)
+
+    with open(latest_cache, "r") as f:
+        data = json.load(f)
+
+    expires_at_str = data.get("expiresAt")
+    if not expires_at_str:
+        return True
+
+    # Standard format: 2024-05-20T12:34:56Z
+    expires_at = datetime.strptime(expires_at_str, "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=timezone.utc
+    )
+    print(f"SSO session expires at: {expires_at}")
+    return datetime.now(timezone.utc) > expires_at
+
+
+def sso_login(aws_profile: str = "default"):
+    """Performs AWS SSO login for the specified profile.
+
+    Parameters
+    ----------
+    aws_profile : str
+        AWS profile to use for SSO login. Default is "default".
+    """
+    logger.info(f"Performing AWS SSO login for profile: {aws_profile}")
+    run(
+        [
+            "aws",
+            "sso",
+            "login",
+            "--profile",
+            aws_profile,
+        ],
+        check=True,
+    )
+
+
+def retrieve_aws_secrets(
+    aws_profile: str = "default",
+) -> dict[str, str] | None:
+    """Checks if there is a valid AWS SSO session and retrieves the access key, secret key, and session token.
+
+    Returns
+    -------
+    dict | None
+        A dictionary containing the AWS credentials with keys 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', and 'AWS_SESSION_TOKEN'. If no valid session exists, the values will be None.
+    """
+
+    session = boto3.Session(profile_name=aws_profile)
+    credentials = session.get_credentials()
+
+    if credentials is None:
+        logger.warning("No valid AWS SSO session found. AWS credentials will be None.")
+        return None
+    else:
+        logger.info("Valid AWS SSO session found. Retrieving AWS credentials.")
+        return {
+            "AWS_ACCESS_KEY_ID": credentials.access_key,
+            "AWS_SECRET_ACCESS_KEY": credentials.secret_key,
+            "AWS_SESSION_TOKEN": credentials.token,
+        }
+
+
+def update_env_file_with_credentials(
+    env_file_path: str = ".env", aws_profile: str = "default"
+) -> dict[str, str] | None:
+    """Updates a .env file with the provided AWS credentials.
+
+    Parameters
+    ----------
+    env_file_path : str
+        Path to the .env file to update. Default is ".env".
+    aws_profile : str
+        AWS profile to use for retrieving credentials. Default is "default".
+    """
+    if not os.path.exists(env_file_path):
+        logger.error(
+            f"{env_file_path} does not exist. Cannot update with AWS credentials."
+        )
+        return None
+
+    if is_sso_session_expired():
+        sso_login(aws_profile=aws_profile)
+
+    credentials = retrieve_aws_secrets(aws_profile=aws_profile)
+    if credentials is None:
+        logger.warning(
+            f"No valid AWS SSO session found. {env_file_path} file will not be updated."
+        )
+        return None
+
+    # Read existing lines from the .env file
+    with open(env_file_path, "r") as f:
+        lines = f.readlines()
+
+    # Update or add the credentials in the lines
+    for key, value in credentials.items():
+        line = f"{key}={value}\n"
+        found = False
+        for i, existing_line in enumerate(lines):
+            if existing_line.startswith(f"{key}="):
+                logger.info(f"Updating {key} in {env_file_path}")
+                lines[i] = line  # Update existing line
+                found = True
+                break
+        if not found:
+            logger.info(f"Adding {key} to {env_file_path}")
+            lines.append(line)  # Add new line if key was not found
+
+    # Write the updated lines back to the .env file
+    with open(env_file_path, "w") as f:
+        f.writelines(lines)
+
+    return credentials

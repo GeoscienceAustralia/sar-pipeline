@@ -37,7 +37,7 @@ dependencies = [
     "stac-geoparquet>=0.7.0,<0.8"
     "sentineleof @ git+https://github.com/scottstanie/sentineleof@v0.11.2",
     "docker>=7.1.0,<8"
-]
+, "ipykernel>=7.2.0,<8"]
 
 [project.urls]
 Homepage = "https://github.com/GeoscienceAustralia/sar-pipleine.git"
