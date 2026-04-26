@@ -1,5 +1,5 @@
 import docker
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 import os
 from datetime import datetime
@@ -7,6 +7,9 @@ from pathlib import Path
 import pandas as pd
 import logging
 import click
+import shutil
+from subprocess import run
+from sar_pipeline.utils.general import log_timing
 from sar_pipeline.utils.aws import (
     is_sso_session_expired,
     retrieve_aws_secrets,
@@ -21,6 +24,27 @@ PROJECT_ROOT = CURRENT_DIR.parents[3]
 
 DOTENV_PATH = PROJECT_ROOT / ".env"
 DOCKERFILE_DIR = PROJECT_ROOT / "Docker/pyrosar_gamma"
+
+LOCAL_PROCESSING_DIR = PROJECT_ROOT / "sar-processing"
+
+LOCAL_DEM_DIR = LOCAL_PROCESSING_DIR / "downloads/dem/REMA_32"
+LOCAL_ORBITS_DIR = LOCAL_PROCESSING_DIR / "downloads/orbits"
+LOCAL_SCENES_DIR = LOCAL_PROCESSING_DIR / "downloads/scenes"
+
+LOCAL_PROCESSED_SCENES_DIR = LOCAL_PROCESSING_DIR / "s1_rtc/data/processed_scene"
+LOCAL_FINAL_PRODUCTS_DIR = LOCAL_PROCESSING_DIR / "s1_rtc/data/final_product"
+LOCAL_TEMP_DIR = LOCAL_PROCESSING_DIR / "s1_rtc/data/temp"
+
+LOCAL_INTERMEDIATE_LIST = [
+    LOCAL_DEM_DIR,
+    LOCAL_ORBITS_DIR,
+    LOCAL_SCENES_DIR,
+]
+
+LOCAL_PRODUCT_LIST = [
+    LOCAL_PROCESSED_SCENES_DIR,
+    LOCAL_FINAL_PRODUCTS_DIR,
+]
 
 dotenv_status = load_dotenv(DOTENV_PATH)
 if not dotenv_status:
@@ -42,6 +66,32 @@ REQUIRED_ENV_VARIABLES = [
 env_vars = {var: os.getenv(var) for var in REQUIRED_ENV_VARIABLES}
 
 
+def clean_up_dir(dir: Path, pattern: str, force_permissions: bool = False) -> bool:
+    """
+    Clean up files and directories in the specified directory matching the given pattern.
+
+    Args:
+        dir (Path): The directory to clean up.
+        pattern (str): The pattern to match files and directories.
+        force_permissions (bool): If True, change permissions to allow deletion.
+    """
+    if force_permissions:
+        run(["sudo", "chmod", "-R", "777", dir], check=True)
+    objects = list(dir.glob(pattern=pattern))
+    if len(objects) == 0:
+        logger.info(f"No objects found in {dir} to clean up.")
+        return False
+    for object in objects:
+        if object.is_file():
+            object.unlink()
+        if object.is_dir():
+            shutil.rmtree(object)
+    logger.info(
+        f"Cleaned up {len(objects)} objects in {dir} matching pattern {pattern}."
+    )
+    return True
+
+
 def run_docker_container(
     scene,
     s3_bucket,
@@ -51,6 +101,8 @@ def run_docker_container(
     image_name,
     aws_profile,
     start_time,
+    clear_intermediate_files,
+    delete_local_outputs,
 ) -> tuple[str, int]:
 
     container_env_vars = env_vars.copy()
@@ -93,7 +145,7 @@ def run_docker_container(
             command=command,
             volumes=[
                 "/usr/local/GAMMA_SOFTWARE-20230712:/usr/local/GAMMA_SOFTWARE-20230712",
-                f"{str(PROJECT_ROOT)}/sar-processing:/app/sar-processing",
+                f"{LOCAL_PROCESSING_DIR}:/app/sar-processing",
             ],
             environment=container_env_vars,
             detach=True,
@@ -105,6 +157,29 @@ def run_docker_container(
                 log_file.write(line)
         status = container.wait()
         client.close()
+        if status["StatusCode"] == 0:
+            logger.info(f"{scene}: Container for scene {scene} completed successfully.")
+
+            pattern = scene + "*"
+            splits = scene.split("_")
+            temp_pattern = splits[0] + "*" + splits[1] + "*" + splits[4]
+
+            if clear_intermediate_files:
+                for intermediate_dir in LOCAL_INTERMEDIATE_LIST:
+                    clean_up_dir(intermediate_dir, pattern, force_permissions=True)
+                logger.info(
+                    f"{scene}: Cleared intermediate files/folders for scene {scene}."
+                )
+
+            if delete_local_outputs:
+                for product_dir in LOCAL_PRODUCT_LIST:
+                    clean_up_dir(product_dir, pattern, force_permissions=True)
+
+                clean_up_dir(LOCAL_TEMP_DIR, temp_pattern, force_permissions=True)
+                logger.info(
+                    f"{scene}: Deleted local output files/folders for scene {scene}."
+                )
+
         return scene, status["StatusCode"]
     except Exception as e:
         logger.error(f"{scene}: Error running container for scene {scene}: {e}")
@@ -161,6 +236,19 @@ def run_docker_container(
 @click.option(
     "--aws-profile", default="default", help="AWS profile to use for authentication."
 )
+@click.option(
+    "--clear-intermediate-files",
+    is_flag=True,
+    default=True,
+    help="Clear intermediate files after processing each scene.",
+)
+@click.option(
+    "--delete-local-outputs",
+    is_flag=True,
+    default=True,
+    help="Delete local output files after processing each scene.",
+)
+@log_timing
 def run_jobs(
     scenes_csv,
     s3_bucket,
@@ -170,6 +258,8 @@ def run_jobs(
     image_name,
     max_workers,
     aws_profile,
+    clear_intermediate_files,
+    delete_local_outputs,
 ):
 
     if is_sso_session_expired():
@@ -234,11 +324,13 @@ def run_jobs(
                 image_name,
                 aws_profile,
                 start_time,
+                clear_intermediate_files,
+                delete_local_outputs,
             )
             for scene in scenes
         ]
 
-        for future in futures:
+        for future in as_completed(futures):
             result = future.result()
             if result:
                 name, code = result
