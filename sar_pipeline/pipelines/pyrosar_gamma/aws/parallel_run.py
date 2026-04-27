@@ -109,10 +109,15 @@ def run_docker_container(
     start_time,
     clear_intermediate_files,
     delete_local_outputs,
+    aws_session_duration_hours,
 ) -> tuple[str, int]:
 
     container_env_vars = env_vars.copy()
-    if not is_sso_session_expired():
+    session_start_time = datetime.strptime(start_time, "%Y-%m-%d_%H-%M-%S")
+    if not is_sso_session_expired(
+        session_start_time=session_start_time,
+        session_duration_hours=aws_session_duration_hours,
+    ):
         secrets = retrieve_aws_secrets(aws_profile=aws_profile)
         if secrets is None:
             logger.error(
@@ -267,6 +272,12 @@ def run_docker_container(
     type=str,
     help="Path to the general log file.",
 )
+@click.option(
+    "--aws-session-duration-hours",
+    default=8,
+    type=int,
+    help="Duration in hours for AWS session validity. Used to determine if SSO session has expired.",
+)
 @log_timing
 def run_jobs(
     scenes_csv,
@@ -280,6 +291,7 @@ def run_jobs(
     clear_intermediate_files,
     delete_local_outputs,
     general_log_file,
+    aws_session_duration_hours,
 ):
 
     if general_log_file != "":
@@ -292,7 +304,12 @@ def run_jobs(
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
 
-    if is_sso_session_expired():
+    start_time = datetime.now()
+    logger.info("Job started at: " + start_time.strftime("%Y-%m-%d %H-%M-%S"))
+
+    if is_sso_session_expired(
+        session_start_time=start_time, session_duration_hours=aws_session_duration_hours
+    ):
         sso_login(aws_profile=aws_profile)
 
     image_checking_client = docker.from_env()
@@ -330,11 +347,12 @@ def run_jobs(
     logger.info(f"Make existing products: {make_existing_products}")
     logger.info(f"Maximum workers: {max_workers}")
 
-    start_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    logger.info("Job started at: " + start_time)
-
-    os.makedirs(f"Container_logs/{start_time}", exist_ok=True)
-    logger.info(f"Container logs will be saved to: Container_logs/{start_time}/")
+    os.makedirs(
+        f"Container_logs/{start_time.strftime('%Y-%m-%d_%H-%M-%S')}", exist_ok=True
+    )
+    logger.info(
+        f"Container logs will be saved to: Container_logs/{start_time.strftime('%Y-%m-%d_%H-%M-%S')}/"
+    )
 
     success = []
     failed = []
@@ -354,9 +372,10 @@ def run_jobs(
                     make_existing_products,
                     image_name,
                     aws_profile,
-                    start_time,
+                    start_time.strftime("%Y-%m-%d_%H-%M-%S"),
                     clear_intermediate_files,
                     delete_local_outputs,
+                    aws_session_duration_hours,
                 )
                 for scene in scenes
             ]
@@ -377,8 +396,8 @@ def run_jobs(
                         )
                     logger.info(f"Scene: {name}, Status: {status}")
 
-        end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        logger.info("Job ended at: " + end_time)
+        end_time = datetime.now()
+        logger.info("Job ended at: " + end_time.strftime("%Y-%m-%d %H-%M-%S"))
 
         logger.info(f"Total scenes processed: {len(scenes)}")
         logger.info(f"Successful scenes: {len(success)}")

@@ -9,7 +9,7 @@ import mimetypes
 from pathlib import Path
 import glob
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from subprocess import run
 
 logging.basicConfig(level=logging.INFO)
@@ -57,7 +57,7 @@ def find_s3_filepaths_from_suffixes(
     s3_folder : str
         Folder within the bucket
     suffixes : list
-        List of suffixes, or endswiths to search for. For example
+        List of suffixes, or ends with to search for. For example
         ['.png','.tif'] to find files which end with .png and .tif respectively
 
     Returns
@@ -157,9 +157,9 @@ class S3Util:
                 os.makedirs(local_file_path.parent, exist_ok=True)
                 try:
                     self.s3.download_file(bucket_name, key, str(local_file_path))
-                    print(f"Downloaded: {key} -> {local_file_path}")
+                    logger.info(f"Downloaded: {key} -> {local_file_path}")
                 except ClientError as e:
-                    print(f"Failed to download {key}: {e}")
+                    logger.error(f"Failed to download {key}: {e}")
 
     def push_files_in_folder_to_s3(
         self,
@@ -192,7 +192,7 @@ class S3Util:
             List of files to exclude, by default []
         """
 
-        logging.info(f"Attempting to upload to S3 bucket : {s3_bucket}")
+        logger.info(f"Attempting to upload to S3 bucket : {s3_bucket}")
 
         for root, dirs, files in os.walk(src_folder):
             for file in files:
@@ -222,10 +222,15 @@ class S3Util:
                     str(s3_key),
                     ExtraArgs={"ContentType": file_mime_type or "binary/octet-stream"},
                 )
-                logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
+                logger.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
 
 
-def is_sso_session_expired(sso_cache_path: str = "~/.aws/sso/cache/*.json") -> bool:
+def is_sso_session_expired(
+    sso_cache_path: str = "~/.aws/sso/cache/*.json",
+    session_start_time: datetime = datetime.now(),
+    session_duration_hours: int = 8,
+    utc_offset: int = 0,
+) -> bool:
     """Checks if there is a valid AWS SSO session by looking at the SSO cache files."""
     # SSO cache is typically in ~/.aws/sso/cache/
     cache_path = os.path.expanduser(sso_cache_path)
@@ -244,12 +249,32 @@ def is_sso_session_expired(sso_cache_path: str = "~/.aws/sso/cache/*.json") -> b
     if not expires_at_str:
         return True
 
+    tzinfo = timezone(timedelta(hours=utc_offset))
+
     # Standard format: 2024-05-20T12:34:56Z
-    expires_at = datetime.strptime(expires_at_str, "%Y-%m-%dT%H:%M:%SZ").replace(
-        tzinfo=timezone.utc
+    expires_at = datetime.strptime(expires_at_str, "%Y-%m-%dT%H:%M:%SZ").astimezone(
+        tzinfo
     )
-    print(f"SSO session expires at: {expires_at}")
-    return datetime.now(timezone.utc) > expires_at
+    is_token_expired = datetime.now(tzinfo) > expires_at
+    logger.info(
+        f"SSO access token expire{'d' if is_token_expired else 's'} at: {expires_at}. Current time: {datetime.now(tzinfo)}"
+    )
+
+    has_refresh_token = "refreshToken" in data
+    if not has_refresh_token:
+        logger.warning(
+            f"No refresh token found in SSO cache file: {latest_cache}. Session will be considered expired."
+        )
+        return True
+
+    session_start_time = session_start_time.astimezone(tzinfo)
+    session_end_time = session_start_time + timedelta(hours=session_duration_hours)
+    is_expired = session_end_time < datetime.now(tzinfo)
+    logger.info(
+        f"SSO Session started at: {session_start_time}. Session end time: {session_end_time}. Session duration hours: {session_duration_hours}. Session is {'expired' if is_expired else 'valid'}."
+    )
+
+    return is_expired
 
 
 def sso_login(aws_profile: str = "default"):
