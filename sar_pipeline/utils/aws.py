@@ -230,8 +230,22 @@ def is_sso_session_expired(
     session_start_time: datetime = datetime.now(),
     session_duration_hours: int = 8,
     utc_offset: int = 0,
+    aws_profile: str = "default",
 ) -> bool:
     """Checks if there is a valid AWS SSO session by looking at the SSO cache files."""
+
+    try:
+        credentials = retrieve_aws_secrets(aws_profile=aws_profile)
+        if credentials is None:
+            logger.warning(
+                f"No valid AWS SSO session found for profile {aws_profile}. AWS credentials will be considered expired."
+            )
+            return True
+    except Exception as e:
+        logger.error(
+            f"Error when retrieving token from sso: {e}. AWS SSO session will be considered expired."
+        )
+        return True
     # SSO cache is typically in ~/.aws/sso/cache/
     cache_path = os.path.expanduser(sso_cache_path)
     cache_files = glob.glob(cache_path)
@@ -342,7 +356,7 @@ def update_env_file_with_credentials(
         )
         return None
 
-    if is_sso_session_expired():
+    if is_sso_session_expired(aws_profile=aws_profile):
         sso_login(aws_profile=aws_profile)
 
     credentials = retrieve_aws_secrets(aws_profile=aws_profile)

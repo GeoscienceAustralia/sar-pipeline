@@ -117,6 +117,7 @@ def run_docker_container(
     if not is_sso_session_expired(
         session_start_time=session_start_time,
         session_duration_hours=aws_session_duration_hours,
+        aws_profile=aws_profile,
     ):
         secrets = retrieve_aws_secrets(aws_profile=aws_profile)
         if secrets is None:
@@ -307,10 +308,7 @@ def run_jobs(
     start_time = datetime.now()
     logger.info("Job started at: " + start_time.strftime("%Y-%m-%d %H-%M-%S"))
 
-    if is_sso_session_expired(
-        session_start_time=start_time, session_duration_hours=aws_session_duration_hours
-    ):
-        sso_login(aws_profile=aws_profile)
+    sso_login(aws_profile=aws_profile)
 
     image_checking_client = docker.from_env()
     try:
