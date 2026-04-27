@@ -10,6 +10,7 @@ import click
 import shutil
 from subprocess import run
 from sar_pipeline.utils.general import log_timing
+import backoff
 from sar_pipeline.utils.aws import (
     is_sso_session_expired,
     retrieve_aws_secrets,
@@ -66,6 +67,11 @@ REQUIRED_ENV_VARIABLES = [
 env_vars = {var: os.getenv(var) for var in REQUIRED_ENV_VARIABLES}
 
 
+@backoff.on_exception(
+    backoff.expo,
+    Exception,
+    max_tries=3,
+)
 def clean_up_dir(dir: Path, pattern: str, force_permissions: bool = False) -> bool:
     """
     Clean up files and directories in the specified directory matching the given pattern.
