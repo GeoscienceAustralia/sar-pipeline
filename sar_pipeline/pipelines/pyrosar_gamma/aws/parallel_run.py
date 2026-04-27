@@ -126,6 +126,7 @@ def run_docker_container(
     container_logs_file = f"Container_logs/{start_time}/{scene.replace('/', '_')}.log"
 
     client = docker.from_env()
+    container = None
     try:
         command = [
             "--scene",
@@ -149,14 +150,13 @@ def run_docker_container(
             ],
             environment=container_env_vars,
             detach=True,
-            auto_remove=True,
+            auto_remove=False,
         )
         logger.info(f"{scene}: Started container {container.id} for image {image_name}")
         with open(container_logs_file, "wb") as log_file:
             for line in container.logs(stream=True, follow=True):
                 log_file.write(line)
         status = container.wait()
-        client.close()
         if status["StatusCode"] == 0:
             logger.info(f"{scene}: Container for scene {scene} completed successfully.")
 
@@ -183,8 +183,15 @@ def run_docker_container(
         return scene, status["StatusCode"]
     except Exception as e:
         logger.error(f"{scene}: Error running container for scene {scene}: {e}")
-        client.close()
         return scene, -1
+    finally:
+        if container is not None:
+            try:
+                container.remove(force=True)
+                logger.info(f"{scene}: Container {container.id} removed successfully.")
+            except Exception as e:
+                logger.error(f"{scene}: Error removing container {container.id}: {e}")
+        client.close()
 
 
 @click.command()
@@ -248,6 +255,12 @@ def run_docker_container(
     default=True,
     help="Delete local output files after processing each scene.",
 )
+@click.option(
+    "--general-log-file",
+    default="",
+    type=str,
+    help="Path to the general log file.",
+)
 @log_timing
 def run_jobs(
     scenes_csv,
@@ -260,7 +273,18 @@ def run_jobs(
     aws_profile,
     clear_intermediate_files,
     delete_local_outputs,
+    general_log_file,
 ):
+
+    if general_log_file != "":
+        os.makedirs(os.path.dirname(general_log_file), exist_ok=True)
+        file_handler = logging.FileHandler(general_log_file)
+        file_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
 
     if is_sso_session_expired():
         sso_login(aws_profile=aws_profile)
@@ -312,45 +336,48 @@ def run_jobs(
     scenes_df = pd.read_csv(scenes_csv)
     scenes = scenes_df["scene"].tolist()
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(
-                run_docker_container,
-                scene,
-                s3_bucket,
-                s3_project_folder,
-                processed_scene_tracking_file_s3_folder,
-                make_existing_products,
-                image_name,
-                aws_profile,
-                start_time,
-                clear_intermediate_files,
-                delete_local_outputs,
-            )
-            for scene in scenes
-        ]
+    try:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(
+                    run_docker_container,
+                    scene,
+                    s3_bucket,
+                    s3_project_folder,
+                    processed_scene_tracking_file_s3_folder,
+                    make_existing_products,
+                    image_name,
+                    aws_profile,
+                    start_time,
+                    clear_intermediate_files,
+                    delete_local_outputs,
+                )
+                for scene in scenes
+            ]
 
-        for future in as_completed(futures):
-            result = future.result()
-            if result:
-                name, code = result
-                if code == 0:
-                    success.append(name)
-                    status = "SUCCESS"
-                    logger.info(f"Job for scene {name} completed successfully.")
-                else:
-                    failed.append(name)
-                    status = "FAILED"
-                    logger.error(
-                        f"Job for scene {name} failed with status code {code}."
-                    )
-                logger.info(f"Scene: {name}, Status: {status}")
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    name, code = result
+                    if code == 0:
+                        success.append(name)
+                        status = "SUCCESS"
+                        logger.info(f"Job for scene {name} completed successfully.")
+                    else:
+                        failed.append(name)
+                        status = "FAILED"
+                        logger.error(
+                            f"Job for scene {name} failed with status code {code}."
+                        )
+                    logger.info(f"Scene: {name}, Status: {status}")
 
-    end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    logger.info("Job ended at: " + end_time)
+        end_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        logger.info("Job ended at: " + end_time)
 
-    logger.info(f"Total scenes processed: {len(scenes)}")
-    logger.info(f"Successful scenes: {len(success)}")
-    logger.info(f"Failed scenes: {len(failed)}")
-    logger.info(f"Successfully processed scenes: {success}")
-    logger.info(f"Failed scenes: {failed}")
+        logger.info(f"Total scenes processed: {len(scenes)}")
+        logger.info(f"Successful scenes: {len(success)}")
+        logger.info(f"Failed scenes: {len(failed)}")
+        logger.info(f"Successfully processed scenes: {success}")
+        logger.info(f"Failed scenes: {failed}")
+    except Exception as e:
+        logger.error(f"Error during parallel execution: {e}")
