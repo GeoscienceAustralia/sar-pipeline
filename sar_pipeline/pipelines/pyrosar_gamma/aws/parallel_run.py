@@ -66,6 +66,8 @@ REQUIRED_ENV_VARIABLES = [
 ]
 env_vars = {var: os.getenv(var) for var in REQUIRED_ENV_VARIABLES}
 
+DOCKER_CLIENT = docker.from_env(timeout=600)
+
 
 @backoff.on_exception(
     backoff.expo,
@@ -137,7 +139,6 @@ def run_docker_container(
 
     container_logs_file = f"Container_logs/{start_time}/{scene.replace('/', '_')}.log"
 
-    client = docker.from_env()
     container = None
     try:
         command = [
@@ -153,7 +154,7 @@ def run_docker_container(
             str(make_existing_products).lower(),
         ]
 
-        container = client.containers.run(
+        container = DOCKER_CLIENT.containers.run(
             image=image_name,
             command=command,
             volumes=[
@@ -203,7 +204,6 @@ def run_docker_container(
                 logger.info(f"{scene}: Container {container.id} removed successfully.")
             except Exception as e:
                 logger.error(f"{scene}: Error removing container {container.id}: {e}")
-        client.close()
 
 
 @click.command()
@@ -404,3 +404,5 @@ def run_jobs(
         logger.info(f"Failed scenes: {failed}")
     except Exception as e:
         logger.error(f"Error during parallel execution: {e}")
+    finally:
+        DOCKER_CLIENT.close()
