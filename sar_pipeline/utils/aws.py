@@ -7,13 +7,23 @@ from botocore.exceptions import ClientError
 import logging
 import mimetypes
 from pathlib import Path
-import glob
-import json
 from datetime import datetime, timezone, timedelta
 from subprocess import run
+from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+CURRENT_DIR = Path(__file__).parent.resolve()
+PROJECT_ROOT = CURRENT_DIR.parents[1]
+
+DOTENV_PATH = PROJECT_ROOT / ".env"
+
+REQUIRED_ENV_VARIABLES = [
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+]
 
 
 def check_aws_environment_credentials(verbose=False) -> list[str]:
@@ -226,60 +236,13 @@ class S3Util:
 
 
 def is_sso_session_expired(
-    sso_cache_path: str = "~/.aws/sso/cache/*.json",
     session_start_time: datetime = datetime.now(),
-    session_duration_hours: int = 8,
+    session_duration_hours: int = 12,
     utc_offset: int = 0,
-    aws_profile: str = "default",
 ) -> bool:
-    """Checks if there is a valid AWS SSO session by looking at the SSO cache files."""
-
-    try:
-        credentials = retrieve_aws_secrets(aws_profile=aws_profile)
-        if credentials is None:
-            logger.warning(
-                f"No valid AWS SSO session found for profile {aws_profile}. AWS credentials will be considered expired."
-            )
-            return True
-    except Exception as e:
-        logger.error(
-            f"Error when retrieving token from sso: {e}. AWS SSO session will be considered expired."
-        )
-        return True
-    # SSO cache is typically in ~/.aws/sso/cache/
-    cache_path = os.path.expanduser(sso_cache_path)
-    cache_files = glob.glob(cache_path)
-
-    if not cache_files:
-        return True  # No session found
-
-    # Get the most recently modified cache file
-    latest_cache = max(cache_files, key=os.path.getmtime)
-
-    with open(latest_cache, "r") as f:
-        data = json.load(f)
-
-    expires_at_str = data.get("expiresAt")
-    if not expires_at_str:
-        return True
+    """Checks if there is a valid AWS SSO session by looking at the session start time and duration."""
 
     tzinfo = timezone(timedelta(hours=utc_offset))
-
-    # Standard format: 2024-05-20T12:34:56Z
-    expires_at = datetime.strptime(expires_at_str, "%Y-%m-%dT%H:%M:%SZ").astimezone(
-        tzinfo
-    )
-    is_token_expired = datetime.now(tzinfo) > expires_at
-    logger.info(
-        f"SSO access token expire{'d' if is_token_expired else 's'} at: {expires_at}. Current time: {datetime.now(tzinfo)}"
-    )
-
-    has_refresh_token = "refreshToken" in data
-    if not has_refresh_token:
-        logger.warning(
-            f"No refresh token found in SSO cache file: {latest_cache}. Session will be considered expired."
-        )
-        return True
 
     session_start_time = session_start_time.astimezone(tzinfo)
     session_end_time = session_start_time + timedelta(hours=session_duration_hours)
@@ -291,101 +254,39 @@ def is_sso_session_expired(
     return is_expired
 
 
-def sso_login(aws_profile: str = "default"):
+def sso_login(aws_profile: str = "default") -> dict[str, str]:
     """Performs AWS SSO login for the specified profile.
 
     Parameters
     ----------
     aws_profile : str
         AWS profile to use for SSO login. Default is "default".
+
+    Returns
+    -------
+    dict[str, str]
+        A dictionary containing the AWS credentials retrieved from the .env file after SSO login.
     """
+
     logger.info(f"Performing AWS SSO login for profile: {aws_profile}")
     run(
         [
-            "aws",
-            "sso",
-            "login",
-            "--profile",
+            "assume",
             aws_profile,
+            "--env",
         ],
         check=True,
     )
 
-
-def retrieve_aws_secrets(
-    aws_profile: str = "default",
-) -> dict[str, str] | None:
-    """Checks if there is a valid AWS SSO session and retrieves the access key, secret key, and session token.
-
-    Returns
-    -------
-    dict | None
-        A dictionary containing the AWS credentials with keys 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', and 'AWS_SESSION_TOKEN'. If no valid session exists, the values will be None.
-    """
-
-    session = boto3.Session(profile_name=aws_profile)
-    credentials = session.get_credentials()
-
-    if credentials is None:
-        logger.warning("No valid AWS SSO session found. AWS credentials will be None.")
-        return None
-    else:
-        logger.info("Valid AWS SSO session found. Retrieving AWS credentials.")
-        return {
-            "AWS_ACCESS_KEY_ID": credentials.access_key,
-            "AWS_SECRET_ACCESS_KEY": credentials.secret_key,
-            "AWS_SESSION_TOKEN": credentials.token,
-        }
-
-
-def update_env_file_with_credentials(
-    env_file_path: str = ".env", aws_profile: str = "default"
-) -> dict[str, str] | None:
-    """Updates a .env file with the provided AWS credentials.
-
-    Parameters
-    ----------
-    env_file_path : str
-        Path to the .env file to update. Default is ".env".
-    aws_profile : str
-        AWS profile to use for retrieving credentials. Default is "default".
-    """
-    if not os.path.exists(env_file_path):
-        logger.error(
-            f"{env_file_path} does not exist. Cannot update with AWS credentials."
+    dotenv_status = load_dotenv(DOTENV_PATH)
+    if not dotenv_status:
+        raise FileNotFoundError(
+            f".env file not found at {DOTENV_PATH}. Please create one with the necessary environment variables."
         )
-        return None
 
-    if is_sso_session_expired(aws_profile=aws_profile):
-        sso_login(aws_profile=aws_profile)
+    secret_dict = {var: os.getenv(var) for var in REQUIRED_ENV_VARIABLES}
 
-    credentials = retrieve_aws_secrets(aws_profile=aws_profile)
-    if credentials is None:
-        logger.warning(
-            f"No valid AWS SSO session found. {env_file_path} file will not be updated."
-        )
-        return None
-
-    # Read existing lines from the .env file
-    with open(env_file_path, "r") as f:
-        lines = f.readlines()
-
-    # Update or add the credentials in the lines
-    for key, value in credentials.items():
-        line = f"{key}={value}\n"
-        found = False
-        for i, existing_line in enumerate(lines):
-            if existing_line.startswith(f"{key}="):
-                logger.info(f"Updating {key} in {env_file_path}")
-                lines[i] = line  # Update existing line
-                found = True
-                break
-        if not found:
-            logger.info(f"Adding {key} to {env_file_path}")
-            lines.append(line)  # Add new line if key was not found
-
-    # Write the updated lines back to the .env file
-    with open(env_file_path, "w") as f:
-        f.writelines(lines)
-
-    return credentials
+    assert all(
+        secret_dict.values()
+    ), f"One or more required environment variables are missing after SSO login. Required variables: {REQUIRED_ENV_VARIABLES}. Current values: {secret_dict}"
+    return secret_dict

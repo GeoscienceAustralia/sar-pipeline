@@ -13,7 +13,6 @@ from sar_pipeline.utils.general import log_timing
 import backoff
 from sar_pipeline.utils.aws import (
     is_sso_session_expired,
-    retrieve_aws_secrets,
     sso_login,
 )
 
@@ -101,41 +100,31 @@ def clean_up_dir(dir: Path, pattern: str, force_permissions: bool = False) -> bo
 
 
 def run_docker_container(
-    scene,
-    s3_bucket,
-    s3_project_folder,
-    processed_scene_tracking_file_s3_folder,
-    make_existing_products,
-    image_name,
-    aws_profile,
-    start_time,
-    clear_intermediate_files,
-    delete_local_outputs,
-    aws_session_duration_hours,
+    scene: str,
+    s3_bucket: str,
+    s3_project_folder: str,
+    processed_scene_tracking_file_s3_folder: str,
+    make_existing_products: bool,
+    image_name: str,
+    start_time: str,
+    clear_intermediate_files: bool,
+    delete_local_outputs: bool,
+    aws_session_duration_hours: int,
+    aws_credentials: dict[str, str],
 ) -> tuple[str, int]:
 
     container_env_vars = env_vars.copy()
     session_start_time = datetime.strptime(start_time, "%Y-%m-%d_%H-%M-%S")
-    if not is_sso_session_expired(
+    if is_sso_session_expired(
         session_start_time=session_start_time,
         session_duration_hours=aws_session_duration_hours,
-        aws_profile=aws_profile,
     ):
-        secrets = retrieve_aws_secrets(aws_profile=aws_profile)
-        if secrets is None:
-            logger.error(
-                f"{scene}: AWS SSO session has expired and credentials could not be retrieved. Please re-authenticate using 'aws sso login'."
-            )
-            return scene, -1
-        container_env_vars.update(secrets)
-        logger.info(
-            f"{scene}: Credentials for AWS profile '{aws_profile}' retrieved successfully."
-        )
-    else:
         logger.error(
-            f"{scene}: AWS SSO session has expired. Please re-authenticate using 'aws sso login'."
+            f"{scene}: AWS SSO session has expired. Please re-authenticate using 'assume <profile> --env' or 'sso_login' function."
         )
         return scene, -1
+
+    container_env_vars.update(aws_credentials)
 
     container_logs_file = f"Container_logs/{start_time}/{scene.replace('/', '_')}.log"
 
@@ -275,7 +264,7 @@ def run_docker_container(
 )
 @click.option(
     "--aws-session-duration-hours",
-    default=8,
+    default=12,
     type=int,
     help="Duration in hours for AWS session validity. Used to determine if SSO session has expired.",
 )
@@ -308,7 +297,7 @@ def run_jobs(
     start_time = datetime.now()
     logger.info("Job started at: " + start_time.strftime("%Y-%m-%d %H-%M-%S"))
 
-    sso_login(aws_profile=aws_profile)
+    aws_credentials = sso_login(aws_profile=aws_profile)
 
     image_checking_client = docker.from_env()
     try:
@@ -369,11 +358,11 @@ def run_jobs(
                     processed_scene_tracking_file_s3_folder,
                     make_existing_products,
                     image_name,
-                    aws_profile,
                     start_time.strftime("%Y-%m-%d_%H-%M-%S"),
                     clear_intermediate_files,
                     delete_local_outputs,
                     aws_session_duration_hours,
+                    aws_credentials,
                 )
                 for scene in scenes
             ]

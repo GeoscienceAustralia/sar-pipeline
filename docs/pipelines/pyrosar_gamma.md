@@ -142,6 +142,16 @@ pyrosar-gamma-run-parallel-jobs --scenes-csv
 
 By default, the command runs the jobs in batches of 10 containers. You can change this bys setting the number using `--max-workers` argument.
 
+**NOTE** You need `assume` to be installed on your computer and your aws config file should be configured with that. you can install `assume` following these commands:
+
+```bash
+curl -OL releases.commonfate.io/granted/v0.36.2/granted_0.36.2_linux_x86_64.tar.gz
+sudo tar -zxvf ./granted_0.36.2_linux_x86_64.tar.gz -C /usr/local/bin
+printf '\nalias assume="source assume"' >> /home/ubuntu/.bashrc
+source /home/ubuntu/.bashrc
+```
+Check you home directory address. It might be different from the one above in lines 3 and 4. Replace the wrong path with yours.
+
 ## 4. Project setup
 Clone the repository to a project folder that you own, where you have read, write and execution permissions.
 
