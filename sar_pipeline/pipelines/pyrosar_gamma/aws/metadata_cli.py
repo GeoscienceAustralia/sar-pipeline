@@ -262,11 +262,16 @@ def make_metadata_and_upload_product(
                 logging.warning(
                     "Existing products will be replaced as --make-existing-products is set."
                 )
-
-            logger.info(f"uploading files for {stac_object.scene_id} to S3.")
-            S3UPLOADER.push_files_in_folder_to_s3(
-                results_folder, s3_bucket, stac_object.s3_product_folder
-            )
+            try:
+                logger.info(f"uploading files for {stac_object.scene_id} to S3.")
+                S3UPLOADER.push_files_in_folder_to_s3(
+                    results_folder, s3_bucket, stac_object.s3_product_folder
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to upload files for {stac_object.scene_id} to S3. Error: {e}"
+                )
+                raise
 
             # add basic info to the processed scene tracking file
             processed_scene_json["stac"].append(
@@ -292,9 +297,15 @@ def make_metadata_and_upload_product(
         logger.info(
             f"Uploading processed scene tracking file to S3 : {processed_scene_tracking_file_s3_key}."
         )
-        S3UPLOADER.s3.put_object(
-            Bucket=s3_bucket,
-            Key=processed_scene_tracking_file_s3_key,
-            Body=json.dumps(processed_scene_json, indent=2).encode("utf-8"),
-            ContentType="application/json",
-        )
+        try:
+            S3UPLOADER.s3.put_object(
+                Bucket=s3_bucket,
+                Key=processed_scene_tracking_file_s3_key,
+                Body=json.dumps(processed_scene_json, indent=2).encode("utf-8"),
+                ContentType="application/json",
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to upload processed scene tracking file to S3 : {processed_scene_tracking_file_s3_key}. Error: {e}"
+            )
+            raise
