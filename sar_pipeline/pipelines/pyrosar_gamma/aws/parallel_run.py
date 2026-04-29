@@ -11,10 +11,6 @@ import shutil
 from subprocess import run
 from sar_pipeline.utils.general import log_timing
 import backoff
-from sar_pipeline.utils.aws import (
-    is_sso_session_expired,
-    sso_login,
-)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -62,8 +58,13 @@ REQUIRED_ENV_VARIABLES = [
     "AUS_COP_HUB_PASSWORD",
     "AUS_COP_HUB_CLIENT_ID",
     "AUS_COP_HUB_CLIENT_SECRET",
+    "AWS_REGION",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
 ]
 env_vars = {var: os.getenv(var) for var in REQUIRED_ENV_VARIABLES}
+assert all(env_vars.values()), "One or more required environment variables are missing."
 
 DOCKER_CLIENT = docker.from_env(timeout=600)
 
@@ -109,22 +110,7 @@ def run_docker_container(
     start_time: str,
     clear_intermediate_files: bool,
     delete_local_outputs: bool,
-    aws_session_duration_hours: int,
-    aws_credentials: dict[str, str],
 ) -> tuple[str, int]:
-
-    container_env_vars = env_vars.copy()
-    session_start_time = datetime.strptime(start_time, "%Y-%m-%d_%H-%M-%S")
-    if is_sso_session_expired(
-        session_start_time=session_start_time,
-        session_duration_hours=aws_session_duration_hours,
-    ):
-        logger.error(
-            f"{scene}: AWS SSO session has expired. Please re-authenticate using 'assume <profile> --env' or 'sso_login' function."
-        )
-        return scene, -1
-
-    container_env_vars.update(aws_credentials)
 
     container_logs_file = f"Container_logs/{start_time}/{scene.replace('/', '_')}.log"
 
@@ -150,7 +136,7 @@ def run_docker_container(
                 "/usr/local/GAMMA_SOFTWARE-20230712:/usr/local/GAMMA_SOFTWARE-20230712",
                 f"{LOCAL_PROCESSING_DIR}:/app/sar-processing",
             ],
-            environment=container_env_vars,
+            environment=env_vars,
             detach=True,
             auto_remove=False,
         )
@@ -221,7 +207,7 @@ def run_docker_container(
     required=False,
     default="projects/s1_nrb/monitoring",
     type=str,
-    help="The folder within the project’s S3 folder structure to upload the processed scene tracking file. "
+    help="The folder within the project's S3 folder structure to upload the processed scene tracking file. "
     "final path will : {processed_scene_tracking_file_s3_folder}/{acquisition_mode}/processed_scenes ",
 )
 @click.option(
@@ -242,9 +228,6 @@ def run_docker_container(
     "--max-workers", default=10, help="Maximum number of parallel workers to run."
 )
 @click.option(
-    "--aws-profile", default="default", help="AWS profile to use for authentication."
-)
-@click.option(
     "--clear-intermediate-files",
     is_flag=True,
     default=True,
@@ -262,12 +245,6 @@ def run_docker_container(
     type=str,
     help="Path to the general log file.",
 )
-@click.option(
-    "--aws-session-duration-hours",
-    default=12,
-    type=int,
-    help="Duration in hours for AWS session validity. Used to determine if SSO session has expired.",
-)
 @log_timing
 def run_jobs(
     scenes_csv,
@@ -277,11 +254,9 @@ def run_jobs(
     make_existing_products,
     image_name,
     max_workers,
-    aws_profile,
     clear_intermediate_files,
     delete_local_outputs,
     general_log_file,
-    aws_session_duration_hours,
 ):
 
     if general_log_file != "":
@@ -296,8 +271,6 @@ def run_jobs(
 
     start_time = datetime.now()
     logger.info("Job started at: " + start_time.strftime("%Y-%m-%d %H-%M-%S"))
-
-    aws_credentials = sso_login(aws_profile=aws_profile)
 
     image_checking_client = docker.from_env()
     try:
@@ -361,8 +334,6 @@ def run_jobs(
                     start_time.strftime("%Y-%m-%d_%H-%M-%S"),
                     clear_intermediate_files,
                     delete_local_outputs,
-                    aws_session_duration_hours,
-                    aws_credentials,
                 )
                 for scene in scenes
             ]
@@ -385,6 +356,8 @@ def run_jobs(
 
         end_time = datetime.now()
         logger.info("Job ended at: " + end_time.strftime("%Y-%m-%d %H-%M-%S"))
+
+        logger.info(f"Total processing time: {str(end_time - start_time)}")
 
         logger.info(f"Total scenes processed: {len(scenes)}")
         logger.info(f"Successful scenes: {len(success)}")
