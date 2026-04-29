@@ -310,7 +310,7 @@ def run_jobs(
         )
         try:
             _, build_logs = image_checking_client.images.build(
-                path=DOCKERFILE_DIR, tag=image_name, rm=True
+                path=str(DOCKERFILE_DIR), tag=image_name, rm=True
             )
             for line in build_logs:
                 if "stream" in line:
