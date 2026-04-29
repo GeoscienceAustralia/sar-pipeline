@@ -138,7 +138,7 @@ Running the multiple jobs (scenes) in parallel requires a docker image to run ea
 pyrosar-gamma-run-parallel-jobs --scenes-csv
 ```
 
-`scenes-csv` is the path to a csv file that must be provided to the command. It contains the name(ID) of each scene as its rows and the command will run one container per each row. The image name to be used in the containers is `sar-pipeline:latest` by default. The commands tries to find the image locally, otherwise tries to build it from the Dockerfile that must be present at the root of the project inside `Docker/pyrosar_gamma` directory. If the Dockerfile is not present, the command will fail. You can pass a different image name using `--image-name` argument if required.
+`scenes-csv` is the path to a csv file that must be provided to the command. It contains the name(ID) of each scene as its rows and the command will run one container per each row. The image name to be used in the containers is `sar-pipeline-pyrosar-gamma:latest` by default. The commands tries to find the image locally, otherwise tries to build it from the Dockerfile that must be present at the root of the project inside `Docker/pyrosar_gamma` directory. If the Dockerfile is not present, the command will fail. You can pass a different image name using `--image-name` argument if required.
 
 By default, the command runs the jobs in batches of 10 containers. You can change this bys setting the number using `--max-workers` argument.
 
@@ -173,7 +173,7 @@ The workflow could be run using a docker image. The docker file can be found at 
 You can build the docker image via the command:
 
 ```bash
-docker build -t sar-pipeline -f Docker/pyrosar_gamma/Dockerfile .
+docker build -t sar-pipeline-pyrosar-gamma -f Docker/pyrosar_gamma/Dockerfile .
 ```
 
 The docker image could be run via the pixi command:

@@ -227,7 +227,7 @@ def run_docker_container(
 @click.option(
     "--image-name",
     required=False,
-    default="sar-pipeline:latest",
+    default="sar-pipeline-pyrosar-gamma:latest",
     help="Name of the Docker image to use for processing.",
 )
 @click.option(
