@@ -118,8 +118,8 @@ PROJECT_ROOT = CURRENT_DIR.parents[3]
     "--geocode-spacing",
     required=False,
     type=int,
-    default=20,
-    help="The geocoding grid spacing in meters. Default is 20m.",
+    default=40,
+    help="The geocoding grid spacing in meters. Default is 40m.",
 )
 @click.option(
     "--geocode-scaling",
