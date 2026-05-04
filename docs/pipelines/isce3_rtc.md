@@ -142,7 +142,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
 --link-static-layers=false           
 --linked-static-layers-s3-bucket="dea-public-data-dev"
---linked-static-layers-s3-project_folder="baseline" 
+--linked-static-layers-s3-project-folder="baseline" 
 --linked-static-layers-collection-number=1 
 
 ```
