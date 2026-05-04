@@ -147,14 +147,14 @@ for var in REQUIRED_ENV_VARIABLES + OPTIONAL_ENV_VARIABLES:
 def build_image():
     """build and tag the docker image for the current codebase to be used in tests"""
     logging.info(
-        f"Building docker image sar-pipeline:{DOCKER_TAG} for testing, this may take a few minutes..."
+        f"Building docker image sar-pipeline-isce3-rtc:{DOCKER_TAG} for testing, this may take a few minutes..."
     )
     result = subprocess.run(
         [
             "docker",
             "build",
             "-t",
-            f"sar-pipeline:{DOCKER_TAG}",
+            f"sar-pipeline-isce3-rtc:{DOCKER_TAG}",
             "-f",
             "Docker/isce3_rtc/Dockerfile",
             ".",
@@ -186,7 +186,7 @@ def _run_docker_for_scene(
     Parameters
     ----------
     docker_image_tag : str
-        the docker image tag for sar-pipeline. e.g.
+        the docker image tag for sar-pipeline-isce3-rtc. e.g.
          0.4.1.dev256-g9b7a3f1ea.d20251204
     docker_env_list : list
         A list of environment variables to be passed
@@ -232,7 +232,7 @@ def _run_docker_for_scene(
         *volume_mount_list,
         "--rm",
         *docker_env_list,
-        f"sar-pipeline:{docker_image_tag}",
+        f"sar-pipeline-isce3-rtc:{docker_image_tag}",
         "--scene",
         scene,
         "--burst-id-list",
@@ -265,7 +265,7 @@ def _run_docker_for_scene(
         *volume_mount_list,
         "--rm",
         *docker_env_list,
-        f"sar-pipeline:{docker_image_tag}",
+        f"sar-pipeline-isce3-rtc:{docker_image_tag}",
         "--scene",
         scene,
         "--burst-id-list",

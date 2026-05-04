@@ -34,13 +34,13 @@ standards‑compliant distribution and downstream use.
 1. Build the container
 
 ```bash
-docker build -t sar-pipeline -f Docker/isce3_rtc/Dockerfile .
+docker build -t sar-pipeline-isce3-rtc -f Docker/isce3_rtc/Dockerfile .
 ```
 
 2. Test the image interactively (type `exit` to exit)
 
 ```bash
-docker run -it --entrypoint /bin/bash sar-pipeline
+docker run -it --entrypoint /bin/bash sar-pipeline-isce3-rtc
 ```
 
 1. Set the following minimum environment credentials in a `.env` file. At minimum we require earthdata *OR* Coperniucs Space Data Ecosystem (CDSE) credentials to download from the Alaska Satelite Facility (ASF) or CDSE respectively. These can be created here for the [ASF](http://urs.earthdata.nasa.gov/) and [CDSE](https://dataspace.copernicus.eu/).
@@ -57,7 +57,7 @@ mkdir data
 ```
 
 ```bash
-docker run --env-file .env -v ${PWD}/data:/home/rtc_user/working sar-pipeline \
+docker run --env-file .env -v ${PWD}/data:/home/rtc_user/working sar-pipeline-isce3-rtc \
 --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD \
 --burst-id-list t070_149815_iw3 \
 --skip-upload-to-s3 \
@@ -94,6 +94,10 @@ sudo chmod -R 777 ./data
 ```
 
 6. See the [full docs](docs/pipelines/isce3_rtc.md) to see how static layers can created and used.
+
+## Release
+
+GA release information is provided in the [release guide](./docs/development/release_guide.md)
 
 ## License
 
