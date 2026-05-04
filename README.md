@@ -59,11 +59,11 @@ mkdir data
 ```bash
 docker run --env-file .env -v ${PWD}/data:/home/rtc_user/working sar-pipeline \
 --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD \
---burst_id_list t070_149815_iw3 \
---skip_upload_to_s3 \
---make_existing_products \
---scene_data_source ASF \
---orbit_data_source ASF 
+--burst-id-list t070_149815_iw3 \
+--skip-upload-to-s3 \
+--make-existing-products \
+--scene-data-source ASF \
+--orbit-data-source ASF 
 ```
 
 Note if there are permission issues writing to the local `./data` folder, the following can be run:

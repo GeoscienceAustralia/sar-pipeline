@@ -121,53 +121,53 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 ```bash
 # Basic input for product creation
 --scene="" (required)
---burst_id_list=()
+--burst-id-list=()
 --resolution=20
---output_crs="UTM"
---dem_type="best" # logic to chose best DEM between REMA_32 and glo_cop30
+--output-crs="UTM"
+--dem-type="best" # logic to chose best DEM between REMA_32 and glo_cop30
 --product="RTC_S1"
---backscatter_convention="gamma0" # gamma0, sigma0 or beta0
---static_layer_validity_start_date=20140403
---s3_bucket="dea-public-data-dev"
---s3_project_folder="baseline"
---collection_number=1
---make_existing_products=false
---skip_upload_to_s3=false
---scene_data_source=("AUS_COP_HUB" "ASF" "CDSE") # order of preference
---orbit_data_source=("AUS_COP_HUB" "ASF" "CDSE")  # order of preference
---skip_validate_stac=false
---skip_upload_processed_scene_tracking_file=false
---skip_rtc=false
+--backscatter-convention="gamma0" # gamma0, sigma0 or beta0
+--static-layer-validity-start-date=20140403
+--s3-bucket="dea-public-data-dev"
+--s3-project-folder="baseline"
+--collection-number=1
+--make-existing-products=false
+--skip-upload-to-s3=false
+--scene-data-source=("AUS_COP_HUB" "ASF" "CDSE") # order of preference
+--orbit-data-source=("AUS_COP_HUB" "ASF" "CDSE")  # order of preference
+--skip-validate-stac=false
+--skip-upload-processed-scene-tracking-file=false
+--skip-rtc=false
 # Required inputs for linking RTC_S1_STATIC to RTC_S1
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
---link_static_layers=false           
---linked_static_layers_s3_bucket="dea-public-data-dev"
---linked_static_layers_s3_project_folder="baseline" 
---linked_static_layers_collection_number=1 
+--link-static-layers=false           
+--linked-static-layers-s3-bucket="dea-public-data-dev"
+--linked-static-layers-s3-project_folder="baseline" 
+--linked-static-layers-collection-number=1 
 
 ```
 - `scene` -> A valid sentinel-1 IW scene (e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD)
-- `burst_id_list` -> A list of burst ids corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated.txt file.
+- `burst-id-list` -> A list of burst ids corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated.txt file.
 - `resolution` -> The target resolution of the products. Default is 20m.
-- `output_crs` -> The target crs of the products. If not specified, the UTM of the scene center will be used or polar stereographic coordinates will be used for high latitudes above 60 degrees. Expects integer values (e.g. `3031`)
-- `dem_type` -> The type of DEM that should be downloaded for processing the scene. If 'best' is provided, logic will be used to select the most appropriate DEM out of the REMA_32 and cop_glo30. Ellipsoidal height values will be used where no DEM data exists (e.g. over water). Valid inputs are: `best` `cop_glo30`, `REMA_32`, `REMA_10`, `REMA_2`.
+- `output-crs` -> The target crs of the products. If not specified, the UTM of the scene center will be used or polar stereographic coordinates will be used for high latitudes above 60 degrees. Expects integer values (e.g. `3031`)
+- `dem-type` -> The type of DEM that should be downloaded for processing the scene. If 'best' is provided, logic will be used to select the most appropriate DEM out of the REMA_32 and cop_glo30. Ellipsoidal height values will be used where no DEM data exists (e.g. over water). Valid inputs are: `best` `cop_glo30`, `REMA_32`, `REMA_10`, `REMA_2`.
 - `product` -> The product being created with the workflow. Must be `RTC_S1` or `RTC_S1_STATIC`.
-- `backscatter_convention` -> the output backscatter convention from the workflow. Allowed values are [`beta0`,`sigma0`,`gamma0`] Note sigma0 data is referenced to the DEM. To create sigma0 ellipsoid referenced data, the beta0 layer and static incidence_angle layer is required; sigma0_ellipsoid = beta0*sin(incidence_angle).
-- `static_layer_validity_start_date` -> The validity start date for the static layers used in processing, expressed in YYYYMMDD format. This sets the rtc_s1_static_validity_start_date value in the run configuration. This value is not expected to change often (if ever). The default value 20140403 corresponds to the beginning of the Sentinel-1 mission. You would change this value only if the satellite orbit changes in a way that makes the existing static layers invalid—i.e. the geometry is no longer consistent, so new static layers must be generated. Another reason to update the validity start date is if the DEM used for processing is changed or upgraded, requiring new static layers to be created for the same `dem_type`.
-- `s3_bucket` -> the AWS S3 bucket to upload the products
-- `s3_project_folder` -> The AWS S3 project folder within the bucket to upload to. This is often referred to as a prefix by AWS.
-- `collection_number` -> The collection number of the product as an integer.
-- `make_existing_products` -> Whether to generate products even if they already exist in AWS S3 under the specified product folder path `s3_bucket/s3_project_folder/collection/...`. 
+- `backscatter-convention` -> the output backscatter convention from the workflow. Allowed values are [`beta0`,`sigma0`,`gamma0`] Note sigma0 data is referenced to the DEM. To create sigma0 ellipsoid referenced data, the beta0 layer and static incidence_angle layer is required; sigma0_ellipsoid = beta0*sin(incidence_angle).
+- `static-layer-validity-start-date` -> The validity start date for the static layers used in processing, expressed in YYYYMMDD format. This sets the rtc_s1_static_validity_start_date value in the run configuration. This value is not expected to change often (if ever). The default value 20140403 corresponds to the beginning of the Sentinel-1 mission. You would change this value only if the satellite orbit changes in a way that makes the existing static layers invalid—i.e. the geometry is no longer consistent, so new static layers must be generated. Another reason to update the validity start date is if the DEM used for processing is changed or upgraded, requiring new static layers to be created for the same `dem_type`.
+- `s3-bucket` -> the AWS S3 bucket to upload the products
+- `s3-project-folder` -> The AWS S3 project folder within the bucket to upload to. This is often referred to as a prefix by AWS.
+- `collection-number` -> The collection number of the product as an integer.
+- `make-existing-products` -> Whether to generate products even if they already exist in AWS S3 under the specified product folder path `s3_bucket/s3_project_folder/collection/...`. 
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
-- `skip_upload_to_s3` -> Make the products, but skip uploading them to AWS S3.
-- `scene_data_source` -> Where to download the scene SLC file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
-- `orbit_data_source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
-- `skip_validate_stac` -> To skip validation of the created STAC doc within the code. If this is not set and the stac is invalid, products will not be uploaded. By default we want to validate the stac.
-- `skip_upload_processed_scene_tracking_file` -> By default a small .json file (`{scene}.json`) is uploaded to a monitoring subfolder of the provided `s3_project_folder`. These can be easily parsed to check for which scenes have been processed. Setting this skips the upload of that file. By default, the file is uploaded to: RTC_S1 -> `{s3_project_folder}/monitoring/processed_scenes` and RTC_S1_STATIC -> `{s3_project_folder}/monitoring/processed_scenes_static_layers` 
-- `link_static_layers` -> Flag to link RTC_S1_STATIC products to RTC_S1 in stac metadata. The RTC_S1_STATIC products must exist for the given bursts. 
-- `linked_static_layers_s3_bucket` -> bucket where RTC_S1_STATIC products are stored
-- `linked_static_layers_s3_project_folder` -> folder within bucket where RTC_S1_STATIC products are stored
-- `linked_static_layers_collection_number` -> The collection number of the linked RTC_S1_STATIC product.
+- `skip-upload-to-s3` -> Make the products, but skip uploading them to AWS S3.
+- `scene-data-source` -> Where to download the scene SLC file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
+- `orbit-data-source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
+- `skip-validate-stac` -> To skip validation of the created STAC doc within the code. If this is not set and the stac is invalid, products will not be uploaded. By default we want to validate the stac.
+- `skip-upload-processed-scene-tracking-file` -> By default a small .json file (`{scene}.json`) is uploaded to a monitoring subfolder of the provided `s3_project_folder`. These can be easily parsed to check for which scenes have been processed. Setting this skips the upload of that file. By default, the file is uploaded to: RTC_S1 -> `{s3_project_folder}/monitoring/processed_scenes` and RTC_S1_STATIC -> `{s3_project_folder}/monitoring/processed_scenes_static_layers` 
+- `link-static-layers` -> Flag to link RTC_S1_STATIC products to RTC_S1 in stac metadata. The RTC_S1_STATIC products must exist for the given bursts. 
+- `linked-static-layers-s3-bucket` -> bucket where RTC_S1_STATIC products are stored
+- `linked-static-layers-s3-project-folder` -> folder within bucket where RTC_S1_STATIC products are stored
+- `linked-static-layers-collection-number` -> The collection number of the linked RTC_S1_STATIC product.
 
 ### 3.4. Example Product Outputs
 
@@ -258,10 +258,10 @@ Some examples of running the pipeline with changes being actively implemented
 
 ```bash 
 # Antarctic scene (single burst)
-/home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
+/home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst-id-list t070_149815_iw3 --skip-upload-to-s3 --make-existing-products --s3-project-folder "TMP"
 
 # Australia scene
-/home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
+/home/rtc_user/scripts/run_isce3_rtc_pipeline.sh --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --skip-upload-to-s3 --make-existing-products --s3-project-folder "TMP"
 ```
 
 
@@ -270,12 +270,12 @@ Some examples of running the pipeline with changes being actively implemented
 We may also want to run the docker container directly but mount useful directories to keep track of outputs.
 
 ```bash
-docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip_upload_to_s3 --make_existing_products --s3_project_folder "TMP"
+docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip-upload-to-s3 --make-existing-products --s3-project-folder "TMP"
 
 ```
 
 ```bash
-docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst_id_list t070_149815_iw3 t070_149821_iw1 --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products
+docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst-id-list t070_149815_iw3 t070_149821_iw1 --s3-project-folder TMP --skip-upload-to-s3 --make-existing-products
 ```
 
 ## 5. Tests
@@ -512,25 +512,25 @@ INFO:sar_pipeline.pipelines.isce3_rtc.cli:Saving burst geometries to : ./S1A_IW_
 
 ### 8.2. Create RTC Backscatter (RTC_S1) Without Linking Static Layers
 
-- Note, the `--skip_upload_to_s3` and `--make_existing_products` flags are set so existing products will be made, and no uploads to AWS S3 will occur. 
+- Note, the `--skip-upload-to-s3` and `--make-existing-products` flags are set so existing products will be made, and no uploads to AWS S3 will occur. 
 
 **Antarctica (single acquisition, single burst)**
 
 ```bash
-docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3_project_folder TMP --burst_id_list t070_149815_iw3 --skip_upload_to_s3 --make_existing_products --collection_number 0
+docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3-project-folder TMP --burst-id-list t070_149815_iw3 --skip-upload-to-s3 --make-existing-products --collection-number 0
 ```
 
 **Australia (single aquisition, all bursts)**
 
 
 ```bash
-docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --s3_project_folder TMP --skip_upload_to_s3 --make_existing_products --collection_number 0
+docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --s3-project-folder TMP --skip-upload-to-s3 --make-existing-products --collection-number 0
 ```
 
 ### 8.3. Create Static Layers (RTC_S1_STATIC)
 
 ```bash
-docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --product RTC_S1_STATIC --s3_project_folder "TMP" --skip_upload_to_s3 --make_existing_products --collection_number 0
+docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --product RTC_S1_STATIC --s3-project-folder "TMP" --skip-upload-to-s3 --make-existing-products --collection-number 0
 ```
 
 ### 8.4. Create Static Layers (RTC_S1_STATIC) and Link them to a RTC Backscatter Product (RTC_S1)
@@ -544,12 +544,12 @@ docker run --env-file .env -it sar-pipeline --scene S1A_IW_SLC__1SSH_20220101T12
 ```bash
 docker run --env-file .env -it sar-pipeline\
 --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD \
---burst_id_list t070_149815_iw3 \
+--burst-id-list t070_149815_iw3 \
 --product RTC_S1_STATIC \
---s3_bucket deant-data-public-dev \
---collection_number 0 \
---s3_project_folder TMP/RTC_S1_STATIC \
---make_existing_products
+--s3-bucket deant-data-public-dev \
+--collection-number 0 \
+--s3-project-folder TMP/RTC_S1_STATIC \
+--make-existing-products
 ```
 
 Note, any scene that covers the given burst could be used. For example, the following scene captured 12 days earlier on the same repeat orbit could be used `S1A_IW_SLC__1SSH_20211220T124745_20211220T124815_041092_04E1C2_0475`.
@@ -563,16 +563,16 @@ https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=
 ```bash
 docker run --env-file .env -it sar-pipeline:v0.5 \
 --scene S1A_IW_SLC__1SSH_20211220T124745_20211220T124815_041092_04E1C2_0475 \
---burst_id_list t070_149815_iw3 \
+--burst-id-list t070_149815_iw3 \
 --product RTC_S1 \
---s3_bucket deant-data-public-dev \
---collection_number 0 \
---s3_project_folder TMP/RTC_S1 \
---link_static_layers \
---linked_static_layers_s3_bucket deant-data-public-dev \
---linked_static_layers_collection_number 0 \
---linked_static_layers_s3_project_folder TMP/RTC_S1_STATIC
---make_existing_products
+--s3-bucket deant-data-public-dev \
+--collection-number 0 \
+--s3-project-folder TMP/RTC_S1 \
+--link-static-layers \
+--linked-static-layers-s3-bucket deant-data-public-dev \
+--linked-static-layers-collection-number 0 \
+--linked-static-layers-s3-project-folder TMP/RTC_S1_STATIC \
+--make-existing-products
 ```
 
 Once the workflow has been completed, you should be able to find the backscatter data at:
