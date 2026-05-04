@@ -9169,8 +9169,8 @@ packages:
   timestamp: 1740681675666
 - pypi: ./
   name: sar-pipeline
-  version: 0.7.2.dev19+g2d45e35ea.d20260429
-  sha256: ee9d5b11e748af388d30df88e76e2ca50cc1916692a4be063575a2655522c7e3
+  version: 0.7.2.dev30+g2e47550f1.d20260504
+  sha256: 7d5ef331dc6f4272440973aad8215af9690199c806a4bdb6d348b31d6be3eb00
   requires_dist:
   - asf-search>=9.0.9
   - boto3>=1.37.1
@@ -9187,7 +9187,7 @@ packages:
   - pystac-client>=0.9.0,<0.10
   - sentineleof @ git+https://github.com/scottstanie/sentineleof@v0.11.2
   - tqdm>=4.67.1,<5
-  - black[jupyter]>=26.3.1,<27
+  - black[jupyter]==26.3.1
   - ipykernel>=7.2.0,<8
   - stac-geoparquet>=0.7.0,<0.8
   - docker>=7.1.0,<8
