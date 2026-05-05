@@ -66,7 +66,7 @@ PROJECT_ROOT = CURRENT_DIR.parents[2]
 
 # shared test values
 DOCKER_TAG = re.sub(r"[^a-zA-Z0-9_.-]", "-", sar_pipeline.__version__)
-# DOCKER_TAG = '0.4.1.dev36-g6eecb22a7.d20250925' # set existing image
+# DOCKER_TAG = '0.7.2.dev23-g70bf0da26' # set existing image
 RUN_DATETIME = str(datetime.now()).replace(" ", "_").replace(":", "-")
 # RUN_DATETIME = '2025-12-04_05-46-40.829598'  # set existing datetime
 TEST_NAME = Path(__file__).stem
@@ -147,14 +147,14 @@ for var in REQUIRED_ENV_VARIABLES + OPTIONAL_ENV_VARIABLES:
 def build_image():
     """build and tag the docker image for the current codebase to be used in tests"""
     logging.info(
-        f"Building docker image sar-pipeline:{DOCKER_TAG} for testing, this may take a few minutes..."
+        f"Building docker image sar-pipeline-isce3-rtc:{DOCKER_TAG} for testing, this may take a few minutes..."
     )
     result = subprocess.run(
         [
             "docker",
             "build",
             "-t",
-            f"sar-pipeline:{DOCKER_TAG}",
+            f"sar-pipeline-isce3-rtc:{DOCKER_TAG}",
             "-f",
             "Docker/isce3_rtc/Dockerfile",
             ".",
@@ -186,7 +186,7 @@ def _run_docker_for_scene(
     Parameters
     ----------
     docker_image_tag : str
-        the docker image tag for sar-pipeline. e.g.
+        the docker image tag for sar-pipeline-isce3-rtc. e.g.
          0.4.1.dev256-g9b7a3f1ea.d20251204
     docker_env_list : list
         A list of environment variables to be passed
@@ -218,12 +218,12 @@ def _run_docker_for_scene(
 
     # mount the local directory for results
     volume_mount_list = ["-v", f"{local_outputs_folder}:/home/rtc_user/working/results"]
-    # Optional -> mount somewhere to store downloads
+    # # Optional -> mount somewhere to store downloads
     # volume_mount_list += [
     #     "-v",
     #     f"/data/working/downloads:/home/rtc_user/working/downloads",
     # ]
-    # Optional -> mount the scratch directory
+    # # Optional -> mount the scratch directory
     # volume_mount_list += ["-v", f"/data/working/scratch:/home/rtc_user/working/scratch"]
 
     cmd = [
@@ -232,20 +232,20 @@ def _run_docker_for_scene(
         *volume_mount_list,
         "--rm",
         *docker_env_list,
-        f"sar-pipeline:{docker_image_tag}",
+        f"sar-pipeline-isce3-rtc:{docker_image_tag}",
         "--scene",
         scene,
-        "--burst_id_list",
+        "--burst-id-list",
         burst_id,
         "--product",
         "RTC_S1_STATIC",
-        "--backscatter_convention",
+        "--backscatter-convention",
         "gamma0",
-        "--collection_number",
+        "--collection-number",
         "1",
-        "--s3_bucket",
+        "--s3-bucket",
         s3_bucket,
-        "--s3_project_folder",
+        "--s3-project-folder",
         s3_project_folder,
     ]
     result = subprocess.run(
@@ -265,27 +265,27 @@ def _run_docker_for_scene(
         *volume_mount_list,
         "--rm",
         *docker_env_list,
-        f"sar-pipeline:{docker_image_tag}",
+        f"sar-pipeline-isce3-rtc:{docker_image_tag}",
         "--scene",
         scene,
-        "--burst_id_list",
+        "--burst-id-list",
         burst_id,
         "--product",
         "RTC_S1",
-        "--backscatter_convention",
+        "--backscatter-convention",
         "gamma0",
-        "--collection_number",
+        "--collection-number",
         "1",
-        "--s3_bucket",
+        "--s3-bucket",
         s3_bucket,
-        "--s3_project_folder",
+        "--s3-project-folder",
         s3_project_folder,
-        "--link_static_layers",
-        "--linked_static_layers_s3_bucket",
+        "--link-static-layers",
+        "--linked-static-layers-s3-bucket",
         s3_bucket,
-        "--linked_static_layers_s3_project_folder",
+        "--linked-static-layers-s3-project-folder",
         s3_project_folder,
-        "--linked_static_layers_collection_number",
+        "--linked-static-layers-collection-number",
         "1",
     ]
 
