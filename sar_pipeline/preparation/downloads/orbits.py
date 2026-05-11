@@ -408,10 +408,10 @@ def query_orbit_from_aus_cop_hub(
 
     scene_st_datetime, scene_end_datetime = get_dates_from_scene_id(scene)
     search_st = (scene_st_datetime - timedelta(days=search_buffer_days)).strftime(
-        "%Y-%m-%d"
+        "%Y-%m-%dT%H:%M:%S.%fZ"
     )
     search_et = (scene_end_datetime + timedelta(days=search_buffer_days)).strftime(
-        "%Y-%m-%d"
+        "%Y-%m-%dT%H:%M:%S.%fZ"
     )
     platform = str(scene).split("_")[0]  # S1A, S1B, S1C etc
     orbit_file_name = None
@@ -440,7 +440,6 @@ def query_orbit_from_aus_cop_hub(
         orbit_starts = []
         orbit_ends = []
         orbit_names = []
-        orbit_file_name = None
         for orbit_metadata in aus_cophub_orbit_metadata:
             orbit_file_platform = orbit_metadata["Name"].split("_")[0]
             orb_st = datetime.strptime(
@@ -457,9 +456,9 @@ def query_orbit_from_aus_cop_hub(
                 orbit_starts.append(orb_st)
                 orbit_ends.append(orb_et)
                 orbit_names.append(orbit_metadata["Name"])
-        furthest_start = datetime.strftime(min(orbit_starts), "%Y%m%dT%H%M%S")
-        closest_end = datetime.strftime(min(orbit_ends), "%Y%m%dT%H%M%S")
         try:
+            furthest_start = datetime.strftime(min(orbit_starts), "%Y%m%dT%H%M%S")
+            closest_end = datetime.strftime(min(orbit_ends), "%Y%m%dT%H%M%S")
             orbit_file_name = [
                 name
                 for name in orbit_names
@@ -476,7 +475,11 @@ def query_orbit_from_aus_cop_hub(
             # exit with no file path found
             return []
 
-    return orbit_metadata
+    return [
+        metadata
+        for metadata in aus_cophub_orbit_metadata
+        if metadata["Name"] == orbit_file_name
+    ][0]
 
 
 @log_timing
