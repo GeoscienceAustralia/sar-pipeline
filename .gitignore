@@ -54,5 +54,6 @@ sar-processing/
 TMP/*
 
 notebooks/**/*.parquet
+notebooks/test*.ipynb
 
 Container_logs/*
