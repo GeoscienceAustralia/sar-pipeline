@@ -436,9 +436,8 @@ def query_orbit_from_aus_cop_hub(
         logger.info(f"Filtering for best orbit file")
         # Filter the results for the best file based on the scene start and end time and platform, as there may be multiple matches in the search window.
         # Assuming that the scene's start and end time is always between the orbit file's start and end time,
-        # the best orbit file is selected by finding the one with the furthest start time and closest end time to the scene's start and end time, respectively.
+        # the best orbit file is selected by finding the one with the earliest start time to the scene's start time.
         orbit_starts = []
-        orbit_ends = []
         orbit_names = []
         for orbit_metadata in aus_cophub_orbit_metadata:
             orbit_file_platform = orbit_metadata["Name"].split("_")[0]
@@ -454,16 +453,12 @@ def query_orbit_from_aus_cop_hub(
                 and (orbit_file_platform == platform)
             ):
                 orbit_starts.append(orb_st)
-                orbit_ends.append(orb_et)
                 orbit_names.append(orbit_metadata["Name"])
         try:
-            furthest_start = datetime.strftime(min(orbit_starts), "%Y%m%dT%H%M%S")
-            closest_end = datetime.strftime(min(orbit_ends), "%Y%m%dT%H%M%S")
-            orbit_file_name = [
-                name
-                for name in orbit_names
-                if furthest_start in name and closest_end in name
-            ][0]
+            earliest_start = datetime.strftime(min(orbit_starts), "%Y%m%dT%H%M%S")
+            orbit_file_name = [name for name in orbit_names if earliest_start in name][
+                0
+            ]
         except:
             logger.info(
                 f"Could not find orbit type {orbit_file_type} in provided time window"
