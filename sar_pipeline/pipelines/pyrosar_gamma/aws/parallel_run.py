@@ -110,6 +110,7 @@ def run_docker_container(
     start_time: str,
     clear_intermediate_files: bool,
     delete_local_outputs: bool,
+    timeout: int,
 ) -> tuple[str, int]:
 
     container_logs_file = f"Container_logs/{start_time}/{scene.replace('/', '_')}.log"
@@ -144,7 +145,7 @@ def run_docker_container(
         with open(container_logs_file, "wb") as log_file:
             for line in container.logs(stream=True, follow=True):
                 log_file.write(line)
-        status = container.wait()
+        status = container.wait(timeout=timeout)
         if status["StatusCode"] == 0:
             logger.info(f"{scene}: Container for scene {scene} completed successfully.")
 
@@ -245,6 +246,12 @@ def run_docker_container(
     type=str,
     help="Path to the general log file.",
 )
+@click.option(
+    "--container-timeout",
+    default="3600",
+    type=str,
+    help="Timeout for the Docker container in seconds.",
+)
 @log_timing
 def run_jobs(
     scenes_csv,
@@ -257,6 +264,7 @@ def run_jobs(
     clear_intermediate_files,
     delete_local_outputs,
     general_log_file,
+    container_timeout,
 ):
 
     if general_log_file != "":
@@ -334,6 +342,7 @@ def run_jobs(
                     start_time.strftime("%Y-%m-%d_%H-%M-%S"),
                     clear_intermediate_files,
                     delete_local_outputs,
+                    int(container_timeout),
                 )
                 for scene in scenes
             ]
