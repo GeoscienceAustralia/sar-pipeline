@@ -84,14 +84,14 @@ sudo chmod -R 777 ./data
                 ├── OPERA-RTC_runconfig.yaml
                 ├── S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD_burst_geoms.json
                 └── t070_149815_iw3
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_HH-gamma0.tif
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_checksum.sha1
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_mask.tif
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.h5
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.xml
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_proc-config.yaml
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_stac-item.json
-                    └── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_thumbnail.png
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_HH-gamma0.tif
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_checksum.sha1
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_mask.tif
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.h5
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.xml
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_proc-config.yaml
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_stac-item.json
+                    └── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_thumbnail.png
 ```
 
 6. See the [full docs](docs/pipelines/isce3_rtc.md) to see how static layers can created and used.
