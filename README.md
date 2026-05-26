@@ -27,6 +27,7 @@ git clone https://github.com/GeoscienceAustralia/sar-pipeline.git
 
 The ISCE3 RTC Pipeline can be used to produce [CEOS Approved](https://ceos.org/ard/index.html#datasets)
 Analysis Ready Sentinel‑1 Radiometrically Terrain Corrected (RTC) or Normalised Radar Backscatter (NRB) data. 
+Sentinel-1 Single Look Complex (SLC) files in the Interferometric Wide (IW) mode can be processed.
 The pipeline automatically downloads all required inputs and generates NRB outputs at the burst level,
 along with the associated metadata files—including STAC JSON and XML—required for
 standards‑compliant distribution and downstream use.
