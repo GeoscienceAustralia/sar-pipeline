@@ -59,6 +59,8 @@ from sar_pipeline.analysis.compare_metadata import (
 )
 from sar_pipeline.analysis.compare_cog import compare_cog_stats
 
+VALID_SENSOR_MODES = ["IW", "EW"]
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -316,11 +318,25 @@ def get_data_for_scene_and_make_run_config(
         f"The order of preference for platform used to download the orbits is : {orbit_data_sources}"
     )
 
+    # Get the sensor mode from the file
+    try:
+        sensor_mode = scene.split("_")[1]  # IW, EW
+        if sensor_mode not in VALID_SENSOR_MODES:
+            raise ValueError(
+                f"Could not extract valid sensor mode {VALID_SENSOR_MODES} from scene : {scene}"
+            )
+    except:
+        raise ValueError(
+            f"Could not extract valid sensor mode {VALID_SENSOR_MODES} from scene : {scene}"
+        )
+
     # make the base .yaml for RTC processing
     if product == "RTC_S1":
-        RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC.yaml")
+        RTC_RUN_CONFIG = RTCConfigManager(base_config=f"S1_RTC_{sensor_mode}.yaml")
     elif product == "RTC_S1_STATIC":
-        RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC_STATIC.yaml")
+        RTC_RUN_CONFIG = RTCConfigManager(
+            base_config=f"S1_RTC_STATIC_{sensor_mode}.yaml"
+        )
     else:
         raise ValueError("product must be S1_RTC or S1_RTC_STATIC")
 
@@ -607,6 +623,7 @@ def get_data_for_scene_and_make_run_config(
             burst_st_year="{burst_st_year}",
             burst_st_month="{burst_st_month}",
             burst_st_day="{burst_st_day}",
+            acquisition_mode=sensor_mode,
         )
         burst_product_data_access = make_rtc_s1_product_browse_url(
             s3_bucket=s3_bucket,
@@ -624,6 +641,7 @@ def get_data_for_scene_and_make_run_config(
                 dem_type,
                 static_layer_validity_start_date,
                 burst_id="{burst_id}",
+                acquisition_mode=sensor_mode,
             )
             static_layer_data_access = make_rtc_s1_static_product_browse_url(
                 s3_bucket=linked_static_layers_s3_bucket,
@@ -639,6 +657,7 @@ def get_data_for_scene_and_make_run_config(
             dem_type,
             static_layer_validity_start_date,
             burst_id="{burst_id}",
+            acquisition_mode=sensor_mode,
         )
         burst_product_data_access = make_rtc_s1_static_product_browse_url(
             s3_bucket=s3_bucket,
@@ -1309,7 +1328,10 @@ def get_bursts_ids_for_scene(
     try:
         # Query the CDSE to make sure the scene exists
         logger.info(f"Searching CDSE for scene metadata : {scene}")
-        scene_results, metadata_src = query_scene_from_cdse(scene), "CDSE"
+        scene_results, metadata_src = (
+            query_scene_from_cdse(scene, expand_attributes=True),
+            "CDSE",
+        )
     except Exception as e:
         # Fallback to ASF
         logger.error(f"CDSE Query failed. Error : {e}")
@@ -1325,7 +1347,7 @@ def get_bursts_ids_for_scene(
         logger.info(f"Scene metadata successfully retrieved from {metadata_src}")
         scene_metadata = scene_results[0]
         if metadata_src == "CDSE":
-            scene_polygon = shapely.geometry.shape(scene_metadata["geometry"])
+            scene_polygon = shapely.geometry.shape(scene_metadata["GeoFootprint"])
         if metadata_src == "ASF":
             scene_polygon = shapely.geometry.shape(scene_metadata.geometry)
         # show the original scene shape and bounds

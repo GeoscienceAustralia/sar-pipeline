@@ -48,6 +48,7 @@ def make_rtc_s1_product_s3_prefix(
     burst_st_year: int | str | None = None,
     burst_st_month: int | str | None = None,
     burst_st_day: int | str | None = None,
+    acquisition_mode: str = "iw",
 ) -> str:
     """Structure for the RTC_S1 product sub-folders. These include
     information about when the burst was acquired.
@@ -78,6 +79,8 @@ def make_rtc_s1_product_s3_prefix(
         The starting day for the the burst acquisition. Single digit days
         should be zero padded. If None, will be retrieved from burst_st.
         Considered to be azimuth_time in the RTC workflow.
+    acquisition_mode : str
+        Acquisition mode of the sensor, iw or ew
 
     Returns
     -------
@@ -109,7 +112,7 @@ def make_rtc_s1_product_s3_prefix(
 
     # get the correct odc product name
     odc_product_name = get_odc_product_name(
-        "RTC_S1", collection_number, burst_polarisations
+        "RTC_S1", collection_number, burst_polarisations, acquisition_mode.lower()
     )
 
     # update the string format
@@ -132,6 +135,7 @@ def make_rtc_s1_static_product_s3_prefix(
     dem_type: ValidDemType,
     static_layer_validity_start_date: int,
     burst_id: str,
+    acquisition_mode: str = "iw",
 ) -> str:
     """Structure for the bucket subpath for static layers
 
@@ -148,6 +152,8 @@ def make_rtc_s1_static_product_s3_prefix(
         expressed in YYYYMMDD format.
     burst_id : str
         burst_id. e.g. t028_059507_iw2
+    acquisition_mode : str
+        Acquisition mode of the sensor, iw or ew
 
     Returns
     -------
@@ -156,7 +162,9 @@ def make_rtc_s1_static_product_s3_prefix(
         e.g. s3_project_folder/ga_s1_nrb_iw_static_c1/t028_059507_iw2
     """
     # get the odc product name which includes the collection number
-    odc_product_name = get_odc_product_name("RTC_S1_STATIC", collection_number, [])
+    odc_product_name = get_odc_product_name(
+        "RTC_S1_STATIC", collection_number, [], acquisition_mode.lower()
+    )
 
     # update the string format
     rtc_s1_static_s3_prefix = RTC_S1_STATIC_S3_PREFIX_FORMAT.format(
