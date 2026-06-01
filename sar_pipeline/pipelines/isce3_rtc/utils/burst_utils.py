@@ -159,7 +159,7 @@ def get_burst_info_for_scene_from_cdse(
     """
 
     base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
-    query = f"$filter=ParentProductName eq '{scene}.SAFE'&$top=100"
+    query = f"$filter=ParentProductName eq '{scene}.SAFE'&$top=500"
     url = f"{base_url}?{query}"
 
     response = requests.get(url)
