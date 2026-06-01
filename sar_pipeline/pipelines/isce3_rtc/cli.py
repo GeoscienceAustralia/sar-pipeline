@@ -411,7 +411,15 @@ def get_data_for_scene_and_make_run_config(
     if burst_id_list:
         logger.info(f"List of bursts to process provided")
         burst_id_list_candidates = burst_id_list.split(" ")
-
+        # ensure specified burst in scene SLC
+        bursts_not_in_scene = []
+        for b in burst_id_list_candidates:
+            if b not in list(all_scene_burst_info.keys()):
+                bursts_not_in_scene.append(b)
+        if bursts_not_in_scene:
+            raise ValueError(
+                f"The specified bursts cannot be found in the SLC : {bursts_not_in_scene}. Check input burst ids."
+            )
     else:
         logger.info(f"List of bursts not provided, processing all")
         burst_id_list_candidates = list(all_scene_burst_info.keys())
