@@ -159,6 +159,8 @@ def get_burst_info_for_scene_from_cdse(
     """
 
     base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
+    # one products per burst+pol, and can be over 100 bursts in an EW SLC
+    # set this value high to be safe.
     query = f"$filter=ParentProductName eq '{scene}.SAFE'&$top=500"
     url = f"{base_url}?{query}"
 
