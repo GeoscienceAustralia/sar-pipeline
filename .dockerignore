@@ -4,3 +4,4 @@
 *.env
 tests/sar_pipeline/isce3_rtc/data/TMP/*
 sar-processing/
+data/*
