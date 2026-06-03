@@ -29,7 +29,8 @@ echo "  BURST_DB_VERSION_TAG : $BURST_DB_VERSION_TAG"
 echo "  Repo                 : $BURST_DB_REPO (branch: $BURST_DB_BRANCH)"
 
 # Check if conda command exists
-if command -v conda &> /dev/null; then
+if command -v conda &> /dev/null
+then
     echo "Conda is installed."
     conda --version
 else
@@ -40,13 +41,18 @@ fi
 # Check AWS credentials
 echo "Checking AWS environment variables (must have write access to $AWS_S3_BUCKET)"
 if [[ -z "$AWS_ACCESS_KEY_ID" ]]; then
-    echo "AWS_ACCESS_KEY_ID is not set in environment variables"; exit 1
+    echo "AWS_ACCESS_KEY_ID is not set in environment variables"
+    exit 1
 fi
+
 if [[ -z "$AWS_SECRET_ACCESS_KEY" ]]; then
-    echo "AWS_SECRET_ACCESS_KEY is not set in environment variables"; exit 1
+    echo "AWS_SECRET_ACCESS_KEY is not set in environment variables"
+    exit 1
 fi
+
 if [[ -z "$AWS_DEFAULT_REGION" ]]; then
-    echo "AWS_DEFAULT_REGION is not set in environment variables"; exit 1
+    echo "AWS_DEFAULT_REGION is not set in environment variables"
+    exit 1
 fi
 echo "AWS credentials and region are set."
 
