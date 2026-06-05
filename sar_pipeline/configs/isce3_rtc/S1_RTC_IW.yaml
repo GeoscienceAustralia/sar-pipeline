@@ -40,7 +40,7 @@ runconfig:
 
             # burst database sqlite file
             # The burst_db is installed at this location in the docker image
-            burst_database_file: /home/rtc_user/burst_db/opera-burst-bbox-only.sqlite3
+            burst_database_file: /home/rtc_user/burst_db/opera-iw-burst-bbox-only.sqlite3
 
         product_group:
 
