@@ -57,6 +57,7 @@ VALID_DEMS = [
     "REMA_10",
     "REMA_2",
     "REMA_10_TIMESERIES",
+    "REMA_30_TIMESERIES",
     "REMA_32_TIMESERIES",
 ]
 
@@ -447,7 +448,7 @@ def get_data_for_scene_and_make_run_config(
         elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
             dem_resolution = int(dem_type.split("_")[1])
             rema_year = None
-        elif dem_type in ["REMA_32_TIMESERIES", "REMA_10_TIMESERIES"]:
+        elif dem_type in ["REMA_32_TIMESERIES", "REMA_30_TIMESERIES", "REMA_10_TIMESERIES"]:
             dem_resolution = int(dem_type.split("_")[1])
             rema_year = int(scene.split("_")[5][0:4])  # year from aq date
         dem_in_bounds = check_dem_type_in_bounds(dem_type, dem_resolution, bounds)
@@ -485,6 +486,7 @@ def get_data_for_scene_and_make_run_config(
         "REMA_10",
         "REMA_2",
         "REMA_32_TIMESERIES",
+        "REMA_30_TIMESERIES",
         "REMA_10_TIMESERIES",
     ]:
         get_rema_dem_for_bounds(

@@ -81,6 +81,12 @@ tomli = ">=2.2.1"
 sentineleof = ">=0.11.0"
 s1reader = ">=0.2.4"
 aioboto3 = "==14.1.0"
+fsspec = ">=2026.4.0,<2027"
+xarray = ">=2026.4.0,<2027"
+dask-core = ">=2026.3.0"
+rioxarray = ">=0.20.0,<0.21"
+pip = ">=26.1.2,<27"
+contextily = ">=1.7.0,<2"
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
