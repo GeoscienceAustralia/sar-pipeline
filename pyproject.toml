@@ -102,6 +102,12 @@ ca-certificates = ">=2026.10.23"
 brotli = ">=1.2.1"
 brotli-python = ">=1.2.1"
 s3fs = ">=2026.3.0,<2027"
+fsspec = ">=2026.4.0,<2027"
+xarray = ">=2026.4.0,<2027"
+dask-core = ">=2026.3.0"
+rioxarray = ">=0.20.0,<0.21"
+pip = ">=26.1.2,<27"
+contextily = ">=1.7.0,<2"
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
