@@ -49,4 +49,4 @@ dependencies:
   - black[jupyter]==26.10.1
   - stac-geoparquet>=0.8.3, <0.9
   - docker>=7.1.0, <8
-  - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@research/rema-timeseries-update
+  - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@research/rema-timeseries-versions
