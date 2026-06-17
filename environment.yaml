@@ -35,4 +35,7 @@ dependencies:
   - python-dotenv>=1.1.1, <2
   - pystac[validation]==1.13.0
   - antimeridian>=0.4.3, <0.5
+  - pyarrow>=24.0.0, <25
+  - fsspec >=2026.4.0,<2027
+  - s3fs >=2026.6.0,<2027
   - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@research/rema-timeseries-versions
