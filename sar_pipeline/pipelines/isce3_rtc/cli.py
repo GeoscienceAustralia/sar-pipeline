@@ -451,6 +451,7 @@ def get_data_for_scene_and_make_run_config(
         elif dem_type in ["REMA_32_TIMESERIES", "REMA_30_TIMESERIES", "REMA_10_TIMESERIES"]:
             dem_resolution = int(dem_type.split("_")[1])
             rema_year = int(scene.split("_")[5][0:4])  # year from aq date
+        # For REMA v0.5 with 30m resolution, this check is skipped in dem-handler and later the bounds are checked when the DEM data is downloaded. 
         dem_in_bounds = check_dem_type_in_bounds(dem_type, dem_resolution, bounds)
         if dem_in_bounds:
             # dem has data in the bounds we want, exit with dem_type set
