@@ -50,18 +50,6 @@ from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
 from dem_handler.utils.spatial import check_dem_type_in_bounds
 
-from sar_pipeline.analysis.compare_folder import compare_product_folder_files
-from sar_pipeline.analysis.compare_metadata import (
-    compare_json,
-    compare_xml,
-    write_diffs_to_json,
-    write_diffs_to_xml,
-)
-from sar_pipeline.analysis.compare_cog import compare_cog_stats
-
-# TODO add "EW" mode to list when capability added
-VALID_SENSOR_MODES = ["IW"]
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -548,10 +536,14 @@ def get_data_for_scene_and_make_run_config(
         elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
             dem_resolution = int(dem_type.split("_")[1])
             rema_year = None
-        elif dem_type in ["REMA_32_TIMESERIES", "REMA_30_TIMESERIES", "REMA_10_TIMESERIES"]:
+        elif dem_type in [
+            "REMA_32_TIMESERIES",
+            "REMA_30_TIMESERIES",
+            "REMA_10_TIMESERIES",
+        ]:
             dem_resolution = int(dem_type.split("_")[1])
             rema_year = int(scene.split("_")[5][0:4])  # year from aq date
-        # For REMA v0.5 with 30m resolution, this check is skipped in dem-handler and later the bounds are checked when the DEM data is downloaded. 
+        # For REMA v0.5 with 30m resolution, this check is skipped in dem-handler and later the bounds are checked when the DEM data is downloaded.
         dem_in_bounds = check_dem_type_in_bounds(dem_type, dem_resolution, bounds)
         if dem_in_bounds:
             # dem has data in the bounds we want, exit with dem_type set
@@ -627,10 +619,21 @@ def get_data_for_scene_and_make_run_config(
     # set the dem input source
     dem_url = DEM_TYPE_URL[dem_type]
     if dem_type == "cop_glo30":
-        demDescription = f"Copernicus Global 30m DEM - {dem_url}"
+        demSource = "https://registry.opendata.aws/copernicus-dem/"
+        demDescription = f"Copernicus Global 30m DEM - {demSource}"
     elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
         dem_res = dem_type.split("_")[-1]
-        demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM at {dem_res}m - {dem_url}"
+        demSource = (
+            f"https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/{dem_res}m"
+        )
+        demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM at {dem_res}m - {demSource}"
+    elif dem_type in ["REMA_32_TIMESERIES", "REMA_30_TIMESERIES", "REMA_10_TIMESERIES"]:
+        dem_res = dem_type.split("_")[-2]
+        demSource = "https://umn1.osn.mghpcc.org"
+        demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM timeseries at {dem_res}m - {demSource}"
+    else:
+        raise ValueError(f"dem_type must be one of {VALID_DEMS}")
+
     RTC_RUN_CONFIG.set(
         f"{gk}.dynamic_ancillary_file_group.dem_file_description", demDescription
     )
