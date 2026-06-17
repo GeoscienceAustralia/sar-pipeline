@@ -47,7 +47,6 @@ from dem_handler.utils.spatial import (
     check_dem_type_in_bounds,
 )
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -448,10 +447,14 @@ def get_data_for_scene_and_make_run_config(
         elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
             dem_resolution = int(dem_type.split("_")[1])
             rema_year = None
-        elif dem_type in ["REMA_32_TIMESERIES", "REMA_30_TIMESERIES", "REMA_10_TIMESERIES"]:
+        elif dem_type in [
+            "REMA_32_TIMESERIES",
+            "REMA_30_TIMESERIES",
+            "REMA_10_TIMESERIES",
+        ]:
             dem_resolution = int(dem_type.split("_")[1])
             rema_year = int(scene.split("_")[5][0:4])  # year from aq date
-        # For REMA v0.5 with 30m resolution, this check is skipped in dem-handler and later the bounds are checked when the DEM data is downloaded. 
+        # For REMA v0.5 with 30m resolution, this check is skipped in dem-handler and later the bounds are checked when the DEM data is downloaded.
         dem_in_bounds = check_dem_type_in_bounds(dem_type, dem_resolution, bounds)
         if dem_in_bounds:
             # dem has data in the bounds we want, exit with dem_type set
@@ -528,18 +531,22 @@ def get_data_for_scene_and_make_run_config(
     if dem_type == "cop_glo30":
         demSource = "https://registry.opendata.aws/copernicus-dem/"
         demDescription = f"Copernicus Global 30m DEM - {demSource}"
-        RTC_RUN_CONFIG.set(
-            f"{gk}.dynamic_ancillary_file_group.dem_file_description", demDescription
-        )
     elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
         dem_res = dem_type.split("_")[-1]
         demSource = (
             f"https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/{dem_res}m"
         )
         demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM at {dem_res}m - {demSource}"
-        RTC_RUN_CONFIG.set(
-            f"{gk}.dynamic_ancillary_file_group.dem_file_description", demDescription
-        )
+    elif dem_type in ["REMA_32_TIMESERIES", "REMA_30_TIMESERIES", "REMA_10_TIMESERIES"]:
+        dem_res = dem_type.split("_")[-2]
+        demSource = "https://umn1.osn.mghpcc.org"
+        demDescription = f"Reference Elevation Model of Antarctica (REMA) DEM timeseries at {dem_res}m - {demSource}"
+    else:
+        raise ValueError(f"dem_type must be one of {VALID_DEMS}")
+
+    RTC_RUN_CONFIG.set(
+        f"{gk}.dynamic_ancillary_file_group.dem_file_description", demDescription
+    )
 
     # specify bursts to process
     RTC_RUN_CONFIG.set(f"{gk}.input_file_group.burst_id", burst_id_list_to_process)
