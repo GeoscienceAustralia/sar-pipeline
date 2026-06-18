@@ -25,6 +25,11 @@ linked_static_layers_s3_bucket="deant-data-public-dev"
 linked_static_layers_s3_project_folder="baseline"
 linked_static_layers_collection_number=0
 
+# Explicit REMA year to use for Mutlti-temporal DEM option. 
+# If not set (i.e. left as default 0), the REMA year will be automatically extracted from the scene acquisition date. 
+# This is only relevant for the REMA timeseries DEM options. For non-timeseries DEM options, this argument is ignored.
+rema_year=0
+
 # Final product output paths have the following structure
 # RTC_S1
 #   - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/*files
@@ -104,6 +109,7 @@ while [[ "$#" -gt 0 ]]; do
                 done
             fi
             ;;
+        --rema_year) rema_year="$2"; shift 2 ;;
         *) echo "Unknown parameter: $1"; exit 1 ;;
     esac
 done
@@ -159,6 +165,7 @@ echo scene_data_source : ${scene_data_source[*]}
 echo orbit_data_source : ${orbit_data_source[*]}
 echo skip_validate_stac : "$skip_validate_stac"
 echo skip_rtc : "$skip_rtc"
+echo rema_year : "$rema_year"
 
 # warn the user about linking static layers
 if [[ "$link_static_layers" = true && "$product" = "RTC_S1" ]]; then
@@ -211,6 +218,7 @@ cmd=(
     --scratch-folder "$scratch_folder" \
     --out-folder "$out_folder" \
     --run-config-save-path "$RUN_CONFIG_PATH" \
+    --rema-year "$rema_year" \
 )
 
 # Conditionally add --dem-type as a list of preferences
