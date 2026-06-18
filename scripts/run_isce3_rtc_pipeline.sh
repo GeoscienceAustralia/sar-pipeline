@@ -28,6 +28,11 @@ linked_static_layers_s3_bucket="dea-public-data-dev"
 linked_static_layers_s3_project_folder="baseline"
 linked_static_layers_collection_number=1
 
+# Explicit REMA year to use for Mutlti-temporal DEM option. 
+# If not set (i.e. left as default 0), the REMA year will be automatically extracted from the scene acquisition date. 
+# This is only relevant for the REMA timeseries DEM options. For non-timeseries DEM options, this argument is ignored.
+rema_year=0
+
 # Final product output paths have the following structure
 # RTC_S1
 #   - s3_bucket/s3_project_folder/odc_product_name/burst_id/year/month/day/datetime/*files
@@ -99,6 +104,7 @@ while [[ "$#" -gt 0 ]]; do
                 done
             fi
             ;;
+        --rema_year) rema_year="$2"; shift 2 ;;
         *) echo "Unknown parameter: $1"; exit 1 ;;
     esac
 done
@@ -144,18 +150,17 @@ echo resolution : "$resolution"
 echo output-crs : "$epsg_code_msg"
 echo dem-type :  "$dem_type"
 echo product : "$product"
-echo backscatter-convention : "$backscatter_convention"
-echo static-layer-validity-start-date : "$static_layer_validity_start_date"
-echo s3-bucket : "$s3_bucket"
-echo s3-project-folder : "$s3_project_folder"
-echo collection-number : "$collection_number"
-echo make-existing-products : "$make_existing_products"
-echo skip-upload-to-s3 : "$skip_upload_to_s3"
-echo scene-data-source : ${scene_data_source[*]}
-echo orbit-data-source : ${orbit_data_source[*]}
-echo skip-validate-stac : "$skip_validate_stac"
-echo processed-scene-tracking-file-s3-folder : "$processed_scene_tracking_file_s3_folder"
-echo skip-rtc : "$skip_rtc"
+echo backscatter_convention : "$backscatter_convention"
+echo s3_bucket : "$s3_bucket"
+echo s3_project_folder : "$s3_project_folder"
+echo collection_number : "$collection_number"
+echo make_existing_products : "$make_existing_products"
+echo skip_upload_to_s3 : "$skip_upload_to_s3"
+echo scene_data_source : ${scene_data_source[*]}
+echo orbit_data_source : ${orbit_data_source[*]}
+echo skip_validate_stac : "$skip_validate_stac"
+echo skip_rtc : "$skip_rtc"
+echo rema_year : "$rema_year"
 
 # warn the user about linking static layers
 if [[ "$link_static_layers" = true && "$product" = "RTC_S1" ]]; then
@@ -209,6 +214,7 @@ cmd=(
     --scratch-folder "$scratch_folder" \
     --out-folder "$out_folder" \
     --run-config-save-path "$RUN_CONFIG_PATH" \
+    --rema-year "$rema_year" \
 )
 
 # Conditionally add --dem-type as a list of preferences
