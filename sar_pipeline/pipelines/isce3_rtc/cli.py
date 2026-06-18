@@ -499,7 +499,7 @@ def get_data_for_scene_and_make_run_config(
             bounds_src_crs=4326,
             save_path=DEM_PATH,
             resolution=dem_resolution,
-            buffer_pixels=500,
+            buffer_pixels=1200,
             ellipsoid_heights=True,
             download_geoid=True,
             geoid_tif_path=dem_folder / f"{scene}_geoid.tif",
