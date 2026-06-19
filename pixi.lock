@@ -379,7 +379,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/dd/42/e23b3e354e3dc9f45e256524dcbac79f4d9e830990e1638598d0452dacba/asf_search-12.2.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3e/df/2700292bb1b8009f7d8ebff2ba3b3b6b5648294f41269b58842cb4f40199/cdsetool-0.3.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
-      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=research%2Frema-timeseries-versions#f333a00e0a1af2b3f990d1f4ecf241a0fc8d80d2
+      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=research%2Frema-timeseries-versions#c461fe6198b4b5d3302670610a672bd3e33007c7
       - pypi: https://files.pythonhosted.org/packages/69/90/f63fb5873511e014207a475e2bb4e8b2e570d655b00ac19a9a0ca0a385ee/jsonschema-4.26.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/41/45/1a4ed80516f02155c51f51e8cedb3c1902296743db0bbc66608a0db2814f/jsonschema_specifications-2025.9.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl
@@ -747,7 +747,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/dd/42/e23b3e354e3dc9f45e256524dcbac79f4d9e830990e1638598d0452dacba/asf_search-12.2.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3e/df/2700292bb1b8009f7d8ebff2ba3b3b6b5648294f41269b58842cb4f40199/cdsetool-0.3.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
-      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=research%2Frema-timeseries-versions#f333a00e0a1af2b3f990d1f4ecf241a0fc8d80d2
+      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=research%2Frema-timeseries-versions#c461fe6198b4b5d3302670610a672bd3e33007c7
       - pypi: https://files.pythonhosted.org/packages/69/90/f63fb5873511e014207a475e2bb4e8b2e570d655b00ac19a9a0ca0a385ee/jsonschema-4.26.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/41/45/1a4ed80516f02155c51f51e8cedb3c1902296743db0bbc66608a0db2814f/jsonschema_specifications-2025.9.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl
@@ -1160,7 +1160,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/1f/0e/36044316b65ca471d3bb6d3703fd06fb50c6b727c3562f6a5a3153634f88/black-26.5.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/3e/df/2700292bb1b8009f7d8ebff2ba3b3b6b5648294f41269b58842cb4f40199/cdsetool-0.3.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
-      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=research%2Frema-timeseries-versions#f333a00e0a1af2b3f990d1f4ecf241a0fc8d80d2
+      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=research%2Frema-timeseries-versions#c461fe6198b4b5d3302670610a672bd3e33007c7
       - pypi: https://files.pythonhosted.org/packages/69/90/f63fb5873511e014207a475e2bb4e8b2e570d655b00ac19a9a0ca0a385ee/jsonschema-4.26.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/41/45/1a4ed80516f02155c51f51e8cedb3c1902296743db0bbc66608a0db2814f/jsonschema_specifications-2025.9.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl
@@ -1547,7 +1547,7 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/b7/c0/c5a3b1636dfd09c42534f2b3cf33506814f6d3e066fb0879ffa16c1ae860/black-26.5.1-cp312-cp312-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/3e/df/2700292bb1b8009f7d8ebff2ba3b3b6b5648294f41269b58842cb4f40199/cdsetool-0.3.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/a4/29/db12aa4dda81580be1999824a689bd52aa40061fc12c9ccdc3feab5ea718/dateparser-1.2.0-py2.py3-none-any.whl
-      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=research%2Frema-timeseries-versions#f333a00e0a1af2b3f990d1f4ecf241a0fc8d80d2
+      - pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=research%2Frema-timeseries-versions#c461fe6198b4b5d3302670610a672bd3e33007c7
       - pypi: https://files.pythonhosted.org/packages/69/90/f63fb5873511e014207a475e2bb4e8b2e570d655b00ac19a9a0ca0a385ee/jsonschema-4.26.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/41/45/1a4ed80516f02155c51f51e8cedb3c1902296743db0bbc66608a0db2814f/jsonschema_specifications-2025.9.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl
@@ -3234,9 +3234,9 @@ packages:
   - fasttext ; extra == 'fasttext'
   - langdetect ; extra == 'langdetect'
   requires_python: '>=3.7'
-- pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=research%2Frema-timeseries-versions#f333a00e0a1af2b3f990d1f4ecf241a0fc8d80d2
+- pypi: git+https://github.com/GeoscienceAustralia/dem-handler.git?rev=research%2Frema-timeseries-versions#c461fe6198b4b5d3302670610a672bd3e33007c7
   name: dem-handler
-  version: 0.2.5.dev16+gf333a00e0
+  version: 0.2.5.dev20+gc461fe619
   requires_dist:
   - boto3>=1.37.1
   - geopandas>=1.0.1
