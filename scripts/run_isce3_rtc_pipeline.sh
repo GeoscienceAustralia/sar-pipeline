@@ -114,6 +114,11 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
+# Special case: "all" means do not pass the flag
+if [[ ${#burst_id_list[@]} -eq 1 && ${burst_id_list[0]} == "all" ]]; then
+    burst_id_list=()   # empty the array
+fi
+
 # Check if 'scene' is provided
 if [[ -z "$scene" ]]; then
     echo "Error: --scene is a required parameter."
