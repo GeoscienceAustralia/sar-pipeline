@@ -134,7 +134,7 @@ test-isce3-rtc-monitoring-generate-completeness-report = "pytest tests/sar_pipel
 test-nci-filesystem = "pytest tests/filesystem"
 
 ### GENERAL TASKS ###
-lint = "black sar_pipeline"
+lint = "black ."
 
 [tool.black]
 target-version = ["py310", "py311", "py312"]

@@ -6,7 +6,7 @@ from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     check_burst_product_h5_exists_in_s3,
     get_burst_info_for_scene_from_cdse,
     get_burst_info_and_scene_poly_from_file,
-    assert_burst_info_equivalent
+    assert_burst_info_equivalent,
 )
 
 import logging
@@ -170,13 +170,21 @@ def test_check_burst_product_h5_exists_in_s3(test_run):
 # A SAFE file are equivalent
 
 SAFE_FILE_PATHS = [
-    TEST_WORKSPACE / "scenes" / "S1A_EW_SLC__1SDH_20220330T185405_20220330T185511_042554_051380_3E95.zip",
-    TEST_WORKSPACE / "scenes" / "S1A_IW_SLC__1SDV_20200511T135117_20200511T135144_032518_03C421_7768.zip",
-] 
+    TEST_WORKSPACE
+    / "scenes"
+    / "S1A_EW_SLC__1SDH_20220330T185405_20220330T185511_042554_051380_3E95.zip",
+    TEST_WORKSPACE
+    / "scenes"
+    / "S1A_IW_SLC__1SDV_20200511T135117_20200511T135144_032518_03C421_7768.zip",
+]
 
 SAFE_TO_ORBIT_FILE = {
-    SAFE_FILE_PATHS[0]: TEST_WORKSPACE / "orbits" / "S1A_OPER_AUX_POEORB_OPOD_20220419T081726_V20220329T225942_20220331T005942.EOF",
-    SAFE_FILE_PATHS[1]: TEST_WORKSPACE / "orbits" / "S1A_OPER_AUX_POEORB_OPOD_20210318T120818_V20200510T225942_20200512T005942.EOF",
+    SAFE_FILE_PATHS[0]: TEST_WORKSPACE
+    / "orbits"
+    / "S1A_OPER_AUX_POEORB_OPOD_20220419T081726_V20220329T225942_20220331T005942.EOF",
+    SAFE_FILE_PATHS[1]: TEST_WORKSPACE
+    / "orbits"
+    / "S1A_OPER_AUX_POEORB_OPOD_20210318T120818_V20200510T225942_20200512T005942.EOF",
 }
 
 
