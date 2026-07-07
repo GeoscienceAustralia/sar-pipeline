@@ -15,6 +15,7 @@ s3_project_folder="baseline"
 collection_number=1
 make_existing_products=false
 skip_upload_to_s3=false
+scene_path=""
 scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
 orbit_data_source=("ASF" "CDSE")
 skip_validate_stac=false
@@ -59,6 +60,7 @@ while [[ "$#" -gt 0 ]]; do
         --linked-static-layers-collection-number) linked_static_layers_collection_number="$2"; shift 2 ;;
         --linked-static-layers-s3-project-folder) linked_static_layers_s3_project_folder="$2"; shift 2 ;;
         --processed-scene-tracking-file-s3-folder) processed_scene_tracking_file_s3_folder="$2"; shift 2 ;;
+        --scene-path) scene_path="$2"; shift 2 ;;
         --scene-data-source) 
             scene_data_source=()  # clear the default
             shift
@@ -151,6 +153,7 @@ echo s3-project-folder : "$s3_project_folder"
 echo collection-number : "$collection_number"
 echo make-existing-products : "$make_existing_products"
 echo skip-upload-to-s3 : "$skip_upload_to_s3"
+echo scene-path : "$scene_path"
 echo scene-data-source : ${scene_data_source[*]}
 echo orbit-data-source : ${orbit_data_source[*]}
 echo skip-validate-stac : "$skip_validate_stac"
@@ -208,6 +211,7 @@ cmd=(
     --download-folder "$download_folder" \
     --scratch-folder "$scratch_folder" \
     --out-folder "$out_folder" \
+    --scene-path "$scene_path" \
     --run-config-save-path "$RUN_CONFIG_PATH" \
 )
 

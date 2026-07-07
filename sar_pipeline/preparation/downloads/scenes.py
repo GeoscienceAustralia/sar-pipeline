@@ -11,6 +11,8 @@ import re
 import tempfile
 import multiprocessing
 import sys
+from urllib.parse import urlparse
+import requests
 from cdsetool.query import query_features, FeatureQuery
 from cdsetool.credentials import Credentials
 from cdsetool.download import download_features
@@ -853,3 +855,86 @@ def download_scene_from_preference_list_with_timeout(
                 if early_exit_code is not None:
                     sys.exit(early_exit_code)
                 raise error
+
+
+def download_safe_file(
+    url_or_path: str, scene_folder: str | Path, unzip: bool = True
+) -> Path:
+    """
+    Download or locate a local zipped Sentinel-1 SAFE file.
+
+    Checks whether the input is a valid URL and downloads it to scene_folder,
+    or validates that it exists as a local file path. This is useful for SLC
+    data created by the user. E.g. EW SLC data that is created in a separate
+    process and made available at the specified url, or local path.
+
+    Parameters
+    ----------
+    url_or_path : str
+        A URL or local file path pointing to a zipped .SAFE file.
+    scene_folder : str or Path
+        Destination folder for the downloaded file.
+    unzip : bool, optional
+        If True, extract the zip file into scene_folder and return the path
+        to the extracted .SAFE directory instead of the zip file. Default True.
+
+    Returns
+    -------
+    Path
+        Path to the local zip file, or to the extracted .SAFE directory if
+        `unzip` is True.
+
+    Raises
+    ------
+    SceneDownloadError
+        If the URL returns a non-200 HTTP status, or if the input is not a URL
+        and no file exists at the given path.
+    """
+    parsed = urlparse(url_or_path)
+    is_url = parsed.scheme in ("http", "https", "ftp")
+
+    if is_url:
+        logger.info(f"Downloading SAFE file from URL: {url_or_path}")
+
+        try:
+            response = requests.get(url_or_path, stream=True)
+            if response.status_code == 404:
+                raise SceneDownloadError(f"No file found at URL: {url_or_path}")
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise SceneDownloadError(
+                f"Failed to download SAFE file from URL: {url_or_path}"
+            ) from e
+
+        filename = Path(parsed.path).name or "scene.zip"
+        file_path = Path(scene_folder) / filename
+
+        with open(file_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        logger.info(f"Downloaded to {file_path}")
+
+    else:
+        file_path = Path(url_or_path)
+        if not file_path.exists():
+            raise SceneDownloadError(
+                f"Provided path is neither a valid URL nor an existing "
+                f"local file path: {url_or_path}"
+            )
+        logger.info(f"Using local SAFE file: {file_path}")
+
+    if unzip:
+        if file_path.suffix == ".zip":
+            logger.info(f"Unzipping {file_path} to {scene_folder}")
+            with zipfile.ZipFile(file_path, "r") as zf:
+                zf.extractall(scene_folder)
+                safe_name = zf.namelist()[0].split("/")[0]
+            return Path(scene_folder) / safe_name
+        else:
+            logger.info(
+                f"Local file is not .zip, assuming unzipped .SAFE : {file_path}"
+            )
+            return file_path
+
+    return file_path

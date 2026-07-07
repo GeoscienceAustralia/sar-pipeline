@@ -18,7 +18,7 @@ dependencies:
 - s1etad >=0.5.5
 - s1etad_tools >=0.8.1
 - tomli >=2.2.1
-- s1reader >=0.2.4
+- isce3 >=0.13
 - aioboto3 ==14.1.0
 - s3fs >=2026.3.0,<2027
 - python >=3.8
@@ -44,3 +44,4 @@ dependencies:
   - ipykernel>=7.2.0, <8
   - stac-geoparquet>=0.7.0, <0.8
   - docker>=7.1.0, <8
+  - s1reader @ git+https://github.com/abradley60/s1-reader@ew_mode_slc_support

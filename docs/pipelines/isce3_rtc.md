@@ -1,6 +1,6 @@
-# AWS ISCE3 RTC Pipeline (Sentinel-1 IW NRB)
+# AWS ISCE3 RTC Pipeline (Sentinel-1 IW/EW NRB)
 
-- [AWS ISCE3 RTC Pipeline (Sentinel-1 IW NRB)](#aws-isce3-rtc-pipeline-sentinel-1-iw-nrb)
+- [AWS ISCE3 RTC Pipeline (Sentinel-1 IW/EW NRB)](#aws-isce3-rtc-pipeline-sentinel-1-iwew-nrb)
   - [1. About](#1-about)
   - [2. Example Products](#2-example-products)
   - [3. Running the Pipeline](#3-running-the-pipeline)
@@ -37,7 +37,7 @@
 
 ## 1. About 
 
-The isce3_rtc pipeline can be used to create Sentinel-1 Normalised Radar Backscatter (NRB) for data captured in the IW mode. These products are often referred to Radiometric Terrain Corrected (RTC) data. **NRB** and **RTC** are treated as interchangeable terms. More information on the pipeline and its products can be found in the [internal GA runbook](https://docs.dev.dea.ga.gov.au/products/sentinel-1-rtc/).
+The isce3_rtc pipeline can be used to create Sentinel-1 Normalised Radar Backscatter (NRB) for data captured in the IW or EW mode. These products are often referred to Radiometric Terrain Corrected (RTC) data. **NRB** and **RTC** are treated as interchangeable terms. More information on the pipeline and its products can be found in the [internal GA runbook](https://docs.dev.dea.ga.gov.au/products/sentinel-1-rtc/). The pipeline accepts Single Look Complex (SLC) files only.
 
 The dependant codebases managed by GA used in the pipeline are:
 
@@ -133,6 +133,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --collection-number=1
 --make-existing-products=false
 --skip-upload-to-s3=false
+--scene_path=""
 --scene-data-source=("AUS_COP_HUB" "ASF" "CDSE") # order of preference
 --orbit-data-source=("AUS_COP_HUB" "ASF" "CDSE")  # order of preference
 --skip-validate-stac=false
@@ -146,7 +147,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --linked-static-layers-collection-number=1 
 
 ```
-- `scene` -> A valid sentinel-1 IW scene (e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD)
+- `scene` -> A valid sentinel-1 IW or EW SLC scene (e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD)
 - `burst-id-list` -> A list of burst ids corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated.txt file.
 - `resolution` -> The target resolution of the products. Default is 20m.
 - `output-crs` -> The target crs of the products. If not specified, the UTM of the scene center will be used or polar stereographic coordinates will be used for high latitudes above 60 degrees. Expects integer values (e.g. `3031`)
@@ -160,6 +161,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 - `make-existing-products` -> Whether to generate products even if they already exist in AWS S3 under the specified product folder path `s3_bucket/s3_project_folder/collection/...`. 
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
 - `skip-upload-to-s3` -> Make the products, but skip uploading them to AWS S3.
+- `scene-path` -> A URL or Path to a locally available scene file. If not provided, it will be downloaded from `scene-data-source` specified below
 - `scene-data-source` -> Where to download the scene SLC file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
 - `orbit-data-source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
 - `skip-validate-stac` -> To skip validation of the created STAC doc within the code. If this is not set and the stac is invalid, products will not be uploaded. By default we want to validate the stac.
