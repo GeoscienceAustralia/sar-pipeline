@@ -224,9 +224,9 @@ VALID_DEMS = [
 @click.option(
     "--rema-year",
     required=False,
-    type=int,
-    help="Year of the REMA data to use.",
-    default=0,  # If set to zero the rema_year is automatically extracted from the scene acquisition date. 
+    help="Year of the REMA data to use. Format: YYYY-MM for monthly data or YYYY for yearly data." \
+    "If not specified, the year is automatically extracted from the scene acquisition date. ",
+    default="0",  # If set to zero the rema_year is automatically extracted from the scene acquisition date. 
     # This is only relevant for the REMA timeseries DEM options. For non-timeseries DEM options, this argument is ignored.
 )
 @log_timing
@@ -462,7 +462,7 @@ def get_data_for_scene_and_make_run_config(
             "REMA_10_TIMESERIES",
         ]:
             dem_resolution = int(dem_type.split("_")[1])
-            if rema_year == 0:  # if the rema_year argument is set to the default value, extract the year from the scene acquisition date
+            if rema_year == "0":  # if the rema_year argument is set to the default value, extract the year from the scene acquisition date
                 rema_year = int(scene.split("_")[5][0:4])  # year from aq date
             else:
                 logger.info(f"Fixing REMA year to the user specified value : {rema_year}")
