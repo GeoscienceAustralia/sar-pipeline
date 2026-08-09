@@ -49,7 +49,7 @@ for year in "${YEARS[@]}"; do
     echo "Processing REMA year: $year"
     for scene in "${SCENES[@]}"; do
         echo "Processing scene: $scene"
-        RUN_CMD="$working_dir/scripts/run_isce3_rtc_pipeline.sh --output_crs $output_crs --s3_project_folder $s3_project_folder --dem_type $dem_type --orbit_data_source $orbit_source"
+        RUN_CMD="$working_dir/scripts/run_isce3_rtc_pipeline.sh --output_crs $output_crs --s3_project_folder $s3_project_folder/$year --dem_type $dem_type --orbit_data_source $orbit_source"
         if [[ "$skip_upload_to_s3" == "true" ]]; then
             RUN_CMD+=" --skip_upload_to_s3"
         fi
