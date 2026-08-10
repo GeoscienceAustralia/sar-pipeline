@@ -59,7 +59,7 @@ from sar_pipeline.analysis.compare_metadata import (
 )
 from sar_pipeline.analysis.compare_cog import compare_cog_stats
 
-VALID_SENSOR_MODES = ["IW", "EW"]
+VALID_SENSOR_MODES = ["IW"]
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
