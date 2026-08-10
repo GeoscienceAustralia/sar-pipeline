@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 BaseConfigType = Literal[
-    "S1_RTC_IW.yaml", "S1_RTC_STATIC_IW.yaml", "S1_RTC_EW.yaml", "S1_RTC_STATIC_EW.yaml"
+    "S1_RTC_IW.yaml", "S1_RTC_STATIC_IW.yaml"
 ]
 VALID_BASE_CONFIGS = typing.get_args(BaseConfigType)
 BASE_CONFIGS_FOLDER = Path(__file__).parents[3] / "configs/isce3_rtc"
