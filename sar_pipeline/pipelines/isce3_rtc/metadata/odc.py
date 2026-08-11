@@ -80,7 +80,7 @@ def make_rtc_s1_product_s3_prefix(
         should be zero padded. If None, will be retrieved from burst_st.
         Considered to be azimuth_time in the RTC workflow.
     acquisition_mode : str
-        Acquisition mode of the sensor, iw or ew
+        Acquisition mode of the sensor.
 
     Returns
     -------
@@ -153,7 +153,7 @@ def make_rtc_s1_static_product_s3_prefix(
     burst_id : str
         burst_id. e.g. t028_059507_iw2
     acquisition_mode : str
-        Acquisition mode of the sensor, iw or ew
+        Acquisition mode of the sensor.
 
     Returns
     -------

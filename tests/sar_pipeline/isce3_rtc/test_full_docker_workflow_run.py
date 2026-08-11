@@ -153,6 +153,8 @@ def build_image():
         [
             "docker",
             "build",
+            "--platform",
+            "linux/amd64",
             "-t",
             f"sar-pipeline-isce3-rtc:{DOCKER_TAG}",
             "-f",
@@ -229,6 +231,8 @@ def _run_docker_for_scene(
     cmd = [
         "docker",
         "run",
+        "--platform",
+        "linux/amd64",
         *volume_mount_list,
         "--rm",
         *docker_env_list,
@@ -262,6 +266,8 @@ def _run_docker_for_scene(
     cmd = [
         "docker",
         "run",
+        "--platform",
+        "linux/amd64",
         *volume_mount_list,
         "--rm",
         *docker_env_list,
