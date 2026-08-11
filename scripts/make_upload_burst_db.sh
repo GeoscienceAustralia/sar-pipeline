@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # script to create the IW and EW burst databases used by the RTC and CSLC pipelines
-# see more information at docs/workflows/burst-db.md
+# see more information at docs/pipelines/burst-db.md
 # requires a local conda install and AWS access keys as environment variables
 
 # Default values
@@ -111,4 +111,4 @@ echo "Both databases uploaded. Update BURST_DB_BASE_URL in required scripts:"
 echo "  IW: https://$AWS_S3_BUCKET.s3.ap-southeast-2.amazonaws.com/$AWS_S3_FOLDER/$BURST_DB_VERSION_TAG/$IW_FILE"
 echo "  EW: https://$AWS_S3_BUCKET.s3.ap-southeast-2.amazonaws.com/$AWS_S3_FOLDER/$BURST_DB_VERSION_TAG/$EW_FILE"
 echo "Files to update:"
-echo "  Docker/isce3_rtc/Dockerfile_EW"
+echo "  Docker/isce3_rtc/Dockerfile"

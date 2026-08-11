@@ -206,20 +206,27 @@ The CLI's are:
 ```python
 [project.scripts]
 ### GENERAL ###
-upload-files-in-folder-to-s3 = "sar_pipeline.pipelines.pyrosar_gamma.cli:upload_files_in_folder_to_s3"
+upload-files-in-folder-to-s3 = "sar_pipeline.pipelines.pyrosar_gamma.nci.cli:upload_files_in_folder_to_s3"
 get-burst-ids-for-scene = "sar_pipeline.pipelines.isce3_rtc.cli:get_bursts_ids_for_scene"
 download-etad = "sar_pipeline.preparation.cli:download_etad"
 ### NCI / PYROSAR_GAMMA ###
-nci-find-scene = "sar_pipeline.pipelines.pyrosar_gamma.cli:find_scene_file"
-nci-find-orbits = "sar_pipeline.pipelines.pyrosar_gamma.cli:find_orbits_for_scene"
-nci-pyrosar-gamma-rtc-run-workflow= "sar_pipeline.pipelines.pyrosar_gamma.cli:run_pyrosar_gamma_workflow"
-nci-pyrosar-gamma-rtc-submit-workflow  = "sar_pipeline.pipelines.pyrosar_gamma.cli:submit_pyrosar_gamma_workflow"
+nci-find-scene = "sar_pipeline.pipelines.pyrosar_gamma.nci.cli:find_scene_file"
+nci-find-orbits = "sar_pipeline.pipelines.pyrosar_gamma.nci.cli:find_orbits_for_scene"
+nci-pyrosar-gamma-rtc-run-workflow = "sar_pipeline.pipelines.pyrosar_gamma.nci.cli:run_pyrosar_gamma_workflow"
+nci-pyrosar-gamma-rtc-submit-workflow = "sar_pipeline.pipelines.pyrosar_gamma.nci.cli:submit_pyrosar_gamma_workflow"
 ## ISCE3_RTC ###
 isce3-rtc-get-data-for-scene-and-make-run-config = "sar_pipeline.pipelines.isce3_rtc.cli:get_data_for_scene_and_make_run_config"
 isce3-rtc-make-metadata-and-upload-bursts = "sar_pipeline.pipelines.isce3_rtc.cli:make_metadata_and_upload_bursts"
 isce3-rtc-compare-products = "sar_pipeline.pipelines.isce3_rtc.cli:compare_products"
-### AWS / PyroSAR_GAMMA ###
+### PyroSAR_GAMMA ###
 pyrosar-gamma-rtc-run-workflow = "sar_pipeline.pipelines.pyrosar_gamma.aws.cli:run_pyrosar_gamma_workflow"
+pyrosar-gamma-make-metadata-and-upload-product = "sar_pipeline.pipelines.pyrosar_gamma.aws.metadata_cli:make_metadata_and_upload_product"
+pyrosar-gamma-run-parallel-jobs = "sar_pipeline.pipelines.pyrosar_gamma.aws.parallel_run:run_jobs"
+### Monitoring ###
+monitoring-process-s1-iw-burst-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:process_s1_iw_burst_completeness_report_cli"
+monitoring-process-s1-iw-scene-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:process_s1_iw_scene_completeness_report_cli"
+monitoring-generate-s1-iw-burst-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:generate_s1_iw_burst_completeness_report_cli"
+monitoring-generate-s1-iw-scene-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:generate_s1_iw_scene_completeness_report_cli"
 ```
 
 ## Running Tests
@@ -239,7 +246,7 @@ test-all = "pytest"
 
 ### Shared Pipeline Tests ###
 # tests do not require credentials - can currently be run locally and in github
-test-pipeline-no-creds = 'pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/ --ignore=tests/sar_pipeline/isce3_rtc'
+test-pipeline-no-creds = 'pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/ --ignore=tests/sar_pipeline/isce3_rtc --ignore=tests/sar_pipeline/pyrosar_gamma'
 test-scene-data-source-queries='pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/test_scenes.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s'
 
 ### ISCE3_RTC Pipeline Tests ###
@@ -249,11 +256,15 @@ test-isce3-rtc-full-docker-workflow-run = "pixi run export-conda && pytest tests
 test-isce3-rtc-burst-utils = "pytest tests/sar_pipeline/isce3_rtc/test_burst_utils.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-cli-make-metadata-and-upload-bursts = "pytest tests/sar_pipeline/isce3_rtc/test_cli_make_metadata_and_upload_bursts.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-cli-get-data-for-scene-and-make-run-config = "pytest tests/sar_pipeline/isce3_rtc/test_cli_get_data_for_scene_and_make_run_config.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
-test-isce3-rtc-downloads= 'pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/isce3_rtc/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s'
+test-isce3-rtc-downloads = 'pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/isce3_rtc/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s'
+test-isce3-rtc-monitoring-generate-completeness-report = "pytest tests/sar_pipeline/isce3_rtc/test_cli_monitoring.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 
 ### NCI Pipeline Tests ###
 # nci specific tests that should be run locally on the nci
 test-nci-filesystem = "pytest tests/filesystem"
+
+### GENERAL TASKS ###
+lint = "black ."
 ```
 
 ### NCI / PyroSAR GAMMA tests

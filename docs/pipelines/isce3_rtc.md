@@ -135,9 +135,10 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --make-existing-products=false
 --skip-upload-to-s3=false
 --scene-data-source=("AUS_COP_HUB" "ASF" "CDSE") # order of preference
---orbit-data-source=("AUS_COP_HUB" "ASF" "CDSE")  # order of preference
+--orbit-data-source=("ASF" "CDSE")  # order of preference
 --skip-validate-stac=false
 --skip-upload-processed-scene-tracking-file=false
+--processed-scene-tracking-file-s3-folder="projects/s1_nrb/monitoring"
 --skip-rtc=false
 # Required inputs for linking RTC_S1_STATIC to RTC_S1
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
@@ -163,9 +164,10 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
 - `skip-upload-to-s3` -> Make the products, but skip uploading them to AWS S3.
 - `scene-data-source` -> Where to download the scene SLC file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
-- `orbit-data-source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
+- `orbit-data-source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`ASF` `CDSE`).
 - `skip-validate-stac` -> To skip validation of the created STAC doc within the code. If this is not set and the stac is invalid, products will not be uploaded. By default we want to validate the stac.
-- `skip-upload-processed-scene-tracking-file` -> By default a small .json file (`{scene}.json`) is uploaded to a monitoring subfolder of the provided `s3_project_folder`. These can be easily parsed to check for which scenes have been processed. Setting this skips the upload of that file. By default, the file is uploaded to: RTC_S1 -> `{s3_project_folder}/monitoring/processed_scenes` and RTC_S1_STATIC -> `{s3_project_folder}/monitoring/processed_scenes_static_layers` 
+- `skip-upload-processed-scene-tracking-file` -> By default a small .json file (`{scene}.json`) is uploaded to a monitoring subfolder described by `processed-scene-tracking-file-s3-folder`. These can be easily parsed to check for which scenes have been processed. Setting this skips the upload of that file. By default, the file is uploaded to: RTC_S1 -> `{processed-scene-tracking-file-s3-folder}/{acquisition_mode}/processed_scenes` and RTC_S1_STATIC -> `{processed-scene-tracking-file-s3-folder}/{acquisition_mode}/processed_scenes_static_layers`
+- `processed-scene-tracking-file-s3-folder` -> The S3 folder the processed-scene tracking `.json` file described above is uploaded to. Default is `projects/s1_nrb/monitoring`.
 - `link-static-layers` -> Flag to link RTC_S1_STATIC products to RTC_S1 in stac metadata. The RTC_S1_STATIC products must exist for the given bursts. 
 - `linked-static-layers-s3-bucket` -> bucket where RTC_S1_STATIC products are stored
 - `linked-static-layers-s3-project-folder` -> folder within bucket where RTC_S1_STATIC products are stored
@@ -212,7 +214,7 @@ The workflow is best run using the docker image as multiple conda environments a
 - [pygssearch-env](../../Conda/pygssearch/) - An isolated environment for downloading data from the Copernicus Australasia DataHub
 - [RTC](https://github.com/GeoscienceAustralia/RTC/blob/main/Docker/lockfile.lock) - The Geoscience Australia opera-adt/RTC fork that handles the radiometric terrain correction of data.
 
-The Dockerfile also downloads a burst-db file for reference in the workflow. Creating this file is described in the [burst-db docs](.burst-db.md).
+The Dockerfile also downloads a burst-db file for reference in the workflow. Creating this file is described in the [burst-db docs](burst-db.md).
 
 The entrypoint of the Docker image is the workflow script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh). This is the script that orchestrates the activation of the correct environments and ensuring arguments are passed correctly to each stage of the process. 
 
@@ -315,8 +317,8 @@ is now outdated. For example, if you do any of the following:
 
 - Updating the version of isce3 with improvements to the algorithm that will change the data.
 - Work with a re-processed version of the source input data.
-- Updating the product version in the ([S1_RTC.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC.yaml) or 
-[S1_RTC_STATIC.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_STATIC.yaml)),
+- Updating the product version in the ([S1_RTC_IW.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_IW.yaml) / [S1_RTC_EW.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_EW.yaml) or 
+[S1_RTC_STATIC_IW.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_STATIC_IW.yaml) / [S1_RTC_STATIC_EW.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_STATIC_EW.yaml)),
 - Including additional products are included (e.g. DEM)
 
 The [benchmark data]((https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/)) is stored in AWS and is downloaded for the tests.
@@ -641,11 +643,11 @@ The result is a complete timeseries where products are linked to their correct s
 ### 8.6. Comparing products and making changes
 
 
-Once production begins, the generated must have consistent metadata, and the data of the products should be consistent. If changes are made, for example updating a metadata field of installing a new package, we need to ensure the changes are not breaking and the produced data is consistent with existing products. To do this, we can use the `compare-isce3-rtc-products` cli utility in sar-pipeline. This can be run from within the container, or alternatively using pixi.
+Once production begins, the generated must have consistent metadata, and the data of the products should be consistent. If changes are made, for example updating a metadata field of installing a new package, we need to ensure the changes are not breaking and the produced data is consistent with existing products. To do this, we can use the `isce3-rtc-compare-products` cli utility in sar-pipeline. This can be run from within the container, or alternatively using pixi.
 
 ```text
-(sar-pipeline) [rtc_user@3d73a09e51fe working]$ pixi run compare-isce3-rtc-products --help
-Usage: compare-isce3-rtc-products [OPTIONS]
+(sar-pipeline) [rtc_user@3d73a09e51fe working]$ pixi run isce3-rtc-compare-products --help
+Usage: isce3-rtc-compare-products [OPTIONS]
 
 Options:
   --product [RTC_S1|RTC_S1_STATIC]
@@ -682,7 +684,7 @@ For example, comparing the same product from two different runs:
 
 mkdir compare 
 
-pixi run compare-isce3-rtc-products --product RTC_S1 \
+pixi run isce3-rtc-compare-products --product RTC_S1 \
 --s3-product-folder-1 TMP/sar-pipeline/isce3_rtc/2025-09-26_01-00-25.078178/test_full_docker_build_and_run/ga_s1_nrb_iw_vv_vh_1/t045_095837_iw1/2020/11/29/20201129T192619/ \
 --s3-product-folder-2 TMP/sar-pipeline/isce3_rtc/2025-09-26_01-00-25.078178/test_full_docker_build_and_run/ga_s1_nrb_iw_vv_vh_1/t045_095837_iw1/2020/11/29/20201129T192619/ \
 --s3-bucket deant-data-public-dev \

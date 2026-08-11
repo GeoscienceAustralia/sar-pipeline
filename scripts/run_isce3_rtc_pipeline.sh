@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# See docs/pipelines/isce3.md for instructions and argument descriptions
+# See docs/pipelines/isce3_rtc.md for instructions and argument descriptions
 ## -- WORKFLOW INPUTS FOR PRODUCT CREATION -> RTC_S1 or RTC_S1_STATIC --
 scene=""
 scene_path="" # url or path to local scene. If None scene is downloaded using scene_data_source
