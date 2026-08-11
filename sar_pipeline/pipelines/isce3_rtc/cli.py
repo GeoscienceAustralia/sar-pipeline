@@ -78,6 +78,14 @@ logger = logging.getLogger(__name__)
     help="scene id. E.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
 )
 @click.option(
+    "--scene-path",
+    type=str,
+    required=False,
+    default="",
+    help="A local path or URL where the scene should be downloaded from. If not specified, "
+    "the scene will be located and downloaded from the specified --scene-data-source",
+)
+@click.option(
     "--burst-id-list",
     required=False,
     type=str,
@@ -208,14 +216,6 @@ logger = logging.getLogger(__name__)
     help="Project folder containing the RTC_S1_STATIC data that will be linked to the RTC_S1 bursts. ",
 )
 @click.option(
-    "--scene-path",
-    type=str,
-    required=False,
-    default="",
-    help="A local path or URL where the scene should be downloaded from. If not specified, "
-    "the scene will be located and downloaded from the specified --scene-data-source",
-)
-@click.option(
     "--scene-data-source",
     required=False,
     default="AUS_COP_HUB ASF CDSE",
@@ -252,6 +252,7 @@ logger = logging.getLogger(__name__)
 @log_timing
 def get_data_for_scene_and_make_run_config(
     scene,
+    scene_path,
     burst_id_list,
     resolution,
     output_crs,
@@ -271,7 +272,6 @@ def get_data_for_scene_and_make_run_config(
     linked_static_layers_s3_bucket,
     linked_static_layers_collection_number,
     linked_static_layers_s3_project_folder,
-    scene_path,
     scene_data_source,
     orbit_data_source,
     make_folders,
