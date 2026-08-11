@@ -59,29 +59,29 @@ More information on Burst ID Maps can be found here - https://sentiwiki.copernic
 The following is an example of **RTC_S1** outputs for a given acquisition. The analysis ready NRB data product is the `HH-gamma0.tif`. Note, This product corresponds with the t070_149815_iw3 static layers below. - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/results/ga_s1_nrb_iw_hh_1/t070_149815_iw3/2022/01/01/20220101T124752/
 
 ```text
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_HH-gamma0.tif
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_checksum.sha1
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_mask.tif
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.h5
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.xml
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_proc-config.yaml
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_stac-item.json
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_thumbnail.png
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_HH-gamma0.tif
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_checksum.sha1
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_mask.tif
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.h5
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.xml
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_proc-config.yaml
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_stac-item.json
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_thumbnail.png
 ```
 
 The following is en example of **RTC_S1_STATIC** outputs for the t070_149815_iw3 burst id - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/results/ga_s1_nrb_iw_static_1/t070_149815_iw3/20140403/REMA_32/
 
 ```text
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_checksum.sha1
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_gamma0-to-beta0-ratio.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_gamma0-to-sigma0-ratio.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_incidence-angle.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_local-incidence-angle.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_metadata.h5
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_number-of-looks.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_proc-config.yaml
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_stac-item.json
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_thumbnail.png
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_checksum.sha1
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_gamma0-to-beta0-ratio.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_gamma0-to-sigma0-ratio.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_incidence-angle.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_local-incidence-angle.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_metadata.h5
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_number-of-looks.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_proc-config.yaml
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_stac-item.json
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_thumbnail.png
 ```
 
 ## 3. Running the Pipeline
@@ -121,6 +121,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 ```bash
 # Basic input for product creation
 --scene="" (required)
+--scene_path=""
 --burst-id-list=()
 --resolution=20
 --output-crs="UTM"
@@ -133,7 +134,6 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --collection-number=1
 --make-existing-products=false
 --skip-upload-to-s3=false
---scene_path=""
 --scene-data-source=("AUS_COP_HUB" "ASF" "CDSE") # order of preference
 --orbit-data-source=("AUS_COP_HUB" "ASF" "CDSE")  # order of preference
 --skip-validate-stac=false
@@ -148,6 +148,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 
 ```
 - `scene` -> A valid sentinel-1 IW or EW SLC scene (e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD)
+- `scene-path` -> A URL or Path to a locally available scene file. If not provided, it will be downloaded from `scene-data-source` specified below
 - `burst-id-list` -> A list of burst ids corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated.txt file.
 - `resolution` -> The target resolution of the products. Default is 20m.
 - `output-crs` -> The target crs of the products. If not specified, the UTM of the scene center will be used or polar stereographic coordinates will be used for high latitudes above 60 degrees. Expects integer values (e.g. `3031`)
@@ -161,7 +162,6 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 - `make-existing-products` -> Whether to generate products even if they already exist in AWS S3 under the specified product folder path `s3_bucket/s3_project_folder/collection/...`. 
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
 - `skip-upload-to-s3` -> Make the products, but skip uploading them to AWS S3.
-- `scene-path` -> A URL or Path to a locally available scene file. If not provided, it will be downloaded from `scene-data-source` specified below
 - `scene-data-source` -> Where to download the scene SLC file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
 - `orbit-data-source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
 - `skip-validate-stac` -> To skip validation of the created STAC doc within the code. If this is not set and the stac is invalid, products will not be uploaded. By default we want to validate the stac.
