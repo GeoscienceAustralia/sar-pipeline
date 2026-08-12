@@ -744,7 +744,7 @@ def get_burst_info_and_scene_poly_from_file(
     orbit_path = Path(orbit_path)
     scene_id = scene_path.stem  # strips .zip or .SAFE
     sensor_mode = scene_id.split("_")[1].lower()
-    pol = get_polarisation_list_from_scene_id(scene_id)[0]
+    pols = get_polarisation_list_from_scene_id(scene_id)
 
     logger.info(f"Loading burst info from: {scene_path}")
 
@@ -754,25 +754,24 @@ def get_burst_info_and_scene_poly_from_file(
             path=str(scene_path),
             orbit_path=str(orbit_path),
             swath_num=swath_num,
-            pol=pol,
+            pol=pols[0],
         )
         sensing_times = _get_burst_sensing_times_from_annotation(
-            scene_path, sensor_mode, swath_num, pol
+            scene_path, sensor_mode, swath_num, pols[0]
         )
         for burst in bursts:
             bid = burst.burst_id
             burst_geom = shapely.geometry.shape(burst.border[0])
-            entry = all_scene_burst_info.setdefault(
+            all_scene_burst_info.setdefault(
                 str(bid),
                 {
                     "azimuth_time": burst.sensing_start,
                     "start_time": sensing_times[burst.i_burst],
                     "end_time": burst.sensing_stop,
                     "geometry": burst_geom,
-                    "pols": [],
+                    "pols": pols,
                 },
             )
-            entry["pols"].append(burst.polarization)
 
     scene_polygon = shapely.ops.unary_union(
         [b["geometry"] for b in all_scene_burst_info.values()]
