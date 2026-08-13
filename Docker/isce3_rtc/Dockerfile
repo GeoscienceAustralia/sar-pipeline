@@ -30,9 +30,9 @@ RUN curl -sSL https://github.com/conda-forge/miniforge/releases/latest/download/
 
 # Download and install the Geoscience Australia fork of the opera/RTC project
 # UPDATE VERSION AND TAG HERE IF NEEDED
-ARG RTC_VERSION=RTC-1.0.6-GA-prod
-ARG RTC_VERSION_TAG=v1.0.6-GA-prod
-RUN  curl -sSL https://github.com/GeoscienceAustralia/RTC/archive/refs/tags/$RTC_VERSION_TAG.tar.gz -o $RTC_VERSION.tar.gz &&\
+# Install RTC from branch enable_ew_processing
+ARG RTC_VERSION=RTC-enable_ew_processing
+RUN curl -sSL https://github.com/GeoscienceAustralia/RTC/archive/refs/heads/enable_ew_processing.tar.gz -o $RTC_VERSION.tar.gz &&\
 tar -xvf $RTC_VERSION.tar.gz -C OPERA &&\
 rm $RTC_VERSION.tar.gz
 
@@ -44,23 +44,30 @@ SHELL ["conda", "run", "-n", "RTC", "/bin/bash", "-c"]
 WORKDIR /home/rtc_user/OPERA
 
 # Install OPERA s1-reader
-RUN curl -sSL https://github.com/isce-framework/s1-reader/archive/refs/tags/v0.2.5.tar.gz -o s1_reader_src.tar.gz &&\
+# Install s1-reader from branch ew_mode_slc_support
+RUN curl -sSL https://github.com/abradley60/s1-reader/archive/refs/heads/ew_mode_slc_support.tar.gz -o s1_reader_src.tar.gz &&\
 tar -xvf s1_reader_src.tar.gz &&\
-ln -s s1-reader-0.2.5 s1-reader &&\
+ln -s s1-reader-ew_mode_slc_support s1-reader &&\
 rm s1_reader_src.tar.gz &&\
 python -m pip install ./s1-reader
 
 # Installing OPERA RTC
 RUN python -m pip install ./$RTC_VERSION
 
-# Download the burst-db. this is created using scripts/make_upload_burst_db.sh
-ARG BURST_DB_VERSION_TAG=0.9.0
+# Download the burst-db. this is created using scripts/make_upload_iw_ew_burst_db.sh
+ARG BURST_DB_VERSION_TAG=0.18.0
 WORKDIR /home/rtc_user/burst_db
-ARG BURST_DB_URL="https://dea-public-data-dev.s3.ap-southeast-2.amazonaws.com/projects/s1_nrb/burst_db/$BURST_DB_VERSION_TAG/opera-burst-bbox-only.sqlite3"
-# Try to download; if it fails, notify user that the burst DB doesnt exist at this path 
-RUN if ! curl -f -o opera-burst-bbox-only.sqlite3 "$BURST_DB_URL"; then \
-      echo "ERROR: burst_db file not found at $BURST_DB_URL"; \
-      echo "You must create it using: scripts/make_upload_burst_db.sh and ensure correct version"; \
+
+# Download both IW and EW burst-db files from the same base path
+ARG BURST_DB_BASE_URL="https://dea-public-data-dev.s3.ap-southeast-2.amazonaws.com/projects/s1_nrb/burst_db/$BURST_DB_VERSION_TAG"
+RUN if ! curl -f -o opera-iw-burst-bbox-only.sqlite3 "$BURST_DB_BASE_URL/opera-iw-burst-bbox-only.sqlite3"; then \
+      echo "ERROR: IW burst_db not found at $BURST_DB_BASE_URL/opera-iw-burst-bbox-only.sqlite3"; \
+      echo "This file can be be created an uploaded using scripts/make_upload_iw_ew_burst_db.sh"; \
+      exit 1; \
+    fi
+RUN if ! curl -f -o opera-ew-burst-bbox-only.sqlite3 "$BURST_DB_BASE_URL/opera-ew-burst-bbox-only.sqlite3"; then \
+      echo "ERROR: EW burst_db not found at $BURST_DB_BASE_URL/opera-ew-burst-bbox-only.sqlite3"; \
+      echo "This file can be be created an uploaded using scripts/make_upload_iw_ew_burst_db.sh"; \
       exit 1; \
     fi
 

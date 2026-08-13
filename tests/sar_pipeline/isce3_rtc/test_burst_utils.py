@@ -4,6 +4,9 @@ from pathlib import Path
 import pytest
 from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     check_burst_product_h5_exists_in_s3,
+    get_burst_info_for_scene_from_cdse,
+    get_burst_info_and_scene_poly_from_file,
+    assert_burst_info_equivalent,
 )
 
 import logging
@@ -18,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 CURRENT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT = CURRENT_DIR.parents[2]
-TEST_WORKSPACE = CURRENT_DIR / Path("data")
+TEST_WORKSPACE = CURRENT_DIR.parent / Path("data")
 
 
 # Existing products for testing are stored in the BENCHMARK_S3_PROJECT_FOLDER
@@ -161,3 +164,46 @@ def test_check_burst_product_h5_exists_in_s3(test_run):
             early_exit=True,
         )
         assert burst_id_list_to_process == test_run.burst_id_list
+
+
+# Test the burst information from the CDSE and that read directly from
+# A SAFE file are equivalent
+
+SAFE_FILE_PATHS = [
+    TEST_WORKSPACE
+    / "scenes"
+    / "S1A_EW_SLC__1SDH_20220330T185405_20220330T185511_042554_051380_3E95.zip",
+    TEST_WORKSPACE
+    / "scenes"
+    / "S1A_IW_SLC__1SDV_20200511T135117_20200511T135144_032518_03C421_7768.zip",
+]
+
+SAFE_TO_ORBIT_FILE = {
+    SAFE_FILE_PATHS[0]: TEST_WORKSPACE
+    / "orbits"
+    / "S1A_OPER_AUX_POEORB_OPOD_20220419T081726_V20220329T225942_20220331T005942.EOF",
+    SAFE_FILE_PATHS[1]: TEST_WORKSPACE
+    / "orbits"
+    / "S1A_OPER_AUX_POEORB_OPOD_20210318T120818_V20200510T225942_20200512T005942.EOF",
+}
+
+
+@pytest.mark.parametrize("safe_file_path", SAFE_FILE_PATHS)
+def test_burst_info_matches_cdse(safe_file_path):
+    """Compare burst info from the CDSE API against burst info loaded
+    directly from a local SAFE file, for the same scene."""
+
+    orbit_path = SAFE_TO_ORBIT_FILE[safe_file_path]
+    scene_id = safe_file_path.stem  # strips .zip
+    sensor_mode = scene_id.split("_")[1]
+    swath_list = {"IW": [1, 2, 3], "EW": [1, 2, 3, 4, 5]}[sensor_mode]
+
+    cdse_burst_info = get_burst_info_for_scene_from_cdse(scene_id)
+
+    file_burst_info, _ = get_burst_info_and_scene_poly_from_file(
+        scene_path=safe_file_path,
+        orbit_path=orbit_path,
+        swath_list=swath_list,
+    )
+
+    assert_burst_info_equivalent(cdse_burst_info, file_burst_info)

@@ -1,6 +1,6 @@
-# AWS ISCE3 RTC Pipeline (Sentinel-1 IW NRB)
+# AWS ISCE3 RTC Pipeline (Sentinel-1 IW/EW NRB)
 
-- [AWS ISCE3 RTC Pipeline (Sentinel-1 IW NRB)](#aws-isce3-rtc-pipeline-sentinel-1-iw-nrb)
+- [AWS ISCE3 RTC Pipeline (Sentinel-1 IW/EW NRB)](#aws-isce3-rtc-pipeline-sentinel-1-iwew-nrb)
   - [1. About](#1-about)
   - [2. Example Products](#2-example-products)
   - [3. Running the Pipeline](#3-running-the-pipeline)
@@ -9,6 +9,7 @@
     - [3.3. Pipeline Arguments](#33-pipeline-arguments)
     - [3.4. Example Product Outputs](#34-example-product-outputs)
     - [3.5 Error and Success Codes](#35-error-and-success-codes)
+    - [3.6 Special Considerations for EW Mode](#36-special-considerations-for-ew-mode)
   - [4. Project Setup](#4-project-setup)
     - [4.1. Docker Image](#41-docker-image)
     - [4.2. Build the Docker Image](#42-build-the-docker-image)
@@ -31,13 +32,16 @@
       - [8.4.1. Make Static Layers (RTC\_S1\_STATIC)](#841-make-static-layers-rtc_s1_static)
       - [8.4.2. Make RTC Backscatter (RTC\_S1) and Link it to the Static Layers (RTC\_S1\_STATIC)](#842-make-rtc-backscatter-rtc_s1-and-link-it-to-the-static-layers-rtc_s1_static)
       - [8.4.3. Check Backscatter Metadata Outputs to Ensure They are Linked](#843-check-backscatter-metadata-outputs-to-ensure-they-are-linked)
-    - [8.5. Production Runs](#85-production-runs)
-    - [8.6. Comparing products and making changes](#86-comparing-products-and-making-changes)
+    - [8.5. Processing EW SLC Data](#85-processing-ew-slc-data)
+      - [8.5.1. Processing an EW SLC that already exists on the CDSE / ASF](#851-processing-an-ew-slc-that-already-exists-on-the-cdse--asf)
+      - [8.5.2. Processing an EW Scene from L0](#852-processing-an-ew-scene-from-l0)
+    - [8.6. Production Runs](#86-production-runs)
+    - [8.7. Comparing products and making changes](#87-comparing-products-and-making-changes)
 
 
 ## 1. About 
 
-The isce3_rtc pipeline can be used to create Sentinel-1 Normalised Radar Backscatter (NRB) for data captured in the IW mode. These products are often referred to Radiometric Terrain Corrected (RTC) data. **NRB** and **RTC** are treated as interchangeable terms. More information on the pipeline and its products can be found in the [internal GA runbook](https://docs.dev.dea.ga.gov.au/products/sentinel-1-rtc/).
+The isce3_rtc pipeline can be used to create Sentinel-1 Normalised Radar Backscatter (NRB) for data captured in the IW or EW mode. These products are often referred to Radiometric Terrain Corrected (RTC) data. **NRB** and **RTC** are treated as interchangeable terms. More information on the pipeline and its products can be found in the [internal GA runbook](https://docs.dev.dea.ga.gov.au/products/sentinel-1-rtc/). The pipeline accepts Single Look Complex (SLC) files only.
 
 The dependant codebases managed by GA used in the pipeline are:
 
@@ -59,29 +63,29 @@ More information on Burst ID Maps can be found here - https://sentiwiki.copernic
 The following is an example of **RTC_S1** outputs for a given acquisition. The analysis ready NRB data product is the `HH-gamma0.tif`. Note, This product corresponds with the t070_149815_iw3 static layers below. - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/results/ga_s1_nrb_iw_hh_1/t070_149815_iw3/2022/01/01/20220101T124752/
 
 ```text
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_HH-gamma0.tif
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_checksum.sha1
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_mask.tif
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.h5
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.xml
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_proc-config.yaml
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_stac-item.json
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_thumbnail.png
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_HH-gamma0.tif
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_checksum.sha1
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_mask.tif
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.h5
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.xml
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_proc-config.yaml
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_stac-item.json
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_thumbnail.png
 ```
 
 The following is en example of **RTC_S1_STATIC** outputs for the t070_149815_iw3 burst id - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/results/ga_s1_nrb_iw_static_1/t070_149815_iw3/20140403/REMA_32/
 
 ```text
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_checksum.sha1
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_gamma0-to-beta0-ratio.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_gamma0-to-sigma0-ratio.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_incidence-angle.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_local-incidence-angle.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_metadata.h5
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_number-of-looks.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_proc-config.yaml
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_stac-item.json
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_thumbnail.png
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_checksum.sha1
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_gamma0-to-beta0-ratio.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_gamma0-to-sigma0-ratio.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_incidence-angle.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_local-incidence-angle.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_metadata.h5
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_number-of-looks.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_proc-config.yaml
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_stac-item.json
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_thumbnail.png
 ```
 
 ## 3. Running the Pipeline
@@ -121,6 +125,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 ```bash
 # Basic input for product creation
 --scene="" (required)
+--scene_path=""
 --burst-id-list=()
 --resolution=20
 --output-crs="UTM"
@@ -134,9 +139,10 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --make-existing-products=false
 --skip-upload-to-s3=false
 --scene-data-source=("AUS_COP_HUB" "ASF" "CDSE") # order of preference
---orbit-data-source=("AUS_COP_HUB" "ASF" "CDSE")  # order of preference
+--orbit-data-source=("ASF" "CDSE")  # order of preference
 --skip-validate-stac=false
 --skip-upload-processed-scene-tracking-file=false
+--processed-scene-tracking-file-s3-folder="projects/s1_nrb/monitoring"
 --skip-rtc=false
 # Required inputs for linking RTC_S1_STATIC to RTC_S1
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
@@ -146,7 +152,8 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --linked-static-layers-collection-number=1 
 
 ```
-- `scene` -> A valid sentinel-1 IW scene (e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD)
+- `scene` -> A valid sentinel-1 IW or EW SLC scene (e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD)
+- `scene-path` -> A URL or Path to a locally available scene file. If not provided, it will be downloaded from `scene-data-source` specified below
 - `burst-id-list` -> A list of burst ids corresponding to the scene. If not provided, all will be processed. Can be space separated list or line separated.txt file.
 - `resolution` -> The target resolution of the products. Default is 20m.
 - `output-crs` -> The target crs of the products. If not specified, the UTM of the scene center will be used or polar stereographic coordinates will be used for high latitudes above 60 degrees. Expects integer values (e.g. `3031`)
@@ -161,9 +168,10 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
   - **WARNING** - Passing this flag will create duplicate files and overwrite existing metadata, which may affect downstream workflows.
 - `skip-upload-to-s3` -> Make the products, but skip uploading them to AWS S3.
 - `scene-data-source` -> Where to download the scene SLC file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
-- `orbit-data-source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
+- `orbit-data-source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`ASF` `CDSE`).
 - `skip-validate-stac` -> To skip validation of the created STAC doc within the code. If this is not set and the stac is invalid, products will not be uploaded. By default we want to validate the stac.
-- `skip-upload-processed-scene-tracking-file` -> By default a small .json file (`{scene}.json`) is uploaded to a monitoring subfolder of the provided `s3_project_folder`. These can be easily parsed to check for which scenes have been processed. Setting this skips the upload of that file. By default, the file is uploaded to: RTC_S1 -> `{s3_project_folder}/monitoring/processed_scenes` and RTC_S1_STATIC -> `{s3_project_folder}/monitoring/processed_scenes_static_layers` 
+- `skip-upload-processed-scene-tracking-file` -> By default a small .json file (`{scene}.json`) is uploaded to a monitoring subfolder described by `processed-scene-tracking-file-s3-folder`. These can be easily parsed to check for which scenes have been processed. Setting this skips the upload of that file. By default, the file is uploaded to: RTC_S1 -> `{processed-scene-tracking-file-s3-folder}/{acquisition_mode}/processed_scenes` and RTC_S1_STATIC -> `{processed-scene-tracking-file-s3-folder}/{acquisition_mode}/processed_scenes_static_layers`
+- `processed-scene-tracking-file-s3-folder` -> The S3 folder the processed-scene tracking `.json` file described above is uploaded to. Default is `projects/s1_nrb/monitoring`.
 - `link-static-layers` -> Flag to link RTC_S1_STATIC products to RTC_S1 in stac metadata. The RTC_S1_STATIC products must exist for the given bursts. 
 - `linked-static-layers-s3-bucket` -> bucket where RTC_S1_STATIC products are stored
 - `linked-static-layers-s3-project-folder` -> folder within bucket where RTC_S1_STATIC products are stored
@@ -200,6 +208,13 @@ Final product output paths have the following structure
 * **2** - Process failed (2): Error in rtc_s1.py $RUN_CONFIG_PATH process
 * **3** - Process failed (3): Error in isce3-rtc-make-metadata-and-upload-bursts process
 
+### 3.6 Special Considerations for EW Mode
+
+The ISCE3 RTC pipeline requires Level-1 SLC input, but ESA's baseline processing only produces Level-1 GRD products for EW mode by default, so SLC availability is limited. Use the ASF Search UI to check whether an EW SLC already exists for your scene of interest - https://search.asf.alaska.edu/#/.
+
+- If an SLC already exists, the pipeline runs identically to IW mode — see [8.5.1](#851-processing-an-ew-slc-that-already-exists-on-the-cdse--asf).
+- If only GRD is available, an SLC must first be generated from the L0 RAW product using the [EW_L0_RAW_to_L1_SLC](../../notebooks/EW_L0_RAW_to_L1_SLC) notebooks — see [8.5.2](#852-processing-an-ew-scene-from-l0).
+
 ## 4. Project Setup
 
 ### 4.1. Docker Image
@@ -210,20 +225,20 @@ The workflow is best run using the docker image as multiple conda environments a
 - [pygssearch-env](../../Conda/pygssearch/) - An isolated environment for downloading data from the Copernicus Australasia DataHub
 - [RTC](https://github.com/GeoscienceAustralia/RTC/blob/main/Docker/lockfile.lock) - The Geoscience Australia opera-adt/RTC fork that handles the radiometric terrain correction of data.
 
-The Dockerfile also downloads a burst-db file for reference in the workflow. Creating this file is described in the [burst-db docs](.burst-db.md).
+The Dockerfile also downloads a burst-db file for reference in the workflow. Creating this file is described in the [burst-db docs](burst-db.md).
 
 The entrypoint of the Docker image is the workflow script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh). This is the script that orchestrates the activation of the correct environments and ensuring arguments are passed correctly to each stage of the process. 
 
 ### 4.2. Build the Docker Image
 
 ```bash
-docker build -t sar-pipeline-isce3-rtc -f Docker/isce3_rtc/Dockerfile .
+docker build --platform linux/amd64 -t sar-pipeline-isce3-rtc -f Docker/isce3_rtc/Dockerfile .
 ```
 
 Bash into the container for sanity check
 
 ```bash
- docker run -it --entrypoint /bin/bash sar-pipeline-isce3-rtc
+ docker run --platform linux/amd64 -it --entrypoint /bin/bash sar-pipeline-isce3-rtc
 ```
 
 type `exit` to exit the container
@@ -238,7 +253,7 @@ Development is best done from within the container where edited files are tracke
 # The sar-pipeline directory is being mounted in the container to track changes as we go
 # The script is being mounted to the specific script folder from where it is run
 
-docker run --env-file .env -it --entrypoint /bin/bash \
+docker run --platform linux/amd64 --env-file .env -it --entrypoint /bin/bash \
 -v $(pwd):/home/rtc_user/sar-pipeline \
 -v $(pwd)/scripts:/home/rtc_user/scripts \
 -v /data/working:/home/rtc_user/working \
@@ -270,12 +285,12 @@ Some examples of running the pipeline with changes being actively implemented
 We may also want to run the docker container directly but mount useful directories to keep track of outputs.
 
 ```bash
-docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip-upload-to-s3 --make-existing-products --s3-project-folder "TMP"
+docker run --platform linux/amd64 --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip-upload-to-s3 --make-existing-products --s3-project-folder "TMP"
 
 ```
 
 ```bash
-docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst-id-list t070_149815_iw3 t070_149821_iw1 --s3-project-folder TMP --skip-upload-to-s3 --make-existing-products
+docker run --platform linux/amd64 --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst-id-list t070_149815_iw3 t070_149821_iw1 --s3-project-folder TMP --skip-upload-to-s3 --make-existing-products
 ```
 
 ## 5. Tests
@@ -313,8 +328,8 @@ is now outdated. For example, if you do any of the following:
 
 - Updating the version of isce3 with improvements to the algorithm that will change the data.
 - Work with a re-processed version of the source input data.
-- Updating the product version in the ([S1_RTC.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC.yaml) or 
-[S1_RTC_STATIC.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_STATIC.yaml)),
+- Updating the product version in the ([S1_RTC_IW.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_IW.yaml) / [S1_RTC_EW.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_EW.yaml) or 
+[S1_RTC_STATIC_IW.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_STATIC_IW.yaml) / [S1_RTC_STATIC_EW.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_STATIC_EW.yaml)),
 - Including additional products are included (e.g. DEM)
 
 The [benchmark data]((https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/)) is stored in AWS and is downloaded for the tests.
@@ -517,20 +532,20 @@ INFO:sar_pipeline.pipelines.isce3_rtc.cli:Saving burst geometries to : ./S1A_IW_
 **Antarctica (single acquisition, single burst)**
 
 ```bash
-docker run --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3-project-folder TMP --burst-id-list t070_149815_iw3 --skip-upload-to-s3 --make-existing-products --collection-number 0
+docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3-project-folder TMP --burst-id-list t070_149815_iw3 --skip-upload-to-s3 --make-existing-products --collection-number 0
 ```
 
 **Australia (single aquisition, all bursts)**
 
 
 ```bash
-docker run --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --s3-project-folder TMP --skip-upload-to-s3 --make-existing-products --collection-number 0
+docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --s3-project-folder TMP --skip-upload-to-s3 --make-existing-products --collection-number 0
 ```
 
 ### 8.3. Create Static Layers (RTC_S1_STATIC)
 
 ```bash
-docker run --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --product RTC_S1_STATIC --s3-project-folder "TMP" --skip-upload-to-s3 --make-existing-products --collection-number 0
+docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --product RTC_S1_STATIC --s3-project-folder "TMP" --skip-upload-to-s3 --make-existing-products --collection-number 0
 ```
 
 ### 8.4. Create Static Layers (RTC_S1_STATIC) and Link them to a RTC Backscatter Product (RTC_S1)
@@ -542,7 +557,7 @@ docker run --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_2
 
 
 ```bash
-docker run --env-file .env -it sar-pipeline-isce3-rtc \
+docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc \
 --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD \
 --burst-id-list t070_149815_iw3 \
 --product RTC_S1_STATIC \
@@ -561,7 +576,7 @@ https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=
 #### 8.4.2. Make RTC Backscatter (RTC_S1) and Link it to the Static Layers (RTC_S1_STATIC)
 
 ```bash
-docker run --env-file .env -it sar-pipeline-isce3-rtc \
+docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc \
 --scene S1A_IW_SLC__1SSH_20211220T124745_20211220T124815_041092_04E1C2_0475 \
 --burst-id-list t070_149815_iw3 \
 --product RTC_S1 \
@@ -624,8 +639,36 @@ By opening the stac metadata file and checking the assets links, you should see 
  }
 
 ```
+### 8.5. Processing EW SLC Data
 
-### 8.5. Production Runs
+#### 8.5.1. Processing an EW SLC that already exists on the CDSE / ASF
+
+```bash
+docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc \
+--scene S1A_EW_SLC__1SDH_20220330T185405_20220330T185511_042554_051380_3E95 \
+--burst-id-list t132_256983_ew4 \
+--resolution 40 \
+--skip-upload-to-s3 \
+--make-existing-products
+```
+
+#### 8.5.2. Processing an EW Scene from L0
+
+1. Use [search_ew_l0_scenes.ipynb](../../notebooks/EW_L0_RAW_to_L1_SLC/search_ew_l0_scenes.ipynb) to search for L0 scenes over a given area.
+2. Use [batch_order_l0_to_slc_and_upload.ipynb](../../notebooks/EW_L0_RAW_to_L1_SLC/batch_order_l0_to_slc_and_upload.ipynb) to submit those scenes to CDSE's on-demand SLC processing and upload the results to S3.
+3. Run the pipeline as shown below, pointing `--scene-path` at the uploaded SLC.
+
+```bash
+docker run --env-file .env --platform linux/amd64 sar-pipeline-isce3-rtc \
+--scene S1A_EW_SLC__1SDH_20250101T153651_20250101T153757_057252_070AF9_1F2E \
+--scene-path https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/s1_ew_slc/data/S1A_EW_SLC__1SDH_20250101T153651_20250101T153757_057252_070AF9_1F2E.SAFE.zip \
+--resolution 40 \
+--skip-upload-to-s3 \
+--make-existing-products \
+--burst-id-list t130_253088_ew5
+```
+
+### 8.6. Production Runs
 
 Production runs are detailed in the official run-book (https://docs.dev.dea.ga.gov.au/products/sentinel-1-nrb/), but follow a similar pattern to the above example linking static layers: 
 
@@ -636,14 +679,14 @@ Production runs are detailed in the official run-book (https://docs.dev.dea.ga.g
 The result is a complete timeseries where products are linked to their correct static layers. 
 
 
-### 8.6. Comparing products and making changes
+### 8.7. Comparing products and making changes
 
 
-Once production begins, the generated must have consistent metadata, and the data of the products should be consistent. If changes are made, for example updating a metadata field of installing a new package, we need to ensure the changes are not breaking and the produced data is consistent with existing products. To do this, we can use the `compare-isce3-rtc-products` cli utility in sar-pipeline. This can be run from within the container, or alternatively using pixi.
+Once production begins, the generated must have consistent metadata, and the data of the products should be consistent. If changes are made, for example updating a metadata field of installing a new package, we need to ensure the changes are not breaking and the produced data is consistent with existing products. To do this, we can use the `isce3-rtc-compare-products` cli utility in sar-pipeline. This can be run from within the container, or alternatively using pixi.
 
 ```text
-(sar-pipeline) [rtc_user@3d73a09e51fe working]$ pixi run compare-isce3-rtc-products --help
-Usage: compare-isce3-rtc-products [OPTIONS]
+(sar-pipeline) [rtc_user@3d73a09e51fe working]$ pixi run isce3-rtc-compare-products --help
+Usage: isce3-rtc-compare-products [OPTIONS]
 
 Options:
   --product [RTC_S1|RTC_S1_STATIC]
@@ -680,7 +723,7 @@ For example, comparing the same product from two different runs:
 
 mkdir compare 
 
-pixi run compare-isce3-rtc-products --product RTC_S1 \
+pixi run isce3-rtc-compare-products --product RTC_S1 \
 --s3-product-folder-1 TMP/sar-pipeline/isce3_rtc/2025-09-26_01-00-25.078178/test_full_docker_build_and_run/ga_s1_nrb_iw_vv_vh_1/t045_095837_iw1/2020/11/29/20201129T192619/ \
 --s3-product-folder-2 TMP/sar-pipeline/isce3_rtc/2025-09-26_01-00-25.078178/test_full_docker_build_and_run/ga_s1_nrb_iw_vv_vh_1/t045_095837_iw1/2020/11/29/20201129T192619/ \
 --s3-bucket deant-data-public-dev \

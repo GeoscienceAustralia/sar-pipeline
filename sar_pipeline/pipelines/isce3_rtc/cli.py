@@ -6,11 +6,13 @@ import shapely
 import re
 import os
 import json
+import yaml
 
 from sar_pipeline import PROJECT_ROOT_PATH
 
 from sar_pipeline.preparation.downloads.scenes import (
     download_scene_from_preference_list_with_timeout,
+    download_safe_file,
     query_scene_from_cdse,
     query_scene_from_asf,
     VALID_SCENE_DATA_SOURCES,
@@ -24,6 +26,8 @@ from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     ensure_static_layers_in_s3,
     check_burst_product_h5_exists_in_s3,
     get_burst_info_for_scene_from_cdse,
+    get_burst_info_and_scene_poly_from_file,
+    get_burst_info_and_scene_poly_from_api,
 )
 
 from sar_pipeline.pipelines.isce3_rtc.utils.config_manager import RTCConfigManager
@@ -59,6 +63,9 @@ from sar_pipeline.analysis.compare_metadata import (
 )
 from sar_pipeline.analysis.compare_cog import compare_cog_stats
 
+VALID_SENSOR_MODES = ["IW", "EW"]
+SENSOR_MODE_SUBSWATHS = {"IW": [1, 2, 3], "EW": [1, 2, 3, 4, 5]}
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -69,6 +76,14 @@ logger = logging.getLogger(__name__)
     type=str,
     required=True,
     help="scene id. E.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
+)
+@click.option(
+    "--scene-path",
+    type=str,
+    required=False,
+    default="",
+    help="A local path or URL where the scene should be downloaded from. If not specified, "
+    "the scene will be located and downloaded from the specified --scene-data-source",
 )
 @click.option(
     "--burst-id-list",
@@ -237,6 +252,7 @@ logger = logging.getLogger(__name__)
 @log_timing
 def get_data_for_scene_and_make_run_config(
     scene,
+    scene_path,
     burst_id_list,
     resolution,
     output_crs,
@@ -274,7 +290,9 @@ def get_data_for_scene_and_make_run_config(
     """
 
     logger.info(f"Downloading data for scene : {scene}")
-    logger.info(f"Data source for scene download : {scene_data_source}")
+    logger.info(
+        f"Data source for scene download : {scene_path if scene_path else scene_data_source}"
+    )
     logger.info(f"Data source for orbit download : {orbit_data_source}")
 
     # sub-folders for downloads
@@ -316,42 +334,60 @@ def get_data_for_scene_and_make_run_config(
         f"The order of preference for platform used to download the orbits is : {orbit_data_sources}"
     )
 
+    # Get the sensor mode from the file
+    try:
+        sensor_mode = scene.split("_")[1]  # IW, EW
+        if sensor_mode not in VALID_SENSOR_MODES:
+            raise ValueError(
+                f"Could not extract valid sensor mode {VALID_SENSOR_MODES} from scene : {scene}"
+            )
+    except:
+        raise ValueError(
+            f"Could not extract valid sensor mode {VALID_SENSOR_MODES} from scene : {scene}"
+        )
+
     # make the base .yaml for RTC processing
     if product == "RTC_S1":
-        RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC.yaml")
+        RTC_RUN_CONFIG = RTCConfigManager(base_config=f"S1_RTC_{sensor_mode}.yaml")
     elif product == "RTC_S1_STATIC":
-        RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC_STATIC.yaml")
+        RTC_RUN_CONFIG = RTCConfigManager(
+            base_config=f"S1_RTC_STATIC_{sensor_mode}.yaml"
+        )
     else:
         raise ValueError("product must be S1_RTC or S1_RTC_STATIC")
 
     if backscatter_convention not in ["gamma0", "sigma0", "beta0"]:
         raise ValueError("backscatter_convention must be one of gamma0, sigma0, beta0")
 
-    try:
-        # Query the CDSE to make sure the scene exists
-        logger.info(f"Searching CDSE for scene metadata : {scene}")
-        scene_results, metadata_src = query_scene_from_cdse(scene), "CDSE"
-    except Exception as e:
-        # Fallback to ASF
-        logger.error(f"CDSE Query failed. Error : {e}")
-        logger.info(f"Falling back to ASF search for scene metadata : {scene}")
-        logger.warning(f"ASF may not have the most recent data available from the CDSE")
-        scene_results, metadata_src = query_scene_from_asf(scene), "ASF"
-
-    if len(scene_results) != 1:
-        raise NonSingleSceneResultError(
-            f"Expected 1 scene, found {len(scene_results)} results for scene id : {scene}. Check input scene."
+    if scene_path:
+        input_scene_url = scene_path
+        # Front-load downloading of the scene from the specified Path/URL.
+        # Extract metadata from the .SAFE file. This is required for EW SLC data created by the user,
+        # as data is not available at CDSE/ASF. Can be URL or path to a locally available file.
+        logging.info(f"Downloading scene from `scene_path` : {scene_path}")
+        SCENE_PATH = download_safe_file(scene_path, scene_folder, unzip=True)
+        # download the orbits
+        logger.info(f"Downloading Orbits for scene : {scene}")
+        ORBIT_PATH = download_orbits_from_preference_list(
+            scene_safe_file=scene + ".SAFE",
+            download_folder=orbit_folder,
+            orbit_data_source_preferences=orbit_data_sources,
         )
+        logger.info(f"Orbit file downloaded to : {ORBIT_PATH}")
+        all_scene_burst_info, scene_polygon = get_burst_info_and_scene_poly_from_file(
+            scene_path=SCENE_PATH,
+            orbit_path=ORBIT_PATH,
+            swath_list=SENSOR_MODE_SUBSWATHS[sensor_mode],
+        )
+
     else:
-        logger.info(f"Scene metadata successfully retrieved from {metadata_src}")
-        scene_metadata = scene_results[0]
-        if metadata_src == "CDSE":
-            scene_polygon = shapely.geometry.shape(scene_metadata["GeoFootprint"])
-        if metadata_src == "ASF":
-            scene_polygon = shapely.geometry.shape(scene_metadata.geometry)
-        # show the original scene shape and bounds
-        logger.info(f"The original scene shape is : {scene_polygon}")
-        logger.info(f"The original scene bounds are : {scene_polygon.bounds}")
+        # Extract scene / burst metadata from API's. We can therefore confirm if the
+        # products exist before we download the scene file
+        all_scene_burst_info, scene_polygon = get_burst_info_and_scene_poly_from_api(
+            scene=scene, sensor_mode=sensor_mode
+        )
+        # Set to None and download after we check if products already exist
+        SCENE_PATH = ORBIT_PATH = None
 
     # check if the scene crosses the antimeridian
     scene_crosses_antimeridian = check_shape_crosses_antimeridian(scene_polygon)
@@ -373,12 +409,6 @@ def get_data_for_scene_and_make_run_config(
         dem_type = get_best_dem_type_for_scene(scene_bounds)
     logger.info(f"The dem_type: {dem_type} will be used to process scene: {scene}")
 
-    # The burst ids, times and geometries can be acquired from the CDSE.
-    # We can therefore check if desired products already exist before needing to download the scene
-    logger.info(f"Querying CDSE for scene burst ids and metadata")
-    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
-    logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
-
     # write the geometries to a geojson. Useful for debugging if needed
     if save_burst_geometries:
         _burst_id_list = all_scene_burst_info.keys()
@@ -395,7 +425,15 @@ def get_data_for_scene_and_make_run_config(
     if burst_id_list:
         logger.info(f"List of bursts to process provided")
         burst_id_list_candidates = burst_id_list.split(" ")
-
+        # ensure specified burst in scene SLC
+        bursts_not_in_scene = []
+        for b in burst_id_list_candidates:
+            if b not in list(all_scene_burst_info.keys()):
+                bursts_not_in_scene.append(b)
+        if bursts_not_in_scene:
+            raise ValueError(
+                f"The specified bursts cannot be found in the SLC : {bursts_not_in_scene}. Check input burst ids."
+            )
     else:
         logger.info(f"List of bursts not provided, processing all")
         burst_id_list_candidates = list(all_scene_burst_info.keys())
@@ -450,26 +488,28 @@ def get_data_for_scene_and_make_run_config(
             early_exit_code=101,
         )
 
-    # iterate through the preferences for the scene data source and download the scene
-    SCENE_PATH, scene_polygon, input_scene_url = (
-        download_scene_from_preference_list_with_timeout(
-            timeout_mins=60,
-            early_exit_code=102,
-            scene_data_source_preferences=scene_data_sources,
-            scene=scene,
-            download_folder=scene_folder,
-            unzip=True,
+    if SCENE_PATH is None:
+        # iterate through the preferences for the scene data source and download the scene
+        SCENE_PATH, scene_polygon, input_scene_url = (
+            download_scene_from_preference_list_with_timeout(
+                timeout_mins=60,
+                early_exit_code=102,
+                scene_data_source_preferences=scene_data_sources,
+                scene=scene,
+                download_folder=scene_folder,
+                unzip=True,
+            )
         )
-    )
 
-    # # download the orbits
-    logger.info(f"Downloading Orbits for scene : {scene}")
-    ORBIT_PATH = download_orbits_from_preference_list(
-        scene_safe_file=scene + ".SAFE",
-        download_folder=orbit_folder,
-        orbit_data_source_preferences=orbit_data_sources,
-    )
-    logger.info(f"File downloaded to : {ORBIT_PATH}")
+    if ORBIT_PATH is None:
+        # download the orbits
+        logger.info(f"Downloading Orbits for scene : {scene}")
+        ORBIT_PATH = download_orbits_from_preference_list(
+            scene_safe_file=scene + ".SAFE",
+            download_folder=orbit_folder,
+            orbit_data_source_preferences=orbit_data_sources,
+        )
+        logger.info(f"Orbit file downloaded to : {ORBIT_PATH}")
 
     # get the shape of the area covering the bursts to be processed
     burst_geoms_to_process = [
@@ -607,6 +647,7 @@ def get_data_for_scene_and_make_run_config(
             burst_st_year="{burst_st_year}",
             burst_st_month="{burst_st_month}",
             burst_st_day="{burst_st_day}",
+            acquisition_mode=sensor_mode,
         )
         burst_product_data_access = make_rtc_s1_product_browse_url(
             s3_bucket=s3_bucket,
@@ -624,6 +665,7 @@ def get_data_for_scene_and_make_run_config(
                 dem_type,
                 static_layer_validity_start_date,
                 burst_id="{burst_id}",
+                acquisition_mode=sensor_mode,
             )
             static_layer_data_access = make_rtc_s1_static_product_browse_url(
                 s3_bucket=linked_static_layers_s3_bucket,
@@ -639,6 +681,7 @@ def get_data_for_scene_and_make_run_config(
             dem_type,
             static_layer_validity_start_date,
             burst_id="{burst_id}",
+            acquisition_mode=sensor_mode,
         )
         burst_product_data_access = make_rtc_s1_static_product_browse_url(
             s3_bucket=s3_bucket,
@@ -807,17 +850,29 @@ def make_metadata_and_upload_bursts(
     Generate STAC metadata for OPERA RTC burst products, reorganise and standardise product filenames,
     build supporting metadata files (STAC JSON, XML, run configuration, checksums),
     and optionally upload each burst’s product set to an S3 bucket following the RTC_S1 or RTC_S1_STATIC storage layout.
-    The function retrieves burst timing information from CDSE, converts HDF5 metadata into STAC items,
+    The function retrieves burst timing information from the downloaded file, converts HDF5 metadata into STAC items,
     applies optional geometry updates using valid-data masks, creates linked assets and metadata references,
     validates STAC documents if requested, constructs XML metadata for RTC_S1 bursts, computes checksums,
     and handles overwrite rules for pre‑existing S3 content. It also maintains a processed‑scene tracking record and,
     unless disabled, uploads this summary to a monitoring location within the project’s S3 folder structure.
     """
 
-    # query CDSE to get sensing start and sensing end times for bursts to be referenced in the
-    # STAC metadata as the datetimes in the .h5 metadata reference azimuth / zero doppler times
-    logger.info(f"Querying CDSE for scene burst ids and metadata")
-    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
+    #  get burst info from the file. Find the scene and orbit path in the processing yaml
+    logger.info(f"Obtaining burst information from downloaded scene file")
+    with open(run_config_path, "r") as f:
+        runconfig = yaml.safe_load(f)
+    SCENE_PATH = runconfig["runconfig"]["groups"]["input_file_group"]["safe_file_path"][
+        0
+    ]
+    ORBIT_PATH = runconfig["runconfig"]["groups"]["input_file_group"][
+        "orbit_file_path"
+    ][0]
+    sensor_mode = str(Path(SCENE_PATH).name).split("_")[1]
+    all_scene_burst_info, _ = get_burst_info_and_scene_poly_from_file(
+        scene_path=SCENE_PATH,
+        orbit_path=ORBIT_PATH,
+        swath_list=SENSOR_MODE_SUBSWATHS[sensor_mode],
+    )
 
     # iterate through the burst directory and create STAC metadata
     logger.info(
@@ -1309,7 +1364,10 @@ def get_bursts_ids_for_scene(
     try:
         # Query the CDSE to make sure the scene exists
         logger.info(f"Searching CDSE for scene metadata : {scene}")
-        scene_results, metadata_src = query_scene_from_cdse(scene), "CDSE"
+        scene_results, metadata_src = (
+            query_scene_from_cdse(scene, expand_attributes=True),
+            "CDSE",
+        )
     except Exception as e:
         # Fallback to ASF
         logger.error(f"CDSE Query failed. Error : {e}")
@@ -1325,7 +1383,7 @@ def get_bursts_ids_for_scene(
         logger.info(f"Scene metadata successfully retrieved from {metadata_src}")
         scene_metadata = scene_results[0]
         if metadata_src == "CDSE":
-            scene_polygon = shapely.geometry.shape(scene_metadata["geometry"])
+            scene_polygon = shapely.geometry.shape(scene_metadata["GeoFootprint"])
         if metadata_src == "ASF":
             scene_polygon = shapely.geometry.shape(scene_metadata.geometry)
         # show the original scene shape and bounds

@@ -35,7 +35,8 @@ dependencies = [
     "black[jupyter]==26.3.1", 
     "ipykernel>=7.2.0,<8", 
     "stac-geoparquet>=0.7.0,<0.8",
-    "docker>=7.1.0,<8"
+    "docker>=7.1.0,<8",
+    "s1reader @ git+https://github.com/abradley60/s1-reader@ew_mode_slc_support", # EW compatible branch
 ]
 
 [project.urls]
@@ -99,7 +100,8 @@ spatialist = ">=0.14.0,<0.17"
 s1etad = ">=0.5.5"
 s1etad_tools = ">=0.8.1"
 tomli = ">=2.2.1"
-s1reader = ">=0.2.4"
+#s1reader = ">=0.2.4" # currently pip installed to EW compatible branch
+isce3 = ">=0.13" # required when s1reader is pip installed
 aioboto3 = "==14.1.0"
 s3fs = ">=2026.3.0,<2027"
 
@@ -132,7 +134,7 @@ test-isce3-rtc-monitoring-generate-completeness-report = "pytest tests/sar_pipel
 test-nci-filesystem = "pytest tests/filesystem"
 
 ### GENERAL TASKS ###
-lint = "black sar_pipeline"
+lint = "black ."
 
 [tool.black]
 target-version = ["py310", "py311", "py312"]

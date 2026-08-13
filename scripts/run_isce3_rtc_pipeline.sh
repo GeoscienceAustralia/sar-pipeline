@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# See docs/pipelines/isce3.md for instructions and argument descriptions
+# See docs/pipelines/isce3_rtc.md for instructions and argument descriptions
 ## -- WORKFLOW INPUTS FOR PRODUCT CREATION -> RTC_S1 or RTC_S1_STATIC --
 scene=""
+scene_path="" # url or path to local scene. If None scene is downloaded using scene_data_source
 burst_id_list=()
 resolution=20
 output_crs="UTM"
@@ -43,6 +44,7 @@ linked_static_layers_collection_number=1
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --scene) scene="$2"; shift 2 ;;
+        --scene-path) scene_path="$2"; shift 2 ;;
         --resolution) resolution="$2"; shift 2 ;;
         --output-crs) output_crs="$2"; shift 2 ;;
         --dem-type) dem_type="$2"; shift 2 ;;
@@ -139,6 +141,7 @@ fi
 echo ""
 echo The input variables are:
 echo scene : "$scene"
+echo scene-path : "$scene_path"
 echo burst-id-list : ${burst_id_list[*]}
 echo resolution : "$resolution"
 echo output-crs : "$epsg_code_msg"
@@ -197,6 +200,7 @@ RUN_CONFIG_PATH="$out_folder/OPERA-RTC_runconfig.yaml"
 cmd=(
     isce3-rtc-get-data-for-scene-and-make-run-config \
     --scene "$scene" \
+    --scene-path "$scene_path" \
     --resolution "$resolution" \
     --output-crs "$output_crs" \
     --product "$product" \

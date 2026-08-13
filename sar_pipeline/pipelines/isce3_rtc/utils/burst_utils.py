@@ -1,22 +1,33 @@
 import asf_search
 from datetime import datetime, timedelta
 import logging
+import os
 import shapely
+from pathlib import Path
 from shapely.geometry import Polygon, MultiPolygon
 from typing import Optional, Literal
 import sys
 import requests
+import zipfile
+import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import pandas as pd
+import s1reader
 
 from sar_pipeline.utils.general import log_timing, format_dt_utc
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
 from sar_pipeline.utils.dem import ValidDemType
+from sar_pipeline.utils.sentinel1 import get_polarisation_list_from_scene_id
 from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import REQUIRED_ASSET_FILETYPES
 from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     make_rtc_s1_product_s3_prefix,
     make_rtc_s1_static_product_s3_prefix,
+)
+from sar_pipeline.preparation.downloads.scenes import (
+    query_scene_from_asf,
+    query_scene_from_cdse,
+    NonSingleSceneResultError,
 )
 from sar_pipeline.utils.sentinel1 import get_dates_from_scene_id
 
@@ -32,7 +43,9 @@ def get_burst_info_for_scene_from_asf(
     """Get the burst ids, start time, azimuth_time, end_time, polarisations and
     geometries for a scene from ASF. Return as a dictionary of bursts as the keys,
     and times, polarisations and geometries as sub-dictionaries. Warning - the end_time
-    returned from the ASF API is different than that returned from the CDSE API
+    returned from the ASF API is different than that returned from the CDSE API.
+
+    Warning - Only IW Bursts Available
 
     Parameters
     ----------
@@ -157,7 +170,8 @@ def get_burst_info_for_scene_from_cdse(
     """
 
     base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
-    query = f"$filter=ParentProductName eq '{scene}.SAFE'&$top=100"
+    # one products per burst+pol, set this value high to be safe.
+    query = f"$filter=ParentProductName eq '{scene}.SAFE'&$top=500"
     url = f"{base_url}?{query}"
 
     response = requests.get(url)
@@ -266,6 +280,9 @@ def check_burst_product_h5_exists_in_s3(
 
     for burst_id, burst_st in zip(burst_id_list, burst_st_list):
         # get the path to search for in s3
+
+        acquisition_mode = burst_id.split("_")[-1][0:2]  # iw / ew
+
         if product == "RTC_S1_STATIC":
             s3_product_subpath = make_rtc_s1_static_product_s3_prefix(
                 s3_project_folder=s3_project_folder,
@@ -273,6 +290,7 @@ def check_burst_product_h5_exists_in_s3(
                 burst_id=burst_id,
                 dem_type=dem_type,
                 static_layer_validity_start_date=static_layer_validity_start_date,
+                acquisition_mode=acquisition_mode,
             )
         if product == "RTC_S1":
             s3_product_subpath = make_rtc_s1_product_s3_prefix(
@@ -281,6 +299,7 @@ def check_burst_product_h5_exists_in_s3(
                 burst_polarisations=burst_polarisations,
                 burst_id=burst_id,
                 burst_st=burst_st,
+                acquisition_mode=acquisition_mode,
             )
         # assume the product exists if there is a .h5 file
         logging.info(f"searching s3 folder : {s3_product_subpath}")
@@ -380,12 +399,16 @@ def ensure_static_layers_in_s3(
     missing_burst_files = {}
 
     for burst_id in burst_id_list:
+
+        acquisition_mode = burst_id.split("_")[-1][0:2]  # iw / ew
+
         static_layers_s3_folder = make_rtc_s1_static_product_s3_prefix(
             static_layers_s3_project_folder,
             static_layers_collection_number,
             dem_type=dem_type,
             static_layer_validity_start_date=static_layer_validity_start_date,
             burst_id=burst_id,
+            acquisition_mode=acquisition_mode,
         )
         filetype_to_s3paths = find_s3_filepaths_from_suffixes(
             static_layers_s3_bucket,
@@ -632,3 +655,251 @@ def query_cdse_for_bursts_in_period(
         logging.info(f"Results written to {output_path}")
 
     return burst_product_dict
+
+
+def _get_burst_sensing_times_from_annotation(
+    scene_path: Path, sensor_mode: str, swath_num: int, pol: str
+) -> list[datetime]:
+    """Parse the raw radar `sensingTime` for each burst directly from the
+    scene's annotation XML, in burst order.
+
+    Each burst in the annotation has both an `azimuthTime` (the zero-Doppler
+    azimuth time of the first line, which is what s1reader exposes as
+    `Sentinel1BurstSlc.sensing_start`) and a separate `sensingTime` (the raw
+    radar sensing time of the first line). s1reader parses `sensingTime`
+    internally to compute the burst ID but does not expose it on the
+    returned burst object. CDSE's `BeginningDateTime`/`start_time` for a
+    burst is populated from `sensingTime`, not `azimuthTime`, so it must be
+    read from the annotation directly to get an equivalent value.
+
+    Parameters
+    ----------
+    scene_path : Path
+        Path to the scene .zip or .SAFE directory.
+    sensor_mode : str
+        Acquisition mode, e.g. "iw" or "ew".
+    swath_num : int
+        Subswath number.
+    pol : str
+        Polarization, e.g. "vv".
+
+    Returns
+    -------
+    list[datetime]
+        Sensing times ordered so that index i corresponds to the burst
+        with `i_burst == i`, as returned by `s1reader.load_bursts`.
+    """
+
+    id_str = f"{sensor_mode}{swath_num}-slc-{pol.lower()}"
+
+    if scene_path.is_dir():
+        annotation_dir = scene_path / "annotation"
+        matches = [f for f in os.listdir(annotation_dir) if id_str in f]
+        if not matches:
+            raise ValueError(f"burst {id_str} not in SAFE: {scene_path}")
+        tree = ET.parse(annotation_dir / matches[0])
+    else:
+        with zipfile.ZipFile(scene_path, "r") as z_file:
+            matches = [
+                f
+                for f in z_file.namelist()
+                if f.split("/")[-2] == "annotation" and id_str in f.split("/")[-1]
+            ]
+            if not matches:
+                raise ValueError(f"burst {id_str} not in SAFE: {scene_path}")
+            with z_file.open(matches[0]) as f:
+                tree = ET.parse(f)
+
+    burst_list = tree.find("swathTiming/burstList")
+    return [
+        datetime.fromisoformat(burst.find("sensingTime").text) for burst in burst_list
+    ]
+
+
+def get_burst_info_and_scene_poly_from_file(
+    scene_path: str | Path,
+    orbit_path: str | Path,
+    swath_list: list[int],
+) -> tuple[dict, shapely.geometry.base.BaseGeometry]:
+    """
+    Load burst metadata and geometry for a Sentinel-1 scene.
+
+    Parameters
+    ----------
+    scene_path : str or Path
+        Path to the scene .zip or .SAFE file.
+    orbit_path : str or Path
+        Path to the associated orbit file for the scene.
+    swath_list : list[int]
+        Subswath numbers to load bursts from.
+
+    Returns
+    -------
+    tuple[dict, shapely.geometry.base.BaseGeometry]
+        Dict keyed by burst ID with sensing times, geometry, and
+        polarizations, and the unioned scene polygon covering all bursts.
+    """
+
+    scene_path = Path(scene_path)
+    orbit_path = Path(orbit_path)
+    scene_id = scene_path.stem  # strips .zip or .SAFE
+    sensor_mode = scene_id.split("_")[1].lower()
+    pols = get_polarisation_list_from_scene_id(scene_id)
+
+    logger.info(f"Loading burst info from: {scene_path}")
+
+    all_scene_burst_info = {}
+    for swath_num in swath_list:
+        bursts = s1reader.load_bursts(
+            path=str(scene_path),
+            orbit_path=str(orbit_path),
+            swath_num=swath_num,
+            pol=pols[0],
+        )
+        sensing_times = _get_burst_sensing_times_from_annotation(
+            scene_path, sensor_mode, swath_num, pols[0]
+        )
+        for burst in bursts:
+            bid = burst.burst_id
+            burst_geom = shapely.geometry.shape(burst.border[0])
+            all_scene_burst_info.setdefault(
+                str(bid),
+                {
+                    "azimuth_time": burst.sensing_start,
+                    "start_time": sensing_times[burst.i_burst],
+                    "end_time": burst.sensing_stop,
+                    "geometry": burst_geom,
+                    "pols": pols,
+                },
+            )
+
+    scene_polygon = shapely.ops.unary_union(
+        [b["geometry"] for b in all_scene_burst_info.values()]
+    )
+
+    return all_scene_burst_info, scene_polygon
+
+
+def assert_burst_info_equivalent(
+    cdse_burst_info: dict,
+    file_burst_info: dict,
+    geom_tolerance: float = 1e-3,
+    test_geometries=False,
+) -> None:
+    """
+    Helper to Assert burst info from the CDSE API matches burst info loaded
+    directly from a SAFE file, for the same burst IDs.
+
+    Parameters
+    ----------
+    cdse_burst_info : dict
+        Output of get_burst_info_for_scene_from_cdse.
+    file_burst_info : dict
+        Output of get_burst_info_from_scene_file.
+    geom_tolerance : float
+        Tolerance (degrees) for near-equality of burst geometries, allowing
+        for minor coordinate rounding differences between sources.
+    """
+    assert set(cdse_burst_info.keys()) == set(file_burst_info.keys()), (
+        "Burst IDs differ between CDSE and SAFE file: "
+        f"cdse only={set(cdse_burst_info) - set(file_burst_info)}, "
+        f"file only={set(file_burst_info) - set(cdse_burst_info)}"
+    )
+
+    for burst_id, file_entry in file_burst_info.items():
+        cdse_entry = cdse_burst_info[burst_id]
+
+        assert (
+            file_entry["azimuth_time"] == cdse_entry["azimuth_time"]
+        ), f"azimuth_time mismatch for burst {burst_id}"
+        assert (
+            file_entry["start_time"] == cdse_entry["start_time"]
+        ), f"start_time mismatch for burst {burst_id}"
+        # end_time intentionally not compared: get_burst_info_for_scene_from_cdse's
+        # docstring warns the CDSE end_time convention differs from other sources.
+
+        if test_geometries:
+            # The geometries are different, and hard to compare
+            assert file_entry["geometry"].equals_exact(
+                cdse_entry["geometry"], tolerance=geom_tolerance
+            ), f"geometry mismatch for burst {burst_id}"
+
+        # get_burst_info_from_scene_file only loads a single polarisation,
+        # so just confirm it's among the polarisations CDSE reports
+        for pol in file_entry["pols"]:
+            assert (
+                pol in cdse_entry["pols"]
+            ), f"pol {pol} for burst {burst_id} not in CDSE pols {cdse_entry['pols']}"
+
+
+def get_burst_info_and_scene_poly_from_api(
+    scene: str,
+    sensor_mode: str,
+) -> tuple[shapely.geometry.base.BaseGeometry, str, dict, dict]:
+    """Query CDSE (falling back to ASF) for scene-level metadata, and CDSE
+    for burst-level metadata, for a scene that has not been downloaded
+    locally.
+
+    Parameters
+    ----------
+    scene : str
+        The scene id, e.g.
+        S1A_IW_SLC__1SDV_20200511T135117_20200511T135144_032518_03C421_7768
+    sensor_mode : str
+        Sensor acquisition mode extracted from the scene id, e.g. "IW" or
+        "EW". Only used to tailor the error message if no scene is found.
+
+    Returns
+    -------
+    scene_polygon : shapely.geometry.base.BaseGeometry
+        The scene's footprint geometry.
+    metadata_src : str
+        "CDSE" or "ASF", whichever source the scene was found on.
+    scene_metadata : dict
+        The raw metadata for the found scene.
+    all_scene_burst_info : dict
+        Output of get_burst_info_for_scene_from_cdse.
+
+    Raises
+    ------
+    NonSingleSceneResultError
+        If not exactly one scene is found on CDSE or ASF.
+    """
+
+    logger.info(f"Searching CDSE for scene metadata : {scene}")
+    try:
+        scene_results, metadata_src = query_scene_from_cdse(scene), "CDSE"
+    except Exception as e:
+        logger.error(f"CDSE Query failed. Error : {e}")
+        logger.info(f"Falling back to ASF search for scene metadata : {scene}")
+        logger.warning("ASF may not have the most recent data available from the CDSE")
+        scene_results, metadata_src = query_scene_from_asf(scene), "ASF"
+
+    if len(scene_results) != 1:
+        msg = (
+            f"Expected 1 scene, found {len(scene_results)} results for scene id : "
+            f"{scene}. Check input scene."
+        )
+        if sensor_mode == "EW":
+            msg += (
+                " An EW SLC was passed. If this was created from L0 data the "
+                "`scene_path` to a local file or remote URL to download must be "
+                "passed directly as scene does not exist on the CDSE/ASF."
+            )
+        raise NonSingleSceneResultError(msg)
+
+    logger.info(f"Scene metadata successfully retrieved from {metadata_src}")
+    scene_metadata = scene_results[0]
+    if metadata_src == "CDSE":
+        scene_polygon = shapely.geometry.shape(scene_metadata["GeoFootprint"])
+    else:
+        scene_polygon = shapely.geometry.shape(scene_metadata.geometry)
+
+    logger.info(f"The original scene shape is : {scene_polygon}")
+    logger.info(f"The original scene bounds are : {scene_polygon.bounds}")
+
+    logger.info("Querying CDSE for scene burst ids and metadata")
+    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
+    logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
+
+    return all_scene_burst_info, scene_polygon

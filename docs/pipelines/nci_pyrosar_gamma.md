@@ -68,7 +68,7 @@ S1A__EW___A_20250419T221041_pix_ratio_geo_4326.tif
 
 The pipeline has been set up to run via command line interface (CLI) calls on the NCI.
 The CLI is available if you have activated a Conda environment that has sar-pipeline installed.
-The CLI functions can be found in the `pyrosar_gamma` [cli.py](../../sar_pipeline/pipelines/pyrosar_gamma/cli.py).
+The CLI functions can be found in the `pyrosar_gamma` [cli.py](../../sar_pipeline/pipelines/pyrosar_gamma/nci/cli.py).
 
 The login node of the NCI has very limited internet access, so the pipeline is designed to access Sentinel-1 files directly from the NCI.
 The main approach uses the Copernicus Australasian Datahub (Aus Cop Hub) API to search for a scene's UUID, which is then converted to an NCI path.
@@ -111,7 +111,7 @@ For questions about the location of files on the NCI filesystem, contact the Aus
 
 ### 3.3. Pipeline arguments and configuration
 
-At runtime, the [nci-pyrosar-gamma-rtc-submit-workflow ](../../sar_pipeline/pipelines/nci/pyrosar_gamma/cli.py) CLI is run, with the following usage:
+At runtime, the [nci-pyrosar-gamma-rtc-submit-workflow ](../../sar_pipeline/pipelines/pyrosar_gamma/nci/cli.py) CLI is run, with the following usage:
 
 ```bash
 nci-pyrosar-gamma-rtc-submit-workflow  [OPTIONS] SCENE
