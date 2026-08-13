@@ -96,6 +96,10 @@ sudo chmod -R 777 ./data
 
 6. See the [full docs](docs/pipelines/isce3_rtc.md) to see how static layers can created and used.
 
+7. EW mode requires an SLC input, which CDSE doesn't always produce by default — see
+[Special Considerations for EW Mode](docs/pipelines/isce3_rtc.md#36-special-considerations-for-ew-mode)
+for checking SLC availability and generating an SLC from L0 when needed.
+
 ## Release
 
 GA release information is provided in the [release guide](./docs/development/release_guide.md)

@@ -9,6 +9,7 @@
     - [3.3. Pipeline Arguments](#33-pipeline-arguments)
     - [3.4. Example Product Outputs](#34-example-product-outputs)
     - [3.5 Error and Success Codes](#35-error-and-success-codes)
+    - [3.6 Special Considerations for EW Mode](#36-special-considerations-for-ew-mode)
   - [4. Project Setup](#4-project-setup)
     - [4.1. Docker Image](#41-docker-image)
     - [4.2. Build the Docker Image](#42-build-the-docker-image)
@@ -31,8 +32,11 @@
       - [8.4.1. Make Static Layers (RTC\_S1\_STATIC)](#841-make-static-layers-rtc_s1_static)
       - [8.4.2. Make RTC Backscatter (RTC\_S1) and Link it to the Static Layers (RTC\_S1\_STATIC)](#842-make-rtc-backscatter-rtc_s1-and-link-it-to-the-static-layers-rtc_s1_static)
       - [8.4.3. Check Backscatter Metadata Outputs to Ensure They are Linked](#843-check-backscatter-metadata-outputs-to-ensure-they-are-linked)
-    - [8.5. Production Runs](#85-production-runs)
-    - [8.6. Comparing products and making changes](#86-comparing-products-and-making-changes)
+    - [8.5. Processing EW SLC Data](#85-processing-ew-slc-data)
+      - [8.5.1. Processing an EW SLC that already exists on the CDSE / ASF](#851-processing-an-ew-slc-that-already-exists-on-the-cdse--asf)
+      - [8.5.2. Processing an EW Scene from L0](#852-processing-an-ew-scene-from-l0)
+    - [8.6. Production Runs](#86-production-runs)
+    - [8.7. Comparing products and making changes](#87-comparing-products-and-making-changes)
 
 
 ## 1. About 
@@ -203,6 +207,13 @@ Final product output paths have the following structure
 * **1** - Process failed (1): Error in isce3-rtc-get-data-for-scene-and-make-run-config process.
 * **2** - Process failed (2): Error in rtc_s1.py $RUN_CONFIG_PATH process
 * **3** - Process failed (3): Error in isce3-rtc-make-metadata-and-upload-bursts process
+
+### 3.6 Special Considerations for EW Mode
+
+The ISCE3 RTC pipeline requires Level-1 SLC input, but ESA's baseline processing only produces Level-1 GRD products for EW mode by default, so SLC availability is limited. Use the ASF Search UI to check whether an EW SLC already exists for your scene of interest - https://search.asf.alaska.edu/#/.
+
+- If an SLC already exists, the pipeline runs identically to IW mode — see [8.5.1](#851-processing-an-ew-slc-that-already-exists-on-the-cdse--asf).
+- If only GRD is available, an SLC must first be generated from the L0 RAW product using the [EW_L0_RAW_to_L1_SLC](../../notebooks/EW_L0_RAW_to_L1_SLC) notebooks — see [8.5.2](#852-processing-an-ew-scene-from-l0).
 
 ## 4. Project Setup
 
@@ -628,8 +639,36 @@ By opening the stac metadata file and checking the assets links, you should see 
  }
 
 ```
+### 8.5. Processing EW SLC Data
 
-### 8.5. Production Runs
+#### 8.5.1. Processing an EW SLC that already exists on the CDSE / ASF
+
+```bash
+docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc \
+--scene S1A_EW_SLC__1SDH_20220330T185405_20220330T185511_042554_051380_3E95 \
+--burst-id-list t132_256983_ew4 \
+--resolution 40 \
+--skip-upload-to-s3 \
+--make-existing-products
+```
+
+#### 8.5.2. Processing an EW Scene from L0
+
+1. Use [search_ew_l0_scenes.ipynb](../../notebooks/EW_L0_RAW_to_L1_SLC/search_ew_l0_scenes.ipynb) to search for L0 scenes over a given area.
+2. Use [batch_order_l0_to_slc_and_upload.ipynb](../../notebooks/EW_L0_RAW_to_L1_SLC/batch_order_l0_to_slc_and_upload.ipynb) to submit those scenes to CDSE's on-demand SLC processing and upload the results to S3.
+3. Run the pipeline as shown below, pointing `--scene-path` at the uploaded SLC.
+
+```bash
+docker run --env-file .env --platform linux/amd64 sar-pipeline-isce3-rtc \
+--scene S1A_EW_SLC__1SDH_20250101T153651_20250101T153757_057252_070AF9_1F2E \
+--scene-path https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/s1_ew_slc/data/S1A_EW_SLC__1SDH_20250101T153651_20250101T153757_057252_070AF9_1F2E.SAFE.zip \
+--resolution 40 \
+--skip-upload-to-s3 \
+--make-existing-products \
+--burst-id-list t130_253088_ew5
+```
+
+### 8.6. Production Runs
 
 Production runs are detailed in the official run-book (https://docs.dev.dea.ga.gov.au/products/sentinel-1-nrb/), but follow a similar pattern to the above example linking static layers: 
 
@@ -640,7 +679,7 @@ Production runs are detailed in the official run-book (https://docs.dev.dea.ga.g
 The result is a complete timeseries where products are linked to their correct static layers. 
 
 
-### 8.6. Comparing products and making changes
+### 8.7. Comparing products and making changes
 
 
 Once production begins, the generated must have consistent metadata, and the data of the products should be consistent. If changes are made, for example updating a metadata field of installing a new package, we need to ensure the changes are not breaking and the produced data is consistent with existing products. To do this, we can use the `isce3-rtc-compare-products` cli utility in sar-pipeline. This can be run from within the container, or alternatively using pixi.
