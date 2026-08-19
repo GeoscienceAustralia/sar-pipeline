@@ -8,6 +8,7 @@
     - [3.1. Overview](#31-overview)
     - [3.2. Environment variables](#32-environment-variables)
     - [3.3. Pipeline arguments and configuration](#33-pipeline-arguments-and-configuration)
+    - [3.4. Running multiple jobs in parallel](#34-running-multiple-jobs-in-parallel)
   - [4. Project setup](#4-project-setup)
     - [4.1. Development setup](#41-development-setup)
     - [4.2. Gamma software](#42-gamma-software)
@@ -129,6 +130,20 @@ The CLI has the following options:
 * `target-crs` -> The EPSG number for the target coordinate reference system. Only `4326` and `3031` are supported.
 * `help` -> Show the CLI help message.
 
+### 3.4. Running multiple jobs in parallel
+
+Running the multiple jobs (scenes) in parallel requires a docker image to run each scene in its own container. Refer to section [4.3](#43-running-sar-pipeline-in-docker-image) for more information about building and running the docker container. To run the multiple jobs use the command below after entering the root of the project:
+
+```bash
+pyrosar-gamma-run-parallel-jobs --scenes-csv
+```
+
+`scenes-csv` is the path to a csv file that must be provided to the command. It contains the name(ID) of each scene as its rows and the command will run one container per each row. The image name to be used in the containers is `sar-pipeline-pyrosar-gamma:latest` by default. The commands tries to find the image locally, otherwise tries to build it from the Dockerfile that must be present at the root of the project inside `Docker/pyrosar_gamma` directory. If the Dockerfile is not present, the command will fail. You can pass a different image name using `--image-name` argument if required.
+
+By default, the command runs the jobs in batches of 10 containers. You can change this bys setting the number using `--max-workers` argument.
+
+**NOTE** Make sure your AWS credentials are properly exported to the `.env` file required for the job inside the root pf the project directory.
+
 ## 4. Project setup
 Clone the repository to a project folder that you own, where you have read, write and execution permissions.
 
@@ -150,7 +165,7 @@ The workflow could be run using a docker image. The docker file can be found at 
 You can build the docker image via the command:
 
 ```bash
-docker build -t sar-pipeline -f Docker/pyrosar_gamma/Dockerfile .
+docker build -t sar-pipeline-pyrosar-gamma -f Docker/pyrosar_gamma/Dockerfile .
 ```
 
 The docker image could be run via the pixi command:

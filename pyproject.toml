@@ -30,10 +30,14 @@ dependencies = [
     "dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.6", 
     "odc-stac>=0.5.0,<0.6", 
     "pystac-client>=0.9.0,<0.10", 
+    "sentineleof @ git+https://github.com/scottstanie/sentineleof@v0.11.2",
     "tqdm>=4.67.1,<5", 
     "pooch>=1.9.0,<2", 
     "ipykernel>=7.3.0,<8", 
     "ipywidgets>=8.1.9,<9", 
+    "black[jupyter]==26.3.1",
+    "stac-geoparquet>=0.7.0,<0.8",
+    "docker>=7.1.0,<8"
 ]
 
 [project.urls]
@@ -57,6 +61,7 @@ isce3-rtc-compare-products = "sar_pipeline.pipelines.isce3_rtc.cli:compare_produ
 ### PyroSAR_GAMMA ###
 pyrosar-gamma-rtc-run-workflow = "sar_pipeline.pipelines.pyrosar_gamma.aws.cli:run_pyrosar_gamma_workflow"
 pyrosar-gamma-make-metadata-and-upload-product = "sar_pipeline.pipelines.pyrosar_gamma.aws.metadata_cli:make_metadata_and_upload_product"
+pyrosar-gamma-run-parallel-jobs = "sar_pipeline.pipelines.pyrosar_gamma.aws.parallel_run:run_jobs"
 ### Monitoring ###
 monitoring-process-s1-iw-burst-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:process_s1_iw_burst_completeness_report_cli"
 monitoring-process-s1-iw-scene-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:process_s1_iw_scene_completeness_report_cli"
@@ -96,9 +101,9 @@ spatialist = ">=0.14.0,<0.17"
 s1etad = ">=0.5.5"
 s1etad_tools = ">=0.8.1"
 tomli = ">=2.2.1"
-sentineleof = ">=0.11.0"
 s1reader = ">=0.2.4"
 aioboto3 = "==14.1.0"
+s3fs = ">=2026.3.0,<2027"
 
 [tool.pixi.environments]
 default = { solve-group = "default" }
@@ -147,7 +152,7 @@ sed -ix "s/^name: .*/name: sar-pipeline/" environment.yaml; rm environment.yamlx
 install-pygssearch-env = """
 conda env list | grep -q pygssearch-env || conda env create -f Conda/pygssearch/environment.yaml -n pygssearch-env
 """
-pyrosar-gamma-rtc-run-docker-container = "docker run --env-file .env -v /usr/local/GAMMA_SOFTWARE-20230712:/usr/local/GAMMA_SOFTWARE-20230712 -v ./sar-processing:/app/sar-processing sar-pipeline"
+pyrosar-gamma-rtc-run-docker-container = "docker run --env-file .env -v /usr/local/GAMMA_SOFTWARE-20230712:/usr/local/GAMMA_SOFTWARE-20230712 -v ./sar-processing:/app/sar-processing sar-pipeline-pyrosar-gamma"
 
 [dependency-groups]
-dev = ["black==26.3.0", "pytest-dependency>=0.6.0,<0.7"]
+dev = ["black==26.3.1", "pytest-dependency>=0.6.0,<0.7"]

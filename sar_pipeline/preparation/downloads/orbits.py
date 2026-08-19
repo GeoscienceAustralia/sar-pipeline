@@ -132,6 +132,7 @@ def download_orbits_from_asf(
             force_asf=True,
             asf_user=asf_user,
             asf_password=asf_password,
+            s1reader_compat=True,
         )
     except:
         # authentication through session credentials may have failed (ASF bug)
@@ -143,6 +144,7 @@ def download_orbits_from_asf(
             cdse_user=None,
             cdse_password=None,
             force_asf=True,
+            s1reader_compat=True,
         )
     return orbit_paths
 
@@ -194,6 +196,7 @@ def download_orbits_from_cdse(
         cdse_user=cdse_user,
         cdse_password=cdse_password,
         force_asf=False,
+        s1reader_compat=True,
     )
     return orbit_paths
 
@@ -212,6 +215,7 @@ def download_orbits_from_aus_cop_hub(
     service: str = "https://catalogue.copernicus.gov.au/odata/v1",
     token_url: str = "https://auth.copernicus.gov.au/realms/gss/protocol/openid-connect/token",
     pygssearch_conda_env: Optional[Union[str, Path]] = None,
+    pygssearch_record_limit: Optional[int] = 1000,
 ):
     """Download the orbits from the Copernicus Australasia Regional Data Hub. Function makes use of
     pygssearch - https://pypi.org/project/pygssearch/ which is installed in a separate conda environment
@@ -250,6 +254,10 @@ def download_orbits_from_aus_cop_hub(
         Path to the conda environment containing an installation of pygssearch that will be called in a
         subprocess. If not specified, If not specified env variable PYGSSEARCH_CONDA_ENV will be used.
         e.g. /path/to/anaconda3/envs/pygssearch-env
+    pygssearch_record_limit: Optional[int]
+        Number of records to return from the pygssearch query. Default 1000.
+        Default number of returned record is 10 which may not be enough to find the correct orbit file,
+        especially if the search buffer is large.
 
     Returns
     -------
@@ -304,6 +312,7 @@ def download_orbits_from_aus_cop_hub(
         orbit_file_types=orbit_file_types,
         search_buffer_days=search_buffer_days,
         service=service,
+        pygssearch_record_limit=pygssearch_record_limit,
     )
 
     if not orbit_metadata:
@@ -363,6 +372,7 @@ def query_orbit_from_aus_cop_hub(
     orbit_file_types: list = ["AUX_POEORB", "AUX_RESORB"],
     search_buffer_days: int = 2,
     service: str = "https://catalogue.copernicus.gov.au/odata/v1",
+    pygssearch_record_limit: Optional[int] = 1000,
 ) -> dict:
     """Query the orbit and retrieve associated metadata from the Copernicus
     Australasia Regional Data Hub. Function makes use of pygssearch -
@@ -381,6 +391,8 @@ def query_orbit_from_aus_cop_hub(
         Preference for the type of orbit file to be downloaded. Default ["AUX_POEORB", "AUX_RESORB"].
     service : str, optional
         Service to query, by default "https://catalogue.copernicus.gov.au/odata/v1"
+    pygssearch_record_limit: Optional[int]
+        Number of records to return from the pygssearch query. Default 1000.
 
     Returns
     -------
@@ -396,10 +408,10 @@ def query_orbit_from_aus_cop_hub(
 
     scene_st_datetime, scene_end_datetime = get_dates_from_scene_id(scene)
     search_st = (scene_st_datetime - timedelta(days=search_buffer_days)).strftime(
-        "%Y-%m-%d"
+        "%Y-%m-%dT%H:%M:%S.%fZ"
     )
     search_et = (scene_end_datetime + timedelta(days=search_buffer_days)).strftime(
-        "%Y-%m-%d"
+        "%Y-%m-%dT%H:%M:%S.%fZ"
     )
     platform = str(scene).split("_")[0]  # S1A, S1B, S1C etc
     orbit_file_name = None
@@ -407,7 +419,7 @@ def query_orbit_from_aus_cop_hub(
         logger.info(
             f"Querying AUS_COP_HUB for orbit type {orbit_file_type} between {search_st} and {search_et}"
         )
-        search_query = f"pygssearch --service {service} --mission 1 --product_type {orbit_file_type} --start {search_st} --end {search_et} --format _"
+        search_query = f"pygssearch --service {service} --mission 1 --product_type {orbit_file_type} --start {search_st} --end {search_et} --limit {pygssearch_record_limit} --format _"
         # Set the query for the scene -- no credentials required when querying
         pygss_search_cmd = environment_cmd + search_query
         # run the auscophub query
@@ -422,6 +434,11 @@ def query_orbit_from_aus_cop_hub(
             if orbit_file_type == orbit_file_types[-1]:
                 return []
         logger.info(f"Filtering for best orbit file")
+        # Filter the results for the best file based on the scene start and end time and platform, as there may be multiple matches in the search window.
+        # Assuming that the scene's start and end time is always between the orbit file's start and end time,
+        # the best orbit file is selected by finding the one with the earliest start time to the scene's start time.
+        orbit_starts = []
+        orbit_names = []
         for orbit_metadata in aus_cophub_orbit_metadata:
             orbit_file_platform = orbit_metadata["Name"].split("_")[0]
             orb_st = datetime.strptime(
@@ -435,16 +452,29 @@ def query_orbit_from_aus_cop_hub(
                 and (scene_end_datetime < orb_et)
                 and (orbit_file_platform == platform)
             ):
-                orbit_file_name = orbit_metadata["Name"]
-                logger.info(f"match': {orbit_file_name}")
-                break
+                orbit_starts.append(orb_st)
+                orbit_names.append(orbit_metadata["Name"])
+        try:
+            earliest_start = datetime.strftime(min(orbit_starts), "%Y%m%dT%H%M%S")
+            orbit_file_name = [name for name in orbit_names if earliest_start in name][
+                0
+            ]
+        except:
+            logger.info(
+                f"Could not find orbit type {orbit_file_type} in provided time window"
+            )
+
         if orbit_file_name:
             break
         if not orbit_file_name and orbit_file_type == orbit_file_types[-1]:
             # exit with no file path found
             return []
 
-    return orbit_metadata
+    return [
+        metadata
+        for metadata in aus_cophub_orbit_metadata
+        if metadata["Name"] == orbit_file_name
+    ][0]
 
 
 @log_timing

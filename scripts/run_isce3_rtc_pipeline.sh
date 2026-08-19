@@ -16,7 +16,7 @@ collection_number=1
 make_existing_products=false
 skip_upload_to_s3=false
 scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
-orbit_data_source=("AUS_COP_HUB" "ASF" "CDSE")
+orbit_data_source=("ASF" "CDSE")
 skip_validate_stac=false
 skip_upload_processed_scene_tracking_file=false
 skip_rtc=false
@@ -44,22 +44,22 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
         --scene) scene="$2"; shift 2 ;;
         --resolution) resolution="$2"; shift 2 ;;
-        --output_crs) output_crs="$2"; shift 2 ;;
-        --dem_type) dem_type="$2"; shift 2 ;;
+        --output-crs) output_crs="$2"; shift 2 ;;
+        --dem-type) dem_type="$2"; shift 2 ;;
         --product) product="$2"; shift 2 ;;
-        --backscatter_convention) backscatter_convention="$2"; shift 2 ;;
-        --static_layer_validity_start_date) static_layer_validity_start_date="$2"; shift 2 ;;
-        --s3_bucket) s3_bucket="$2"; shift 2 ;;
-        --s3_project_folder) s3_project_folder="$2"; shift 2 ;;
-        --collection_number) collection_number="$2"; shift 2 ;;
-        --make_existing_products) make_existing_products=true; shift ;;
-        --skip_upload_to_s3) skip_upload_to_s3=true; shift ;;
-        --link_static_layers) link_static_layers=true; shift ;;
-        --linked_static_layers_s3_bucket) linked_static_layers_s3_bucket="$2"; shift 2 ;;
-        --linked_static_layers_collection_number) linked_static_layers_collection_number="$2"; shift 2 ;;
-        --linked_static_layers_s3_project_folder) linked_static_layers_s3_project_folder="$2"; shift 2 ;;
-        --processed_scene_tracking_file_s3_folder) processed_scene_tracking_file_s3_folder="$2"; shift 2 ;;
-        --scene_data_source) 
+        --backscatter-convention) backscatter_convention="$2"; shift 2 ;;
+        --static-layer-validity-start-date) static_layer_validity_start_date="$2"; shift 2 ;;
+        --s3-bucket) s3_bucket="$2"; shift 2 ;;
+        --s3-project-folder) s3_project_folder="$2"; shift 2 ;;
+        --collection-number) collection_number="$2"; shift 2 ;;
+        --make-existing-products) make_existing_products=true; shift ;;
+        --skip-upload-to-s3) skip_upload_to_s3=true; shift ;;
+        --link-static-layers) link_static_layers=true; shift ;;
+        --linked-static-layers-s3-bucket) linked_static_layers_s3_bucket="$2"; shift 2 ;;
+        --linked-static-layers-collection-number) linked_static_layers_collection_number="$2"; shift 2 ;;
+        --linked-static-layers-s3-project-folder) linked_static_layers_s3_project_folder="$2"; shift 2 ;;
+        --processed-scene-tracking-file-s3-folder) processed_scene_tracking_file_s3_folder="$2"; shift 2 ;;
+        --scene-data-source) 
             scene_data_source=()  # clear the default
             shift
             if [[ $# -eq 1 && -f "$1" ]]; then
@@ -72,7 +72,7 @@ while [[ "$#" -gt 0 ]]; do
                 done
             fi
             ;;
-        --orbit_data_source)
+        --orbit-data-source)
             orbit_data_source=()  # clear the default
             shift
             if [[ $# -eq 1 && -f "$1" ]]; then
@@ -85,9 +85,9 @@ while [[ "$#" -gt 0 ]]; do
                 done
             fi
             ;;
-        --skip_validate_stac) skip_validate_stac=true; shift ;;
-        --skip_rtc) skip_rtc=true; shift ;;
-        --burst_id_list)
+        --skip-validate-stac) skip_validate_stac=true; shift ;;
+        --skip-rtc) skip_rtc=true; shift ;;
+        --burst-id-list)
             shift
             if [[ $# -eq 1 && -f "$1" ]]; then
                 burst_id_list=($(cat "$1"))
@@ -125,7 +125,7 @@ if [[ -z "$output_crs" || "${output_crs,,}" == "utm" ]]; then
 elif [[ "$output_crs" =~ ^[0-9]+$ ]]; then
     epsg_code_msg="EPSG:$output_crs"
 else
-    echo "Error: --output_crs must be empty, 'UTM', 'utm', or an integer corresponding to an EPSG code (e.g. 3031)."
+    echo "Error: --output-crs must be empty, 'UTM', 'utm', or an integer corresponding to an EPSG code (e.g. 3031)."
     exit 1
 fi
 
@@ -139,29 +139,29 @@ fi
 echo ""
 echo The input variables are:
 echo scene : "$scene"
-echo burst_id_list : ${burst_id_list[*]}
+echo burst-id-list : ${burst_id_list[*]}
 echo resolution : "$resolution"
-echo output_crs : "$epsg_code_msg"
-echo dem_type :  "$dem_type"
+echo output-crs : "$epsg_code_msg"
+echo dem-type :  "$dem_type"
 echo product : "$product"
-echo backscatter_convention : "$backscatter_convention"
-echo static_layer_validity_start_date : "$static_layer_validity_start_date"
-echo s3_bucket : "$s3_bucket"
-echo s3_project_folder : "$s3_project_folder"
-echo collection_number : "$collection_number"
-echo make_existing_products : "$make_existing_products"
-echo skip_upload_to_s3 : "$skip_upload_to_s3"
-echo scene_data_source : ${scene_data_source[*]}
-echo orbit_data_source : ${orbit_data_source[*]}
-echo skip_validate_stac : "$skip_validate_stac"
-echo processed_scene_tracking_file_s3_folder : "$processed_scene_tracking_file_s3_folder"
-echo skip_rtc : "$skip_rtc"
+echo backscatter-convention : "$backscatter_convention"
+echo static-layer-validity-start-date : "$static_layer_validity_start_date"
+echo s3-bucket : "$s3_bucket"
+echo s3-project-folder : "$s3_project_folder"
+echo collection-number : "$collection_number"
+echo make-existing-products : "$make_existing_products"
+echo skip-upload-to-s3 : "$skip_upload_to_s3"
+echo scene-data-source : ${scene_data_source[*]}
+echo orbit-data-source : ${orbit_data_source[*]}
+echo skip-validate-stac : "$skip_validate_stac"
+echo processed-scene-tracking-file-s3-folder : "$processed_scene_tracking_file_s3_folder"
+echo skip-rtc : "$skip_rtc"
 
 # warn the user about linking static layers
 if [[ "$link_static_layers" = true && "$product" = "RTC_S1" ]]; then
-    echo linked_static_layers_s3_bucket : "$linked_static_layers_s3_bucket"
-    echo linked_static_layers_collection_number : "$linked_static_layers_collection_number"
-    echo linked_static_layers_s3_project_folder : "$linked_static_layers_s3_project_folder"
+    echo linked-static-layers-s3-bucket : "$linked_static_layers_s3_bucket"
+    echo linked-static-layers-collection-number : "$linked_static_layers_collection_number"
+    echo linked-static-layers-s3-project-folder : "$linked_static_layers_s3_project_folder"
     echo ""
     echo 'WARNING: RTC_S1_STATIC layers are being linked to the RTC_S1 products in STAC metadata'
     echo 'For more information, see the workflow documentation'
@@ -176,9 +176,9 @@ scratch_folder="/home/rtc_user/working/scratch/$s3_project_folder/$collection_nu
 
 echo ""
 echo The container will use these paths for processing:
-echo download_folder : "$out_folder"
-echo scratch_folder : "$scratch_folder"
-echo out_folder : "$out_folder"
+echo download-folder : "$out_folder"
+echo scratch-folder : "$scratch_folder"
+echo out-folder : "$out_folder"
 echo ""
 
 # activate conda 

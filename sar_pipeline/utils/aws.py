@@ -7,9 +7,23 @@ from botocore.exceptions import ClientError
 import logging
 import mimetypes
 from pathlib import Path
+from datetime import datetime, timezone, timedelta
+from subprocess import run
+from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+CURRENT_DIR = Path(__file__).parent.resolve()
+PROJECT_ROOT = CURRENT_DIR.parents[1]
+
+DOTENV_PATH = PROJECT_ROOT / ".env"
+
+REQUIRED_ENV_VARIABLES = [
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+]
 
 
 def check_aws_environment_credentials(verbose=False) -> list[str]:
@@ -53,7 +67,7 @@ def find_s3_filepaths_from_suffixes(
     s3_folder : str
         Folder within the bucket
     suffixes : list
-        List of suffixes, or endswiths to search for. For example
+        List of suffixes, or ends with to search for. For example
         ['.png','.tif'] to find files which end with .png and .tif respectively
 
     Returns
@@ -153,9 +167,9 @@ class S3Util:
                 os.makedirs(local_file_path.parent, exist_ok=True)
                 try:
                     self.s3.download_file(bucket_name, key, str(local_file_path))
-                    print(f"Downloaded: {key} -> {local_file_path}")
+                    logger.info(f"Downloaded: {key} -> {local_file_path}")
                 except ClientError as e:
-                    print(f"Failed to download {key}: {e}")
+                    logger.error(f"Failed to download {key}: {e}")
 
     def push_files_in_folder_to_s3(
         self,
@@ -188,7 +202,7 @@ class S3Util:
             List of files to exclude, by default []
         """
 
-        logging.info(f"Attempting to upload to S3 bucket : {s3_bucket}")
+        logger.info(f"Attempting to upload to S3 bucket : {s3_bucket}")
 
         for root, dirs, files in os.walk(src_folder):
             for file in files:
@@ -218,4 +232,4 @@ class S3Util:
                     str(s3_key),
                     ExtraArgs={"ContentType": file_mime_type or "binary/octet-stream"},
                 )
-                logging.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
+                logger.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
