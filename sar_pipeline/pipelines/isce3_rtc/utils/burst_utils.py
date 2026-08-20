@@ -32,7 +32,9 @@ def get_burst_info_for_scene_from_asf(
     """Get the burst ids, start time, azimuth_time, end_time, polarisations and
     geometries for a scene from ASF. Return as a dictionary of bursts as the keys,
     and times, polarisations and geometries as sub-dictionaries. Warning - the end_time
-    returned from the ASF API is different than that returned from the CDSE API.
+    returned from the ASF API (stopTime) is different to the value that is
+    returned from the CDSE API (EndingDateTime). However, the metadata for the final
+    product will be consistent as timings are set by the OPERA/RTC software.
 
     Warning - Only IW Bursts Available
 
@@ -89,7 +91,7 @@ def get_burst_info_for_scene_from_asf(
             burst_st = datetime.strptime(
                 b.properties["startTime"], "%Y-%m-%dT%H:%M:%SZ"
             )
-            # WARNING - the end time differs that the CDSE end time
+            # WARNING - the end time differs from the CDSE end time (see docstring)
             burst_et = datetime.strptime(b.properties["stopTime"], "%Y-%m-%dT%H:%M:%SZ")
             # get the azimuth time. This is the start time referenced by s1_reader
             burst_azimuth_st = datetime.strptime(
@@ -123,7 +125,9 @@ def get_burst_info_for_scene_from_cdse(
     """Get the burst ids, start time, azimuth_time, end_time, polarisations and
     geometries for a scene from ASF. Return as a dictionary of bursts as the keys,
     and times, polarisations and geometries as sub-dictionaries. Warning - the end_time
-    returned from the CDSE API is different than that returned from the ASF API
+    returned from the CDSE API (EndingDateTime) is different to the value that is
+    returned from the ASF API (stopTime). However, the metadata for the final product
+    will be consistent as timings are set by the OPERA/RTC software.
 
     Parameters
     ----------
@@ -181,7 +185,7 @@ def get_burst_info_for_scene_from_cdse(
         burst_st = datetime.strptime(
             b.get("BeginningDateTime"), "%Y-%m-%dT%H:%M:%S.%fZ"
         )
-        # WARNING - the end time differs that the ASF end time
+        # # WARNING - the end time differs from the ASF end time (see docstring)
         burst_et = datetime.strptime(b.get("EndingDateTime"), "%Y-%m-%dT%H:%M:%S.%fZ")
         # get the azimuth start time. This is the start time referenced by s1_reader
         burst_azimuth_st = datetime.strptime(
