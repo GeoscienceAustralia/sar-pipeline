@@ -59,6 +59,7 @@ from sar_pipeline.analysis.compare_metadata import (
 )
 from sar_pipeline.analysis.compare_cog import compare_cog_stats
 
+# TODO add "EW" mode to list when capability added
 VALID_SENSOR_MODES = ["IW"]
 
 logging.basicConfig(level=logging.INFO)
