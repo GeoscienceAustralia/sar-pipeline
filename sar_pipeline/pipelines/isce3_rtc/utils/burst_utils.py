@@ -32,7 +32,11 @@ def get_burst_info_for_scene_from_asf(
     """Get the burst ids, start time, azimuth_time, end_time, polarisations and
     geometries for a scene from ASF. Return as a dictionary of bursts as the keys,
     and times, polarisations and geometries as sub-dictionaries. Warning - the end_time
-    returned from the ASF API is different than that returned from the CDSE API
+    returned from the ASF API (stopTime) is different to the value that is
+    returned from the CDSE API (EndingDateTime). However, the metadata for the final
+    product will be consistent as timings are set by the OPERA/RTC software.
+
+    Warning - Only IW Bursts Available
 
     Parameters
     ----------
@@ -87,7 +91,7 @@ def get_burst_info_for_scene_from_asf(
             burst_st = datetime.strptime(
                 b.properties["startTime"], "%Y-%m-%dT%H:%M:%SZ"
             )
-            # WARNING - the end time differs that the CDSE end time
+            # WARNING - the end time differs from the CDSE end time (see docstring)
             burst_et = datetime.strptime(b.properties["stopTime"], "%Y-%m-%dT%H:%M:%SZ")
             # get the azimuth time. This is the start time referenced by s1_reader
             burst_azimuth_st = datetime.strptime(
@@ -121,7 +125,9 @@ def get_burst_info_for_scene_from_cdse(
     """Get the burst ids, start time, azimuth_time, end_time, polarisations and
     geometries for a scene from ASF. Return as a dictionary of bursts as the keys,
     and times, polarisations and geometries as sub-dictionaries. Warning - the end_time
-    returned from the CDSE API is different than that returned from the ASF API
+    returned from the CDSE API (EndingDateTime) is different to the value that is
+    returned from the ASF API (stopTime). However, the metadata for the final product
+    will be consistent as timings are set by the OPERA/RTC software.
 
     Parameters
     ----------
@@ -157,7 +163,8 @@ def get_burst_info_for_scene_from_cdse(
     """
 
     base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
-    query = f"$filter=ParentProductName eq '{scene}.SAFE'&$top=100"
+    # one products per burst+pol, set this value high to be safe.
+    query = f"$filter=ParentProductName eq '{scene}.SAFE'&$top=500"
     url = f"{base_url}?{query}"
 
     response = requests.get(url)
@@ -178,7 +185,7 @@ def get_burst_info_for_scene_from_cdse(
         burst_st = datetime.strptime(
             b.get("BeginningDateTime"), "%Y-%m-%dT%H:%M:%S.%fZ"
         )
-        # WARNING - the end time differs that the ASF end time
+        # # WARNING - the end time differs from the ASF end time (see docstring)
         burst_et = datetime.strptime(b.get("EndingDateTime"), "%Y-%m-%dT%H:%M:%S.%fZ")
         # get the azimuth start time. This is the start time referenced by s1_reader
         burst_azimuth_st = datetime.strptime(
@@ -266,6 +273,9 @@ def check_burst_product_h5_exists_in_s3(
 
     for burst_id, burst_st in zip(burst_id_list, burst_st_list):
         # get the path to search for in s3
+
+        acquisition_mode = burst_id.split("_")[-1][0:2]  # iw / ew
+
         if product == "RTC_S1_STATIC":
             s3_product_subpath = make_rtc_s1_static_product_s3_prefix(
                 s3_project_folder=s3_project_folder,
@@ -273,6 +283,7 @@ def check_burst_product_h5_exists_in_s3(
                 burst_id=burst_id,
                 dem_type=dem_type,
                 static_layer_validity_start_date=static_layer_validity_start_date,
+                acquisition_mode=acquisition_mode,
             )
         if product == "RTC_S1":
             s3_product_subpath = make_rtc_s1_product_s3_prefix(
@@ -281,6 +292,7 @@ def check_burst_product_h5_exists_in_s3(
                 burst_polarisations=burst_polarisations,
                 burst_id=burst_id,
                 burst_st=burst_st,
+                acquisition_mode=acquisition_mode,
             )
         # assume the product exists if there is a .h5 file
         logging.info(f"searching s3 folder : {s3_product_subpath}")
@@ -380,12 +392,16 @@ def ensure_static_layers_in_s3(
     missing_burst_files = {}
 
     for burst_id in burst_id_list:
+
+        acquisition_mode = burst_id.split("_")[-1][0:2]  # iw / ew
+
         static_layers_s3_folder = make_rtc_s1_static_product_s3_prefix(
             static_layers_s3_project_folder,
             static_layers_collection_number,
             dem_type=dem_type,
             static_layer_validity_start_date=static_layer_validity_start_date,
             burst_id=burst_id,
+            acquisition_mode=acquisition_mode,
         )
         filetype_to_s3paths = find_s3_filepaths_from_suffixes(
             static_layers_s3_bucket,

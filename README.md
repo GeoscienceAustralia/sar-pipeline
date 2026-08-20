@@ -27,6 +27,7 @@ git clone https://github.com/GeoscienceAustralia/sar-pipeline.git
 
 The ISCE3 RTC Pipeline can be used to produce [CEOS Approved](https://ceos.org/ard/index.html#datasets)
 Analysis Ready Sentinel‑1 Radiometrically Terrain Corrected (RTC) or Normalised Radar Backscatter (NRB) data. 
+Sentinel-1 Single Look Complex (SLC) files in the Interferometric Wide (IW) mode can be processed.
 The pipeline automatically downloads all required inputs and generates NRB outputs at the burst level,
 along with the associated metadata files—including STAC JSON and XML—required for
 standards‑compliant distribution and downstream use.
@@ -34,13 +35,13 @@ standards‑compliant distribution and downstream use.
 1. Build the container
 
 ```bash
-docker build -t sar-pipeline-isce3-rtc -f Docker/isce3_rtc/Dockerfile .
+docker build --platform linux/amd64 -t sar-pipeline-isce3-rtc -f Docker/isce3_rtc/Dockerfile .
 ```
 
 2. Test the image interactively (type `exit` to exit)
 
 ```bash
-docker run -it --entrypoint /bin/bash sar-pipeline-isce3-rtc
+docker run --platform linux/amd64 -it --entrypoint /bin/bash sar-pipeline-isce3-rtc
 ```
 
 1. Set the following minimum environment credentials in a `.env` file. At minimum we require earthdata *OR* Coperniucs Space Data Ecosystem (CDSE) credentials to download from the Alaska Satelite Facility (ASF) or CDSE respectively. These can be created here for the [ASF](http://urs.earthdata.nasa.gov/) and [CDSE](https://dataspace.copernicus.eu/).
@@ -83,14 +84,14 @@ sudo chmod -R 777 ./data
                 ├── OPERA-RTC_runconfig.yaml
                 ├── S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD_burst_geoms.json
                 └── t070_149815_iw3
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_HH-gamma0.tif
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_checksum.sha1
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_mask.tif
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.h5
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.xml
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_proc-config.yaml
-                    ├── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_stac-item.json
-                    └── ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_thumbnail.png
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_HH-gamma0.tif
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_checksum.sha1
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_mask.tif
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.h5
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.xml
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_proc-config.yaml
+                    ├── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_stac-item.json
+                    └── ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_thumbnail.png
 ```
 
 6. See the [full docs](docs/pipelines/isce3_rtc.md) to see how static layers can created and used.

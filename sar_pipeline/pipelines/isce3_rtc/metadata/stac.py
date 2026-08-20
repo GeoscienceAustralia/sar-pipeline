@@ -114,9 +114,13 @@ class BurstH5toStacManager:
         self.backscatter_convention = backscatter_convention
         self.burst_id = self.h5.search_value("burstID")
         self.polarisations = self.h5.search_value("listOfPolarizations")
+        self.acquisition_mode = self.h5.search_value("acquisitionMode")
         self.collection_number = collection_number
         self.odc_product_name = get_odc_product_name(
-            self.product, self.collection_number, self.polarisations
+            self.product,
+            self.collection_number,
+            self.polarisations,
+            self.acquisition_mode.lower(),
         )
         self.dem_description = self.h5.search_value("inputs/demSource")
         self.dem_type = self._get_dem_type_from_dem_description(self.dem_description)

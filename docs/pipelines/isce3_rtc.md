@@ -217,13 +217,13 @@ The entrypoint of the Docker image is the workflow script [run_isce3_rtc_pipelin
 ### 4.2. Build the Docker Image
 
 ```bash
-docker build -t sar-pipeline-isce3-rtc -f Docker/isce3_rtc/Dockerfile .
+docker build --platform linux/amd64 -t sar-pipeline-isce3-rtc -f Docker/isce3_rtc/Dockerfile .
 ```
 
 Bash into the container for sanity check
 
 ```bash
- docker run -it --entrypoint /bin/bash sar-pipeline-isce3-rtc
+ docker run --platform linux/amd64 -it --entrypoint /bin/bash sar-pipeline-isce3-rtc
 ```
 
 type `exit` to exit the container
@@ -238,7 +238,7 @@ Development is best done from within the container where edited files are tracke
 # The sar-pipeline directory is being mounted in the container to track changes as we go
 # The script is being mounted to the specific script folder from where it is run
 
-docker run --env-file .env -it --entrypoint /bin/bash \
+docker run --platform linux/amd64 --env-file .env -it --entrypoint /bin/bash \
 -v $(pwd):/home/rtc_user/sar-pipeline \
 -v $(pwd)/scripts:/home/rtc_user/scripts \
 -v /data/working:/home/rtc_user/working \
@@ -270,12 +270,12 @@ Some examples of running the pipeline with changes being actively implemented
 We may also want to run the docker container directly but mount useful directories to keep track of outputs.
 
 ```bash
-docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip-upload-to-s3 --make-existing-products --s3-project-folder "TMP"
+docker run --platform linux/amd64 --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --skip-upload-to-s3 --make-existing-products --s3-project-folder "TMP"
 
 ```
 
 ```bash
-docker run --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst-id-list t070_149815_iw3 t070_149821_iw1 --s3-project-folder TMP --skip-upload-to-s3 --make-existing-products
+docker run --platform linux/amd64 --env-file .env -v $(pwd)/scripts:/home/rtc_user/scripts -v /data/working:/home/rtc_user/working -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --burst-id-list t070_149815_iw3 t070_149821_iw1 --s3-project-folder TMP --skip-upload-to-s3 --make-existing-products
 ```
 
 ## 5. Tests
@@ -517,20 +517,20 @@ INFO:sar_pipeline.pipelines.isce3_rtc.cli:Saving burst geometries to : ./S1A_IW_
 **Antarctica (single acquisition, single burst)**
 
 ```bash
-docker run --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3-project-folder TMP --burst-id-list t070_149815_iw3 --skip-upload-to-s3 --make-existing-products --collection-number 0
+docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3-project-folder TMP --burst-id-list t070_149815_iw3 --skip-upload-to-s3 --make-existing-products --collection-number 0
 ```
 
 **Australia (single aquisition, all bursts)**
 
 
 ```bash
-docker run --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --s3-project-folder TMP --skip-upload-to-s3 --make-existing-products --collection-number 0
+docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SDV_20220130T191354_20220130T191421_041694_04F5F9_1AFD --s3-project-folder TMP --skip-upload-to-s3 --make-existing-products --collection-number 0
 ```
 
 ### 8.3. Create Static Layers (RTC_S1_STATIC)
 
 ```bash
-docker run --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --product RTC_S1_STATIC --s3-project-folder "TMP" --skip-upload-to-s3 --make-existing-products --collection-number 0
+docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --product RTC_S1_STATIC --s3-project-folder "TMP" --skip-upload-to-s3 --make-existing-products --collection-number 0
 ```
 
 ### 8.4. Create Static Layers (RTC_S1_STATIC) and Link them to a RTC Backscatter Product (RTC_S1)
@@ -542,7 +542,7 @@ docker run --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_2
 
 
 ```bash
-docker run --env-file .env -it sar-pipeline-isce3-rtc \
+docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc \
 --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD \
 --burst-id-list t070_149815_iw3 \
 --product RTC_S1_STATIC \
@@ -561,7 +561,7 @@ https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=
 #### 8.4.2. Make RTC Backscatter (RTC_S1) and Link it to the Static Layers (RTC_S1_STATIC)
 
 ```bash
-docker run --env-file .env -it sar-pipeline-isce3-rtc \
+docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc \
 --scene S1A_IW_SLC__1SSH_20211220T124745_20211220T124815_041092_04E1C2_0475 \
 --burst-id-list t070_149815_iw3 \
 --product RTC_S1 \
