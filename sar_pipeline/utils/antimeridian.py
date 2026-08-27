@@ -12,7 +12,7 @@ class InvalidAntimeridianShapeError(ValueError):
 
 
 def check_shape_crosses_antimeridian(
-    in_shape: Polygon | MultiPolygon, max_antimeridian_crossing_degrees: int = 20
+    in_shape: Polygon | MultiPolygon, max_antimeridian_crossing_degrees: int = 40
 ) -> bool:
     """
     Determine whether a given shape crosses the antimeridian (±180° longitude).
@@ -53,7 +53,7 @@ def check_shape_crosses_antimeridian(
         The input geometry to test for an antimeridian crossing.
     max_antimeridian_crossing_degrees : int, optional
         Maximum allowable angular width (in degrees) across the antimeridian.
-        Defaults to 20°.
+        Defaults to 40°.
     """
 
     longitudes, _ = get_all_lon_lat_coords(in_shape)

@@ -6,8 +6,8 @@ import logging
 from typing import Literal
 import rasterio
 
-from sar_pipeline.pipelines.pyrosar_gamma.filesystem import get_orbits_nci
-from sar_pipeline.pipelines.pyrosar_gamma.submission.pyrosar_gamma.prepare_input import (
+from sar_pipeline.pipelines.pyrosar_gamma.nci.filesystem import get_orbits_nci
+from sar_pipeline.pipelines.pyrosar_gamma.nci.submission.pyrosar_gamma.prepare_input import (
     get_dem_for_scene,
 )
 from sar_pipeline.preparation.etad import find_etad_for_scene
@@ -27,7 +27,7 @@ from sar_pipeline.utils.sentinel1 import is_s1_filename, is_s1_id
 from sar_pipeline.pipelines.pyrosar_gamma.processing.pyroSAR.pyrosar_geocode import (
     run_pyrosar_gamma_geocode,
 )
-from sar_pipeline.pipelines.pyrosar_gamma.submission.pyrosar_gamma.submit_job import (
+from sar_pipeline.pipelines.pyrosar_gamma.nci.submission.pyrosar_gamma.submit_job import (
     submit_job,
 )
 from sar_pipeline.utils.aws import S3Util
@@ -41,7 +41,7 @@ from sar_pipeline.utils.environment_variables import identify_and_load_missing_e
 logging.basicConfig(level=logging.INFO)
 
 CURRENT_DIR = Path(__file__).parent.resolve()
-PROJECT_ROOT = CURRENT_DIR.parents[2]
+PROJECT_ROOT = CURRENT_DIR.parents[3]
 
 
 # find_scene_file
@@ -69,7 +69,7 @@ def find_scene_file(scene, dotenv_location):
 
 # Set up default configuration for use in CLI
 DEFAULT_CONFIGURATION = (
-    Path(__file__).resolve().parents[2] / "configs/pyrosar_gamma/s1_rtc.toml"
+    Path(__file__).resolve().parents[3] / "configs/pyrosar_gamma/s1_rtc.toml"
 )
 
 
@@ -79,7 +79,7 @@ def configure(ctx, param, filename):
     ctx.default_map = configuration_dictionary
 
 
-# submit-pyrosar-gamma-workflow
+# nci-pyrosar-gamma-rtc-submit-workflow
 @click.command()
 @click.argument("scene", type=str)
 @click.option(

@@ -14,13 +14,13 @@ dependencies:
 - pyrosar >=0.32.0,<0.33
 - rasterio >=1.4.3
 - shapely >=2.0.7
-- spatialist >=0.14.0
+- spatialist >=0.14.0,<0.17
 - s1etad >=0.5.5
 - s1etad_tools >=0.8.1
 - tomli >=2.2.1
-- sentineleof >=0.11.0
 - s1reader >=0.2.4
 - aioboto3 ==14.1.0
+- s3fs >=2026.3.0,<2027
 - python >=3.8
 - pip
 - pip:
@@ -31,8 +31,16 @@ dependencies:
   - h5py>=3.13.0
   - ruamel-yaml>=0.18.10
   - s1-orbits>=0.1.3
-  - cdsetool>=0.2.13
+  - cdsetool @ git+https://github.com/CDSETool/CDSETool.git
   - python-dotenv>=1.1.1, <2
   - pystac[validation]==1.13.0
   - antimeridian>=0.4.3, <0.5
   - dem-handler @ git+https://github.com/GeoscienceAustralia/dem-handler.git@v0.2.6
+  - odc-stac>=0.5.0, <0.6
+  - pystac-client>=0.9.0, <0.10
+  - sentineleof @ git+https://github.com/scottstanie/sentineleof@v0.11.2
+  - tqdm>=4.67.1, <5
+  - black[jupyter]==26.3.1
+  - ipykernel>=7.2.0, <8
+  - stac-geoparquet>=0.7.0, <0.8
+  - docker>=7.1.0, <8

@@ -50,13 +50,19 @@ ln -s s1-reader-0.2.5 s1-reader &&\
 rm s1_reader_src.tar.gz &&\
 python -m pip install ./s1-reader
 
-# installing OPERA RTC
+# Installing OPERA RTC
 RUN python -m pip install ./$RTC_VERSION
 
-# Download the burst-db, this is created using scripts/make_upload_burst_db.sh
+# Download the burst-db. this is created using scripts/make_upload_burst_db.sh
+ARG BURST_DB_VERSION_TAG=0.9.0
 WORKDIR /home/rtc_user/burst_db
-ARG BURST_DB_URL="https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/persistent/burst_db/0.9.0/opera-burst-bbox-only.sqlite3"
-RUN curl -o opera-burst-bbox-only.sqlite3 "$BURST_DB_URL"
+ARG BURST_DB_URL="https://dea-public-data-dev.s3.ap-southeast-2.amazonaws.com/projects/s1_nrb/burst_db/$BURST_DB_VERSION_TAG/opera-burst-bbox-only.sqlite3"
+# Try to download; if it fails, notify user that the burst DB doesnt exist at this path 
+RUN if ! curl -f -o opera-burst-bbox-only.sqlite3 "$BURST_DB_URL"; then \
+      echo "ERROR: burst_db file not found at $BURST_DB_URL"; \
+      echo "You must create it using: scripts/make_upload_burst_db.sh and ensure correct version"; \
+      exit 1; \
+    fi
 
 # Copy the full project and create a second CONDA environment for the sar-pipeline
 WORKDIR /home/rtc_user/sar-pipeline
@@ -71,12 +77,14 @@ RUN conda env create -f /home/rtc_user/sar-pipeline/Conda/pygssearch/environment
 # set the conda environment as a path
 ENV PYGSSEARCH_CONDA_ENV=$CONDA_PREFIX/envs/pygssearch-env
 
-# Copy the .sh file that will be run on entry to the container
+# Copy all scripts into the container and make them executable
 RUN mkdir -p /home/rtc_user/scripts
-COPY --chown=rtc_user:rtc_user ./scripts/run_isce3_rtc_pipeline.sh /home/rtc_user/scripts
-RUN chmod +x /home/rtc_user/scripts/run_isce3_rtc_pipeline.sh 
+COPY --chown=rtc_user:rtc_user ./scripts/ /home/rtc_user/scripts/
+RUN chmod +x /home/rtc_user/scripts/*
 
-WORKDIR /home/rtc_user/working
+# Set working directory to the scripts folder
+WORKDIR /home/rtc_user/scripts
 
-ENTRYPOINT ["/home/rtc_user/scripts/run_isce3_rtc_pipeline.sh"]
+# Set the default entrypoint to be the main pipeline script
+ENTRYPOINT ["./run_isce3_rtc_pipeline.sh"]
 CMD []

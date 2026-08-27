@@ -47,3 +47,12 @@ tests/sar_pipeline/isce3_rtc/data/TMP/*
 
 tests/sar_pipeline/data/isce3_rtc/TMP/*
 comparison
+
+# ignore the default output folder of the workflow
+sar-processing/
+
+TMP/*
+
+notebooks/**/*.parquet
+
+Container_logs/*

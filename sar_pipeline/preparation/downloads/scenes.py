@@ -123,12 +123,10 @@ def create_asf_netrc_file(asf_login: str, asf_pass: str) -> Path:
 
     logger.info(f"Creating temporary .netrc file with ASF/Earthdata credentials")
     with tempfile.NamedTemporaryFile("w", delete=False) as f:
-        f.write(
-            f"""machine urs.earthdata.nasa.gov
+        f.write(f"""machine urs.earthdata.nasa.gov
         login {asf_login}
         password {asf_pass}
-        """
-        )
+        """)
         netrc_path = f.name
 
     logger.info(f"Temporary .netrc created at {netrc_path}")
@@ -262,13 +260,15 @@ def download_scene_from_asf(
         return scene_zip_path, asf_scene_metadata
 
 
-def query_scene_from_cdse(scene: str) -> FeatureQuery:
+def query_scene_from_cdse(scene: str, expand_attributes=False) -> FeatureQuery:
     """Query scene metadata from the CDSE
 
     Parameters
     ----------
     scene : str
         Scene of interest. E.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
+    expand_attributes : bool
+        Return additional metadata.
 
     Returns
     -------
@@ -277,10 +277,11 @@ def query_scene_from_cdse(scene: str) -> FeatureQuery:
     """
 
     cdse_scenes_metadata = query_features(
-        "Sentinel1",
+        "SENTINEL-1",
         {
-            "productIdentifier": scene,
+            "name": scene,
         },
+        options={"expand_attributes": expand_attributes},
     )
 
     return cdse_scenes_metadata
@@ -755,10 +756,13 @@ def download_scene_from_preference_list(
                 SCENE_PATH, cdse_scene_metadata = download_scene_from_cdse(
                     scene, download_folder, unzip=unzip
                 )
-                scene_polygon = shapely.geometry.shape(cdse_scene_metadata["geometry"])
-                scene_url = cdse_scene_metadata["properties"]["services"]["download"][
-                    "url"
-                ]
+                scene_polygon = shapely.geometry.shape(
+                    cdse_scene_metadata["GeoFootprint"]
+                )
+                cdse_base_url = (
+                    "https://download.dataspace.copernicus.eu/odata/v1/Products"
+                )
+                scene_url = cdse_base_url + "(" + cdse_scene_metadata["Id"] + ")"
                 break
 
             elif data_source == "AUS_COP_HUB":

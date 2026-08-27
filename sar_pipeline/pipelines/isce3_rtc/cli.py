@@ -2,11 +2,12 @@ import click
 import logging
 from pathlib import Path
 import shutil
-import sys
 import shapely
-from shapely.geometry import mapping
-from s1reader import s1_info
 import re
+import os
+import json
+
+from sar_pipeline import PROJECT_ROOT_PATH
 
 from sar_pipeline.preparation.downloads.scenes import (
     download_scene_from_preference_list_with_timeout,
@@ -49,6 +50,17 @@ from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
 from dem_handler.utils.spatial import check_dem_type_in_bounds
 
+from sar_pipeline.analysis.compare_folder import compare_product_folder_files
+from sar_pipeline.analysis.compare_metadata import (
+    compare_json,
+    compare_xml,
+    write_diffs_to_json,
+    write_diffs_to_xml,
+)
+from sar_pipeline.analysis.compare_cog import compare_cog_stats
+
+# TODO add "EW" mode to list when capability added
+VALID_SENSOR_MODES = ["IW"]
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -194,7 +206,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--scene-data-source",
     required=False,
-    default=["AUS_COP_HUB", "ASF", "CDSE"],
+    default="AUS_COP_HUB ASF CDSE",
     type=str,
     help="Where to download the scene from. "
     "Can be passed as a string or list of preferences separated by a space. "
@@ -207,7 +219,7 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--orbit-data-source",
     required=False,
-    default=["ASF", "CDSE"],
+    default="ASF CDSE",
     type=str,
     help="Where to download the orbit files from. "
     "Can be passed as a string or list of preferences separated by a space. "
@@ -252,10 +264,16 @@ def get_data_for_scene_and_make_run_config(
     make_folders,
     save_burst_geometries,
 ):
-    """Download the required data for the opera/RTC workflow and create a config
-    file for the run that points to appropriate files and has the required settings.
-    This config can then get passed to the rtc_s1.py process to create either
-    RTC_S1 normalised radar backscatter (nrb) or RTC_S1_STATIC layers.
+    """
+    Retrieve all required inputs for RTC_S1 or RTC_S1_STATIC processing, including scene data, orbit files,
+    DEMs, and burst metadata, and construct a fully parameterised run configuration for the RTC workflow.
+    The function determines the appropriate DEM, handles anti‑meridian geometry, filters bursts based
+    on availability and S3‑existing products, validates and downloads scene and orbit data from preferred
+    sources, generates optional burst geometry diagnostics, and constructs S3 browse and output paths
+    consistent with the chosen collection. It then updates the runconfig with input file locations,
+    ancillary datasets, processing settings (including backscatter convention, resolution, CRS, and polarisation),
+    static‑layer linkage rules, and data‑access templates, finally saving a ready‑to‑run YAML configuration
+    for use by the RTC processing engine.
     """
 
     logger.info(f"Downloading data for scene : {scene}")
@@ -301,11 +319,25 @@ def get_data_for_scene_and_make_run_config(
         f"The order of preference for platform used to download the orbits is : {orbit_data_sources}"
     )
 
+    # Get the sensor mode from the file
+    try:
+        sensor_mode = scene.split("_")[1]  # IW, EW
+        if sensor_mode not in VALID_SENSOR_MODES:
+            raise ValueError(
+                f"Could not extract valid sensor mode {VALID_SENSOR_MODES} from scene : {scene}"
+            )
+    except:
+        raise ValueError(
+            f"Could not extract valid sensor mode {VALID_SENSOR_MODES} from scene : {scene}"
+        )
+
     # make the base .yaml for RTC processing
     if product == "RTC_S1":
-        RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC.yaml")
+        RTC_RUN_CONFIG = RTCConfigManager(base_config=f"S1_RTC_{sensor_mode}.yaml")
     elif product == "RTC_S1_STATIC":
-        RTC_RUN_CONFIG = RTCConfigManager(base_config="S1_RTC_STATIC.yaml")
+        RTC_RUN_CONFIG = RTCConfigManager(
+            base_config=f"S1_RTC_STATIC_{sensor_mode}.yaml"
+        )
     else:
         raise ValueError("product must be S1_RTC or S1_RTC_STATIC")
 
@@ -331,7 +363,7 @@ def get_data_for_scene_and_make_run_config(
         logger.info(f"Scene metadata successfully retrieved from {metadata_src}")
         scene_metadata = scene_results[0]
         if metadata_src == "CDSE":
-            scene_polygon = shapely.geometry.shape(scene_metadata["geometry"])
+            scene_polygon = shapely.geometry.shape(scene_metadata["GeoFootprint"])
         if metadata_src == "ASF":
             scene_polygon = shapely.geometry.shape(scene_metadata.geometry)
         # show the original scene shape and bounds
@@ -380,7 +412,15 @@ def get_data_for_scene_and_make_run_config(
     if burst_id_list:
         logger.info(f"List of bursts to process provided")
         burst_id_list_candidates = burst_id_list.split(" ")
-
+        # ensure specified burst in scene SLC
+        bursts_not_in_scene = []
+        for b in burst_id_list_candidates:
+            if b not in list(all_scene_burst_info.keys()):
+                bursts_not_in_scene.append(b)
+        if bursts_not_in_scene:
+            raise ValueError(
+                f"The specified bursts cannot be found in the SLC : {bursts_not_in_scene}. Check input burst ids."
+            )
     else:
         logger.info(f"List of bursts not provided, processing all")
         burst_id_list_candidates = list(all_scene_burst_info.keys())
@@ -510,7 +550,7 @@ def get_data_for_scene_and_make_run_config(
             bounds_src_crs=4326,
             save_path=DEM_PATH,
             resolution=dem_resolution,
-            buffer_pixels=500,
+            buffer_pixels=1200,
             ellipsoid_heights=True,
             download_geoid=True,
             geoid_tif_path=dem_folder / f"{scene}_geoid.tif",
@@ -592,6 +632,7 @@ def get_data_for_scene_and_make_run_config(
             burst_st_year="{burst_st_year}",
             burst_st_month="{burst_st_month}",
             burst_st_day="{burst_st_day}",
+            acquisition_mode=sensor_mode,
         )
         burst_product_data_access = make_rtc_s1_product_browse_url(
             s3_bucket=s3_bucket,
@@ -609,6 +650,7 @@ def get_data_for_scene_and_make_run_config(
                 dem_type,
                 static_layer_validity_start_date,
                 burst_id="{burst_id}",
+                acquisition_mode=sensor_mode,
             )
             static_layer_data_access = make_rtc_s1_static_product_browse_url(
                 s3_bucket=linked_static_layers_s3_bucket,
@@ -624,6 +666,7 @@ def get_data_for_scene_and_make_run_config(
             dem_type,
             static_layer_validity_start_date,
             burst_id="{burst_id}",
+            acquisition_mode=sensor_mode,
         )
         burst_product_data_access = make_rtc_s1_static_product_browse_url(
             s3_bucket=s3_bucket,
@@ -759,9 +802,17 @@ def get_data_for_scene_and_make_run_config(
     "That can be used to track which scenes have been processed. "
     "The filename will be {scene}.json and it's contents include "
     "a list of burst_ids and stac filepaths in s3. By default, it "
-    "will be uploaded to the following folders: "
-    "RTC_S1 -> {s3_project_folder}/monitoring/processed_scenes "
-    "RTC_S1_STATIC -> {s3_project_folder}/monitoring/processed_scenes_static_layers ",
+    "will be uploaded to the folder described by --processed-scene-tracking-file-s3-folder",
+)
+@click.option(
+    "--processed-scene-tracking-file-s3-folder",
+    required=False,
+    default="projects/s1_nrb/monitoring",
+    type=click.Path(file_okay=False, path_type=Path),
+    help="The folder within the project’s S3 folder structure to upload the processed scene tracking file. "
+    "final path will be one of the below depending on the product"
+    "RTC_S1 -> {processed_scene_tracking_file_s3_folder}/{acquisition_mode}/processed_scenes "
+    "RTC_S1_STATIC -> {processed_scene_tracking_file_s3_folder}/{acquisition_mode}/processed_scenes_static_layers",
 )
 @log_timing
 def make_metadata_and_upload_bursts(
@@ -778,13 +829,17 @@ def make_metadata_and_upload_bursts(
     link_static_layers,
     validate_stac,
     skip_upload_processed_scene_tracking_file,
+    processed_scene_tracking_file_s3_folder,
 ):
-    """makes STAC metadata for opera-rtc and uploads them to a desired s3 bucket.
-    The final path in s3 will follow the following pattern:
-    product = RTC_S1:
-        s3_bucket/s3_folder/odc_product_name/burst_id/burst_year/burst_month/burst_day/burst_dt/*files
-    product = RTC_S1_STATIC:
-        s3_bucket/s3_folder/odc_product_name/burst_id/static_layer_validity_start_date/dem_type/*files
+    """
+    Generate STAC metadata for OPERA RTC burst products, reorganise and standardise product filenames,
+    build supporting metadata files (STAC JSON, XML, run configuration, checksums),
+    and optionally upload each burst’s product set to an S3 bucket following the RTC_S1 or RTC_S1_STATIC storage layout.
+    The function retrieves burst timing information from CDSE, converts HDF5 metadata into STAC items,
+    applies optional geometry updates using valid-data masks, creates linked assets and metadata references,
+    validates STAC documents if requested, constructs XML metadata for RTC_S1 bursts, computes checksums,
+    and handles overwrite rules for pre‑existing S3 content. It also maintains a processed‑scene tracking record and,
+    unless disabled, uploads this summary to a monitoring location within the project’s S3 folder structure.
     """
 
     # query CDSE to get sensing start and sensing end times for bursts to be referenced in the
@@ -1013,15 +1068,18 @@ def make_metadata_and_upload_bursts(
             )
 
     # upload the tracking file to a sub folder where it can be checked
-    if not skip_upload_processed_scene_tracking_file:
-        monitoring_folder = Path(s3_project_folder) / "monitoring"
+    if not (skip_upload_processed_scene_tracking_file or skip_upload_to_s3):
+        product_mode = scene.split("_")[1].lower()
+
         if product == "RTC_S1":
             processed_scene_tracking_file_s3_folder = str(
-                monitoring_folder / "processed_scenes"
+                processed_scene_tracking_file_s3_folder
+                / f"{product_mode}/processed_scenes"
             )
         elif product == "RTC_S1_STATIC":
             processed_scene_tracking_file_s3_folder = str(
-                monitoring_folder / "processed_scenes_static_layers"
+                processed_scene_tracking_file_s3_folder
+                / f"{product_mode}/processed_scenes_static_layers"
             )
 
         processed_scene_tracking_file_s3_key = (
@@ -1036,20 +1094,6 @@ def make_metadata_and_upload_bursts(
             Body=json.dumps(processed_scene_json, indent=2).encode("utf-8"),
             ContentType="application/json",
         )
-
-
-from sar_pipeline import PROJECT_ROOT_PATH
-from sar_pipeline.utils.aws import S3Util
-from sar_pipeline.analysis.compare_folder import compare_product_folder_files
-from sar_pipeline.analysis.compare_metadata import (
-    compare_json,
-    compare_xml,
-    write_diffs_to_json,
-    write_diffs_to_xml,
-)
-from sar_pipeline.analysis.compare_cog import compare_cog_stats
-import os
-import json
 
 
 @click.command()
@@ -1088,7 +1132,7 @@ import json
 @click.option(
     "--s3-bucket",
     required=False,
-    default="deant-data-public-dev",
+    default="dea-public-data-dev",
     type=str,
     help="S3 where outputs are being stored. Required if s3 folders are set as input",
 )
@@ -1108,6 +1152,14 @@ def compare_products(
     s3_bucket,
     out_folder,
 ):
+    """
+    Compare two ISCE‑RTC products by evaluating differences in file structure, metadata, and raster outputs.
+    The function supports both local and S3‑hosted product folders, downloading remote inputs as needed.
+    It checks for discrepancies in file counts and types, compares JSON metadata
+    (and XML metadata for RTC_S1 products), and computes statistics-based differences between corresponding GeoTIFFs.
+    All difference summaries are saved to the specified output folder as JSON or XML files,
+    providing a concise record of how code updates or pipeline changes have impacted the resulting products.
+    """
     logger.info(f"The product being compared is : {product}")
     logger.info(f"The outputs will be written to : {out_folder}")
 
@@ -1257,26 +1309,38 @@ def compare_products(
     "--scene",
     required=True,
     type=str,
-    help="Scene to get the list of bursts ids for",
+    help="Scene to get the list of bursts ids for. "
+    "e.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD",
 )
 @click.option(
     "--save-geometries",
     required=False,
     default=None,
     type=click.Path(file_okay=False, path_type=Path),
-    help="Folder to save the geometries to as a geojson "
+    help="Folder to save the geometries to as a geojson. "
+    "Useful for visualisation of burst locations. Path will be "
     "{save_geometries}/{scene}_burst_geoms.json",
 )
 def get_bursts_ids_for_scene(
     scene,
     save_geometries,
 ):
+    """Retrieve all burst IDs associated with a given Sentinel‑1 scene by querying CDSE,
+    falling back to ASF when needed, and inspecting the scene’s spatial footprint,
+    including special handling for antimeridian‑crossing geometries. The function logs
+    scene metadata, lists all bursts returned by the CDSE burst‑info API, and optionally
+    saves the burst geometries to a GeoJSON file for diagnostic or visualisation purposes.
+    """
+
     logger.info(f"Finding burst ids for scene : {scene}")
 
     try:
         # Query the CDSE to make sure the scene exists
         logger.info(f"Searching CDSE for scene metadata : {scene}")
-        scene_results, metadata_src = query_scene_from_cdse(scene), "CDSE"
+        scene_results, metadata_src = (
+            query_scene_from_cdse(scene, expand_attributes=True),
+            "CDSE",
+        )
     except Exception as e:
         # Fallback to ASF
         logger.error(f"CDSE Query failed. Error : {e}")
@@ -1292,7 +1356,7 @@ def get_bursts_ids_for_scene(
         logger.info(f"Scene metadata successfully retrieved from {metadata_src}")
         scene_metadata = scene_results[0]
         if metadata_src == "CDSE":
-            scene_polygon = shapely.geometry.shape(scene_metadata["geometry"])
+            scene_polygon = shapely.geometry.shape(scene_metadata["GeoFootprint"])
         if metadata_src == "ASF":
             scene_polygon = shapely.geometry.shape(scene_metadata.geometry)
         # show the original scene shape and bounds

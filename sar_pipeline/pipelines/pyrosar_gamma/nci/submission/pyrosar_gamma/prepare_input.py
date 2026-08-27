@@ -5,7 +5,7 @@ import shapely
 from shapely.geometry import MultiPolygon
 import logging
 
-from sar_pipeline.pipelines.pyrosar_gamma.filesystem import get_dem_nci
+from sar_pipeline.pipelines.pyrosar_gamma.nci.filesystem import get_dem_nci
 from sar_pipeline.utils.antimeridian import (
     check_shape_crosses_antimeridian,
     get_bounds_for_antimeridian_shape,
@@ -63,8 +63,11 @@ def get_dem_for_scene(
             scene_geometry = MultiPolygon(
                 [g if g.geom_type == "Polygon" else list(g.geoms)[0] for g in geoms]
             )
-
-        scene_crosses_antimeridian = check_shape_crosses_antimeridian(scene_geometry)
+        logging.info(f"Scene geometry: {scene_geometry}")
+        scene_crosses_antimeridian = check_shape_crosses_antimeridian(
+            scene_geometry,
+            max_antimeridian_crossing_degrees=40,
+        )
     else:
         scene_crosses_antimeridian = False  # skip check
 

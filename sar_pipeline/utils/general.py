@@ -1,6 +1,8 @@
 import time
 import logging
 from functools import wraps
+from datetime import datetime
+import re
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -43,3 +45,13 @@ def log_timing(func):
         return result
 
     return wrapper
+
+
+def format_dt_utc(dt: datetime) -> str:
+    """Formats a datetime as an ISO-8601 UTC string with milliseconds precision.
+
+    Example:
+        2025-01-28T20:56:38.451412Z -> 2025-01-28T20:56:38.451Z
+    """
+    s = dt.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    return re.sub(r"(\.\d{3})\d{3}Z$", r"\1Z", s)

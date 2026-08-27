@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Literal, get_args
 
 # Taken from https://sentiwiki.copernicus.eu/web/s1-products#S1Products-SARNamingConventionS1-Products-SAR-Naming-Convention
-Mission = Literal["S1A", "S1B", "S1C"]
+Mission = Literal["S1A", "S1B", "S1C", "S1D"]
 ModeBeam = Literal[
     "S1",
     "S2",
@@ -56,7 +56,7 @@ class Sentinel1SceneId:
 
 
 SENTINEL_1_ID_PATTERN = (
-    r"(S1[ABC])_"  # MMM: S1A, S1B, S1C
+    r"(S1[A-Z])_"  # MMM: S1A, S1B, S1C, S1D ...
     r"(S1|S2|S3|S4|S5|S6|IW|EW|WV|EN|N[1-6]|Z[IEW1-6])_"  # BB: Beam identifiers
     r"(RAW|SLC|GRD|OCN|ETA)"  # TTT: Product Type
     r"([FHM_])_"  # R: Resolution class
@@ -167,3 +167,18 @@ def get_dates_from_scene_id(id: str) -> tuple[datetime, datetime]:
     stop_date = id_metadata.stop_datetime
 
     return (start_date, stop_date)
+
+
+def get_polarisation_list_from_scene_id(id: str) -> list[str]:
+    id_metadata = extract_metadata_from_s1_id(id)
+    pol_string_to_pol_list = {
+        "SH": ["HH"],
+        "SV": ["VV"],
+        "DH": ["HH", "HV"],
+        "DV": ["VV", "VH"],
+        "HH": ["HH"],
+        "HV": ["HV"],
+        "VV": ["VV"],
+        "VH": ["VH"],
+    }
+    return pol_string_to_pol_list[id_metadata.polarisation]
