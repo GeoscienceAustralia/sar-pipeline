@@ -143,7 +143,7 @@ def configure(ctx, param, filename):
     "--output-dir",
     type=click.Path(file_okay=False, path_type=Path),
     default="/g/data/yp75/projects/sar-antarctica-processing/pyrosar_gamma/",
-    help="Path to where outputs will be stored.",
+    help="Path to where outputs will be stored. Must be an absolute path, relative paths will result in an error.",
 )
 @click.option(
     "--gamma-lib-dir",
