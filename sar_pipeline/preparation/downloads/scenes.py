@@ -857,6 +857,44 @@ def download_scene_from_preference_list_with_timeout(
                 raise error
 
 
+def _extract_handle_nested_safe_zip(file_path: Path, scene_folder: str | Path) -> Path:
+    """
+    Extract a SAFE zip into scene_folder and return the path to the resulting
+    .SAFE directory. Handles a zipped file with the .safe product file inside,
+    (i.e. .zip/.SAFE) or a nested zip (.zip/zip/.SAFE). The on-demand processor
+    from the CDSE produces EW SLC's that are nested to reduce size.
+
+    Parameters
+    ----------
+    file_path : Path
+        Path to the local zip file.
+    scene_folder : str or Path
+        Destination folder to extract into.
+
+    Returns
+    -------
+    Path
+        Path to the extracted .SAFE directory.
+    """
+    logger.info(f"Unzipping {file_path} to {scene_folder}")
+    with zipfile.ZipFile(file_path, "r") as zf:
+        names = zf.namelist()
+        if len(names) == 1 and names[0].lower().endswith(".zip"):
+            logger.info(
+                f"{file_path} wraps a single inner zip ({names[0]}) -- extracting "
+                "that nested zip to reach the SAFE contents."
+            )
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                inner_zip_path = zf.extract(names[0], path=tmp_dir)
+                with zipfile.ZipFile(inner_zip_path, "r") as inner_zf:
+                    inner_zf.extractall(scene_folder)
+                    safe_name = inner_zf.namelist()[0].split("/")[0]
+        else:
+            zf.extractall(scene_folder)
+            safe_name = names[0].split("/")[0]
+    return Path(scene_folder) / safe_name
+
+
 def download_safe_file(
     url_or_path: str, scene_folder: str | Path, unzip: bool = True
 ) -> Path:
@@ -871,7 +909,9 @@ def download_safe_file(
     Parameters
     ----------
     url_or_path : str
-        A URL or local file path pointing to a zipped .SAFE file.
+        A URL or local file path pointing to a zipped .SAFE file. The zip may
+        either directly contain the SAFE directory's contents, or be a
+        wrapper around exactly one inner .zip member (the SAFE product zip)
     scene_folder : str or Path
         Destination folder for the downloaded file.
     unzip : bool, optional
@@ -926,11 +966,7 @@ def download_safe_file(
 
     if unzip:
         if file_path.suffix == ".zip":
-            logger.info(f"Unzipping {file_path} to {scene_folder}")
-            with zipfile.ZipFile(file_path, "r") as zf:
-                zf.extractall(scene_folder)
-                safe_name = zf.namelist()[0].split("/")[0]
-            return Path(scene_folder) / safe_name
+            return _extract_handle_nested_safe_zip(file_path, scene_folder)
         else:
             logger.info(
                 f"Local file is not .zip, assuming unzipped .SAFE : {file_path}"
