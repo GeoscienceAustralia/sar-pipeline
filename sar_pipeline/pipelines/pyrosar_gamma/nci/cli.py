@@ -6,14 +6,10 @@ import logging
 from typing import Literal
 import rasterio
 
-from sar_pipeline.pipelines.pyrosar_gamma.nci.filesystem import get_orbits_nci
 from sar_pipeline.pipelines.pyrosar_gamma.nci.submission.pyrosar_gamma.prepare_input import (
     get_dem_for_scene,
 )
 from sar_pipeline.preparation.etad import find_etad_for_scene
-from sar_pipeline.preparation.nci.orbits import (
-    filter_orbits_to_cover_time_window,
-)
 from sar_pipeline.utils.sentinel1 import (
     get_mission_from_scene_id,
     get_dates_from_scene_id,
@@ -22,7 +18,6 @@ from sar_pipeline.preparation.nci.scenes import (
     find_scene_file_from_id,
     NCIMissingSceneError,
 )
-from sar_pipeline.preparation.nci.orbits import find_orbit_from_id, NCIMissingOrbitError
 from sar_pipeline.utils.sentinel1 import is_s1_filename, is_s1_id
 from sar_pipeline.pipelines.pyrosar_gamma.processing.pyroSAR.pyrosar_geocode import (
     run_pyrosar_gamma_geocode,
@@ -527,29 +522,6 @@ def run_pyrosar_gamma_workflow(
 
         # add overviews - done inplace
         gdal_add_overviews(file)
-
-
-# find_orbits_for_scene
-@click.command()
-@click.argument("scene", type=str)
-def find_orbits_for_scene(scene):
-    """For a given SCENE, find paths to POE and RES orbits"""
-    sensor = get_mission_from_scene_id(scene)
-    start_time, stop_time = get_dates_from_scene_id(scene)
-
-    poe_paths = get_orbits_nci("POE", sensor)
-    relevant_poe_paths = filter_orbits_to_cover_time_window(
-        poe_paths, start_time, stop_time
-    )
-    for orbit in relevant_poe_paths:
-        click.echo(f"POE Orbit: {orbit['orbit']}")
-
-    res_paths = get_orbits_nci("RES", sensor)
-    relevant_res_paths = filter_orbits_to_cover_time_window(
-        res_paths, start_time, stop_time
-    )
-    for orbit in relevant_res_paths:
-        click.echo(f"RES Orbit: {orbit['orbit']}")
 
 
 # upload_files_in_folder_to_s3
