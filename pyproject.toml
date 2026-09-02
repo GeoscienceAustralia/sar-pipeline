@@ -121,6 +121,10 @@ test-isce3-rtc-cli-get-data-for-scene-and-make-run-config = "pytest tests/sar_pi
 test-isce3-rtc-downloads = 'pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/isce3_rtc/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s'
 test-isce3-rtc-monitoring-generate-completeness-report = "pytest tests/sar_pipeline/isce3_rtc/test_cli_monitoring.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 
+### pyrosar_gamma Pipeline Tests ###
+# Tests require credentials - not currently setup for github but should be run locally before PRs
+test-pyrosar-gamma-full-docker-workflow-run = "pixi run export-conda && pytest tests/sar_pipeline/pyrosar_gamma/test_full_docker_workflow_run_pyrosar_gamma.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
+
 
 ### GENERAL TASKS ###
 lint = "black sar_pipeline"
