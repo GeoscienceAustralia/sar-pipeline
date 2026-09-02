@@ -247,7 +247,7 @@ python
 >>> from pyroSAR.gamma.parser import autoparse
 >>> exit()
 ```
-  5. Check that the following files are available in your NCI home directory at `~/.pyrosar/gammaparse`:
+  5. Check that the following files are available at `~/.pyrosar/gammaparse`:
 ```bash
 diff.py
 disp.py

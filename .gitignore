@@ -10,9 +10,6 @@ build
 *.vrt
 .data
 
-# ignore NCI config directory
-sar_pipeline/nci/configs
-
 # ignore files used to generate test data
 tests/sar_pipeline/data/copernicus_30m_world/generate_test_data.ipynb
 tests/sar_pipeline/data/**/*.json
