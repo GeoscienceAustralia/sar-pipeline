@@ -6,9 +6,6 @@ import logging
 from typing import Literal
 import rasterio
 
-from sar_pipeline.pipelines.pyrosar_gamma.nci.submission.pyrosar_gamma.prepare_input import (
-    get_dem_for_scene,
-)
 from sar_pipeline.preparation.etad import find_etad_for_scene
 from sar_pipeline.utils.sentinel1 import (
     get_mission_from_scene_id,
