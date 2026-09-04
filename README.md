@@ -1,10 +1,9 @@
 # sar-pipeline
 
-This repository contains code for running SAR processing pipelines on the NCI and AWS. Currently, this codebase supports two pipelines for generating Sentinel-1 Normalised Radar Backscatter (NRB). Detailed usage docs are provided below:
+This repository contains code for running SAR processing pipelines locally and on AWS. Currently, this codebase supports two pipelines for generating Sentinel-1 Normalised Radar Backscatter (NRB). Detailed usage docs are provided below:
 
 * [isce3_rtc (Sentinel-1 IW) that can be run locally and on AWS](docs/pipelines/isce3_rtc.md)
 * [pyroSAR-GAMMA (Sentinel-1 IW/EW) that can locally and on AWS](docs/pipelines/pyrosar_gamma.md)
-* [pyroSAR-GAMMA (Sentinel-1 IW/EW) that can be run on the NCI](docs/pipelines/nci_pyrosar_gamma.md)
 
 For more information see [Pipelines](docs/pipelines/README.md) or the specific workflow docs for usage examples and running tests.
 
@@ -44,7 +43,7 @@ docker build --platform linux/amd64 -t sar-pipeline-isce3-rtc -f Docker/isce3_rt
 docker run --platform linux/amd64 -it --entrypoint /bin/bash sar-pipeline-isce3-rtc
 ```
 
-1. Set the following minimum environment credentials in a `.env` file. At minimum we require earthdata *OR* Coperniucs Space Data Ecosystem (CDSE) credentials to download from the Alaska Satelite Facility (ASF) or CDSE respectively. These can be created here for the [ASF](http://urs.earthdata.nasa.gov/) and [CDSE](https://dataspace.copernicus.eu/).
+1. Set the following minimum environment credentials in a `.env` file. At minimum we require earthdata *OR* Copernicus Space Data Ecosystem (CDSE) credentials to download from the Alaska Satellite Facility (ASF) or CDSE respectively. These can be created here for the [ASF](http://urs.earthdata.nasa.gov/) and [CDSE](https://dataspace.copernicus.eu/).
 
 ```text
 EARTHDATA_LOGIN=

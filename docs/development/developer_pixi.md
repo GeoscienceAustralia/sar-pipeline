@@ -1,9 +1,7 @@
 # Developer set up
 
-These instructions cover how to install the package from source using pixi, which supports additional dependancies needed in development.
+These instructions cover how to install the package from source using pixi, which supports additional dependencies needed in development.
 Key examples are packages related to testing and pre-commit steps.
-
-> **_NOTE:_**  On the NCI, complete these steps on a login node, as the installs require internet access.
 
 ## Package management
 Python packages are challenging! 
@@ -26,10 +24,10 @@ Follow the steps below, and refer back to them as needed.
 ### Install pixi in home directory
 Follow the [pixi installation guide](https://pixi.sh/latest/#installation).
 
-At the time of writing, version `0.59.0` of pixi is being used. This can be installed with:
+At the time of writing, version `0.77.1` of pixi is being used. This can be installed with:
 
 ```bash
-pixi self-update --version 0.59.0
+pixi self-update --version 0.77.1
 ```
 
 Note that pixi updates regularly, as it is in active development, so regularly run `pixi self-update`
@@ -147,7 +145,7 @@ If you pass nothing, the command will be run in the `default` environment.
 
 ## Creating and running tasks
 Pixi allows you to define tasks tied to particular environments.
-This allows us to define short-cut commands to run our test suite, without having to explicitly invove the `dev` environment. 
+This allows us to define short-cut commands to run our test suite, without having to explicitly invoke the `dev` environment. 
 
 ### Creating tasks
 See the [pixi documentation](https://pixi.sh/latest/workspace/advanced_tasks/) and [pixi cli](https://pixi.sh/latest/reference/cli/pixi/task/).
@@ -206,20 +204,21 @@ The CLI's are:
 ```python
 [project.scripts]
 ### GENERAL ###
-upload-files-in-folder-to-s3 = "sar_pipeline.pipelines.pyrosar_gamma.cli:upload_files_in_folder_to_s3"
 get-burst-ids-for-scene = "sar_pipeline.pipelines.isce3_rtc.cli:get_bursts_ids_for_scene"
 download-etad = "sar_pipeline.preparation.cli:download_etad"
-### NCI / PYROSAR_GAMMA ###
-nci-find-scene = "sar_pipeline.pipelines.pyrosar_gamma.cli:find_scene_file"
-nci-find-orbits = "sar_pipeline.pipelines.pyrosar_gamma.cli:find_orbits_for_scene"
-nci-pyrosar-gamma-rtc-run-workflow= "sar_pipeline.pipelines.pyrosar_gamma.cli:run_pyrosar_gamma_workflow"
-nci-pyrosar-gamma-rtc-submit-workflow  = "sar_pipeline.pipelines.pyrosar_gamma.cli:submit_pyrosar_gamma_workflow"
 ## ISCE3_RTC ###
 isce3-rtc-get-data-for-scene-and-make-run-config = "sar_pipeline.pipelines.isce3_rtc.cli:get_data_for_scene_and_make_run_config"
 isce3-rtc-make-metadata-and-upload-bursts = "sar_pipeline.pipelines.isce3_rtc.cli:make_metadata_and_upload_bursts"
 isce3-rtc-compare-products = "sar_pipeline.pipelines.isce3_rtc.cli:compare_products"
-### AWS / PyroSAR_GAMMA ###
+### PyroSAR_GAMMA ###
 pyrosar-gamma-rtc-run-workflow = "sar_pipeline.pipelines.pyrosar_gamma.aws.cli:run_pyrosar_gamma_workflow"
+pyrosar-gamma-make-metadata-and-upload-product = "sar_pipeline.pipelines.pyrosar_gamma.aws.metadata_cli:make_metadata_and_upload_product"
+pyrosar-gamma-run-parallel-jobs = "sar_pipeline.pipelines.pyrosar_gamma.aws.parallel_run:run_jobs"
+### Monitoring ###
+monitoring-process-s1-iw-burst-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:process_s1_iw_burst_completeness_report_cli"
+monitoring-process-s1-iw-scene-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:process_s1_iw_scene_completeness_report_cli"
+monitoring-generate-s1-iw-burst-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:generate_s1_iw_burst_completeness_report_cli"
+monitoring-generate-s1-iw-scene-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:generate_s1_iw_scene_completeness_report_cli"
 ```
 
 ## Running Tests
@@ -251,28 +250,36 @@ test-isce3-rtc-cli-make-metadata-and-upload-bursts = "pytest tests/sar_pipeline/
 test-isce3-rtc-cli-get-data-for-scene-and-make-run-config = "pytest tests/sar_pipeline/isce3_rtc/test_cli_get_data_for_scene_and_make_run_config.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 test-isce3-rtc-downloads= 'pixi run install-pygssearch-env && export PYGSSEARCH_CONDA_ENV="$(conda info --base)/envs/pygssearch-env" && pytest tests/sar_pipeline/isce3_rtc/test_downloads.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s'
 
-### NCI Pipeline Tests ###
-# nci specific tests that should be run locally on the nci
-test-nci-filesystem = "pytest tests/filesystem"
+### pyrosar_gamma Pipeline Tests ###
+# Tests require credentials - not currently setup for github but should be run locally before PRs
+test-pyrosar-gamma-full-docker-workflow-run = "pixi run export-conda && pytest tests/sar_pipeline/pyrosar_gamma/test_full_docker_workflow_run_pyrosar_gamma.py -o log_cli=true --capture=tee-sys --log-cli-level=INFO -v -s"
 ```
 
-### NCI / PyroSAR GAMMA tests
+### PyroSAR GAMMA tests
+
+There is currently only one test for the PyroSAR GAMMA workflow, which is to run the whole workflow.
+The only test is whether the workflow runs, there are currently no checks around whether the outputs remain the same, as there are for the ISCE3 pipeline.
 
 The following credentials must be set in a `.env` file at the project 
 root for a complete test of code functionality :
 
 ```text
-# Variables used on NCI only
-CONDA_EXE=<determine from [setup](../pipelines/nci_pyrosar_gamma.md) >
-NCI_API_SCENE_FILE_LOCATION=/g/data/fj7/DEAnt/Sentinel-1
-NCI_API_ORBIT_FILE_LOCATION=/g/data/fj7/CopHub/Sentinel-1
-NCI_FILESYSTEM_FILE_LOCATION=/g/data/fj7/Copernicus/Sentinel-1/C-SAR/
+EARTHDATA_LOGIN=
+EARTHDATA_PASSWORD=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_SESSION_TOKEN=
+AWS_DEFAULT_REGION=
+CDSE_LOGIN=
+CDSE_PASSWORD=
+AUS_COP_HUB_LOGIN=
+AUS_COP_HUB_PASSWORD=
+AUS_COP_HUB_CLIENT_ID=odata
+AUS_COP_HUB_CLIENT_SECRET=
 ```
 
-Run the shared tests and then run the NCI specific tests that will test the file system:
-
 ```bash
-pixi run test-nci-filesystem
+pixi run test-pyrosar-gamma-full-docker-workflow-run
 ```
 
 ### ISCE3 Tests
