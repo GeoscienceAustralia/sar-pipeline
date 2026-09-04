@@ -41,7 +41,7 @@ TEST_SCENE = "S1A_EW_GRDM_1SDH_20250303T112244_20250303T112308_058139_072E6F_DB7
 RUN_DATETIME = str(datetime.now()).replace(" ", "_").replace(":", "-")
 TEST_NAME = Path(__file__).stem
 TEST_S3_PROJECT_FOLDER = (
-    f"TMP/sar-pipeline/pyrosar_gamma_rtc/{RUN_DATETIME}/{TEST_NAME}"
+    f"{CURRENT_DIR}/data/TMP/sar-pipeline/pyrosar_gamma_rtc/{RUN_DATETIME}/{TEST_NAME}"
 )
 
 
@@ -121,5 +121,5 @@ def test_docker_dual_pol_scene():
     """Run the docker image and create a product for a dual pol SLC."""
 
     logging.info(f"Running full process for dual pol (HH+HV), this may take a while...")
-    # _run_docker_for_scene(scene=TEST_SCENE) # NEed to think about how to get GAMMA software into the CI environment to run this test, so commenting out for now.
-    assert True
+    _run_docker_for_scene(scene=TEST_SCENE) # NEed to think about how to get GAMMA software into the CI environment to run this test, so commenting out for now.
+    # assert True
