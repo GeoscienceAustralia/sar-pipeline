@@ -43,7 +43,7 @@ docker build --platform linux/amd64 -t sar-pipeline-isce3-rtc -f Docker/isce3_rt
 docker run --platform linux/amd64 -it --entrypoint /bin/bash sar-pipeline-isce3-rtc
 ```
 
-1. Set the following minimum environment credentials in a `.env` file. At minimum we require earthdata *OR* Coperniucs Space Data Ecosystem (CDSE) credentials to download from the Alaska Satelite Facility (ASF) or CDSE respectively. These can be created here for the [ASF](http://urs.earthdata.nasa.gov/) and [CDSE](https://dataspace.copernicus.eu/).
+1. Set the following minimum environment credentials in a `.env` file. At minimum we require earthdata *OR* Copernicus Space Data Ecosystem (CDSE) credentials to download from the Alaska Satellite Facility (ASF) or CDSE respectively. These can be created here for the [ASF](http://urs.earthdata.nasa.gov/) and [CDSE](https://dataspace.copernicus.eu/).
 
 ```text
 EARTHDATA_LOGIN=

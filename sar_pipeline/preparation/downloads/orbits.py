@@ -59,7 +59,7 @@ def download_orbits_from_s3(
     scene : str
         S1A_IW_SLC__1SDV_20230727T075102_20230727T075131_049606_05F70A_AE0A
     download_folder : Path
-        Path to where the orbit shold be downloaded
+        Path to where the orbit should be downloaded
     make_folder : bool, optional
         Whether to make the download folder, by default True
 
@@ -280,7 +280,7 @@ def download_orbits_from_aus_cop_hub(
         "AUS_COP_HUB_CLIENT_SECRET"
     )
 
-    # set the pygssearch envrionment
+    # set the pygssearch environment
     pygssearch_conda_env = pygssearch_conda_env or os.getenv("PYGSSEARCH_CONDA_ENV")
 
     # Set the command to use conda to execute a command using the pygssearch environment

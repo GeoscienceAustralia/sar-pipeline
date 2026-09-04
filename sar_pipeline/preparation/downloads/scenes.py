@@ -79,7 +79,7 @@ def query_scene_from_asf(scene: str) -> ASFSearchResults:
     scene_metadata = extract_metadata_from_s1_id(scene)
 
     # Determine the asf_search product type to search: https://github.com/asfadmin/Discovery-asf_search/blob/master/asf_search/constants/PRODUCT_TYPE.py
-    # GRD processingly level query cannot currently be determined from product type alone, so list all GRD and assume it is one of these five.
+    # GRD processing level query cannot currently be determined from product type alone, so list all GRD and assume it is one of these five.
     # The list is sufficient to distinguish metadata files from data files
     if scene_metadata.product_type == "GRD":
         processing_level_query = ["GRD_HD", "GRD_MD", "GRD_MS", "GRD_HS", "GRD_FD"]
@@ -123,10 +123,12 @@ def create_asf_netrc_file(asf_login: str, asf_pass: str) -> Path:
 
     logger.info(f"Creating temporary .netrc file with ASF/Earthdata credentials")
     with tempfile.NamedTemporaryFile("w", delete=False) as f:
-        f.write(f"""machine urs.earthdata.nasa.gov
+        f.write(
+            f"""machine urs.earthdata.nasa.gov
         login {asf_login}
         password {asf_pass}
-        """)
+        """
+        )
         netrc_path = f.name
 
     logger.info(f"Temporary .netrc created at {netrc_path}")
@@ -706,7 +708,7 @@ def download_scene_from_preference_list(
     download_folder: str | Path,
     unzip: bool = True,
 ) -> tuple[Path, shapely.geometry.shape, str]:
-    f"""Download the scene from a list of preferenced data sources
+    f"""Download the scene from a list of data sources in order of preference
 
     Parameters
     ----------
@@ -797,7 +799,7 @@ def download_scene_from_preference_list_with_timeout(
 ):
     """
     Run `download_scene_from_preference_list` with a timeout. Each
-    source is allowed timout minutes.
+    source is allowed timeout minutes.
 
     Parameters
     ----------
@@ -806,7 +808,7 @@ def download_scene_from_preference_list_with_timeout(
     timeout_mins : int
         Maximum number of minutes before timing out.
     early_exit_code:
-        If a specific exit code should be raised on timout
+        If a specific exit code should be raised on timeout
     *args, **kwargs
         Passed directly to `download_scene_from_preference_list`.
 

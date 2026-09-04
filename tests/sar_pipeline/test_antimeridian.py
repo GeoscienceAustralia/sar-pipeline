@@ -69,7 +69,7 @@ in_shape_5 = Polygon(
     ]
 )
 
-# Polygon fully in the western hemisphere (centered around -5° longitude, 5° wide)
+# Polygon fully in the western hemisphere (centred around -5° longitude, 5° wide)
 in_shape_6 = Polygon(
     [
         (-7.5, -5.0),  # Southwest corner

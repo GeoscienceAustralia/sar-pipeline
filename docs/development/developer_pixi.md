@@ -145,7 +145,7 @@ If you pass nothing, the command will be run in the `default` environment.
 
 ## Creating and running tasks
 Pixi allows you to define tasks tied to particular environments.
-This allows us to define short-cut commands to run our test suite, without having to explicitly invove the `dev` environment. 
+This allows us to define short-cut commands to run our test suite, without having to explicitly invoke the `dev` environment. 
 
 ### Creating tasks
 See the [pixi documentation](https://pixi.sh/latest/workspace/advanced_tasks/) and [pixi cli](https://pixi.sh/latest/reference/cli/pixi/task/).
@@ -258,6 +258,25 @@ test-pyrosar-gamma-full-docker-workflow-run = "pixi run export-conda && pytest t
 ### PyroSAR GAMMA tests
 
 There is currently only one test for the PyroSAR GAMMA workflow, which is to run the whole workflow.
+The only test is whether the workflow runs, there are currently no checks around whether the outputs remain the same, as there are for the ISCE3 pipeline.
+
+The following credentials must be set in a `.env` file at the project 
+root for a complete test of code functionality :
+
+```text
+EARTHDATA_LOGIN=
+EARTHDATA_PASSWORD=
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_SESSION_TOKEN=
+AWS_DEFAULT_REGION=
+CDSE_LOGIN=
+CDSE_PASSWORD=
+AUS_COP_HUB_LOGIN=
+AUS_COP_HUB_PASSWORD=
+AUS_COP_HUB_CLIENT_ID=odata
+AUS_COP_HUB_CLIENT_SECRET=
+```
 
 ```bash
 pixi run test-pyrosar-gamma-full-docker-workflow-run

@@ -115,11 +115,13 @@ def _run_docker_for_scene(
     ), f"Non-zero exit code: {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
 
 
-# TODO We need to compare the products withen the benchmark products and update the benchmark products on S3 after we implemented the code to upload results..
+# TODO We need to compare the products with the benchmark products and update the benchmark products on S3 after we implemented the code to upload results..
 @pytest.mark.dependency(name="test_docker_dual_pol_scene")
 def test_docker_dual_pol_scene():
     """Run the docker image and create a product for a dual pol SLC."""
 
     logging.info(f"Running full process for dual pol (HH+HV), this may take a while...")
-    _run_docker_for_scene(scene=TEST_SCENE) # NEed to think about how to get GAMMA software into the CI environment to run this test, so commenting out for now.
+    _run_docker_for_scene(
+        scene=TEST_SCENE
+    )  # NEed to think about how to get GAMMA software into the CI environment to run this test, so commenting out for now.
     # assert True
