@@ -158,7 +158,7 @@ TEST_CASES = [
 @pytest.mark.parametrize("test_case", TEST_CASES)
 def test_product_downloads(test_case):
 
-    # test casses we expect to pass
+    # test cases we expect to pass
     if test_case.passes:
 
         # iterate through the preferences for the scene data source and download the scene

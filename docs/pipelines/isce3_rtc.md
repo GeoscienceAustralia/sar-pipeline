@@ -95,7 +95,7 @@ The following diagram displays the overall architecture of the pipeline. Docker 
 
 ### 3.2. Environment Variables
 
-At runtime, the pipeline expects the following environment variables to be set. These can be passed in using an environment file (`.env`). NASA earthdata credentials can be created here - https://urs.earthdata.nasa.gov/. Credentials for the Copernicus Data Space Ecosystem (CDSE) can be created here - https://dataspace.copernicus.eu/. Credentials for the Copernicus Australasian Datahub (AUS_COP_HUB) were provided internally. The AUS_COP_HUB can be contacted at CopernicusAustralasia@ga.gov.au or via the [website](https://www.copernicus.gov.au/). The `PYGSSEARCH_CONDA_ENV` path to the [conda envrionment](../../Conda/pygssearch/environment.yaml) containing the pygssearch cli. This is set to be `/home/rtc_user/miniforge3/envs/pygssearch-env` when using the [docker image](../../Docker/isce3_rtc/Dockerfile). This is only required when data is downloaded from the AUS_COP_HUB.
+At runtime, the pipeline expects the following environment variables to be set. These can be passed in using an environment file (`.env`). NASA earthdata credentials can be created here - https://urs.earthdata.nasa.gov/. Credentials for the Copernicus Data Space Ecosystem (CDSE) can be created here - https://dataspace.copernicus.eu/. Credentials for the Copernicus Australasian Datahub (AUS_COP_HUB) were provided internally. The AUS_COP_HUB can be contacted at CopernicusAustralasia@ga.gov.au or via the [website](https://www.copernicus.gov.au/). The `PYGSSEARCH_CONDA_ENV` path to the [conda environment](../../Conda/pygssearch/environment.yaml) containing the pygssearch cli. This is set to be `/home/rtc_user/miniforge3/envs/pygssearch-env` when using the [docker image](../../Docker/isce3_rtc/Dockerfile). This is only required when data is downloaded from the AUS_COP_HUB.
 
 [.env.example](../../.env.example)
 
@@ -520,7 +520,7 @@ INFO:sar_pipeline.pipelines.isce3_rtc.cli:Saving burst geometries to : ./S1A_IW_
 docker run --platform linux/amd64 --env-file .env -it sar-pipeline-isce3-rtc --scene S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD --s3-project-folder TMP --burst-id-list t070_149815_iw3 --skip-upload-to-s3 --make-existing-products --collection-number 0
 ```
 
-**Australia (single aquisition, all bursts)**
+**Australia (single acquisition, all bursts)**
 
 
 ```bash
