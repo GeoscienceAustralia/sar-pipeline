@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 CURRENT_DIR = Path(__file__).parent.resolve()
-PROJECT_ROOT = CURRENT_DIR.parents[3]
+PROJECT_ROOT = CURRENT_DIR.parents[2]
 
 DOTENV_PATH = PROJECT_ROOT / ".env"
 DOCKERFILE_DIR = PROJECT_ROOT / "Docker/pyrosar_gamma"

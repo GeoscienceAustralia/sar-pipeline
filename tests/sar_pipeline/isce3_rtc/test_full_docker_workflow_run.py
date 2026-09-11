@@ -46,7 +46,7 @@ import re
 
 import sar_pipeline
 from sar_pipeline.utils.environment_variables import identify_and_load_missing_env_vars
-from sar_pipeline.pipelines.isce3_rtc.cli import compare_products
+from sar_pipeline.analysis.cli import compare_isce3_products
 from sar_pipeline.analysis.compare_cog import check_tifs_have_changed
 from sar_pipeline.analysis.compare_folder import check_files_have_changed
 from click.testing import CliRunner
@@ -233,7 +233,7 @@ def _run_docker_for_scene(
         "run",
         "--platform",
         "linux/amd64",
-        *volume_mount_list,
+        # *volume_mount_list,
         "--rm",
         *docker_env_list,
         f"sar-pipeline-isce3-rtc:{docker_image_tag}",
@@ -268,7 +268,7 @@ def _run_docker_for_scene(
         "run",
         "--platform",
         "linux/amd64",
-        *volume_mount_list,
+        # *volume_mount_list,
         "--rm",
         *docker_env_list,
         f"sar-pipeline-isce3-rtc:{docker_image_tag}",
@@ -344,7 +344,7 @@ def _compare_product_to_benchmark(
     args += ["--s3-bucket", s3_bucket]
     args += ["--out-folder", f"{local_comparison_outputs_folder}"]
 
-    result = runner.invoke(compare_products, args, catch_exceptions=False)
+    result = runner.invoke(compare_isce3_products, args, catch_exceptions=False)
     if result.exception:
         logging.exception(
             "An error occurred during CLI invocation", exc_info=result.exception
