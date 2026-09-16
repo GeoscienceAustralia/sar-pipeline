@@ -2,8 +2,8 @@ from click.testing import CliRunner
 from dataclasses import dataclass
 from sar_pipeline.pipelines.isce3_rtc.cli import (
     make_metadata_and_upload_bursts,
-    compare_products,
 )
+from sar_pipeline.analysis.cli import compare_isce3_products
 from sar_pipeline.utils.aws import S3Util
 from sar_pipeline.utils.environment_variables import identify_and_load_missing_env_vars
 from pathlib import Path
@@ -167,7 +167,7 @@ def test_compare_new_product_with_benchmark(test_run):
     args += ["--local-product-folder-2", test_run.new_local_product_folder]
     args += ["--out-folder", test_run.compare_product_folder]
 
-    result = runner.invoke(compare_products, args, catch_exceptions=False)
+    result = runner.invoke(compare_isce3_products, args, catch_exceptions=False)
     if result.exception:
         logging.exception(
             "An error occurred during CLI invocation", exc_info=result.exception

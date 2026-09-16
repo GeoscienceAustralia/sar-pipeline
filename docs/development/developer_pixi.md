@@ -204,16 +204,16 @@ The CLI's are:
 ```python
 [project.scripts]
 ### GENERAL ###
-get-burst-ids-for-scene = "sar_pipeline.pipelines.isce3_rtc.cli:get_bursts_ids_for_scene"
+get-burst-ids-for-scene = "sar_pipeline.utils.cli:get_burst_ids_for_scene"
 download-etad = "sar_pipeline.preparation.cli:download_etad"
 ## ISCE3_RTC ###
 isce3-rtc-get-data-for-scene-and-make-run-config = "sar_pipeline.pipelines.isce3_rtc.cli:get_data_for_scene_and_make_run_config"
 isce3-rtc-make-metadata-and-upload-bursts = "sar_pipeline.pipelines.isce3_rtc.cli:make_metadata_and_upload_bursts"
-isce3-rtc-compare-products = "sar_pipeline.pipelines.isce3_rtc.cli:compare_products"
+isce3-rtc-compare-products = "sar_pipeline.analysis.cli:compare_isce3_products"
 ### PyroSAR_GAMMA ###
-pyrosar-gamma-rtc-run-workflow = "sar_pipeline.pipelines.pyrosar_gamma.aws.cli:run_pyrosar_gamma_workflow"
+pyrosar-gamma-rtc-run-workflow = "sar_pipeline.pipelines.pyrosar_gamma.cli:run_pyrosar_gamma_workflow"
 pyrosar-gamma-make-metadata-and-upload-product = "sar_pipeline.pipelines.pyrosar_gamma.aws.metadata_cli:make_metadata_and_upload_product"
-pyrosar-gamma-run-parallel-jobs = "sar_pipeline.pipelines.pyrosar_gamma.aws.parallel_run:run_jobs"
+pyrosar-gamma-run-parallel-jobs = "sar_pipeline.pipelines.pyrosar_gamma.parallel_run:run_jobs"
 ### Monitoring ###
 monitoring-process-s1-iw-burst-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:process_s1_iw_burst_completeness_report_cli"
 monitoring-process-s1-iw-scene-completeness-report = "sar_pipeline.pipelines.isce3_rtc.monitoring.cli:process_s1_iw_scene_completeness_report_cli"
