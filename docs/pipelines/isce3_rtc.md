@@ -90,7 +90,7 @@ ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_thumbnail.png
 
 The following diagram displays the overall architecture of the pipeline. Docker is highly recommended to ensure the required environments are correctly configured. The full pipeline run is controlled by the workflow script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) that accepts command-line arguments, and passes them to the appropriate process. The main functions used to download, process and upload can be found in the isce3_rtc [cli.py](../../sar_pipeline/pipelines/isce3_rtc/cli.py) script. 
 
-![isce3_rtc Pipeline Overview](../images/isce3_rtc_architecture_overview.png)
+![isce3_rtc Pipeline Overview](../images/isce3_rtc_architecture_overview.drawio.png)
 
 
 ### 3.2. Environment Variables

@@ -1,1 +1,1 @@
-To update diagram, load into https://www.drawio.com/ and make changes.
+To update diagram, load file into https://www.drawio.com/ and make changes.
