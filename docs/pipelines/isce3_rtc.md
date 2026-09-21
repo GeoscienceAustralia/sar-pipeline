@@ -59,29 +59,29 @@ More information on Burst ID Maps can be found here - https://sentiwiki.copernic
 The following is an example of **RTC_S1** outputs for a given acquisition. The analysis ready NRB data product is the `HH-gamma0.tif`. Note, This product corresponds with the t070_149815_iw3 static layers below. - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/results/ga_s1_nrb_iw_hh_1/t070_149815_iw3/2022/01/01/20220101T124752/
 
 ```text
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_HH-gamma0.tif
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_checksum.sha1
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_mask.tif
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.h5
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.xml
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_proc-config.yaml
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_stac-item.json
-ga_s1a_nrb_0-1-0_T070-149815-IW3_20220101T124752Z_thumbnail.png
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_HH-gamma0.tif
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_checksum.sha1
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_mask.tif
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.h5
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_metadata.xml
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_proc-config.yaml
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_stac-item.json
+ga_s1a_nrb_iw_0-1-0_T070-149815-IW3_20220101T124752Z_thumbnail.png
 ```
 
 The following is en example of **RTC_S1_STATIC** outputs for the t070_149815_iw3 burst id - https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/results/ga_s1_nrb_iw_static_1/t070_149815_iw3/20140403/REMA_32/
 
 ```text
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_checksum.sha1
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_gamma0-to-beta0-ratio.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_gamma0-to-sigma0-ratio.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_incidence-angle.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_local-incidence-angle.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_metadata.h5
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_number-of-looks.tif
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_proc-config.yaml
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_stac-item.json
-ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_thumbnail.png
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_checksum.sha1
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_gamma0-to-beta0-ratio.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_gamma0-to-sigma0-ratio.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_incidence-angle.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_local-incidence-angle.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_metadata.h5
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_number-of-looks.tif
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_proc-config.yaml
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_stac-item.json
+ga_s1_nrb-static_iw_0-1-0_T070-149815-IW3_20140403_thumbnail.png
 ```
 
 ## 3. Running the Pipeline
@@ -90,7 +90,7 @@ ga_s1_nrb-static_0-1-0_T070-149815-IW3_20140403_thumbnail.png
 
 The following diagram displays the overall architecture of the pipeline. Docker is highly recommended to ensure the required environments are correctly configured. The full pipeline run is controlled by the workflow script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_pipeline.sh) that accepts command-line arguments, and passes them to the appropriate process. The main functions used to download, process and upload can be found in the isce3_rtc [cli.py](../../sar_pipeline/pipelines/isce3_rtc/cli.py) script. 
 
-![isce3_rtc Pipeline Overview](../images/isce3_rtc_architecture_overview.drawio.png)
+![isce3_rtc Pipeline Overview](../images/isce3_rtc_architecture_overview.png)
 
 
 ### 3.2. Environment Variables
