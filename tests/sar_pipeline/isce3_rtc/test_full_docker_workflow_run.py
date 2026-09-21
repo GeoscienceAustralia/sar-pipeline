@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 
 # Directories
 CURRENT_DIR = Path(__file__).parent.resolve()
-LOCAL_TEST_OUTPUTS_DIR = f"{CURRENT_DIR}/data/TMP/results"
+LOCAL_TEST_OUTPUTS_DIR = f"{CURRENT_DIR}/data/TMP/working"
 LOCAL_COMPARISON_OUTPUTS_DIR = f"{CURRENT_DIR}/data/TMP/compare"
 PROJECT_ROOT = CURRENT_DIR.parents[2]
 
@@ -213,27 +213,20 @@ def _run_docker_for_scene(
     logging.info(f"Saving test outputs locally to : {local_outputs_folder}")
     logging.info(f"Uploading outputs to : {s3_bucket}/{s3_project_folder}")
     logging.info(
-        "Mounting test data directory for results: "
-        f"{local_outputs_folder}:/home/rtc_user/working/results",
+        "Mounting test data directory for the container working dir: "
+        f"{local_outputs_folder}:/home/rtc_user/working",
     )
     logging.info(f"RUN 1: Producing Static Layers (RTC_S1_STATIC)")
 
-    # mount the local directory for results
-    volume_mount_list = ["-v", f"{local_outputs_folder}:/home/rtc_user/working/results"]
-    # # Optional -> mount somewhere to store downloads
-    # volume_mount_list += [
-    #     "-v",
-    #     f"/data/working/downloads:/home/rtc_user/working/downloads",
-    # ]
-    # # Optional -> mount the scratch directory
-    # volume_mount_list += ["-v", f"/data/working/scratch:/home/rtc_user/working/scratch"]
+    # mount the local directory for the container's working dir
+    volume_mount_list = ["-v", f"{local_outputs_folder}:/home/rtc_user/working"]
 
     cmd = [
         "docker",
         "run",
         "--platform",
         "linux/amd64",
-        # *volume_mount_list,
+        *volume_mount_list,
         "--rm",
         *docker_env_list,
         f"sar-pipeline-isce3-rtc:{docker_image_tag}",
@@ -268,7 +261,7 @@ def _run_docker_for_scene(
         "run",
         "--platform",
         "linux/amd64",
-        # *volume_mount_list,
+        *volume_mount_list,
         "--rm",
         *docker_env_list,
         f"sar-pipeline-isce3-rtc:{docker_image_tag}",
