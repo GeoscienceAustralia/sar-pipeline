@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # script to create the burst database used by the RTC and CSLC pipelines
-# see more information at docs/workflows/burst-db.md
+# see more information at docs/pipelines/burst-db.md
 # requires a local conda install and AWS access keys as environment variables
 
 # Default values for uploading the burst-db file
 # Version of the github code to make the burst-db
 AWS_S3_BUCKET="dea-public-data-dev" # 
 AWS_S3_FOLDER="projects/s1_nrb/burst_db"
-BURST_DB_VERSION_TAG="0.9.0" 
+BURST_DB_VERSION_TAG="0.18.0" 
 
 # Parse named arguments
 while [[ "$#" -gt 0 ]]; do
@@ -65,17 +65,18 @@ echo Cloning version "$BURST_DB_VERSION_TAG" from https://github.com/opera-adt/b
 git clone --branch v"$BURST_DB_VERSION_TAG" https://github.com/opera-adt/burst_db.git
 cd burst_db
 
-# Create a new conda environment
-conda create --name burst-db-v"$BURST_DB_VERSION_TAG" python=3.10 -y 
+# Create conda environment - note the solve may take a while...
+CONDA_ENV="burst-db-$BURST_DB_VERSION_TAG"
+conda env create --name "$CONDA_ENV" -f environment.yml python=3.10
+conda activate "$CONDA_ENV"
 
-# Activate the environment
-conda activate burst-db-v"$BURST_DB_VERSION_TAG"
-
-# install the burst db requirements
+# Install burst-db into the isolated environment
 python -m pip install .
-
-# create the database
-opera-db create
+# add missing dependancies
+conda install -c conda-forge libspatialite gdal -y
+python -m pip install rich
+echo "Creating IW burst database with snap to 20m (product resolution)..."
+opera-db create --snap 20
 
 if [ $? -ne 0 ]; then
     echo "Process failed: opera-db create"
@@ -83,8 +84,13 @@ if [ $? -ne 0 ]; then
 fi
 
 # upload the database to S3
-BURST_DB_FILE="opera-burst-bbox-only.sqlite3"
+BURST_DB_FILE="opera-iw-burst-bbox-only.sqlite3"
+# rename the local burst-db to include sensor mode
+mv opera-burst-bbox-only.sqlite3 "$BURST_DB_FILE"
 aws s3 cp $BURST_DB_FILE s3://$AWS_S3_BUCKET/$AWS_S3_FOLDER/$BURST_DB_VERSION_TAG/$BURST_DB_FILE
+if [ $? -ne 0 ]; then
+    echo "ERROR: upload of $BURST_DB_FILE failed"; exit 1
+fi
  
 # warn user to update in workflow
 # TODO update these suggestions once integrated in code
