@@ -139,7 +139,7 @@ identify_and_load_missing_env_vars(
 ENV_VARS = []
 for var in REQUIRED_ENV_VARIABLES + OPTIONAL_ENV_VARIABLES:
     if os.getenv(var):
-        ENV_VARS += ["-e", var] 
+        ENV_VARS += ["-e", var]
 
 
 @pytest.fixture(scope="module", autouse=True)
