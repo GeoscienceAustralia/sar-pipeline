@@ -44,9 +44,9 @@ SHELL ["conda", "run", "-n", "RTC", "/bin/bash", "-c"]
 WORKDIR /home/rtc_user/OPERA
 
 # Install OPERA s1-reader
-RUN curl -sSL https://github.com/isce-framework/s1-reader/archive/refs/tags/v0.2.5.tar.gz -o s1_reader_src.tar.gz &&\
+RUN curl -sSL https://github.com/isce-framework/s1-reader/archive/refs/tags/v0.2.6.tar.gz -o s1_reader_src.tar.gz &&\
 tar -xvf s1_reader_src.tar.gz &&\
-ln -s s1-reader-0.2.5 s1-reader &&\
+ln -s s1-reader-0.2.6 s1-reader &&\
 rm s1_reader_src.tar.gz &&\
 python -m pip install ./s1-reader
 
@@ -54,13 +54,13 @@ python -m pip install ./s1-reader
 RUN python -m pip install ./$RTC_VERSION
 
 # Download the burst-db. this is created using scripts/make_upload_burst_db.sh
-ARG BURST_DB_VERSION_TAG=0.9.0
+ARG BURST_DB_VERSION_TAG=0.18.0
 WORKDIR /home/rtc_user/burst_db
-ARG BURST_DB_URL="https://dea-public-data-dev.s3.ap-southeast-2.amazonaws.com/projects/s1_nrb/burst_db/$BURST_DB_VERSION_TAG/opera-burst-bbox-only.sqlite3"
-# Try to download; if it fails, notify user that the burst DB doesn't exist at this path 
-RUN if ! curl -f -o opera-burst-bbox-only.sqlite3 "$BURST_DB_URL"; then \
-      echo "ERROR: burst_db file not found at $BURST_DB_URL"; \
-      echo "You must create it using: scripts/make_upload_burst_db.sh and ensure correct version"; \
+# Download IW burst-db file - Notify user if it doesn't exist
+ARG BURST_DB_BASE_URL="https://dea-public-data-dev.s3.ap-southeast-2.amazonaws.com/projects/s1_nrb/burst_db/$BURST_DB_VERSION_TAG"
+RUN if ! curl -f -o opera-iw-burst-bbox-only.sqlite3 "$BURST_DB_BASE_URL/opera-iw-burst-bbox-only.sqlite3"; then \
+      echo "ERROR: IW burst_db not found at $BURST_DB_BASE_URL/opera-iw-burst-bbox-only.sqlite3"; \
+      echo "This file can be be created and uploaded using scripts/make_upload_burst_db.sh - ensure correct version"; \
       exit 1; \
     fi
 
