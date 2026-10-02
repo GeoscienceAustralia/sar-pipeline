@@ -11,6 +11,7 @@ import datetime
 import re
 import numpy as np
 import geopandas as gpd
+from urllib.parse import urljoin
 
 import dem_handler
 import sar_pipeline
@@ -1030,6 +1031,11 @@ class BurstH5toStacManager:
 
             # data for each asset
             asset_data = burst_static_layer_stac["assets"][asset_title]
+            # Resolve relative static-layer asset hrefs against the source STAC item URL
+            asset_href = urljoin(
+                burst_static_layer_stac_url,
+                asset_data["href"],
+            )
 
             # extra fields data is everything with the asset but these
             excl = ["href", "description", "roles", "type"]
@@ -1041,7 +1047,7 @@ class BurstH5toStacManager:
             self.item.add_asset(
                 asset_title,
                 pystac.asset.Asset(
-                    href=asset_data["href"],
+                    href=asset_href,
                     title=asset_title,
                     description=asset_data["description"],
                     roles=asset_data["roles"],

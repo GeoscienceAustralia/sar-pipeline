@@ -11,7 +11,11 @@ from dotenv import load_dotenv
 import os
 import pytest
 import shutil
-
+import json
+import logging
+import os
+import pytest
+import shutil
 import logging
 
 logging.basicConfig(
@@ -147,7 +151,30 @@ def test_cli_make_metadata_and_upload_bursts(test_run):
         )
         logging.error(result.output)
     assert result.exit_code == 0
-    logging.info(f"New metadata created.")
+    logging.info("New metadata created.")
+
+    # Validate linked static-layer assets use absolute URLs.
+    stac_file = next(
+        Path(test_run.new_local_product_folder).glob("*_stac-item.json")
+    )
+
+    with open(stac_file) as f:
+        stac = json.load(f)
+
+    linked_static_assets = [
+        "oa_number_of_looks",
+        "oa_gamma0_to_beta0_ratio",
+        "oa_gamma0_to_sigma0_ratio",
+        "oa_local_incidence_angle",
+        "oa_incidence_angle",
+    ]
+
+    for asset_name in linked_static_assets:
+        href = stac["assets"][asset_name]["href"]
+
+        assert href.startswith("https://")
+        assert "../" not in href
+        assert "/ga_s1_nrb_iw_static_1/" in href
 
 
 @pytest.mark.parametrize("test_run", [TEST_1])
