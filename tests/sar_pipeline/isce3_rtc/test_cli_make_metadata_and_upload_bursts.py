@@ -154,9 +154,7 @@ def test_cli_make_metadata_and_upload_bursts(test_run):
     logging.info("New metadata created.")
 
     # Validate linked static-layer assets use absolute URLs.
-    stac_file = next(
-        Path(test_run.new_local_product_folder).glob("*_stac-item.json")
-    )
+    stac_file = next(Path(test_run.new_local_product_folder).glob("*_stac-item.json"))
 
     with open(stac_file) as f:
         stac = json.load(f)
