@@ -31,7 +31,7 @@ export AWS_ACCESS_KEY_ID=
 export AWS_SECRET_ACCESS_KEY=
 export AWS_SESSION_TOKEN=
 
-docker build -t sar-pipeline-isce3-rtc -f Docker/isce3_rtc/Dockerfile .
+docker build --platform linux/amd64 -t sar-pipeline-isce3-rtc -f Docker/isce3_rtc/Dockerfile .
 
 # NOTE - following instructions are for dev account - 451924316694
 
