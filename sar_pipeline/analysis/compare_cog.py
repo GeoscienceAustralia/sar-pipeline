@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def get_tif_stats(
     tif: str,
-    stats_dict: dict = {},
+    stats_dict: dict | None = None,
     stat_prefix: str = "",
     mask=False,
     verbose: bool = False,
@@ -26,7 +26,8 @@ def get_tif_stats(
     tif (str):
         Path to the GeoTIFF file.
     stats_dict (dict, optional):
-        Dictionary to store the computed metrics.Defaults to an empty dictionary.
+        Dictionary to store the computed metrics. Defaults to a new empty dictionary
+        for each call.
     stat_prefix (str, optional):
         Prefix to prepend to metric keys in the output dictionary (e.g., "rtc_db_1_").
         Defaults to an empty string.
@@ -42,6 +43,9 @@ def get_tif_stats(
         A dictionary containing the computed statistics with key names
         formatted as `<stat_prefix><metric_name>`.
     """
+
+    if stats_dict is None:
+        stats_dict = {}
 
     with rasterio.open(tif) as src:
         if mask:
