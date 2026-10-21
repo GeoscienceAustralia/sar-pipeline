@@ -21,11 +21,12 @@
 
 ### Tests
 
-- [ ] Local tests pass `pixi run test-isce3-rtc`. More on testing is provided in the [Developer docs](../docs/development/developer_pixi.md)
+- [ ] Local tests pass `pixi run test-isce3-rtc`. More on testing is provided in the [testing section of isce3_rtc.md](../docs/pipelines/isce3_rtc.md#51-running-tests)
 - [ ] No changes to products (i.e. `pixi run test-isce3-rtc-full-docker-workflow-run` passes)
 
 ### Product Versioning
 
-If product data changes, `product_version` is bumped in `sar_pipeline/configs/isce3_rtc/S1_RTC_IW.yaml` and `sar_pipeline/configs/isce3_rtc/S1_RTC_STATIC_IW.yaml`. E.g. `product_version` is bumped from `1.0.0` to `1.0.1`. This will be reflected in the output product filenames and metadata created by the pipeline. It is not expected to be a common change.
+If product data changes (not expected to be common), `product_version` is bumped in [S1_RTC_IW.yaml](../sar_pipeline/configs/isce3_rtc/S1_RTC_IW.yaml) and [S1_RTC_STATIC_IW.yaml](../sar_pipeline/configs/isce3_rtc/S1_RTC_STATIC_IW.yaml). E.g. `product_version` is bumped from `1.0.0` to `1.0.1`. This will be reflected in the output product filenames and metadata created by the pipeline. 
 - [ ] S1_RTC_IW and S1_RTC_STATIC_IW versions have been bumped.
+- [ ] Benchmark data for tests have been updated (see [Updating Test Data in isce3_rtc.md](../docs/pipelines/isce3_rtc.md#52-updating-test-data))
 - [ ] Versions do not need to be changed.
