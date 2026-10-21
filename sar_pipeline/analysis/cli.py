@@ -116,53 +116,10 @@ def compare_isce3_products(
     if s3_product_folder_1 or s3_product_folder_2:
         # set up the AWS download util
         if not unsigned:
-            logger.info("Checking the buckets access for signed S3")
-            s3 = boto3.client("s3")
-            unsigned_buckets = []
-            for s3_folder in [s3_product_folder_1, s3_product_folder_2]:
-                if s3_folder:
-                    is_public = False
-
-                    # 1. Check Public Access Block``
-                    try:
-                        pab = s3.get_public_access_block(Bucket=s3_bucket)
-                        config = pab["PublicAccessBlockConfiguration"]
-                        if not all(
-                            [
-                                config.get("BlockPublicAcls"),
-                                config.get("IgnorePublicAcls"),
-                                config.get("BlockPublicPolicy"),
-                                config.get("RestrictPublicBuckets"),
-                            ]
-                        ):
-                            is_public = True
-                    except ClientError as e:
-                        if (
-                            e.response["Error"]["Code"]
-                            == "NoSuchPublicAccessBlockConfiguration"
-                        ):
-                            is_public = True
-
-                    # 2. Check Bucket Policy Status
-                    try:
-                        policy_status = s3.get_bucket_policy_status(Bucket=s3_bucket)
-                        if policy_status["PolicyStatus"]["IsPublic"]:
-                            is_public = True
-                    except ClientError:
-                        pass  # No bucket policy exists
-
-                    logger.info(f"Bucket '{s3_bucket}' public status: {is_public}")
-                    if is_public:
-                        unsigned_buckets.append(True)
-                    else:
-                        unsigned_buckets.append(False)
-                else:
-                    unsigned_buckets.append(None)
-
-            s3.close()  # Close the S3 client after checking each folder
-            if any(unsigned_buckets):
+            is_public = S3Util.s3_bucket_has_public_read_access(s3_bucket)
+            if is_public:
                 logger.warning(
-                    f"Unsigned buckets detected: {unsigned_buckets}. Setting unsigned=True"
+                    f"S3 bucket '{s3_bucket}' has public read access. Setting unsigned=True"
                 )
                 unsigned = True
 
