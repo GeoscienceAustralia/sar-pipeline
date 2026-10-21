@@ -1,15 +1,13 @@
+import logging
+import os
+from pathlib import Path
+
 import boto3
 import click
-import logging
-from pathlib import Path
-import os
-
 from botocore.exceptions import ClientError
 
 from sar_pipeline import PROJECT_ROOT_PATH
-
-from sar_pipeline.utils.aws import S3Util
-
+from sar_pipeline.analysis.compare_cog import compare_cog_stats
 from sar_pipeline.analysis.compare_folder import compare_product_folder_files
 from sar_pipeline.analysis.compare_metadata import (
     compare_json,
@@ -17,7 +15,7 @@ from sar_pipeline.analysis.compare_metadata import (
     write_diffs_to_json,
     write_diffs_to_xml,
 )
-from sar_pipeline.analysis.compare_cog import compare_cog_stats
+from sar_pipeline.utils.aws import S3Util
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -119,33 +117,40 @@ def compare_isce3_products(
         # set up the AWS download util
         if not unsigned:
             logger.info("Checking the buckets access for signed S3")
-            s3 = boto3.client('s3')
+            s3 = boto3.client("s3")
             unsigned_buckets = []
             for s3_folder in [s3_product_folder_1, s3_product_folder_2]:
                 if s3_folder:
-                    bucket_name = s3_folder.as_posix().split('/')[1]  # Extract bucket name from S3 folder path
+                    bucket_name = s3_folder.as_posix().split("/")[
+                        1
+                    ]  # Extract bucket name from S3 folder path
 
                     is_public = False
 
                     # 1. Check Public Access Block``
                     try:
                         pab = s3.get_public_access_block(Bucket=bucket_name)
-                        config = pab['PublicAccessBlockConfiguration']
-                        if not all([
-                            config.get('BlockPublicAcls'),
-                            config.get('IgnorePublicAcls'),
-                            config.get('BlockPublicPolicy'),
-                            config.get('RestrictPublicBuckets')
-                        ]):
+                        config = pab["PublicAccessBlockConfiguration"]
+                        if not all(
+                            [
+                                config.get("BlockPublicAcls"),
+                                config.get("IgnorePublicAcls"),
+                                config.get("BlockPublicPolicy"),
+                                config.get("RestrictPublicBuckets"),
+                            ]
+                        ):
                             is_public = True
                     except ClientError as e:
-                        if e.response['Error']['Code'] == 'NoSuchPublicAccessBlockConfiguration':
+                        if (
+                            e.response["Error"]["Code"]
+                            == "NoSuchPublicAccessBlockConfiguration"
+                        ):
                             is_public = True
 
                     # 2. Check Bucket Policy Status
                     try:
                         policy_status = s3.get_bucket_policy_status(Bucket=bucket_name)
-                        if policy_status['PolicyStatus']['IsPublic']:
+                        if policy_status["PolicyStatus"]["IsPublic"]:
                             is_public = True
                     except ClientError:
                         pass  # No bucket policy exists
@@ -157,12 +162,14 @@ def compare_isce3_products(
                         unsigned_buckets.append(False)
                 else:
                     unsigned_buckets.append(None)
-                    
+
             s3.close()  # Close the S3 client after checking each folder
             if any(unsigned_buckets):
-                logger.warning(f"Unsigned buckets detected: {unsigned_buckets}. Setting unsigned=True")
+                logger.warning(
+                    f"Unsigned buckets detected: {unsigned_buckets}. Setting unsigned=True"
+                )
                 unsigned = True
- 
+
         S3Downloader = S3Util(unsigned=unsigned)
 
     if s3_product_folder_1:
