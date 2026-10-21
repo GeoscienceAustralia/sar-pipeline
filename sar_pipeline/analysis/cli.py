@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
     required=False,
     type=click.Path(file_okay=False, path_type=Path),
     help="Path to the folder in s3 containing the first burst outputs from RTC/opera to compare."
-    " Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required," \
+    " Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required,"
     " or set --unsigned to not use credentials (i.e. public read bucket)",
 )
 @click.option(
@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
     required=False,
     type=click.Path(file_okay=False, path_type=Path),
     help="Path to the folder in s3 containing the second burst outputs from RTC/opera to compare."
-    "Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required," \
+    "Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required,"
     " or set --unsigned to not use credentials (i.e. public read bucket)",
 )
 @click.option(
