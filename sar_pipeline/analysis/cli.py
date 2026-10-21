@@ -1,12 +1,13 @@
-import click
 import logging
-from pathlib import Path
 import os
+from pathlib import Path
+
+import boto3
+import click
+from botocore.exceptions import ClientError
 
 from sar_pipeline import PROJECT_ROOT_PATH
-
-from sar_pipeline.utils.aws import S3Util
-
+from sar_pipeline.analysis.compare_cog import compare_cog_stats
 from sar_pipeline.analysis.compare_folder import compare_product_folder_files
 from sar_pipeline.analysis.compare_metadata import (
     compare_json,
@@ -14,7 +15,7 @@ from sar_pipeline.analysis.compare_metadata import (
     write_diffs_to_json,
     write_diffs_to_xml,
 )
-from sar_pipeline.analysis.compare_cog import compare_cog_stats
+from sar_pipeline.utils.aws import S3Util
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,14 +45,16 @@ logger = logging.getLogger(__name__)
     required=False,
     type=click.Path(file_okay=False, path_type=Path),
     help="Path to the folder in s3 containing the first burst outputs from RTC/opera to compare."
-    " Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required.",
+    " Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required,"
+    " or set --unsigned to not use credentials (i.e. public read bucket)",
 )
 @click.option(
     "--s3-product-folder-2",
     required=False,
     type=click.Path(file_okay=False, path_type=Path),
     help="Path to the folder in s3 containing the second burst outputs from RTC/opera to compare."
-    "Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required.",
+    " Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required,"
+    " or set --unsigned to not use credentials (i.e. public read bucket)",
 )
 @click.option(
     "--s3-bucket",
@@ -59,6 +62,12 @@ logger = logging.getLogger(__name__)
     default="dea-public-data-dev",
     type=str,
     help="S3 where outputs are being stored. Required if s3 folders are set as input",
+)
+@click.option(
+    "--unsigned",
+    is_flag=True,
+    default=False,
+    help="Use unsigned (anonymous) S3 requests, e.g. for public buckets.",
 )
 @click.option(
     "--out-folder",
@@ -74,6 +83,7 @@ def compare_isce3_products(
     s3_product_folder_1,
     s3_product_folder_2,
     s3_bucket,
+    unsigned,
     out_folder,
 ):
     """
@@ -105,7 +115,15 @@ def compare_isce3_products(
 
     if s3_product_folder_1 or s3_product_folder_2:
         # set up the AWS download util
-        S3Downloader = S3Util()
+        if not unsigned:
+            is_public = S3Util.s3_bucket_has_public_read_access(s3_bucket)
+            if is_public:
+                logger.warning(
+                    f"S3 bucket '{s3_bucket}' has public read access. Setting unsigned=True"
+                )
+                unsigned = True
+
+        S3Downloader = S3Util(unsigned=unsigned)
 
     if s3_product_folder_1:
         # download product folder to local folder

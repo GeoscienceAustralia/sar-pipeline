@@ -1,15 +1,12 @@
-import os
-import boto3
 import logging
+import mimetypes
+import os
+from pathlib import Path
+
+import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 from botocore.exceptions import ClientError
-import logging
-import mimetypes
-from pathlib import Path
-from datetime import datetime, timezone, timedelta
-from subprocess import run
-from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -233,3 +230,53 @@ class S3Util:
                     ExtraArgs={"ContentType": file_mime_type or "binary/octet-stream"},
                 )
                 logger.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
+
+    @staticmethod
+    def s3_bucket_has_public_read_access(s3_bucket: str) -> bool:
+        """
+        Check if the specified S3 bucket is publicly readable for the given prefixes.
+
+        Parameters:
+        -----------
+        s3_bucket : str
+            The name of the S3 bucket to check.
+
+        Returns:
+        --------
+        bool
+            True if the S3 bucket is publicly readable, False otherwise.
+        """
+        logger.info("Checking the buckets access for signed S3")
+        s3 = boto3.client("s3")
+
+        is_public = False
+
+        # 1. Check Public Access Block``
+        try:
+            pab = s3.get_public_access_block(Bucket=s3_bucket)
+            config = pab["PublicAccessBlockConfiguration"]
+            if not all(
+                [
+                    config.get("BlockPublicAcls"),
+                    config.get("IgnorePublicAcls"),
+                    config.get("BlockPublicPolicy"),
+                    config.get("RestrictPublicBuckets"),
+                ]
+            ):
+                is_public = True
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchPublicAccessBlockConfiguration":
+                is_public = True
+
+        # 2. Check Bucket Policy Status
+        try:
+            policy_status = s3.get_bucket_policy_status(Bucket=s3_bucket)
+            if policy_status["PolicyStatus"]["IsPublic"]:
+                is_public = True
+        except ClientError:
+            pass  # No bucket policy exists
+
+        s3.close()  # Close the S3 client after checking each folder
+
+        logger.info(f"Bucket '{s3_bucket}' public status: {is_public}")
+        return is_public
