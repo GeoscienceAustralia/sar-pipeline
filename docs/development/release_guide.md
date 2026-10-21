@@ -15,14 +15,15 @@ pixi run test-scene-data-source-queries
 pixi run test-isce3-rtc
 ```
 
-3. If successful raise a PR for review and merge branch into main
-4. Create new release on GitHub and increment the tag: 
+1. Increment the `product_version` in [S1_RTC_IW.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_IW.yaml) and [S1_RTC_STATIC_IW.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_STATIC_IW.yaml) if changes impact the iw s1-nrb product.
+2. If successful raise a PR for review and merge branch into main
+3. Create new release on GitHub and increment the tag: 
       - Images prior to an initial release should be of for, `v0.X.X`.
       - Test images should be of form `vX.X.X_betaX` 
       - For small changes the tag should be incremented by `0.0.1`. For example, `v1.0.1` -> `v1.0.2`. 
       - Major changes should increment the first or second number, depending on the impact of the change. 
-5. The release should trigger the workflow [push-image-to-ecr](../../.github/workflows/push-image-to-ecr.yaml) that will build and push the updated image to the AWS ECR repository.
-6. If the automated build and push fails, manually tag and upload the docker image to the ECR repository:
+4. The release should trigger the workflow [push-image-to-ecr](../../.github/workflows/push-image-to-ecr.yaml) that will build and push the updated image to the AWS ECR repository.
+5. If the automated build and push fails, manually tag and upload the docker image to the ECR repository:
 
 ```bash
 # set credentials with write to the ECR repo, or use access tool 
