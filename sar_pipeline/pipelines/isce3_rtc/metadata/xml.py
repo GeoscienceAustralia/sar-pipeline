@@ -294,7 +294,18 @@ class XMLMapper:
         # set the extent as wkt
         tag = "CEOS-ARDProductAttributes/ProductGeographicalExtent"
         stac_tag = "bbox"
-        value = shapely.box(*self.get_nested_stac_values(stac_tag)).wkt
+        left, bottom, right, top = self.get_nested_stac_values(stac_tag)
+        if left > right:
+            # the bbox crosses the antimeridian, so split the extent at 180°
+            extent = shapely.MultiPolygon(
+                [
+                    shapely.box(left, bottom, 180, top),
+                    shapely.box(-180, bottom, right, top),
+                ]
+            )
+        else:
+            extent = shapely.box(left, bottom, right, top)
+        value = extent.wkt
         try:
             self.xml.getroot().find(".//" + tag).text = str(value)
         except:
