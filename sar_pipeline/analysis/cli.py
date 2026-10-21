@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
     "--s3-product-folder-1",
     required=False,
     type=click.Path(file_okay=False, path_type=Path),
-    help="S3 path to the folder in s3 containing the first burst outputs from RTC/opera to compare."
+    help="Path to the folder in s3 containing the first burst outputs from RTC/opera to compare."
     " Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required,"
     " or set --unsigned to not use credentials (i.e. public read bucket)",
 )
@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
     "--s3-product-folder-2",
     required=False,
     type=click.Path(file_okay=False, path_type=Path),
-    help="S3 path to the folder in s3 containing the second burst outputs from RTC/opera to compare."
+    help="Path to the folder in s3 containing the second burst outputs from RTC/opera to compare."
     " Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required,"
     " or set --unsigned to not use credentials (i.e. public read bucket)",
 )
@@ -121,15 +121,11 @@ def compare_isce3_products(
             unsigned_buckets = []
             for s3_folder in [s3_product_folder_1, s3_product_folder_2]:
                 if s3_folder:
-                    bucket_name = s3_folder.as_posix().split("/")[
-                        1
-                    ]  # Extract bucket name from S3 folder path
-
                     is_public = False
 
                     # 1. Check Public Access Block``
                     try:
-                        pab = s3.get_public_access_block(Bucket=bucket_name)
+                        pab = s3.get_public_access_block(Bucket=s3_bucket)
                         config = pab["PublicAccessBlockConfiguration"]
                         if not all(
                             [
@@ -149,13 +145,13 @@ def compare_isce3_products(
 
                     # 2. Check Bucket Policy Status
                     try:
-                        policy_status = s3.get_bucket_policy_status(Bucket=bucket_name)
+                        policy_status = s3.get_bucket_policy_status(Bucket=s3_bucket)
                         if policy_status["PolicyStatus"]["IsPublic"]:
                             is_public = True
                     except ClientError:
                         pass  # No bucket policy exists
 
-                    logger.info(f"Bucket '{bucket_name}' public status: {is_public}")
+                    logger.info(f"Bucket '{s3_bucket}' public status: {is_public}")
                     if is_public:
                         unsigned_buckets.append(True)
                     else:
