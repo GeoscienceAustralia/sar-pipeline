@@ -313,8 +313,8 @@ is now outdated. For example, if you do any of the following:
 
 - Updating the version of isce3 with improvements to the algorithm that will change the data.
 - Work with a re-processed version of the source input data.
-- Updating the product version in the ([S1_RTC.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC.yaml) or 
-[S1_RTC_STATIC.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_STATIC.yaml)),
+- Updating the product version in the ([S1_RTC_IW.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_IW.yaml) or 
+[S1_RTC_STATIC_IW.yaml](../../sar_pipeline/configs/isce3_rtc/S1_RTC_STATIC_IW.yaml)),
 - Including additional products are included (e.g. DEM)
 
 The [benchmark data]((https://deant-data-public-dev.s3.ap-southeast-2.amazonaws.com/index.html?prefix=persistent/repositories/sar-pipeline/tests/sar_pipeline/isce3_rtc/)) is stored in AWS and is downloaded for the tests.
