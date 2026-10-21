@@ -1,7 +1,10 @@
+import boto3
 import click
 import logging
 from pathlib import Path
 import os
+
+from botocore.exceptions import ClientError
 
 from sar_pipeline import PROJECT_ROOT_PATH
 
@@ -43,7 +46,7 @@ logger = logging.getLogger(__name__)
     "--s3-product-folder-1",
     required=False,
     type=click.Path(file_okay=False, path_type=Path),
-    help="Path to the folder in s3 containing the first burst outputs from RTC/opera to compare."
+    help="S3 path to the folder in s3 containing the first burst outputs from RTC/opera to compare."
     " Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required,"
     " or set --unsigned to not use credentials (i.e. public read bucket)",
 )
@@ -51,8 +54,8 @@ logger = logging.getLogger(__name__)
     "--s3-product-folder-2",
     required=False,
     type=click.Path(file_okay=False, path_type=Path),
-    help="Path to the folder in s3 containing the second burst outputs from RTC/opera to compare."
-    "Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required,"
+    help="S3 path to the folder in s3 containing the second burst outputs from RTC/opera to compare."
+    " Ensure AWS_ACCESS_KEY_ID, AWS_ACCESS_KEY_SECRET, AWS_DEFAULT_REGION environment variables set if required,"
     " or set --unsigned to not use credentials (i.e. public read bucket)",
 )
 @click.option(
@@ -114,6 +117,52 @@ def compare_isce3_products(
 
     if s3_product_folder_1 or s3_product_folder_2:
         # set up the AWS download util
+        if not unsigned:
+            logger.info("Checking the buckets access for signed S3")
+            s3 = boto3.client('s3')
+            unsigned_buckets = []
+            for s3_folder in [s3_product_folder_1, s3_product_folder_2]:
+                if s3_folder:
+                    bucket_name = s3_folder.as_posix().split('/')[1]  # Extract bucket name from S3 folder path
+
+                    is_public = False
+
+                    # 1. Check Public Access Block``
+                    try:
+                        pab = s3.get_public_access_block(Bucket=bucket_name)
+                        config = pab['PublicAccessBlockConfiguration']
+                        if not all([
+                            config.get('BlockPublicAcls'),
+                            config.get('IgnorePublicAcls'),
+                            config.get('BlockPublicPolicy'),
+                            config.get('RestrictPublicBuckets')
+                        ]):
+                            is_public = True
+                    except ClientError as e:
+                        if e.response['Error']['Code'] == 'NoSuchPublicAccessBlockConfiguration':
+                            is_public = True
+
+                    # 2. Check Bucket Policy Status
+                    try:
+                        policy_status = s3.get_bucket_policy_status(Bucket=bucket_name)
+                        if policy_status['PolicyStatus']['IsPublic']:
+                            is_public = True
+                    except ClientError:
+                        pass  # No bucket policy exists
+
+                    logger.info(f"Bucket '{bucket_name}' public status: {is_public}")
+                    if is_public:
+                        unsigned_buckets.append(True)
+                    else:
+                        unsigned_buckets.append(False)
+                else:
+                    unsigned_buckets.append(None)
+                    
+            s3.close()  # Close the S3 client after checking each folder
+            if any(unsigned_buckets):
+                logger.warning(f"Unsigned buckets detected: {unsigned_buckets}. Setting unsigned=True")
+                unsigned = True
+ 
         S3Downloader = S3Util(unsigned=unsigned)
 
     if s3_product_folder_1:
