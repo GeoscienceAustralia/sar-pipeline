@@ -57,7 +57,7 @@ RUN python -m pip install ./$RTC_VERSION
 ARG BURST_DB_VERSION_TAG=0.18.0
 WORKDIR /home/rtc_user/burst_db
 # Download IW burst-db file - Notify user if it doesn't exist
-ARG BURST_DB_BASE_URL="https://dea-public-data-dev.s3.ap-southeast-2.amazonaws.com/projects/s1_nrb/burst_db/$BURST_DB_VERSION_TAG"
+ARG BURST_DB_BASE_URL="https://dea-public-data.s3.ap-southeast-2.amazonaws.com/projects/s1_nrb/burst_db/$BURST_DB_VERSION_TAG"
 RUN if ! curl -f -o opera-iw-burst-bbox-only.sqlite3 "$BURST_DB_BASE_URL/opera-iw-burst-bbox-only.sqlite3"; then \
       echo "ERROR: IW burst_db not found at $BURST_DB_BASE_URL/opera-iw-burst-bbox-only.sqlite3"; \
       echo "This file can be be created and uploaded using scripts/make_upload_burst_db.sh - ensure correct version"; \
