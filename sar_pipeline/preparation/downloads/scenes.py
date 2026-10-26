@@ -8,6 +8,7 @@ import subprocess
 import shapely
 import ast
 import re
+import shutil
 import tempfile
 import multiprocessing
 import sys
@@ -54,6 +55,74 @@ class SceneDownloadTimeoutError(TimeoutError):
     """Raised when the scene download exceeds the allowed time limit."""
 
     pass
+
+
+def _unzip_scene(
+    scene_zip_path: Path, scene_safe_path: Path, download_folder: Path
+) -> Path:
+    """Extract a scene zip so the .SAFE only appears once extraction has completed.
+    The zip is extracted to a temporary folder in the download folder and the .SAFE
+    is renamed into place at the end. On failure, the partial extraction and the
+    corrupt zip are removed so they cannot be reused by a later download.
+
+    Parameters
+    ----------
+    scene_zip_path : Path
+        Path to the downloaded scene zip
+    scene_safe_path : Path
+        Path the extracted .SAFE should be placed at
+    download_folder : Path
+        Folder the scene was downloaded to
+
+    Returns
+    -------
+    Path
+        Path to the extracted .SAFE
+    """
+    tmp_dir = Path(tempfile.mkdtemp(prefix=".extracting_", dir=download_folder))
+    try:
+        with zipfile.ZipFile(scene_zip_path, "r") as zip_ref:
+            zip_ref.extractall(tmp_dir)
+        (tmp_dir / scene_safe_path.name).rename(scene_safe_path)
+    except Exception:
+        logger.error(
+            f"Failed to unzip {scene_zip_path}, removing zip and partial extraction"
+        )
+        Path(scene_zip_path).unlink(missing_ok=True)
+        raise
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+    return scene_safe_path
+
+
+def _get_scene_path(
+    scene_zip_path: Path, scene_safe_path: Path, download_folder: Path, unzip: bool
+) -> Path:
+    """Return the path to the downloaded scene, extracting the zip first if
+    unzip is requested and the .SAFE does not exist yet.
+
+    Parameters
+    ----------
+    scene_zip_path : Path
+        Path to the downloaded scene zip
+    scene_safe_path : Path
+        Path the extracted .SAFE should be placed at
+    download_folder : Path
+        Folder the scene was downloaded to
+    unzip : bool
+        Whether the scene should be unzipped
+
+    Returns
+    -------
+    Path
+        Path to the .SAFE if unzip is requested, otherwise path to the zip
+    """
+    if not unzip:
+        return scene_zip_path
+    if not scene_safe_path.exists():
+        logger.info(f"unzipping scene to {scene_safe_path}")
+        _unzip_scene(scene_zip_path, scene_safe_path, download_folder)
+    return scene_safe_path
 
 
 def query_scene_from_asf(scene: str) -> ASFSearchResults:
@@ -249,15 +318,10 @@ def download_scene_from_asf(
             )
             raise SceneDownloadError()
 
-    if unzip and not scene_safe_path.exists():
-        logger.info(f"unzipping scene to {scene_safe_path}")
-        with zipfile.ZipFile(scene_zip_path, "r") as zip_ref:
-            zip_ref.extractall(download_folder)
-        return scene_safe_path, asf_scene_metadata
-    elif scene_safe_path.exists() and unzip:
-        return scene_safe_path, asf_scene_metadata
-    else:
-        return scene_zip_path, asf_scene_metadata
+    scene_path = _get_scene_path(
+        scene_zip_path, scene_safe_path, download_folder, unzip
+    )
+    return scene_path, asf_scene_metadata
 
 
 def query_scene_from_cdse(scene: str, expand_attributes=False) -> FeatureQuery:
@@ -382,15 +446,10 @@ def download_scene_from_cdse(
             )
             raise SceneDownloadError()
 
-    if unzip and not os.path.exists(scene_safe_path):
-        logger.info(f"unzipping scene to {scene_safe_path}")
-        with zipfile.ZipFile(scene_zip_path, "r") as zip_ref:
-            zip_ref.extractall(download_folder)
-        return scene_safe_path, cdse_scene_metadata
-    elif scene_safe_path.exists() and unzip:
-        return scene_safe_path, cdse_scene_metadata
-    else:
-        return scene_zip_path, cdse_scene_metadata
+    scene_path = _get_scene_path(
+        scene_zip_path, scene_safe_path, download_folder, unzip
+    )
+    return scene_path, cdse_scene_metadata
 
 
 def _run_aus_cophub_query(
@@ -688,15 +747,10 @@ def download_scene_from_aus_cop_hub(
         f'{service}/Products({aus_cophub_scene_metadata["Id"]})'
     )
 
-    if unzip and not os.path.exists(scene_safe_path):
-        logger.info(f"unzipping scene to {scene_safe_path}")
-        with zipfile.ZipFile(scene_zip_path, "r") as zip_ref:
-            zip_ref.extractall(download_folder)
-        return scene_safe_path, aus_cophub_scene_metadata
-    elif scene_safe_path.exists() and unzip:
-        return scene_safe_path, aus_cophub_scene_metadata
-    else:
-        return scene_zip_path, aus_cophub_scene_metadata
+    scene_path = _get_scene_path(
+        scene_zip_path, scene_safe_path, download_folder, unzip
+    )
+    return scene_path, aus_cophub_scene_metadata
 
 
 @log_timing
