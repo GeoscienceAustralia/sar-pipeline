@@ -4,7 +4,7 @@ import pooch
 CACHE_DIR = "sar_pipeline"
 
 # Base URL for data on AWS
-BASE_URL = "https://data.dev.dea.ga.gov.au/projects/s1_nrb/"
+BASE_URL = "https://dea-public-data-dev.s3.ap-southeast-2.amazonaws.com/projects/s1_nrb/"
 
 
 # BURST DATABASE

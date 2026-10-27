@@ -178,6 +178,42 @@ def make_rtc_s1_static_product_s3_prefix(
     return rtc_s1_static_s3_prefix
 
 
+def _make_browse_url(
+    s3_bucket: str,
+    s3_prefix: str,
+    s3_region: str = "ap-southeast-2",
+    base_url=None,
+) -> str:
+    """Make the browse url for a product folder in an s3 bucket. Without a base_url
+    this links to the index.html at the root of the bucket, which must host a
+    bucket listing page that reads the "?prefix=" query parameter
+    (e.g. https://github.com/rufuspollock/s3-bucket-listing).
+
+    Parameters
+    ----------
+    s3_bucket : str
+        Bucket containing the product
+    s3_prefix : str
+        s3 subfolder for the product
+    s3_region : str, optional
+        aws region code, by default "ap-southeast-2"
+    base_url :
+        The base url before the product s3_prefix. If not provided, the
+        index.html at the root of the s3 bucket is used.
+
+    Returns
+    -------
+    str
+        URL to the index file where the product is stored for user visibility
+    """
+    if base_url:
+        url = f"{base_url}{s3_prefix}"
+    else:
+        url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/index.html?prefix={s3_prefix}"
+
+    return url
+
+
 def make_rtc_s1_static_product_browse_url(
     s3_bucket: str,
     rtc_s1_static_s3_prefix: str,
@@ -188,15 +224,15 @@ def make_rtc_s1_static_product_browse_url(
 
     Parameters
     ----------
-    static_layers_s3_bucket : str
+    s3_bucket : str
         Bucket containing static layer
     rtc_s1_static_s3_prefix : str
         product folder s3 path
     s3_region : str, optional
         aws region code, by default "ap-southeast-2"
     base_url :
-        The base url before the product s3_prefix. If not provided, assume
-        hardcoded option based on s3_bucket name and existing settings.
+        The base url before the product s3_prefix. If not provided, the
+        index.html at the root of the s3 bucket is used.
 
     Returns
     -------
@@ -204,20 +240,7 @@ def make_rtc_s1_static_product_browse_url(
         The url to the index file where static layers are stored for user
         visibility
     """
-    # hardcode by bucket if an alternative base url not provided
-    if not base_url:
-        if s3_bucket == "deant-data-public-dev":
-            url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/index.html?prefix={rtc_s1_static_s3_prefix}"
-        elif s3_bucket == "dea-public-data-dev":
-            url = f"https://data.dev.dea.ga.gov.au/?prefix={rtc_s1_static_s3_prefix}"
-        elif s3_bucket == "dea-public-data":
-            url = f"https://data.dea.ga.gov.au/?prefix={rtc_s1_static_s3_prefix}"
-        else:
-            raise ValueError(
-                "Unknown browse URL for s3 bucket, please provide a `base_url`."
-            )
-    else:
-        url = f"{base_url}{rtc_s1_static_s3_prefix}"
+    url = _make_browse_url(s3_bucket, rtc_s1_static_s3_prefix, s3_region, base_url)
 
     return url
 
@@ -239,8 +262,8 @@ def make_rtc_s1_product_browse_url(
     s3_region : str, optional
         aws region code, by default "ap-southeast-2"
     base_url :
-        The base url before the product s3_prefix. If not provided, assume
-        hardcoded option based on s3_bucket name and existing settings.
+        The base url before the product s3_prefix. If not provided, the
+        index.html at the root of the s3 bucket is used.
 
     Returns
     -------
@@ -248,21 +271,7 @@ def make_rtc_s1_product_browse_url(
         URL to the index file where burst products are stored for user
         visibility
     """
-
-    # hardcode by bucket if an alternative base url not provided
-    if not base_url:
-        if s3_bucket == "deant-data-public-dev":
-            url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/index.html?prefix={rtc_s1_s3_prefix}"
-        elif s3_bucket == "dea-public-data-dev":
-            url = f"https://data.dev.dea.ga.gov.au/?prefix={rtc_s1_s3_prefix}"
-        elif s3_bucket == "dea-public-data":
-            url = f"https://data.dea.ga.gov.au/?prefix={rtc_s1_s3_prefix}"
-        else:
-            raise ValueError(
-                "Unknown browse URL for s3 bucket, please provide a `base_url`."
-            )
-    else:
-        url = f"{base_url}{rtc_s1_s3_prefix}"
+    url = _make_browse_url(s3_bucket, rtc_s1_s3_prefix, s3_region, base_url)
 
     return url
 
@@ -308,8 +317,9 @@ def get_s3_prefix_from_product_browse_url(browse_url: str, base_url=None) -> str
 
 
 def get_s3_bucket_from_product_browse_url(browse_url: str) -> str:
-    """Get the s3_bucket from the browse link. This is hardcoded for some urls.
-      Otherwise, it attempts to remove the s3_bucket from the url string.
+    """Get the s3_bucket from the browse link. This is hardcoded for the retired
+      data.dev.dea.ga.gov.au urls in already published products. Otherwise, it
+      extracts the s3_bucket from the url string.
 
     Parameters
     ----------
@@ -328,13 +338,11 @@ def get_s3_bucket_from_product_browse_url(browse_url: str) -> str:
     -> deant-data-public-dev
 
     """
-    # hardcoded options for the bucket based on known browse urls:
+    # products published before the move to s3 browse urls used this domain
     if "data.dev.dea.ga.gov.au" in browse_url:
         s3_bucket = "dea-public-data-dev"
-    elif "data.dea.ga.gov.au" in browse_url:
-        s3_bucket = "dea-public-data"
     else:
-        # attempt to search for the bucket (appropriate for deant-data-public-dev)
+        # extract the bucket from the s3 browse url
         bucket_match = re.search(r"https:\/\/([^\.]+)\.s3", browse_url)
         if bucket_match:
             s3_bucket = bucket_match.group(1)
