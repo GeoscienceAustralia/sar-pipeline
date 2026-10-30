@@ -6,8 +6,10 @@ import shapely
 import re
 import os
 import json
+from packaging.version import Version
 
 from sar_pipeline import PROJECT_ROOT_PATH
+from sar_pipeline import __version__ as PRODUCT_VERSION
 
 from sar_pipeline.preparation.downloads.scenes import (
     download_scene_from_preference_list_with_timeout,
@@ -596,17 +598,24 @@ def get_data_for_scene_and_make_run_config(
     RTC_RUN_CONFIG.set(f"{gk}.product_group.output_dir", str(out_folder))
     RTC_RUN_CONFIG.set(f"{gk}.product_group.scratch_path", str(scratch_folder))
 
-    # check if the collection_number passed in aligns with the
-    # product_version specified in the config
-    prod_version = RTC_RUN_CONFIG.get(f"{gk}.product_group.product_version")
-    prod_version_collection_number = int(re.split(r"[-.]", prod_version)[0])
+    # Set the product version in the RTC config from the sar-pipeline package version,
+    # and check that its major number matches the requested collection_number.
+    BASE_PRODUCT_VERSION = Version(PRODUCT_VERSION).base_version
+    logger.info(
+        f"sar-pipeline version is {PRODUCT_VERSION}; "
+        f"setting product_version to {BASE_PRODUCT_VERSION} "
+        f"(format: <collection_number>.<minor>.<patch>)"
+    )
+    RTC_RUN_CONFIG.set(f"{gk}.product_group.product_version", BASE_PRODUCT_VERSION)
+
+    prod_version_collection_number = Version(BASE_PRODUCT_VERSION).major
     if prod_version_collection_number != collection_number:
         logger.warning(
-            f"The specified collection_number is {collection_number}. However, "
-            f"the product_version in the config template is : {prod_version}. "
-            f"The product_version format is <collection_number>.<minor_version>.<patch_version> "
-            f"and should align with the specified collection_number. One of these should be updated. "
-            f"The path to the config is {RTC_RUN_CONFIG.file_path}."
+            f"collection_number mismatch: collection_number={collection_number}, but "
+            f"product_version={BASE_PRODUCT_VERSION} (from the sar-pipeline version) implies "
+            f"collection {prod_version_collection_number}. product_version follows "
+            f"<collection_number>.<minor>.<patch>, so either collection_number or the "
+            f"sar-pipeline tag should be updated."
         )
 
     # set the static layer validity start date
