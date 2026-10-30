@@ -154,6 +154,8 @@ def build_image():
             "build",
             "--platform",
             "linux/amd64",
+            "--pull",
+            "--no-cache",
             "-t",
             f"sar-pipeline-isce3-rtc:{DOCKER_TAG}",
             "-f",

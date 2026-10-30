@@ -36,7 +36,7 @@ dependencies = [
     "ipykernel>=7.3.0,<8", 
     "ipywidgets>=8.1.9,<9", 
     "black[jupyter]==26.3.1",
-    "stac-geoparquet>=0.7.0,<0.8",
+    "stac-geoparquet>=0.8.3,<0.9",
     "docker>=7.1.0,<8"
 ]
 
@@ -97,6 +97,8 @@ s1etad_tools = ">=0.8.1"
 tomli = ">=2.2.1"
 s1reader = ">=0.2.4"
 aioboto3 = "==14.1.0"
+certifi = ">=2026.10.23"
+ca-certificates = ">=2026.10.23"
 s3fs = ">=2026.3.0,<2027"
 
 [tool.pixi.environments]

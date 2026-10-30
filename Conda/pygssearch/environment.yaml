@@ -6,3 +6,4 @@ dependencies:
   - pip
   - pip:
       - pygssearch==1.2.4
+      - certifi>=2026.10.23
