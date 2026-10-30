@@ -35,7 +35,7 @@ dependencies = [
     "pooch>=1.9.0,<2", 
     "ipykernel>=7.3.0,<8", 
     "ipywidgets>=8.1.9,<9", 
-    "black[jupyter]==26.3.1",
+    "black[jupyter]==26.10.1",
     "stac-geoparquet>=0.8.3,<0.9",
     "docker>=7.1.0,<8"
 ]
@@ -152,4 +152,4 @@ conda env list | grep -q pygssearch-env || conda env create -f Conda/pygssearch/
 pyrosar-gamma-rtc-run-docker-container = "docker run --env-file .env -v /usr/local/GAMMA_SOFTWARE-20230712:/usr/local/GAMMA_SOFTWARE-20230712 -v ./sar-processing:/app/sar-processing sar-pipeline-pyrosar-gamma"
 
 [dependency-groups]
-dev = ["black==26.3.1", "pytest-dependency>=0.6.0,<0.7"]
+dev = ["black==26.10.1", "pytest-dependency>=0.6.0,<0.7"]
