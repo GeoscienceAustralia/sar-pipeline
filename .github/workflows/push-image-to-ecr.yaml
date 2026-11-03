@@ -21,7 +21,7 @@ jobs:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
-        role-to-assume: arn:aws:iam::538673716275:role/sar_pipeline_github-actions-role
+        role-to-assume: arn:aws:iam::060378307146:role/sar_pipeline_github-actions-role
         aws-region: ap-southeast-2
 
     - name: Login to Amazon ECR
@@ -30,8 +30,8 @@ jobs:
 
     - name: Build and tag Docker image
       env:
-        ECR_REGISTRY: 538673716275.dkr.ecr.ap-southeast-2.amazonaws.com/geoscienceaustralia
-        ECR_REPOSITORY: sar-pipeline
+        ECR_REGISTRY: 060378307146.dkr.ecr.ap-southeast-2.amazonaws.com
+        ECR_REPOSITORY: s1-nrb-pipeline
 
       run: |
         IMAGE_TAG=${{ github.event.release.tag_name }}
