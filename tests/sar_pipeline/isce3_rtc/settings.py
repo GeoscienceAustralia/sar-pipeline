@@ -11,8 +11,9 @@ BENCHMARK_S3_PROJECT_FOLDER = (
 TEST_S3_BUCKET = "deant-data-public-dev"
 
 # Set this to True to update the benchmark products in the AWS S3 folder
-# Existing benchmark products will need to be deleted manually, otherwise the process
-# will exit early. See docs in test_full_docker_workflow_run.py for more information.
+# Existing files are overwritten, but files whose names have changed are not removed, so
+# delete existing benchmark products manually if the product version or set of files has
+# changed. See docs in test_full_docker_workflow_run.py for more information.
 UPDATE_BENCHMARK_TEST_DATA = False
 
 # single pol test scene
