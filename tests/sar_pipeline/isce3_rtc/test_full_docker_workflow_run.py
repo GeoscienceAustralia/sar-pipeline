@@ -30,8 +30,10 @@ Creating and updating the benchmark test data:
    in the BENCHMARK_S3_PROJECT_FOLDER. If planned product changes have been made, these benchmark
    comparison products should be updated for future tests. These can be replaced by new products
    by setting the UPDATE_BENCHMARK_TEST_DATA to True in the settings.py file and re-running the tests.
-   NOTE - existing products should be manually deleted from the BENCHMARK_S3_PROJECT_FOLDER prior
-   to recreating them.
+   NOTE - existing files with the same name are overwritten, but files whose names have changed are
+   not removed. If the product version or set of product files has changed, manually delete existing
+   products from the BENCHMARK_S3_PROJECT_FOLDER and clear the local data/TMP folder prior to
+   recreating them.
 """
 
 import subprocess
@@ -106,7 +108,8 @@ from settings import (
 if UPDATE_BENCHMARK_TEST_DATA:
     logger.warning(
         f"Updating the benchmark/persistent data used for the test comparisons. "
-        " Ensure existing products are deleted."
+        "Existing products will be overwritten. If the product version or set of product "
+        "files has changed, ensure existing products are deleted."
     )
     TEST_S3_PROJECT_FOLDER = BENCHMARK_S3_PROJECT_FOLDER
 
@@ -179,6 +182,7 @@ def _run_docker_for_scene(
     s3_project_folder: str,
     s3_bucket: str,
     local_outputs_folder: str,
+    make_existing_products: bool = UPDATE_BENCHMARK_TEST_DATA,
 ):
     """Utility function to run the docker image for a given scene
     and burst. First, a run will be made to create static layer
@@ -206,6 +210,9 @@ def _run_docker_for_scene(
         The S3 bucket to upload to.
     local_outputs_folder : str
         Local folder for outputs to be saved.
+    make_existing_products: bool
+        if true, existing products in the s3 bucket will be overwritten. This is required
+        when we are updating the gold standard or benchmark products we compare to.
     """
 
     logging.info(f"Static layers will be produced and linked to backscatter data.")
@@ -246,6 +253,9 @@ def _run_docker_for_scene(
         "--s3-project-folder",
         s3_project_folder,
     ]
+    if make_existing_products:
+        # replace the benchmark products
+        cmd += ["--make-existing-products"]
     result = subprocess.run(
         cmd,
         stdout=sys.stdout,
@@ -289,6 +299,9 @@ def _run_docker_for_scene(
         "1",
     ]
 
+    if make_existing_products:
+        # replace the benchmark products
+        cmd += ["--make-existing-products"]
     result = subprocess.run(
         cmd,
         stdout=sys.stdout,

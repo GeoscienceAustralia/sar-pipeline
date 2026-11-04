@@ -325,6 +325,8 @@ To update this, you can run change the test [settings.py](../../tests/sar_pipeli
 pixi run test-isce3-rtc-full-docker-workflow-run
 ```
 
+Existing benchmark files with the same name are overwritten, but files whose names have changed are not removed. If the product version or set of product files has changed, delete the existing benchmark products from AWS first. Also clear the local `tests/sar_pipeline/isce3_rtc/data/TMP` folder before updating, as results from earlier runs can cause errors. Set `UPDATE_BENCHMARK_TEST_DATA` back to `False` afterwards, as the comparison tests compare the benchmark products to themselves while it is `True`.
+
 This will then re-create the products and upload them to the `BENCHMARK_S3_PROJECT_FOLDER`.
 
 > [!WARNING]
