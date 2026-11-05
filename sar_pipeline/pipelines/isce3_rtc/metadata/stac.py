@@ -703,7 +703,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="self",
                 target=f"{self.base_href}/{Path(stac_filepath).name}",
-                media_type=pystac.media_type.STAC_JSON,
+                media_type=pystac.media_type.MediaType.GEOJSON,
             )
         )
 
@@ -743,7 +743,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="collection",
                 target=stac_href,
-                media_type=pystac.media_type.STAC_JSON,
+                media_type=pystac.media_type.MediaType.JSON,
             )
         )
 
@@ -1061,7 +1061,7 @@ class BurstH5toStacManager:
             pystac.Link(
                 rel="static-layers-stac-item",
                 target=burst_static_layer_stac_url,
-                media_type=pystac.media_type.STAC_JSON,
+                media_type=pystac.media_type.MediaType.GEOJSON,
             )
         )
 
