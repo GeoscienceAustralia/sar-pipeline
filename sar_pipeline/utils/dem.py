@@ -1,16 +1,36 @@
 from dem_handler.utils.spatial import check_dem_type_in_bounds
 from typing import Literal
 
-VALID_DEMS = ["best", "cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
-VALID_REMA_RESOLUTIONS = [2, 10, 32]
-ValidDemType = Literal["best", "cop_glo30", "REMA_32", "REMA_10", "REMA_2"]
-ValidREMAResolution = Literal[2, 10, 32]
+VALID_DEMS = [
+    "cop_glo30",
+    "REMA_32",
+    "REMA_10",
+    "REMA_2",
+    "REMA_10_TIMESERIES",
+    "REMA_30_TIMESERIES",
+    "REMA_32_TIMESERIES",
+]
+VALID_REMA_RESOLUTIONS = [2, 10, 32, 30]
+ValidDemType = Literal[
+    "best",
+    "cop_glo30",
+    "REMA_32",
+    "REMA_10",
+    "REMA_2",
+    "REMA_10_TIMESERIES",
+    "REMA_30_TIMESERIES",
+    "REMA_32_TIMESERIES",
+]
+ValidREMAResolution = Literal[2, 10, 32, 30]
 
 DEM_TYPE_URL = {
     "cop_glo30": "https://registry.opendata.aws/copernicus-dem/",
     "REMA_32": "https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/32m",
     "REMA_10": "https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/10m",
     "REMA_2": "https://data.pgc.umn.edu/elev/dem/setsm/REMA/mosaic/v2.0/2m",
+    "REMA_10_TIMESERIES": "10m - https://umn1.osn.mghpcc.org",
+    "REMA_30_TIMESERIES": "30m - https://umn1.osn.mghpcc.org",
+    "REMA_32_TIMESERIES": "32m - https://umn1.osn.mghpcc.org",
 }
 
 
@@ -49,6 +69,8 @@ def get_best_dem_type_for_scene(
         REMA = "REMA_10"
     elif rema_resolution == 2:
         REMA = "REMA_2"
+    elif rema_resolution == 30:
+        REMA = "REMA_30_TIMESERIES"
     else:
         raise ValueError(f"Unsupported REMA resolution: {rema_resolution}")
 

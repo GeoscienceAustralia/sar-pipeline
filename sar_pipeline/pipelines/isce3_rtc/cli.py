@@ -44,7 +44,7 @@ from sar_pipeline.utils.antimeridian import (
     check_shape_crosses_antimeridian,
     get_bounds_for_antimeridian_shape,
 )
-from sar_pipeline.utils.dem import get_best_dem_type_for_scene, VALID_DEMS, DEM_TYPE_URL
+from sar_pipeline.utils.dem import get_best_dem_type_for_scene, VALID_DEMS
 from sar_pipeline.utils.checksum import PackageChecksum
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
@@ -62,6 +62,7 @@ VALID_DEMS = [
     "REMA_30_TIMESERIES",
     "REMA_32_TIMESERIES",
 ]
+VALID_SENSOR_MODES = ["IW"]
 
 
 @click.command()
@@ -238,9 +239,9 @@ VALID_DEMS = [
 @click.option(
     "--rema-year",
     required=False,
-    help="Year of the REMA data to use. Format: YYYY-MM for monthly data or YYYY for yearly data." \
+    help="Year of the REMA data to use. Format: YYYY-MM for monthly data or YYYY for yearly data."
     "If not specified, the year is automatically extracted from the scene acquisition date. ",
-    default="0",  # If set to zero the rema_year is automatically extracted from the scene acquisition date. 
+    default="0",  # If set to zero the rema_year is automatically extracted from the scene acquisition date.
     # This is only relevant for the REMA timeseries DEM options. For non-timeseries DEM options, this argument is ignored.
 )
 @log_timing
@@ -301,7 +302,8 @@ def get_data_for_scene_and_make_run_config(
         run_config_save_path.parent.mkdir(parents=True, exist_ok=True)
 
     # get the dem_type
-    if dem_type not in VALID_DEMS:
+    dem_types = dem_type.split(" ")
+    if not all([d in VALID_DEMS for d in dem_types]):
         raise ValueError(
             f"Invalid --dem_type {dem_type}. --dem-type valid values are {VALID_DEMS}"
         )
@@ -536,7 +538,6 @@ def get_data_for_scene_and_make_run_config(
         logger.info("Using the bounds for the required bursts.")
 
         bounds = combined_burst_geom.bounds
-        cop30_buffer_degrees = 0.3
 
     logger.info(f"Finding the best DEM in order of preference: {dem_types}")
     for dem_type in dem_types:
@@ -551,10 +552,14 @@ def get_data_for_scene_and_make_run_config(
             "REMA_10_TIMESERIES",
         ]:
             dem_resolution = int(dem_type.split("_")[1])
-            if rema_year == "0":  # if the rema_year argument is set to the default value, extract the year from the scene acquisition date
+            if (
+                rema_year == "0"
+            ):  # if the rema_year argument is set to the default value, extract the year from the scene acquisition date
                 rema_year = int(scene.split("_")[5][0:4])  # year from aq date
             else:
-                logger.info(f"Fixing REMA year to the user specified value : {rema_year}")
+                logger.info(
+                    f"Fixing REMA year to the user specified value : {rema_year}"
+                )
         # For REMA v0.5 with 30m resolution, this check is skipped in dem-handler and later the bounds are checked when the DEM data is downloaded.
         dem_in_bounds = check_dem_type_in_bounds(dem_type, dem_resolution, bounds)
         if dem_in_bounds:
@@ -629,7 +634,6 @@ def get_data_for_scene_and_make_run_config(
         RTC_RUN_CONFIG.set(f"{gk}.processing.rtc.output_type", backscatter_convention)
 
     # set the dem input source
-    dem_url = DEM_TYPE_URL[dem_type]
     if dem_type == "cop_glo30":
         demSource = "https://registry.opendata.aws/copernicus-dem/"
         demDescription = f"Copernicus Global 30m DEM - {demSource}"
