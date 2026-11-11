@@ -44,7 +44,7 @@ from sar_pipeline.utils.antimeridian import (
     check_shape_crosses_antimeridian,
     get_bounds_for_antimeridian_shape,
 )
-from sar_pipeline.utils.dem import get_best_dem_type_for_scene, VALID_DEMS, DEM_TYPE_URL
+from sar_pipeline.utils.dem import get_best_dem_type_for_scene, VALID_DEMS
 from sar_pipeline.utils.checksum import PackageChecksum
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
