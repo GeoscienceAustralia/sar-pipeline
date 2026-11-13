@@ -522,19 +522,21 @@ def get_data_for_scene_and_make_run_config(
         combined_burst_geom = shapely.ops.unary_union(burst_geoms_to_process)
         # Run a secondary test to ensure burst shape does not cross antimeridian.
         # Early 2016 scenes show scene geometries that DONT cross, but actually DO.
-        logger.info(
-            f"The shape covering the required bursts is : {combined_burst_geom}"
-        )
         if check_shape_crosses_antimeridian(combined_burst_geom):
             logger.warning(
                 f"The burst geometry crosses the antimeridian. scene : {scene}, burst shape : {combined_burst_geom}"
             )
+            # bursts cross even though the scene footprint does not; flag it for the DEM buffer
+            scene_crosses_antimeridian = True
             # correct the burst bounds for the antimeridian crossing
             dem_bounds = get_bounds_for_antimeridian_shape(combined_burst_geom)
             logger.info(
                 f"Getting the corrected combined bursts bounds crossing the antimeridian : {dem_bounds}"
             )
         else:
+            logger.info(
+                f"The shape covering the required bursts is : {combined_burst_geom}"
+            )
             logger.info(
                 f"The bounds covering the required bursts are : {combined_burst_geom.bounds}"
             )
@@ -557,12 +559,17 @@ def get_data_for_scene_and_make_run_config(
         )
     elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
         dem_resolution = int(dem_type.split("_")[1])
+        buffer_pixels = int(40_000 / dem_resolution)  # 40 km buffer at any resolution
+        if scene_crosses_antimeridian:
+            # shortcut: dem_handler only converts bbox corners to 3031, missing the edge bulge at 180°.
+            # Extra buffer covers typical scenes; pass densified 3031 bounds if coverage still fails.
+            buffer_pixels = int(buffer_pixels * 1.5)
         get_rema_dem_for_bounds(
             bounds=dem_bounds,
             bounds_src_crs=4326,
             save_path=DEM_PATH,
             resolution=dem_resolution,
-            buffer_pixels=1200,
+            buffer_pixels=buffer_pixels,
             ellipsoid_heights=True,
             download_geoid=True,
             geoid_tif_path=dem_folder / f"{scene}_geoid.tif",
