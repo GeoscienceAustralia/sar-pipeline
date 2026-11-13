@@ -6,15 +6,14 @@ import shapely
 import re
 import os
 import json
+import requests
+from ruamel.yaml import YAML
 
 from sar_pipeline import PROJECT_ROOT_PATH
 
 from sar_pipeline.preparation.downloads.scenes import (
     download_scene_from_preference_list_with_timeout,
-    query_scene_from_cdse,
-    query_scene_from_asf,
     VALID_SCENE_DATA_SOURCES,
-    NonSingleSceneResultError,
 )
 from sar_pipeline.preparation.downloads.orbits import (
     download_orbits_from_preference_list,
@@ -24,6 +23,8 @@ from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     ensure_static_layers_in_s3,
     check_burst_product_h5_exists_in_s3,
     get_burst_info_for_scene_from_cdse,
+    get_burst_info_and_scene_poly_from_api,
+    get_burst_info_and_scene_poly_from_file,
 )
 
 from sar_pipeline.pipelines.isce3_rtc.utils.config_manager import RTCConfigManager
@@ -61,6 +62,7 @@ from sar_pipeline.analysis.compare_cog import compare_cog_stats
 
 # TODO add "EW" mode to list when capability added
 VALID_SENSOR_MODES = ["IW"]
+SENSOR_MODE_SUBSWATHS = {"IW": [1, 2, 3], "EW": [1, 2, 3, 4, 5]}
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -344,31 +346,41 @@ def get_data_for_scene_and_make_run_config(
     if backscatter_convention not in ["gamma0", "sigma0", "beta0"]:
         raise ValueError("backscatter_convention must be one of gamma0, sigma0, beta0")
 
+    # The burst ids, times and geometries can be acquired from the CDSE.
+    # We can therefore check if desired products already exist before needing to download the scene
+    SCENE_PATH = ORBIT_PATH = None
     try:
-        # Query the CDSE to make sure the scene exists
-        logger.info(f"Searching CDSE for scene metadata : {scene}")
-        scene_results, metadata_src = query_scene_from_cdse(scene), "CDSE"
-    except Exception as e:
-        # Fallback to ASF
-        logger.error(f"CDSE Query failed. Error : {e}")
-        logger.info(f"Falling back to ASF search for scene metadata : {scene}")
-        logger.warning(f"ASF may not have the most recent data available from the CDSE")
-        scene_results, metadata_src = query_scene_from_asf(scene), "ASF"
-
-    if len(scene_results) != 1:
-        raise NonSingleSceneResultError(
-            f"Expected 1 scene, found {len(scene_results)} results for scene id : {scene}. Check input scene."
+        all_scene_burst_info, scene_polygon = get_burst_info_and_scene_poly_from_api(
+            scene
         )
-    else:
-        logger.info(f"Scene metadata successfully retrieved from {metadata_src}")
-        scene_metadata = scene_results[0]
-        if metadata_src == "CDSE":
-            scene_polygon = shapely.geometry.shape(scene_metadata["GeoFootprint"])
-        if metadata_src == "ASF":
-            scene_polygon = shapely.geometry.shape(scene_metadata.geometry)
-        # show the original scene shape and bounds
-        logger.info(f"The original scene shape is : {scene_polygon}")
-        logger.info(f"The original scene bounds are : {scene_polygon.bounds}")
+    except requests.RequestException as err:
+        logger.warning(
+            f"CDSE/ASF APIs unavailable ({err}). Falling back to downloading the scene and "
+            "reading burst info and footprint from the file. Existing products are checked after download."
+        )
+        SCENE_PATH, _, input_scene_url = (
+            download_scene_from_preference_list_with_timeout(
+                timeout_mins=60,
+                early_exit_code=102,
+                scene_data_source_preferences=scene_data_sources,
+                scene=scene,
+                download_folder=scene_folder,
+                unzip=True,
+            )
+        )
+        logger.info(f"Downloading Orbits for scene : {scene}")
+        ORBIT_PATH = download_orbits_from_preference_list(
+            scene_safe_file=scene + ".SAFE",
+            download_folder=orbit_folder,
+            orbit_data_source_preferences=orbit_data_sources,
+        )
+        logger.info(f"File downloaded to : {ORBIT_PATH}")
+        all_scene_burst_info, scene_polygon = get_burst_info_and_scene_poly_from_file(
+            scene_path=SCENE_PATH,
+            orbit_path=ORBIT_PATH,
+            swath_list=SENSOR_MODE_SUBSWATHS[sensor_mode],
+        )
+        logger.info(f"{len(all_scene_burst_info)} burst ids found from scene file")
 
     # check if the scene crosses the antimeridian
     scene_crosses_antimeridian = check_shape_crosses_antimeridian(scene_polygon)
@@ -389,12 +401,6 @@ def get_data_for_scene_and_make_run_config(
         logger.info("Finding the best DEM for processing the scene")
         dem_type = get_best_dem_type_for_scene(scene_bounds)
     logger.info(f"The dem_type: {dem_type} will be used to process scene: {scene}")
-
-    # The burst ids, times and geometries can be acquired from the CDSE.
-    # We can therefore check if desired products already exist before needing to download the scene
-    logger.info(f"Querying CDSE for scene burst ids and metadata")
-    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
-    logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
 
     # write the geometries to a geojson. Useful for debugging if needed
     if save_burst_geometries:
@@ -475,26 +481,29 @@ def get_data_for_scene_and_make_run_config(
             early_exit_code=101,
         )
 
-    # iterate through the preferences for the scene data source and download the scene
-    SCENE_PATH, scene_polygon, input_scene_url = (
-        download_scene_from_preference_list_with_timeout(
-            timeout_mins=60,
-            early_exit_code=102,
-            scene_data_source_preferences=scene_data_sources,
-            scene=scene,
-            download_folder=scene_folder,
-            unzip=True,
+    # skipped if already downloaded by the API fallback above
+    if SCENE_PATH is None:
+        # iterate through the preferences for the scene data source and download the scene
+        SCENE_PATH, scene_polygon, input_scene_url = (
+            download_scene_from_preference_list_with_timeout(
+                timeout_mins=60,
+                early_exit_code=102,
+                scene_data_source_preferences=scene_data_sources,
+                scene=scene,
+                download_folder=scene_folder,
+                unzip=True,
+            )
         )
-    )
 
-    # # download the orbits
-    logger.info(f"Downloading Orbits for scene : {scene}")
-    ORBIT_PATH = download_orbits_from_preference_list(
-        scene_safe_file=scene + ".SAFE",
-        download_folder=orbit_folder,
-        orbit_data_source_preferences=orbit_data_sources,
-    )
-    logger.info(f"File downloaded to : {ORBIT_PATH}")
+    if ORBIT_PATH is None:
+        # download the orbits
+        logger.info(f"Downloading Orbits for scene : {scene}")
+        ORBIT_PATH = download_orbits_from_preference_list(
+            scene_safe_file=scene + ".SAFE",
+            download_folder=orbit_folder,
+            orbit_data_source_preferences=orbit_data_sources,
+        )
+        logger.info(f"File downloaded to : {ORBIT_PATH}")
 
     # get the shape of the area covering the bursts to be processed
     burst_geoms_to_process = [
@@ -845,7 +854,28 @@ def make_metadata_and_upload_bursts(
     # query CDSE to get sensing start and sensing end times for bursts to be referenced in the
     # STAC metadata as the datetimes in the .h5 metadata reference azimuth / zero doppler times
     logger.info(f"Querying CDSE for scene burst ids and metadata")
-    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
+    try:
+        all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
+    except requests.RequestException as err:
+        # STAC end times come from s1reader sensing_stop, not CDSE EndingDateTime
+        logger.warning(
+            f"CDSE Bursts API unavailable ({err}). Falling back to reading burst info "
+            "from the scene file. STAC end times for this run come from s1reader's "
+            "sensing_stop (zero-Doppler time of the burst's last line), not CDSE's "
+            "EndingDateTime, so they will differ slightly from runs made with the API. "
+            "Remainder of metadata remains unaffected."
+        )
+        with open(run_config_path, "r") as f:
+            input_file_group = YAML(typ="safe").load(f)["runconfig"]["groups"][
+                "input_file_group"
+            ]
+        scene_path = input_file_group["safe_file_path"][0]
+        sensor_mode = Path(scene_path).name.split("_")[1]
+        all_scene_burst_info, _ = get_burst_info_and_scene_poly_from_file(
+            scene_path=scene_path,
+            orbit_path=input_file_group["orbit_file_path"][0],
+            swath_list=SENSOR_MODE_SUBSWATHS[sensor_mode],
+        )
 
     # iterate through the burst directory and create STAC metadata
     logger.info(

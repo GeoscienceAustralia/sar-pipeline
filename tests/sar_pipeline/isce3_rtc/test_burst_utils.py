@@ -2,8 +2,12 @@ from click.testing import CliRunner
 from dataclasses import dataclass
 from pathlib import Path
 import pytest
+import requests
 from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     check_burst_product_h5_exists_in_s3,
+    get_burst_info_for_scene_from_cdse,
+    get_burst_info_and_scene_poly_from_file,
+    assert_burst_info_equivalent,
 )
 
 import logging
@@ -161,3 +165,44 @@ def test_check_burst_product_h5_exists_in_s3(test_run):
             early_exit=True,
         )
         assert burst_id_list_to_process == test_run.burst_id_list
+
+
+# Test the burst information from the CDSE and that read directly from
+# a SAFE file are equivalent. The file is the fallback if the CDSE API is down.
+TEST_DATA_DIR = CURRENT_DIR.parent / "data"
+IW_SAFE_FILE_PATH = (
+    TEST_DATA_DIR
+    / "scenes"
+    / "S1A_IW_SLC__1SDV_20200511T135117_20200511T135144_032518_03C421_7768.zip"
+)
+IW_ORBIT_FILE_PATH = (
+    TEST_DATA_DIR
+    / "orbits"
+    / "S1A_OPER_AUX_POEORB_OPOD_20210318T120818_V20200510T225942_20200512T005942.EOF"
+)
+
+
+def test_burst_info_from_file_matches_cdse():
+    """Compare burst info from the CDSE API against burst info loaded
+    directly from a local SAFE file, for the same scene."""
+
+    scene_id = IW_SAFE_FILE_PATH.stem  # strips .zip
+    cdse_burst_info = get_burst_info_for_scene_from_cdse(scene_id)
+    file_burst_info, _ = get_burst_info_and_scene_poly_from_file(
+        scene_path=IW_SAFE_FILE_PATH,
+        orbit_path=IW_ORBIT_FILE_PATH,
+        swath_list=[1, 2, 3],
+    )
+    assert_burst_info_equivalent(cdse_burst_info, file_burst_info)
+
+
+def test_get_burst_info_for_scene_from_cdse_raises_when_api_down(monkeypatch):
+    """An unreachable CDSE API raises a RequestException (triggering the
+    file fallback in the cli) rather than hanging."""
+
+    def _raise(*args, **kwargs):
+        raise requests.ConnectionError("CDSE unreachable")
+
+    monkeypatch.setattr(requests.Session, "get", _raise)
+    with pytest.raises(requests.RequestException):
+        get_burst_info_for_scene_from_cdse(IW_SAFE_FILE_PATH.stem, retries=0)
