@@ -520,14 +520,26 @@ def get_data_for_scene_and_make_run_config(
             "Downloading DEM Using the bounds covering the required bursts only."
         )
         combined_burst_geom = shapely.ops.unary_union(burst_geoms_to_process)
+        # Run a secondary test to ensure burst shape does not cross antimeridian.
+        # Early 2016 scenes show scene geometries that DONT cross, but actually DO.
         logger.info(
             f"The shape covering the required bursts is : {combined_burst_geom}"
         )
-        logger.info(
-            f"The bounds covering the required bursts are : {combined_burst_geom.bounds}"
-        )
-        logger.info("Using the bounds for the required bursts.")
-        dem_bounds = combined_burst_geom.bounds
+        if check_shape_crosses_antimeridian(combined_burst_geom):
+            logger.warning(
+                f"The burst geometry crosses the antimeridian. scene : {scene}, burst shape : {combined_burst_geom}"
+            )
+            # correct the burst bounds for the antimeridian crossing
+            dem_bounds = get_bounds_for_antimeridian_shape(combined_burst_geom)
+            logger.info(
+                f"Getting the corrected combined bursts bounds crossing the antimeridian : {dem_bounds}"
+            )
+        else:
+            logger.info(
+                f"The bounds covering the required bursts are : {combined_burst_geom.bounds}"
+            )
+            logger.info("Using the bounds for the required bursts.")
+            dem_bounds = combined_burst_geom.bounds
 
     logger.info(f"Downloading DEM type `{dem_type}` to path : {DEM_PATH}")
     if dem_type == "cop_glo30":
