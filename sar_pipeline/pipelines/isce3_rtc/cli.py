@@ -559,7 +559,8 @@ def get_data_for_scene_and_make_run_config(
         )
     elif dem_type in ["REMA_32", "REMA_10", "REMA_2"]:
         dem_resolution = int(dem_type.split("_")[1])
-        buffer_pixels = int(40_000 / dem_resolution)  # 40 km buffer at any resolution
+        # 38.4 km buffer at any resolution (1200 pix @ 32m)
+        buffer_pixels = int(38_400 / dem_resolution)
         if scene_crosses_antimeridian:
             # shortcut: dem_handler only converts bbox corners to 3031, missing the edge bulge at 180°.
             # Extra buffer covers typical scenes; pass densified 3031 bounds if coverage still fails.
