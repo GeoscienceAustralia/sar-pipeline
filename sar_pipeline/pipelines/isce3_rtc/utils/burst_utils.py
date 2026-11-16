@@ -271,7 +271,7 @@ def check_burst_product_h5_exists_in_s3(
     existing_burst_ids = []
     existing_s3_paths = []
 
-    for burst_id, burst_st in zip(burst_id_list, burst_st_list):
+    for i, (burst_id, burst_st) in enumerate(zip(burst_id_list, burst_st_list)):
         # get the path to search for in s3
 
         acquisition_mode = burst_id.split("_")[-1][0:2]  # iw / ew
@@ -297,7 +297,10 @@ def check_burst_product_h5_exists_in_s3(
         # assume the product exists if there is a .h5 file
         logging.info(f"searching s3 folder : {s3_product_subpath}")
         product_h5_files = find_s3_filepaths_from_suffixes(
-            bucket_name=s3_bucket, s3_folder=s3_product_subpath, suffixes=[".h5"]
+            bucket_name=s3_bucket,
+            s3_folder=s3_product_subpath,
+            suffixes=[".h5"],
+            warn_credentials=i == 0,  # only warn on first
         )
         if len(product_h5_files[".h5"]) > 0:
             existing_burst_ids.append(burst_id)
@@ -391,7 +394,7 @@ def ensure_static_layers_in_s3(
     raise_missing_file_error = False
     missing_burst_files = {}
 
-    for burst_id in burst_id_list:
+    for i, burst_id in enumerate(burst_id_list):
 
         acquisition_mode = burst_id.split("_")[-1][0:2]  # iw / ew
 
@@ -403,10 +406,14 @@ def ensure_static_layers_in_s3(
             burst_id=burst_id,
             acquisition_mode=acquisition_mode,
         )
+        logger.info(
+            f"Searching for static layers in : {static_layers_s3_bucket}/{static_layers_s3_folder}"
+        )
         filetype_to_s3paths = find_s3_filepaths_from_suffixes(
             static_layers_s3_bucket,
             static_layers_s3_folder,
             suffixes=REQUIRED_ASSET_FILETYPES["RTC_S1_STATIC"],
+            warn_credentials=i == 0,  # only warn on first
         )
         # find the filetypes that are missing from the static layer folder
         missing_burst_files[burst_id] = [
@@ -437,7 +444,6 @@ def ensure_static_layers_in_s3(
             f"{n_missing} of {n_bursts} bursts being processed have files missing.\n"
             f"Missing Bursts and static layer filetypes:\n"
             f"{missing_info}\n"
-            f"Example AWS S3 path searched : {static_layers_s3_bucket}/{static_layers_s3_folder}\n"
             f"Check linked location arguments or create the missing static layers. "
             f"E.g. re-run the workflow using `--product RTC_S1_STATIC`\n"
             f"See workflow docs for details at docs/pipelines/isce3-rtc.md."
