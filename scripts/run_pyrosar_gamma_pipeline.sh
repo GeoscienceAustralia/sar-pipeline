@@ -9,6 +9,7 @@ scene_data_source="AUS_COP_HUB ASF CDSE"
 orbit_data_source="AUS_COP_HUB ASF CDSE"
 geocode_spacing=40
 geocode_scaling="both"
+extra_products="inc_geo,dem_seg_geo,ls_map_geo,pix_area_gamma0_geo,pix_ratio_geo,gs_ratio_geo"
 etad=""
 target_crs="3031"
 backscatter_convention="gamma0"
@@ -33,6 +34,7 @@ while [[ "$#" -gt 0 ]]; do
         --orbit-data-source) orbit_data_source="$2"; shift 2 ;;
         --geocode-spacing) geocode_spacing="$2"; shift 2 ;;
         --geocode-scaling) geocode_scaling="$2"; shift 2 ;;
+        --extra-products) extra_products="$2"; shift 2 ;;
         --etad) etad="$2"; shift 2 ;;
         --target-crs) target_crs="$2"; shift 2 ;;
         --backscatter-convention) backscatter_convention="$2"; shift 2 ;;
@@ -77,6 +79,7 @@ echo collection_number : "$collection_number"
 echo s3_bucket : "$s3_bucket"
 echo s3_project_folder : "$s3_project_folder"
 echo skip_upload_to_s3 : "$skip_upload_to_s3"
+echo extra_products : "$extra_products"
 echo make_existing_products : "$make_existing_products"
 echo validate_stac : "$validate_stac"
 echo skip_upload_processed_scene_tracking_file : "$skip_upload_processed_scene_tracking_file"
@@ -94,6 +97,7 @@ pixi run pyrosar-gamma-rtc-run-workflow --scene "$scene" \
     --orbit-data-source "$orbit_data_source" \
     --geocode-spacing "$geocode_spacing" \
     --geocode-scaling "$geocode_scaling" \
+    --extra-products "$extra_products" \
     --target-crs "$target_crs" \
     ${etad:+--etad "$etad"}
 
