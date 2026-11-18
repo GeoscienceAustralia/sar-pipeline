@@ -202,3 +202,20 @@ ASSET_FILETYPE_TO_MEDIATYPE = {
     "_thumbnail.png": pystac.media_type.MediaType.PNG,
     "_checksum.sha1": pystac.media_type.MediaType.TEXT,
 }
+
+
+DEFAULT_EXTRA_PRODUCTS = [
+    "inc_geo",  # Local incidence angle: angle between the radar’s look direction and the terrain surface normal.
+    "dem_seg_geo",  # The input DEM clipped to the area covered by both the DEM and SAR image.
+    "ls_map_geo",  # Layover/shadow map: identifies terrain where radar returns may be affected by layover or shadow.
+    "pix_area_gamma0_geo",  # Terrain-based illuminated pixel area used for γ⁰ (gamma-nought) normalization, accounting for terrain geometry.
+    "pix_ratio_geo",  # Pixel-area normalization factor: ellipsoid-based pixel area divided by the terrain-based gamma-area product.
+    "gs_ratio_geo",  # γ⁰/σ⁰ ratio, relating gamma-nought and sigma-nought normalization areas.
+]
+
+AVAILABLE_EXTRA_PRODUCTS = DEFAULT_EXTRA_PRODUCTS + [
+    "u_geo",  # surface-normal zenith angle
+    "v_geo",  # surface-normal orientation
+    "sim_sar_geo",  # Simulated SAR image in geographic coordinates.
+    "pix_ellip_sigma0_geo",  # Terrain-based illuminated pixel area used for σ⁰ (sigma-nought) normalization, accounting for terrain geometry.
+]
