@@ -14,19 +14,19 @@ S1_NRB_PROD_AOIS = pooch.create(
     path=pooch.os_cache(CACHE_DIR),
     base_url=BASE_URL + "production_aois/",
     registry={
-        "antarctica_aoi_excl_antimeridian_polygon.geojson": None,
-        "aus_aoi_polygon.geojson": None,
+        "s1_nrb_antarctica_aoi_single_polygon.geojson": None,
+        "s1_nrb_australia_aoi_single_polygon.geojson": None,
     },
 )
 
 
 def fetch_antarctic_prod_aoi() -> gpd.GeoDataFrame:
-    path = S1_NRB_PROD_AOIS.fetch("antarctica_aoi_excl_antimeridian_polygon.geojson")
+    path = S1_NRB_PROD_AOIS.fetch("s1_nrb_antarctica_aoi_single_polygon.geojson")
     return gpd.read_file(path)
 
 
 def fetch_australia_prod_aoi() -> gpd.GeoDataFrame:
-    path = S1_NRB_PROD_AOIS.fetch("aus_aoi_polygon.geojson")
+    path = S1_NRB_PROD_AOIS.fetch("s1_nrb_australia_aoi_single_polygon.geojson")
     return gpd.read_file(path)
 
 
