@@ -132,7 +132,9 @@ def run_docker_container(
         ]
 
         extra_commands = [
-            item for pair in extra_commands.split(";") for item in pair.split(":")
+            item
+            for pair in extra_commands.split(";")
+            for item in f"--{pair}".split(":")
         ]
         if extra_commands == [""]:
             extra_commands = []
@@ -268,7 +270,7 @@ def run_docker_container(
     help="Extra commands to pass to the processing script as key-value pairs. "
     "The commands will later be split and passed to the processing script."
     "The format of the passes string should be strictly 'arg1:value1;arg2:value2;...',"
-    "for example: '--dem-type:REMA;--product-version:1-0-0;...'"
+    "for example: 'dem-type:REMA;product-version:1-0-0;...'"
     "Each arg, value pair should be separated by a colon and each pair should be separated by a semicolon.",
 )
 @log_timing
@@ -302,7 +304,9 @@ def run_jobs(
 
     for pair in extra_commands.split(";"):
         parts = pair.split(":")
-        assert len(parts) == 2 and all(parts), f"Invalid pair: {pair!r}"
+        assert (
+            len(parts) == 2 and all(parts) and not parts[0].startswith("--")
+        ), f"Invalid pair: {pair!r}"
 
     image_checking_client = docker.from_env()
     try:
