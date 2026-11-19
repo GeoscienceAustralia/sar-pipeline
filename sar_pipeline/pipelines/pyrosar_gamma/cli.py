@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 import shapely
 import rasterio
+import re
 
 from sar_pipeline.preparation.downloads.scenes import (
     download_scene_from_preference_list_with_timeout,

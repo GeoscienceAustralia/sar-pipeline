@@ -111,7 +111,7 @@ def run_docker_container(
     clear_intermediate_files: bool,
     delete_local_outputs: bool,
     timeout: int,
-    extra_commands: str,
+    extra_commands: list[str],
 ) -> tuple[str, int]:
 
     container_logs_file = f"Container_logs/{start_time}/{scene.replace('/', '_')}.log"
@@ -131,16 +131,6 @@ def run_docker_container(
             str(make_existing_products).lower(),
         ]
 
-        extra_commands = [
-            item
-            for pair in extra_commands.split(";")
-            for item in f"--{pair}".split(":")
-        ]
-        if extra_commands == [""]:
-            extra_commands = []
-        for i, item in enumerate(extra_commands):
-            if item.lower() in ["true", "false"]:
-                extra_commands[i] = item.lower()
         container = DOCKER_CLIENT.containers.run(
             image=image_name,
             command=command + extra_commands,
@@ -302,11 +292,23 @@ def run_jobs(
     start_time = datetime.now()
     logger.info("Job started at: " + start_time.strftime("%Y-%m-%d %H-%M-%S"))
 
-    for pair in extra_commands.split(";"):
-        parts = pair.split(":")
-        assert (
-            len(parts) == 2 and all(parts) and not parts[0].startswith("--")
-        ), f"Invalid pair: {pair!r}"
+    if extra_commands == "":
+        extra_commands = []
+    else:
+        for pair in extra_commands.split(";"):
+            parts = pair.split(":")
+            assert (
+                len(parts) == 2 and all(parts) and not parts[0].startswith("--")
+            ), f"Invalid pair: {pair!r}"
+
+        extra_commands = [
+            item
+            for pair in extra_commands.split(";")
+            for item in f"--{pair}".split(":")
+        ]
+        for i, item in enumerate(extra_commands):
+            if item.lower() in ["true", "false"]:
+                extra_commands[i] = item.lower()
 
     image_checking_client = docker.from_env()
     try:
