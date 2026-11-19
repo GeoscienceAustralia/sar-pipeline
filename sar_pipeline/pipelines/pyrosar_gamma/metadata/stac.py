@@ -60,6 +60,7 @@ pol_str_to_list = {
     "DV": ["VV", "VH"],
 }
 
+PROCESSING_SOFTWARE = "pyrosar_gamma"
 
 class GammaNRBtoSTAC:
     """utility to create a stac document from pyroSAR-GAMMA outputs"""
@@ -115,6 +116,7 @@ class GammaNRBtoSTAC:
             collection_number=1,
             polarisations=self.polarisations,
             acquisition_mode=self.acquisition_mode.lower(),
+            processing_software=PROCESSING_SOFTWARE,
         )
         self.s3_product_folder = make_gamma_rtc_s1_product_s3_prefix(
             s3_project_folder=s3_project_folder,

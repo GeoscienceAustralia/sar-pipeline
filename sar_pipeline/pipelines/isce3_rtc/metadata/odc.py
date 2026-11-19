@@ -10,28 +10,40 @@ RTC_S1_STATIC_S3_PREFIX_FORMAT = "{s3_project_folder}/{odc_product_name}/{burst_
 
 
 def get_odc_product_name(
-    product, collection_number, polarisations, acquisition_mode="iw"
+    product,
+    collection_number,
+    polarisations,
+    acquisition_mode="iw",
+    processing_software="",
 ):
     """get the odc product name. WARNING this must align with
     the DEA product name at indexing into the datacube.
     These are hard-coded and set by the provided `collection_number`.
     """
+    product_prefix = "ga_s1_nrb"
+    if processing_software:
+        product_prefix += f"_{processing_software}"
+
     if product == "RTC_S1":
         if all([pol in polarisations for pol in ["VV", "VH"]]):
-            return f"ga_s1_nrb_{acquisition_mode.lower()}_vv_vh_{collection_number}"
+            return (
+                f"{product_prefix}_{acquisition_mode.lower()}_vv_vh_{collection_number}"
+            )
         elif all([pol in polarisations for pol in ["HH", "HV"]]):
-            return f"ga_s1_nrb_{acquisition_mode.lower()}_hh_hv_{collection_number}"
+            return (
+                f"{product_prefix}_{acquisition_mode.lower()}_hh_hv_{collection_number}"
+            )
         elif polarisations == ["VV"]:
-            return f"ga_s1_nrb_{acquisition_mode.lower()}_vv_{collection_number}"
+            return f"{product_prefix}_{acquisition_mode.lower()}_vv_{collection_number}"
         elif polarisations == ["HH"]:
-            return f"ga_s1_nrb_{acquisition_mode.lower()}_hh_{collection_number}"
+            return f"{product_prefix}_{acquisition_mode.lower()}_hh_{collection_number}"
         else:
             raise ValueError(
                 "could not create odc product name from; "
                 f"product: {product}, collection_number: {collection_number}, polarisations: {polarisations}, acquisition mode : {acquisition_mode}"
             )
     elif product == "RTC_S1_STATIC":
-        return f"ga_s1_nrb_{acquisition_mode.lower()}_static_{collection_number}"
+        return f"{product_prefix}_{acquisition_mode.lower()}_static_{collection_number}"
     else:
         raise ValueError(
             "could not create odc product name from; "
