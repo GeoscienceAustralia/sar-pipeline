@@ -12,6 +12,10 @@ import rasterio
 import numpy as np
 import re
 
+from pyproj import CRS
+from pyproj.aoi import AreaOfInterest
+from pyproj.database import query_utm_crs_info
+
 from sar_pipeline.preparation.downloads.scenes import (
     query_scene_from_cdse,
     NonSingleSceneResultError,
@@ -134,6 +138,9 @@ class GammaNRBtoSTAC:
         ]
         self.bucket_href = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
         self.base_href = f"{self.bucket_href}/{self.s3_product_folder}"
+        self.burst_id = (
+            self.scene_id
+        )  # GAMMA does not process at burst level, so we use the scene_id as the burst_id
 
     def _get_scene_metadata_from_cdse(self, scene_id):
         query_results = query_scene_from_cdse(scene_id, expand_attributes=True)
@@ -193,6 +200,26 @@ class GammaNRBtoSTAC:
                 f"Antimeridian geometry is already multipolygon, assuming correct : {shape(self.geometry_4326)}"
             )
 
+    def _get_utm_zone_from_bbox(self):
+        """Get the UTM zone for the given bbox."""
+        west, south, east, north = self.bbox_4326
+
+        # Account for bounding boxes that cross the antimeridian.
+        mid_lon = (west + east + (360 if east < west else 0)) / 2
+        lon = (mid_lon + 180) % 360 - 180
+        lat = (south + north) / 2
+
+        matches = query_utm_crs_info(
+            datum_name="WGS 84",
+            area_of_interest=AreaOfInterest(lon, lat, lon, lat),
+        )
+        if not matches:
+            raise ValueError("No WGS 84 UTM zone covers the bbox center")
+
+        epsg = int(matches[0].code)
+        crs = CRS.from_epsg(epsg)
+        return f"{crs.utm_zone}_EPSG:{epsg}"
+
     def get_output_filename_prefix(self):
         """Get the output filename prefix for the stac and checksum files.
         This is based on the tif file name up to the datetime to ensure it is unique and identifiable.
@@ -234,9 +261,7 @@ class GammaNRBtoSTAC:
             self.odc_product_name
         )  # this needs to  dynamic based on the pol files and match odc product
         self.item.properties["odc:product_family"] = "sar_ard"
-        self.item.properties["odc:region_code"] = self._get_attribute_by_name(
-            "relativeOrbitNumber"
-        )
+        self.item.properties["odc:region_code"] = self._get_utm_zone_from_bbox()
         self.item.properties["odc:producer"] = "ga.gov.au"
         self.item.properties["odc:dataset_version"] = "0.1.0"
 
@@ -299,6 +324,8 @@ class GammaNRBtoSTAC:
         self.item.properties["sarard:source_id"] = self.scene_id + ".SAFE"
         # self.item.properties["sarard:source_geometry"] = "slant range"
         self.item.properties["sarard:scene_id"] = self.scene_id
+
+        self.item.properties["sarard:burst_id"] = self.burst_id
 
         # self.item.properties["sarard:orbit_file"] = self.h5.search_value("orbitFiles")[
         #     0
