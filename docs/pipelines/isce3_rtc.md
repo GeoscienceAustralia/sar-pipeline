@@ -438,7 +438,7 @@ Usage: isce3-rtc-make-metadata-and-upload-bursts [OPTIONS]
   standardise product filenames,  build supporting metadata files (STAC JSON,
   XML, run configuration, checksums),  and optionally upload each burst’s
   product set to an S3 bucket following the RTC_S1 or RTC_S1_STATIC storage
-  layout.  The function retrieves burst timing information from CDSE, converts
+  layout.  The function retrieves burst timing information from the downloaded scene, converts
   HDF5 metadata into STAC items,  applies optional geometry updates using
   valid-data masks, creates linked assets and metadata references,  validates
   STAC documents if requested, constructs XML metadata for RTC_S1 bursts,
