@@ -77,6 +77,7 @@ def run_pyrosar_gamma_geocode(
     gamma_env: str,
     geocode_spacing: int,
     geocode_scaling: str,
+    extra_products: list[str],
     etad: Path | None = None,
 ) -> Path:
     """
@@ -181,14 +182,7 @@ def run_pyrosar_gamma_geocode(
         osvdir=str(orbit_dir),
         allow_RES_OSV=False,
         cleanup=True,
-        export_extra=[
-            "inc_geo",
-            "dem_seg_geo",
-            "ls_map_geo",
-            "pix_area_gamma0_geo",
-            "pix_ratio_geo",
-            "gs_ratio_geo",
-        ],
+        export_extra=extra_products,
         basename_extensions=None,
         removeS1BorderNoiseMethod=str(border_removal_method),
         refine_lut=False,

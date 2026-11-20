@@ -111,6 +111,7 @@ def run_docker_container(
     clear_intermediate_files: bool,
     delete_local_outputs: bool,
     timeout: int,
+    extra_commands: list[str],
 ) -> tuple[str, int]:
 
     container_logs_file = f"Container_logs/{start_time}/{scene.replace('/', '_')}.log"
@@ -132,7 +133,7 @@ def run_docker_container(
 
         container = DOCKER_CLIENT.containers.run(
             image=image_name,
-            command=command,
+            command=command + extra_commands,
             volumes=[
                 "/usr/local/GAMMA_SOFTWARE-20230712:/usr/local/GAMMA_SOFTWARE-20230712",
                 f"{LOCAL_PROCESSING_DIR}:/app/sar-processing",
@@ -252,6 +253,16 @@ def run_docker_container(
     type=str,
     help="Timeout for the Docker container in seconds.",
 )
+@click.option(
+    "--extra-commands",
+    type=str,
+    default="",
+    help="Extra commands to pass to the processing script as key-value pairs. "
+    "The commands will later be split and passed to the processing script."
+    "The format of the passes string should be strictly 'arg1:value1/arg2:value2/...',"
+    "for example: 'dem-type:REMA/product-version:1-0-0_...'"
+    "Each arg, value pair should be separated by a colon and each pair should be separated by an forward slash.",
+)
 @log_timing
 def run_jobs(
     scenes_csv,
@@ -265,6 +276,7 @@ def run_jobs(
     delete_local_outputs,
     general_log_file,
     container_timeout,
+    extra_commands,
 ):
 
     if general_log_file != "":
@@ -279,6 +291,24 @@ def run_jobs(
 
     start_time = datetime.now()
     logger.info("Job started at: " + start_time.strftime("%Y-%m-%d %H-%M-%S"))
+
+    if extra_commands == "":
+        extra_commands = []
+    else:
+        for pair in extra_commands.split("/"):
+            parts = pair.split(":")
+            assert (
+                len(parts) == 2 and all(parts) and not parts[0].startswith("--")
+            ), f"Invalid pair: {pair!r}"
+
+        extra_commands = [
+            item
+            for pair in extra_commands.split("/")
+            for item in f"--{pair}".split(":")
+        ]
+        for i, item in enumerate(extra_commands):
+            if item.lower() in ["true", "false"]:
+                extra_commands[i] = item.lower()
 
     image_checking_client = docker.from_env()
     try:
@@ -343,6 +373,7 @@ def run_jobs(
                     clear_intermediate_files,
                     delete_local_outputs,
                     int(container_timeout),
+                    extra_commands,
                 )
                 for scene in scenes
             ]

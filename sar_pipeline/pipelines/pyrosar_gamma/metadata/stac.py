@@ -12,6 +12,10 @@ import rasterio
 import numpy as np
 import re
 
+from pyproj import CRS
+from pyproj.aoi import AreaOfInterest
+from pyproj.database import query_utm_crs_info
+
 from sar_pipeline.preparation.downloads.scenes import (
     query_scene_from_cdse,
     NonSingleSceneResultError,
@@ -42,6 +46,7 @@ from sar_pipeline.pipelines.pyrosar_gamma.metadata.filetypes import (
     ASSET_FILETYPE_TO_MEDIATYPE,
     ASSET_FILETYPE_TO_ROLES,
     ASSET_FILETYPE_TO_TITLE,
+    DEFAULT_EXTRA_PRODUCTS,
 )
 
 import logging
@@ -55,6 +60,8 @@ pol_str_to_list = {
     "DH": ["HH", "HV"],
     "DV": ["VV", "VH"],
 }
+
+PROCESSING_SOFTWARE = "pyrosar_gamma"
 
 
 class GammaNRBtoSTAC:
@@ -70,6 +77,8 @@ class GammaNRBtoSTAC:
         s3_project_folder: str,
         orbit_source: str,
         s3_region: str = "ap-southeast-2",
+        geocode_scaling: Literal["linear", "db", "both"] = "both",
+        extra_products: str = ",".join(DEFAULT_EXTRA_PRODUCTS),
     ):
         # set input variables
         self.scene_id = scene_id
@@ -111,6 +120,7 @@ class GammaNRBtoSTAC:
             collection_number=1,
             polarisations=self.polarisations,
             acquisition_mode=self.acquisition_mode.lower(),
+            processing_software=PROCESSING_SOFTWARE,
         )
         self.s3_product_folder = make_gamma_rtc_s1_product_s3_prefix(
             s3_project_folder=s3_project_folder,
@@ -119,6 +129,7 @@ class GammaNRBtoSTAC:
             acquisition_mode=self.acquisition_mode,
             scene_id=self.scene_id,
             start_dt=self.start_dt,
+            processing_software="",
         )
         # stac extensions
         self.stac_extensions = [
@@ -134,6 +145,46 @@ class GammaNRBtoSTAC:
         ]
         self.bucket_href = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com"
         self.base_href = f"{self.bucket_href}/{self.s3_product_folder}"
+        self.burst_id = (
+            self.scene_id
+        )  # GAMMA does not process at burst level, so we use the scene_id as the burst_id
+        self.geocode_scaling = geocode_scaling
+        self.extra_products = extra_products.split(",")
+
+    def _get_assets_for_scaling(self):
+        """Get the list of required assets based on the geocode scaling convention"""
+        all_required_assets = REQUIRED_ASSET_FILETYPES[self.backscatter_convention]
+
+        db_assets = [
+            asset
+            for asset in all_required_assets
+            if asset.endswith(f"-{self.backscatter_convention}_db.tif")
+        ]
+
+        linear_assets = [
+            asset
+            for asset in all_required_assets
+            if asset.endswith(f"-{self.backscatter_convention}.tif")
+        ]
+
+        if self.geocode_scaling == "db":
+            required_assets = db_assets
+        elif self.geocode_scaling == "linear":
+            required_assets = linear_assets
+        elif self.geocode_scaling == "both":
+            required_assets = db_assets + linear_assets
+        else:
+            raise ValueError(f"Invalid geocode scaling: {self.geocode_scaling}")
+
+        remaining_assets = list(set(all_required_assets) - set(required_assets))
+
+        # check for extra products and remove them from the required assets if not present in the extra products list
+        for asset in self.extra_products:
+            renamed_asset = RENAME_ASSET_FILETYPES.get(f"_{asset}.tif")
+            if renamed_asset and renamed_asset in remaining_assets:
+                required_assets.append(renamed_asset)
+
+        return required_assets
 
     def _get_scene_metadata_from_cdse(self, scene_id):
         query_results = query_scene_from_cdse(scene_id, expand_attributes=True)
@@ -193,6 +244,26 @@ class GammaNRBtoSTAC:
                 f"Antimeridian geometry is already multipolygon, assuming correct : {shape(self.geometry_4326)}"
             )
 
+    def _get_utm_zone_from_bbox(self):
+        """Get the UTM zone for the given bbox."""
+        west, south, east, north = self.bbox_4326
+
+        # Account for bounding boxes that cross the antimeridian.
+        mid_lon = (west + east + (360 if east < west else 0)) / 2
+        lon = (mid_lon + 180) % 360 - 180
+        lat = (south + north) / 2
+
+        matches = query_utm_crs_info(
+            datum_name="WGS 84",
+            area_of_interest=AreaOfInterest(lon, lat, lon, lat),
+        )
+        if not matches:
+            raise ValueError("No WGS 84 UTM zone covers the bbox center")
+
+        epsg = int(matches[0].code)
+        crs = CRS.from_epsg(epsg)
+        return f"{crs.utm_zone}_EPSG:{epsg}"
+
     def get_output_filename_prefix(self):
         """Get the output filename prefix for the stac and checksum files.
         This is based on the tif file name up to the datetime to ensure it is unique and identifiable.
@@ -234,9 +305,7 @@ class GammaNRBtoSTAC:
             self.odc_product_name
         )  # this needs to  dynamic based on the pol files and match odc product
         self.item.properties["odc:product_family"] = "sar_ard"
-        self.item.properties["odc:region_code"] = self._get_attribute_by_name(
-            "relativeOrbitNumber"
-        )
+        self.item.properties["odc:region_code"] = self._get_utm_zone_from_bbox()
         self.item.properties["odc:producer"] = "ga.gov.au"
         self.item.properties["odc:dataset_version"] = "0.1.0"
 
@@ -299,6 +368,8 @@ class GammaNRBtoSTAC:
         self.item.properties["sarard:source_id"] = self.scene_id + ".SAFE"
         # self.item.properties["sarard:source_geometry"] = "slant range"
         self.item.properties["sarard:scene_id"] = self.scene_id
+
+        self.item.properties["sarard:burst_id"] = self.burst_id
 
         # self.item.properties["sarard:orbit_file"] = self.h5.search_value("orbitFiles")[
         #     0
@@ -496,7 +567,7 @@ class GammaNRBtoSTAC:
         ignore_assets += [i.replace(".tif", "_db.tif") for i in ignore_assets]
 
         included_pol_assets = [f"_{p}-{self.backscatter_convention}.tif" for p in pols]
-        required_asset_filetypes = REQUIRED_ASSET_FILETYPES[self.backscatter_convention]
+        required_asset_filetypes = self._get_assets_for_scaling()
         required_asset_filetypes = [
             f for f in required_asset_filetypes if f not in ignore_assets
         ]
