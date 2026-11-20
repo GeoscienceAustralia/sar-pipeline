@@ -62,6 +62,7 @@ pol_str_to_list = {
 
 PROCESSING_SOFTWARE = "pyrosar_gamma"
 
+
 class GammaNRBtoSTAC:
     """utility to create a stac document from pyroSAR-GAMMA outputs"""
 
@@ -125,6 +126,7 @@ class GammaNRBtoSTAC:
             acquisition_mode=self.acquisition_mode,
             scene_id=self.scene_id,
             start_dt=self.start_dt,
+            processing_software="",
         )
         # stac extensions
         self.stac_extensions = [

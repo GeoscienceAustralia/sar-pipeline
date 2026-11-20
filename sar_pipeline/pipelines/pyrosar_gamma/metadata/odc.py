@@ -1,9 +1,49 @@
 import datetime
 import re
 
-from sar_pipeline.pipelines.isce3_rtc.metadata.odc import get_odc_product_name
-
 GAMMA_RTC_S1_S3_PREFIX_FORMAT = "{s3_project_folder}/{odc_product_name}/{start_year}/{start_month}/{start_day}/{scene_id}"
+
+
+def get_odc_product_name(
+    product,
+    collection_number,
+    polarisations,
+    acquisition_mode="iw",
+    processing_software="",
+):
+    """get the odc product name. WARNING this must align with
+    the DEA product name at indexing into the datacube.
+    These are hard-coded and set by the provided `collection_number`.
+    """
+    product_prefix = "ga_s1_nrb"
+    if processing_software:
+        product_prefix += f"_{processing_software}"
+
+    if product == "RTC_S1":
+        if all([pol in polarisations for pol in ["VV", "VH"]]):
+            return (
+                f"{product_prefix}_{acquisition_mode.lower()}_vv_vh_{collection_number}"
+            )
+        elif all([pol in polarisations for pol in ["HH", "HV"]]):
+            return (
+                f"{product_prefix}_{acquisition_mode.lower()}_hh_hv_{collection_number}"
+            )
+        elif polarisations == ["VV"]:
+            return f"{product_prefix}_{acquisition_mode.lower()}_vv_{collection_number}"
+        elif polarisations == ["HH"]:
+            return f"{product_prefix}_{acquisition_mode.lower()}_hh_{collection_number}"
+        else:
+            raise ValueError(
+                "could not create odc product name from; "
+                f"product: {product}, collection_number: {collection_number}, polarisations: {polarisations}, acquisition mode : {acquisition_mode}"
+            )
+    elif product == "RTC_S1_STATIC":
+        return f"{product_prefix}_{acquisition_mode.lower()}_static_{collection_number}"
+    else:
+        raise ValueError(
+            "could not create odc product name from; "
+            f"product: {product}, collection_number: {collection_number}, polarisations: {polarisations}, acquisition mode : {acquisition_mode}"
+        )
 
 
 def make_gamma_rtc_s1_product_s3_prefix(
@@ -13,6 +53,7 @@ def make_gamma_rtc_s1_product_s3_prefix(
     acquisition_mode: str,
     scene_id: str,
     start_dt: str | datetime.datetime,
+    processing_software: str,
 ) -> str:
     """Structure for the RTC_S1 pyrosar-GAMMA product sub-folders. These include
     information about when the product was acquired.
@@ -31,6 +72,8 @@ def make_gamma_rtc_s1_product_s3_prefix(
         scene_id. e.g. S1A_EW_GRDM_1SDH_20190103T112546_20190103T112656_025312_02CCF2_83F6
     start_dt : str | datetime.datetime
         The starting datetime for the the product acquisition.
+    processing_software : str
+        The software used for processing the product. E.g. pyrosar-GAMMA
 
     Returns
     -------
@@ -51,7 +94,11 @@ def make_gamma_rtc_s1_product_s3_prefix(
 
     # get the correct odc product name
     odc_product_name = get_odc_product_name(
-        "RTC_S1", collection_number, polarisations, acquisition_mode=acquisition_mode
+        "RTC_S1",
+        collection_number,
+        polarisations,
+        acquisition_mode=acquisition_mode,
+        processing_software=processing_software,
     )
 
     # update the string format
