@@ -259,9 +259,9 @@ def run_docker_container(
     default="",
     help="Extra commands to pass to the processing script as key-value pairs. "
     "The commands will later be split and passed to the processing script."
-    "The format of the passes string should be strictly 'arg1:value1;arg2:value2;...',"
-    "for example: 'dem-type:REMA;product-version:1-0-0;...'"
-    "Each arg, value pair should be separated by a colon and each pair should be separated by a semicolon.",
+    "The format of the passes string should be strictly 'arg1:value1/arg2:value2/...',"
+    "for example: 'dem-type:REMA/product-version:1-0-0_...'"
+    "Each arg, value pair should be separated by a colon and each pair should be separated by an forward slash.",
 )
 @log_timing
 def run_jobs(
@@ -295,7 +295,7 @@ def run_jobs(
     if extra_commands == "":
         extra_commands = []
     else:
-        for pair in extra_commands.split(";"):
+        for pair in extra_commands.split("/"):
             parts = pair.split(":")
             assert (
                 len(parts) == 2 and all(parts) and not parts[0].startswith("--")
@@ -303,7 +303,7 @@ def run_jobs(
 
         extra_commands = [
             item
-            for pair in extra_commands.split(";")
+            for pair in extra_commands.split("/")
             for item in f"--{pair}".split(":")
         ]
         for i, item in enumerate(extra_commands):
