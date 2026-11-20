@@ -46,6 +46,7 @@ from sar_pipeline.pipelines.pyrosar_gamma.metadata.filetypes import (
     ASSET_FILETYPE_TO_MEDIATYPE,
     ASSET_FILETYPE_TO_ROLES,
     ASSET_FILETYPE_TO_TITLE,
+    DEFAULT_EXTRA_PRODUCTS,
 )
 
 import logging
@@ -76,6 +77,8 @@ class GammaNRBtoSTAC:
         s3_project_folder: str,
         orbit_source: str,
         s3_region: str = "ap-southeast-2",
+        geocode_scaling: Literal["linear", "db", "both"] = "both",
+        extra_products: str = ",".join(DEFAULT_EXTRA_PRODUCTS),
     ):
         # set input variables
         self.scene_id = scene_id
@@ -145,6 +148,43 @@ class GammaNRBtoSTAC:
         self.burst_id = (
             self.scene_id
         )  # GAMMA does not process at burst level, so we use the scene_id as the burst_id
+        self.geocode_scaling = geocode_scaling
+        self.extra_products = extra_products.split(",")
+
+    def _get_assets_for_scaling(self):
+        """Get the list of required assets based on the geocode scaling convention"""
+        all_required_assets = REQUIRED_ASSET_FILETYPES[self.backscatter_convention]
+
+        db_assets = [
+            asset
+            for asset in all_required_assets
+            if asset.endswith(f"-{self.backscatter_convention}_db.tif")
+        ]
+
+        linear_assets = [
+            asset
+            for asset in all_required_assets
+            if asset.endswith(f"-{self.backscatter_convention}.tif")
+        ]
+
+        if self.geocode_scaling == "db":
+            required_assets = db_assets
+        elif self.geocode_scaling == "linear":
+            required_assets = linear_assets
+        elif self.geocode_scaling == "both":
+            required_assets = db_assets + linear_assets
+        else:
+            raise ValueError(f"Invalid geocode scaling: {self.geocode_scaling}")
+
+        remaining_assets = list(set(all_required_assets) - set(required_assets))
+
+        # check for extra products and remove them from the required assets if not present in the extra products list
+        for asset in self.extra_products:
+            renamed_asset = RENAME_ASSET_FILETYPES.get(f"_{asset}.tif")
+            if renamed_asset and renamed_asset in remaining_assets:
+                required_assets.append(renamed_asset)
+
+        return required_assets
 
     def _get_scene_metadata_from_cdse(self, scene_id):
         query_results = query_scene_from_cdse(scene_id, expand_attributes=True)
@@ -527,7 +567,7 @@ class GammaNRBtoSTAC:
         ignore_assets += [i.replace(".tif", "_db.tif") for i in ignore_assets]
 
         included_pol_assets = [f"_{p}-{self.backscatter_convention}.tif" for p in pols]
-        required_asset_filetypes = REQUIRED_ASSET_FILETYPES[self.backscatter_convention]
+        required_asset_filetypes = self._get_assets_for_scaling()
         required_asset_filetypes = [
             f for f in required_asset_filetypes if f not in ignore_assets
         ]

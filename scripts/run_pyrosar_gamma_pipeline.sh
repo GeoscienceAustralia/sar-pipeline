@@ -120,6 +120,8 @@ pixi run pyrosar-gamma-make-metadata-and-upload-product --scene "$scene" \
     --product-version "$product_version" \
     --orbit-source-folder "$orbit_source_folder" \
     --processed-scene-tracking-file-s3-folder "$processed_scene_tracking_file_s3_folder" \
+    --geocode-scaling "$geocode_scaling" \
+    --extra-products "$extra_products" \
     $([[ "$skip_upload_to_s3" = true ]] && printf -- '--skip-upload-to-s3') \
     $([[ "$make_existing_products" = true ]] && printf -- '--make-existing-products') \
     $([[ "$validate_stac" = true ]] && printf -- '--validate-stac') \
