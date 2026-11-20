@@ -1,14 +1,19 @@
 import asf_search
 from datetime import datetime, timedelta
 import logging
+import os
 import shapely
+from pathlib import Path
 from shapely.geometry import Polygon, MultiPolygon
 from typing import Optional, Literal
 import sys
 import requests
+import zipfile
+import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import pandas as pd
+import s1reader
 
 from sar_pipeline.utils.general import log_timing, format_dt_utc
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
@@ -18,12 +23,20 @@ from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     make_rtc_s1_product_s3_prefix,
     make_rtc_s1_static_product_s3_prefix,
 )
-from sar_pipeline.utils.sentinel1 import get_dates_from_scene_id
+from sar_pipeline.utils.sentinel1 import (
+    get_dates_from_scene_id,
+    get_polarisation_list_from_scene_id,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 ValidBurstProducts = Literal["IW_SLC__1S", "EW_SLC__1S"]
+SENSOR_MODE_SUBSWATHS = {"IW": [1, 2, 3], "EW": [1, 2, 3, 4, 5]}
+
+
+class CDSEBurstAPIError(Exception):
+    """The CDSE Bursts API timed out or is unavailable."""
 
 
 def get_burst_info_for_scene_from_asf(
@@ -120,7 +133,7 @@ def get_burst_info_for_scene_from_asf(
 
 
 def get_burst_info_for_scene_from_cdse(
-    scene: str, burst_prefix: str = "t", lowercase: bool = True
+    scene: str, burst_prefix: str = "t", lowercase: bool = True, timeout: int = 60
 ) -> dict[str, dict[str, str | datetime | shapely.geometry.Polygon]]:
     """Get the burst ids, start time, azimuth_time, end_time, polarisations and
     geometries for a scene from ASF. Return as a dictionary of bursts as the keys,
@@ -138,9 +151,13 @@ def get_burst_info_for_scene_from_cdse(
         070_149822_IW3 -> t070_149822_IW3 with burst_prefix = 't'.
     lowercase: bool
         convert the burst to lowercase. default to True to match workflow output.
+    timeout : int
+        Seconds to wait for the CDSE Bursts API to respond. default 60.
 
     Raises
     -------
+    CDSEBurstAPIError:
+        The CDSE Bursts API timed out or returned an error.
     FileExistsError:
         The scene does not exist on the CDSE.
 
@@ -167,8 +184,13 @@ def get_burst_info_for_scene_from_cdse(
     query = f"$filter=ParentProductName eq '{scene}.SAFE'&$top=500"
     url = f"{base_url}?{query}"
 
-    response = requests.get(url)
-    response.raise_for_status()  # Raise error for bad responses
+    try:
+        response = requests.get(url, timeout=timeout)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise CDSEBurstAPIError(
+            f"CDSE Bursts API timed out or is unavailable ({base_url}): {e}"
+        ) from e
 
     results = response.json().get("value", [])
     burst_info = {}
@@ -654,3 +676,195 @@ def query_cdse_for_bursts_in_period(
         logging.info(f"Results written to {output_path}")
 
     return burst_product_dict
+
+
+def _get_burst_sensing_times_from_annotation(
+    scene_path: Path, sensor_mode: str, swath_num: int, pol: str
+) -> list[datetime]:
+    """Parse the raw radar `sensingTime` for each burst directly from the
+    scene's annotation XML, in burst order.
+
+    Each burst in the annotation has both an `azimuthTime` (the zero-Doppler
+    azimuth time of the first line, which is what s1reader exposes as
+    `Sentinel1BurstSlc.sensing_start`) and a separate `sensingTime` (the raw
+    radar sensing time of the first line). s1reader parses `sensingTime`
+    internally to compute the burst ID but does not expose it on the
+    returned burst object. CDSE's `BeginningDateTime`/`start_time` for a
+    burst is populated from `sensingTime`, not `azimuthTime`, so it must be
+    read from the annotation directly to get an equivalent value.
+
+    Parameters
+    ----------
+    scene_path : Path
+        Path to the scene .zip or .SAFE directory.
+    sensor_mode : str
+        Acquisition mode, e.g. "iw" or "ew".
+    swath_num : int
+        Subswath number.
+    pol : str
+        Polarization, e.g. "vv".
+
+    Returns
+    -------
+    list[datetime]
+        Sensing times ordered so that index i corresponds to the burst
+        with `i_burst == i`, as returned by `s1reader.load_bursts`.
+    """
+
+    id_str = f"{sensor_mode}{swath_num}-slc-{pol.lower()}"
+
+    if scene_path.is_dir():
+        annotation_dir = scene_path / "annotation"
+        matches = [f for f in os.listdir(annotation_dir) if id_str in f]
+        if not matches:
+            raise ValueError(f"burst {id_str} not in SAFE: {scene_path}")
+        tree = ET.parse(annotation_dir / matches[0])
+    else:
+        with zipfile.ZipFile(scene_path, "r") as z_file:
+            matches = [
+                f
+                for f in z_file.namelist()
+                if f.split("/")[-2] == "annotation" and id_str in f.split("/")[-1]
+            ]
+            if not matches:
+                raise ValueError(f"burst {id_str} not in SAFE: {scene_path}")
+            with z_file.open(matches[0]) as f:
+                tree = ET.parse(f)
+
+    burst_list = tree.find("swathTiming/burstList")
+    return [
+        datetime.fromisoformat(burst.find("sensingTime").text) for burst in burst_list
+    ]
+
+
+def get_burst_info_and_scene_poly_from_file(
+    scene_path: str | Path,
+    orbit_path: str | Path,
+    swath_list: list[int],
+) -> tuple[dict, shapely.geometry.base.BaseGeometry]:
+    """
+    Load burst metadata and geometry for a Sentinel-1 scene.
+
+    Parameters
+    ----------
+    scene_path : str or Path
+        Path to the scene .zip or .SAFE file.
+    orbit_path : str or Path
+        Path to the associated orbit file for the scene.
+    swath_list : list[int]
+        Subswath numbers to load bursts from.
+
+    Returns
+    -------
+    tuple[dict, shapely.geometry.base.BaseGeometry]
+        Dict keyed by burst ID with sensing times, geometry, and
+        polarizations, and the unioned scene polygon covering all bursts.
+    """
+
+    scene_path = Path(scene_path)
+    orbit_path = Path(orbit_path)
+    scene_id = scene_path.stem  # strips .zip or .SAFE
+    sensor_mode = scene_id.split("_")[1].lower()
+    pols = get_polarisation_list_from_scene_id(scene_id)
+
+    logger.info(f"Loading burst info from: {scene_path}")
+
+    all_scene_burst_info = {}
+    for swath_num in swath_list:
+        bursts = s1reader.load_bursts(
+            path=str(scene_path),
+            orbit_path=str(orbit_path),
+            swath_num=swath_num,
+            pol=pols[0],
+        )
+        sensing_times = _get_burst_sensing_times_from_annotation(
+            scene_path, sensor_mode, swath_num, pols[0]
+        )
+        for burst in bursts:
+            bid = burst.burst_id
+            burst_geom = shapely.geometry.shape(burst.border[0])
+            all_scene_burst_info.setdefault(
+                str(bid),
+                {
+                    "azimuth_time": burst.sensing_start,
+                    "start_time": sensing_times[burst.i_burst],
+                    "end_time": burst.sensing_stop,
+                    "geometry": burst_geom,
+                    "pols": pols,
+                },
+            )
+
+    scene_polygon = shapely.ops.unary_union(
+        [b["geometry"] for b in all_scene_burst_info.values()]
+    )
+
+    return all_scene_burst_info, scene_polygon
+
+
+def resolve_burst_info(cdse_burst_info: dict | None, file_burst_info: dict) -> dict:
+    """Return the CDSE burst info if its burst ids match those read from the
+    scene file, otherwise return the scene file (s1reader) burst info.
+
+    Parameters
+    ----------
+    cdse_burst_info : dict | None
+        Output of get_burst_info_for_scene_from_cdse, or None if the API was unavailable.
+    file_burst_info : dict
+        Output of get_burst_info_and_scene_poly_from_file.
+
+    Returns
+    -------
+    dict
+        The burst info to use for processing.
+    """
+    if cdse_burst_info is not None and set(cdse_burst_info) == set(file_burst_info):
+        logger.info("Burst ids from the CDSE API match the downloaded scene")
+        return cdse_burst_info
+    if cdse_burst_info is not None:
+        logger.warning(
+            "Burst ids from the CDSE API do not match the downloaded scene. "
+            f"CDSE only : {sorted(set(cdse_burst_info) - set(file_burst_info))}, "
+            f"scene only : {sorted(set(file_burst_info) - set(cdse_burst_info))}. "
+            "Using burst ids from the downloaded scene (s1reader)."
+        )
+    return file_burst_info
+
+
+def get_burst_candidates(
+    all_scene_burst_info: dict, burst_id_list: str | None = None
+) -> tuple[list[str], list[datetime]]:
+    """Get the candidate burst ids to process and their azimuth start times.
+
+    Parameters
+    ----------
+    all_scene_burst_info : dict
+        Burst info for the scene, keyed by burst id.
+    burst_id_list : str | None
+        Space separated burst ids to limit processing to. If empty, all bursts are used.
+
+    Returns
+    -------
+    tuple[list[str], list[datetime]]
+        The candidate burst ids and their azimuth times. The azimuth time is the start
+        time referred to by the s1_reader/RTC software
+        https://github.com/isce-framework/s1-reader/blob/main/src/s1reader/s1_reader.py#L1044
+
+    Raises
+    ------
+    ValueError
+        If any of the requested burst ids are not in the scene.
+    """
+    if burst_id_list:
+        logger.info("List of bursts to process provided")
+        burst_ids = burst_id_list.split(" ")
+        bursts_not_in_scene = [b for b in burst_ids if b not in all_scene_burst_info]
+        if bursts_not_in_scene:
+            raise ValueError(
+                f"The specified bursts cannot be found in the SLC : {bursts_not_in_scene}. Check input burst ids."
+            )
+    else:
+        logger.info("List of bursts not provided, processing all")
+        burst_ids = list(all_scene_burst_info.keys())
+
+    burst_azimuth_times = [all_scene_burst_info[b]["azimuth_time"] for b in burst_ids]
+    return burst_ids, burst_azimuth_times
