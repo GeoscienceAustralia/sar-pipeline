@@ -4,6 +4,10 @@ from sar_pipeline.pipelines.isce3_rtc.cli import (
     make_metadata_and_upload_bursts,
 )
 from sar_pipeline.analysis.cli import compare_isce3_products
+from sar_pipeline.pipelines.isce3_rtc import cli
+from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
+    get_burst_info_for_scene_from_cdse,
+)
 from sar_pipeline.utils.aws import S3Util
 from sar_pipeline.utils.environment_variables import identify_and_load_missing_env_vars
 from pathlib import Path
@@ -94,7 +98,7 @@ TEST_1 = RunConfig(
 
 
 @pytest.mark.parametrize("test_run", [TEST_1])
-def test_cli_make_metadata_and_upload_bursts(test_run):
+def test_cli_make_metadata_and_upload_bursts(test_run, monkeypatch):
 
     # first download the test product to a local folder
     logger.info(
@@ -125,6 +129,14 @@ def test_cli_make_metadata_and_upload_bursts(test_run):
     # copy the run config to the parent
     shutil.copy(run_config, results_folder / run_config.name)
     run_config = results_folder / run_config.name
+
+    # the run config points at a scene file that is not available locally,
+    # so take the equivalent burst info from the CDSE instead
+    monkeypatch.setattr(
+        cli,
+        "get_burst_info_and_scene_poly_from_file",
+        lambda **kwargs: (get_burst_info_for_scene_from_cdse(test_run.scene), None),
+    )
 
     runner = CliRunner()
     args = ["--results-folder", results_folder]

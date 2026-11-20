@@ -6,6 +6,7 @@ import shapely
 import re
 import os
 import json
+from ruamel.yaml import YAML
 
 from sar_pipeline import PROJECT_ROOT_PATH
 
@@ -24,6 +25,11 @@ from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     ensure_static_layers_in_s3,
     check_burst_product_h5_exists_in_s3,
     get_burst_info_for_scene_from_cdse,
+    get_burst_info_and_scene_poly_from_file,
+    resolve_burst_info,
+    get_burst_candidates,
+    CDSEBurstAPIError,
+    SENSOR_MODE_SUBSWATHS,
 )
 
 from sar_pipeline.pipelines.isce3_rtc.utils.config_manager import RTCConfigManager
@@ -37,6 +43,7 @@ from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
 from sar_pipeline.pipelines.isce3_rtc.metadata.xml import XMLMapper
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes, S3Util
 from sar_pipeline.utils.general import log_timing
+from sar_pipeline.utils.sentinel1 import get_polarisation_list_from_scene_id
 from sar_pipeline.utils.spatial import (
     write_burst_geometries_to_geojson,
 )
@@ -390,90 +397,68 @@ def get_data_for_scene_and_make_run_config(
         dem_type = get_best_dem_type_for_scene(scene_bounds)
     logger.info(f"The dem_type: {dem_type} will be used to process scene: {scene}")
 
+    # get the list of polarisations
+    polarisation_list = get_polarisation_list_from_scene_id(scene)
+
+    def select_bursts_to_process(all_scene_burst_info: dict) -> list[str]:
+        """Validate requested bursts and drop those whose products already exist in s3.
+        Exits early if all products already exist or required static layers are missing.
+        """
+        burst_id_list_candidates, burst_st_list_candidates = get_burst_candidates(
+            all_scene_burst_info, burst_id_list
+        )
+        logger.info(
+            f"Checking if burst products already exists in S3 for product {product}"
+        )
+        # return products that don't exist, and early exit if all already exist
+        burst_id_list_to_process = check_burst_product_h5_exists_in_s3(
+            product=product,
+            burst_id_list=burst_id_list_candidates,
+            burst_st_list=burst_st_list_candidates,
+            burst_polarisations=polarisation_list,
+            s3_bucket=s3_bucket,
+            s3_project_folder=s3_project_folder,
+            collection_number=collection_number,
+            make_existing_products=make_existing_products,
+            dem_type=dem_type,
+            static_layer_validity_start_date=static_layer_validity_start_date,
+            early_exit=True,
+            early_exit_code=100,
+        )
+        logger.info(
+            f"Processing {len(burst_id_list_to_process)} bursts for scene : {burst_id_list_to_process}"
+        )
+
+        # to link the RTC_S1_STATIC layers to RTC_S1, the static layers must already exist
+        if link_static_layers and product == "RTC_S1":
+            logger.info(f"Checking static layers exist for bursts in scene : {scene}")
+            # the process will exit early if the required static layers don't exist
+            ensure_static_layers_in_s3(
+                scene=scene,
+                burst_id_list=burst_id_list_to_process,
+                static_layers_s3_bucket=linked_static_layers_s3_bucket,
+                static_layers_collection_number=linked_static_layers_collection_number,
+                static_layers_s3_project_folder=linked_static_layers_s3_project_folder,
+                dem_type=dem_type,
+                static_layer_validity_start_date=static_layer_validity_start_date,
+                early_exit_code=101,
+            )
+        return burst_id_list_to_process
+
     # The burst ids, times and geometries can be acquired from the CDSE.
     # We can therefore check if desired products already exist before needing to download the scene
     logger.info(f"Querying CDSE for scene burst ids and metadata")
-    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
-    logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
-
-    # write the geometries to a geojson. Useful for debugging if needed
-    if save_burst_geometries:
-        _burst_id_list = all_scene_burst_info.keys()
-        _burst_geoms_list = [
-            all_scene_burst_info[b]["geometry"] for b in _burst_id_list
-        ]
-        write_burst_geometries_to_geojson(
-            _burst_id_list,
-            _burst_geoms_list,
-            out_folder / f"{scene}_burst_geoms.json",
+    try:
+        cdse_burst_info = get_burst_info_for_scene_from_cdse(scene)
+        logger.info(f"{len(cdse_burst_info)} burst ids found for scene from CDSE API")
+    except CDSEBurstAPIError as e:
+        logger.warning(
+            f"{e}. Burst ids will be read from the downloaded scene instead; "
+            "the check for existing products is deferred until after download."
         )
-
-    # Limit the bursts to be processed if a list has been provided
-    if burst_id_list:
-        logger.info(f"List of bursts to process provided")
-        burst_id_list_candidates = burst_id_list.split(" ")
-        # ensure specified burst in scene SLC
-        bursts_not_in_scene = []
-        for b in burst_id_list_candidates:
-            if b not in list(all_scene_burst_info.keys()):
-                bursts_not_in_scene.append(b)
-        if bursts_not_in_scene:
-            raise ValueError(
-                f"The specified bursts cannot be found in the SLC : {bursts_not_in_scene}. Check input burst ids."
-            )
-    else:
-        logger.info(f"List of bursts not provided, processing all")
-        burst_id_list_candidates = list(all_scene_burst_info.keys())
-
-    logger.info(
-        f"Checking if burst products already exists in S3 for product {product}"
-    )
-    # use the azimuth_time as the reference as this is the
-    # start time that is referred to by the s1_reader/RTC software
-    # https://github.com/isce-framework/s1-reader/blob/main/src/s1reader/s1_reader.py#L1044
-    burst_st_list_candidates = [
-        all_scene_burst_info[id_]["azimuth_time"] for id_ in burst_id_list_candidates
-    ]
-    polarisation_list = [
-        pol
-        for id_ in burst_id_list_candidates
-        for pol in all_scene_burst_info[id_]["pols"]
-    ]
-    polarisation_list = list(set(polarisation_list))
-
-    # return products that don't exist, and early exit if all already exist
-    burst_id_list_to_process = check_burst_product_h5_exists_in_s3(
-        product=product,
-        burst_id_list=burst_id_list_candidates,
-        burst_st_list=burst_st_list_candidates,
-        burst_polarisations=polarisation_list,
-        s3_bucket=s3_bucket,
-        s3_project_folder=s3_project_folder,
-        collection_number=collection_number,
-        make_existing_products=make_existing_products,
-        dem_type=dem_type,
-        static_layer_validity_start_date=static_layer_validity_start_date,
-        early_exit=True,
-        early_exit_code=100,
-    )
-    logger.info(
-        f"Processing {len(burst_id_list_to_process)} bursts for scene : {burst_id_list_to_process}"
-    )
-
-    # to link the RTC_S1_STATIC layers to RTC_S1, the static layers must already exist
-    if link_static_layers and product == "RTC_S1":
-        logger.info(f"Checking static layers exist for bursts in scene : {scene}")
-        # the process will exit early if the required static layers don't exist
-        ensure_static_layers_in_s3(
-            scene=scene,
-            burst_id_list=burst_id_list_to_process,
-            static_layers_s3_bucket=linked_static_layers_s3_bucket,
-            static_layers_collection_number=linked_static_layers_collection_number,
-            static_layers_s3_project_folder=linked_static_layers_s3_project_folder,
-            dem_type=dem_type,
-            static_layer_validity_start_date=static_layer_validity_start_date,
-            early_exit_code=101,
-        )
+        cdse_burst_info = None
+    if cdse_burst_info is not None:
+        burst_id_list_to_process = select_bursts_to_process(cdse_burst_info)
 
     # iterate through the preferences for the scene data source and download the scene
     SCENE_PATH, scene_polygon, input_scene_url = (
@@ -495,6 +480,26 @@ def get_data_for_scene_and_make_run_config(
         orbit_data_source_preferences=orbit_data_sources,
     )
     logger.info(f"File downloaded to : {ORBIT_PATH}")
+
+    # confirm the burst ids against the downloaded scene, as the CDSE ids do not always match
+    logger.info(f"Reading burst ids and metadata from downloaded scene : {SCENE_PATH}")
+    file_burst_info, _ = get_burst_info_and_scene_poly_from_file(
+        scene_path=SCENE_PATH,
+        orbit_path=ORBIT_PATH,
+        swath_list=SENSOR_MODE_SUBSWATHS[sensor_mode],
+    )
+    all_scene_burst_info = resolve_burst_info(cdse_burst_info, file_burst_info)
+    if all_scene_burst_info is not cdse_burst_info:
+        # re-check existing products / static layers against the scene's burst ids
+        burst_id_list_to_process = select_bursts_to_process(all_scene_burst_info)
+
+    # write the geometries to a geojson. Useful for debugging if needed
+    if save_burst_geometries:
+        write_burst_geometries_to_geojson(
+            list(all_scene_burst_info.keys()),
+            [b["geometry"] for b in all_scene_burst_info.values()],
+            out_folder / f"{scene}_burst_geoms.json",
+        )
 
     # get the shape of the area covering the bursts to be processed
     burst_geoms_to_process = [
@@ -855,17 +860,27 @@ def make_metadata_and_upload_bursts(
     Generate STAC metadata for OPERA RTC burst products, reorganise and standardise product filenames,
     build supporting metadata files (STAC JSON, XML, run configuration, checksums),
     and optionally upload each burst’s product set to an S3 bucket following the RTC_S1 or RTC_S1_STATIC storage layout.
-    The function retrieves burst timing information from CDSE, converts HDF5 metadata into STAC items,
+    The function retrieves burst timing information from the downloaded scene, converts HDF5 metadata into STAC items,
     applies optional geometry updates using valid-data masks, creates linked assets and metadata references,
     validates STAC documents if requested, constructs XML metadata for RTC_S1 bursts, computes checksums,
     and handles overwrite rules for pre‑existing S3 content. It also maintains a processed‑scene tracking record and,
     unless disabled, uploads this summary to a monitoring location within the project’s S3 folder structure.
     """
 
-    # query CDSE to get sensing start and sensing end times for bursts to be referenced in the
-    # STAC metadata as the datetimes in the .h5 metadata reference azimuth / zero doppler times
-    logger.info(f"Querying CDSE for scene burst ids and metadata")
-    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
+    # get sensing start and sensing end times for bursts from the downloaded scene to be referenced in
+    # the STAC metadata as the datetimes in the .h5 metadata reference azimuth / zero doppler times
+    with open(run_config_path, "r") as f:
+        input_file_group = YAML(typ="safe").load(f)["runconfig"]["groups"][
+            "input_file_group"
+        ]
+    scene_path = input_file_group["safe_file_path"][0]
+    sensor_mode = Path(scene_path).name.split("_")[1]
+    logger.info(f"Reading burst ids and metadata from downloaded scene : {scene_path}")
+    all_scene_burst_info, _ = get_burst_info_and_scene_poly_from_file(
+        scene_path=scene_path,
+        orbit_path=input_file_group["orbit_file_path"][0],
+        swath_list=SENSOR_MODE_SUBSWATHS[sensor_mode],
+    )
 
     # iterate through the burst directory and create STAC metadata
     logger.info(
