@@ -137,9 +137,7 @@ def compute_rtc_num_workers(
 
     cgroup_memory_limit = get_cgroup_memory_limit_bytes(cgroup_root)
     memory_limit = (
-        cgroup_memory_limit
-        if cgroup_memory_limit is not None
-        else _host_memory_bytes()
+        cgroup_memory_limit if cgroup_memory_limit is not None else _host_memory_bytes()
     )
 
     cpu_workers = math.floor(cpu_limit)
