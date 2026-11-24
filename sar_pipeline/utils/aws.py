@@ -176,9 +176,15 @@ class S3Util:
         upload_folder: bool = False,
         exclude_extensions: list[str] = [],
         exclude_files: list[str] = [],
+        last_suffixes: tuple[str, ...] = (),
     ):
         """Upload the files in a local folder to an S3 bucket. The subfolder
         structure in the specified folder is maintained in s3.
+
+        Files whose name ends with one of `last_suffixes` are uploaded after
+        all other files, in the order the suffixes are given. This allows a
+        file to act as a commit marker: if it exists in s3, every other file
+        in the folder was uploaded before it.
 
         Parameters
         ----------
@@ -197,10 +203,14 @@ class S3Util:
             List of file extensions to exclude, by default []
         exclude_files : list[str], optional
             List of files to exclude, by default []
+        last_suffixes : tuple[str, ...], optional
+            Filename suffixes to upload after all other files, in the order
+            given. By default () and files are uploaded in os.walk order.
         """
 
         logger.info(f"Attempting to upload to S3 bucket : {s3_bucket}")
 
+        local_paths = []
         for root, dirs, files in os.walk(src_folder):
             for file in files:
                 if exclude_extensions:
@@ -209,27 +219,33 @@ class S3Util:
                         continue
                 if file in exclude_files:
                     continue
-                local_path = Path(root) / Path(file)
-                relative_path = Path(os.path.relpath(local_path, src_folder))
-                if not upload_folder:
-                    s3_key = Path(
-                        os.path.join(s3_prefix, relative_path).replace("\\", "/")
-                    )
-                else:
-                    folder = Path(src_folder).name
-                    s3_key = Path(
-                        os.path.join(s3_prefix, folder, relative_path).replace(
-                            "\\", "/"
-                        )
-                    )
-                file_mime_type, _ = mimetypes.guess_type(local_path)
-                self.s3.upload_file(
-                    str(local_path),
-                    str(s3_bucket),
-                    str(s3_key),
-                    ExtraArgs={"ContentType": file_mime_type or "binary/octet-stream"},
+                local_paths.append(Path(root) / Path(file))
+
+        def _upload_rank(local_path: Path) -> int:
+            # files not matching any suffix keep rank 0 and are uploaded first
+            for i, suffix in enumerate(last_suffixes):
+                if local_path.name.endswith(suffix):
+                    return i + 1
+            return 0
+
+        # sorted is stable, so the os.walk order is kept within each rank
+        for local_path in sorted(local_paths, key=_upload_rank):
+            relative_path = Path(os.path.relpath(local_path, src_folder))
+            if not upload_folder:
+                s3_key = Path(os.path.join(s3_prefix, relative_path).replace("\\", "/"))
+            else:
+                folder = Path(src_folder).name
+                s3_key = Path(
+                    os.path.join(s3_prefix, folder, relative_path).replace("\\", "/")
                 )
-                logger.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
+            file_mime_type, _ = mimetypes.guess_type(local_path)
+            self.s3.upload_file(
+                str(local_path),
+                str(s3_bucket),
+                str(s3_key),
+                ExtraArgs={"ContentType": file_mime_type or "binary/octet-stream"},
+            )
+            logger.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
 
     @staticmethod
     def s3_bucket_has_public_read_access(s3_bucket: str) -> bool:

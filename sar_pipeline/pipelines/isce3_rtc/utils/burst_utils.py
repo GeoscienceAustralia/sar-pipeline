@@ -13,7 +13,10 @@ import pandas as pd
 from sar_pipeline.utils.general import log_timing, format_dt_utc
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
 from sar_pipeline.utils.dem import ValidDemType
-from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import REQUIRED_ASSET_FILETYPES
+from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import (
+    REQUIRED_ASSET_FILETYPES,
+    PRODUCT_COMMIT_MARKER_SUFFIX,
+)
 from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     make_rtc_s1_product_s3_prefix,
     make_rtc_s1_static_product_s3_prefix,
@@ -230,7 +233,9 @@ def check_burst_product_h5_exists_in_s3(
 ) -> tuple[list[str], list[str]]:
     """Check if the product already exists in s3. The storage location differs
     for static layers (RTC_S1_STATIC) and backscatter (RTC_S1). This function checks
-    to see if a .h5 file exists for the given product in s3.
+    to see if the product commit marker (the _stac-item.json file, which is
+    uploaded last) exists for the given product in s3. A folder containing other
+    files (e.g. a .h5) but no marker is a partial upload and is treated as missing.
 
     Parameters
     ----------
@@ -294,15 +299,17 @@ def check_burst_product_h5_exists_in_s3(
                 burst_st=burst_st,
                 acquisition_mode=acquisition_mode,
             )
-        # assume the product exists if there is a .h5 file
+        # the product exists only if the commit marker (stac-item.json) exists.
+        # It is uploaded last, so a partial upload (e.g. an .h5 without the
+        # marker) is treated as missing and will be re-made.
         logging.info(f"searching s3 folder : {s3_product_subpath}")
-        product_h5_files = find_s3_filepaths_from_suffixes(
+        product_marker_files = find_s3_filepaths_from_suffixes(
             bucket_name=s3_bucket,
             s3_folder=s3_product_subpath,
-            suffixes=[".h5"],
+            suffixes=[PRODUCT_COMMIT_MARKER_SUFFIX],
             warn_credentials=i == 0,  # only warn on first
         )
-        if len(product_h5_files[".h5"]) > 0:
+        if len(product_marker_files[PRODUCT_COMMIT_MARKER_SUFFIX]) > 0:
             existing_burst_ids.append(burst_id)
             existing_s3_paths.append(s3_product_subpath)
 
