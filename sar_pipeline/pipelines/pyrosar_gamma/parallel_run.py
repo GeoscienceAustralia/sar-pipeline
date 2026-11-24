@@ -393,7 +393,7 @@ def run_jobs(
     try:
         for i, chunk in enumerate(chunks):
             logger.info(
-                f"Processing chunk index {i} of {len(chunks)} with {len(chunk)} scenes."
+                f"Processing chunk index {i} of {len(chunks)} chunk{'s' if len(chunks) > 1 else ''} with {len(chunk)} scenes."
             )
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = [
