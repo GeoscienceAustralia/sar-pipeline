@@ -48,6 +48,7 @@ from sar_pipeline.utils.antimeridian import (
 )
 from sar_pipeline.utils.dem import get_best_dem_type_for_scene, VALID_DEMS, DEM_TYPE_URL
 from sar_pipeline.utils.checksum import PackageChecksum
+from sar_pipeline.utils.stac_schemas import use_local_stac_schemas
 from dem_handler.dem.cop_glo30 import get_cop30_dem_for_bounds
 from dem_handler.dem.rema import get_rema_dem_for_bounds
 from dem_handler.utils.spatial import check_dem_type_in_bounds
@@ -917,6 +918,10 @@ def make_metadata_and_upload_bursts(
     # initialise the S3 utility
     if not skip_upload_to_s3:
         S3UPLOADER = S3Util()
+
+    # validate STAC against the schemas shipped with the package to avoid network requests
+    if validate_stac:
+        use_local_stac_schemas()
 
     for i, burst_folder in enumerate(burst_folders):
         logger.info(

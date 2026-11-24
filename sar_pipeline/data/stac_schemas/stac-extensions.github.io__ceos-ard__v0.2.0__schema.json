@@ -1,0 +1,191 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://stac-extensions.github.io/ceos-ard/v0.2.0/schema.json",
+  "title": "CEOS-ARD Extension",
+  "description": "STAC CEOS-ARD Extension for STAC Items and STAC Collections.",
+  "type": "object",
+  "required": [
+    "stac_extensions"
+  ],
+  "properties": {
+    "stac_extensions": {
+      "type": "array",
+      "contains": {
+        "const": "https://stac-extensions.github.io/ceos-ard/v0.2.0/schema.json"
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "$comment": "This is the schema for STAC Items.",
+      "type": "object",
+      "required": [
+        "type",
+        "properties",
+        "assets"
+      ],
+      "properties": {
+        "type": {
+          "const": "Feature"
+        },
+        "properties": {
+          "$comment": "Require fields here for Item Properties.",
+          "required": [
+            "ceosard:type",
+            "ceosard:specification",
+            "ceosard:specification_version"
+          ],
+          "allOf": [
+            {
+              "$ref": "#/definitions/fields"
+            }
+          ]
+        },
+        "links": {
+          "$ref": "#/definitions/links"
+        }
+      }
+    },
+    {
+      "$comment": "This is the schema for STAC Collections.",
+      "type": "object",
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "Collection"
+        }
+      },
+      "anyOf": [
+        {
+          "$comment": "This is the schema for the top-level fields in a Collection.",
+          "required": [
+            "ceosard:type",
+            "ceosard:specification",
+            "ceosard:specification_version"
+          ],
+          "allOf": [
+            {
+              "$ref": "#/definitions/fields"
+            }
+          ],
+          "properties": {
+            "links": {
+              "$ref": "#/definitions/links"
+            }
+          }
+        },
+        {
+          "$comment": "This is the schema for the fields in Summaries. By default, only checks the existence of the properties, but not the schema of the summaries.",
+          "required": [
+            "summaries"
+          ],
+          "properties": {
+            "summaries": {
+              "anyOf": [
+                {
+                  "required": [
+                    "ceosard:type"
+                  ]
+                },
+                {
+                  "required": [
+                    "ceosard:specification"
+                  ]
+                },
+                {
+                  "required": [
+                    "ceosard:specification_version"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "definitions": {
+    "fields": {
+      "type": "object",
+      "properties": {
+        "ceosard:type": {
+          "type": "string"
+        },
+        "ceosard:specification": {
+          "type": "string"
+        },
+        "ceosard:specification_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+(.\\d+)?$"
+        }
+      },
+      "patternProperties": {
+        "^(?!ceosard:)": {
+          "$comment": "Above, change `ceosard` to the prefix of this extension"
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "ceosard:type": {
+              "type": "string",
+              "const": "optical"
+            },
+            "ceosard:specification": {
+              "type": "string",
+              "enum": [
+                "SR",
+                "ST",
+                "AR",
+                "NLSR"
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "ceosard:type": {
+              "type": "string",
+              "const": "radar"
+            },
+            "ceosard:specification": {
+              "type": "string",
+              "enum": [
+                "NRB",
+                "POL",
+                "ORB",
+                "GSLC"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "links": {
+      "type": "array",
+      "contains": {
+        "type": "object",
+        "required": [
+          "rel",
+          "href"
+        ],
+        "properties": {
+          "rel": {
+            "type": "string",
+            "const": "ceos-ard-specification"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/pdf"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

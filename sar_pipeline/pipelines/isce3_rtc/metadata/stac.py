@@ -48,6 +48,23 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# STAC extensions declared on every burst product
+STAC_EXTENSIONS = [
+    "https://stac-extensions.github.io/classification/v2.0.0/schema.json",
+    "https://stac-extensions.github.io/product/v0.1.0/schema.json",
+    "https://stac-extensions.github.io/sar/v1.1.0/schema.json",
+    "https://stac-extensions.github.io/projection/v2.0.0/schema.json",
+    "https://stac-extensions.github.io/raster/v2.0.0/schema.json",
+    "https://stac-extensions.github.io/sat/v1.1.0/schema.json",
+    "https://stac-extensions.github.io/sentinel-1/v0.2.0/schema.json",
+    "https://stac-extensions.github.io/processing/v1.2.0/schema.json",
+    "https://stac-extensions.github.io/storage/v2.0.0/schema.json",
+]
+# additional STAC extensions declared on RTC_S1 products only
+RTC_S1_STAC_EXTENSIONS = [
+    "https://stac-extensions.github.io/ceos-ard/v0.2.0/schema.json",
+]
+
 
 class BurstH5toStacManager:
     """utility class to convert burst .h5 metadata to a STAC item data"""
@@ -125,21 +142,9 @@ class BurstH5toStacManager:
         )
         self.dem_description = self.h5.search_value("inputs/demSource")
         self.dem_type = self._get_dem_type_from_dem_description(self.dem_description)
-        self.stac_extensions = [
-            "https://stac-extensions.github.io/classification/v2.0.0/schema.json",
-            "https://stac-extensions.github.io/product/v0.1.0/schema.json",
-            "https://stac-extensions.github.io/sar/v1.1.0/schema.json",
-            "https://stac-extensions.github.io/projection/v2.0.0/schema.json",
-            "https://stac-extensions.github.io/raster/v2.0.0/schema.json",
-            "https://stac-extensions.github.io/sat/v1.1.0/schema.json",
-            "https://stac-extensions.github.io/sentinel-1/v0.2.0/schema.json",
-            "https://stac-extensions.github.io/processing/v1.2.0/schema.json",
-            "https://stac-extensions.github.io/storage/v2.0.0/schema.json",
-        ]
+        self.stac_extensions = list(STAC_EXTENSIONS)
         if self.product == "RTC_S1":
-            self.stac_extensions += [
-                "https://stac-extensions.github.io/ceos-ard/v0.2.0/schema.json"
-            ]
+            self.stac_extensions += RTC_S1_STAC_EXTENSIONS
         self.s3_bucket = s3_bucket
         self.s3_project_folder = s3_project_folder
         self.s3_region = s3_region
@@ -1009,7 +1014,7 @@ class BurstH5toStacManager:
 
         try:
             # Send HTTP GET request
-            response = requests.get(burst_static_layer_stac_url)
+            response = requests.get(burst_static_layer_stac_url, timeout=(10, 60))
             # Raise an error if the request failed
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
