@@ -272,15 +272,11 @@ class S3Util:
         for local_path in sorted(local_paths, key=_upload_rank):
             relative_path = Path(os.path.relpath(local_path, src_folder))
             if not upload_folder:
-                s3_key = Path(
-                    os.path.join(s3_prefix, relative_path).replace("\\", "/")
-                )
+                s3_key = Path(os.path.join(s3_prefix, relative_path).replace("\\", "/"))
             else:
                 folder = Path(src_folder).name
                 s3_key = Path(
-                    os.path.join(s3_prefix, folder, relative_path).replace(
-                        "\\", "/"
-                    )
+                    os.path.join(s3_prefix, folder, relative_path).replace("\\", "/")
                 )
             file_mime_type, _ = mimetypes.guess_type(local_path)
             self.s3.upload_file(
