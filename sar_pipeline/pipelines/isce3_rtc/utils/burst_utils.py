@@ -5,12 +5,12 @@ import shapely
 from shapely.geometry import Polygon, MultiPolygon
 from typing import Optional, Literal
 import sys
-import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 import pandas as pd
 
 from sar_pipeline.utils.general import log_timing, format_dt_utc
+from sar_pipeline.utils.http_retry import cdse_get
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes
 from sar_pipeline.utils.dem import ValidDemType
 from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import REQUIRED_ASSET_FILETYPES
@@ -24,6 +24,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 ValidBurstProducts = Literal["IW_SLC__1S", "EW_SLC__1S"]
+
+CDSE_BURSTS_URL = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
 
 
 def get_burst_info_for_scene_from_asf(
@@ -120,7 +122,10 @@ def get_burst_info_for_scene_from_asf(
 
 
 def get_burst_info_for_scene_from_cdse(
-    scene: str, burst_prefix: str = "t", lowercase: bool = True
+    scene: str,
+    burst_prefix: str = "t",
+    lowercase: bool = True,
+    base_url: str = CDSE_BURSTS_URL,
 ) -> dict[str, dict[str, str | datetime | shapely.geometry.Polygon]]:
     """Get the burst ids, start time, azimuth_time, end_time, polarisations and
     geometries for a scene from ASF. Return as a dictionary of bursts as the keys,
@@ -138,11 +143,15 @@ def get_burst_info_for_scene_from_cdse(
         070_149822_IW3 -> t070_149822_IW3 with burst_prefix = 't'.
     lowercase: bool
         convert the burst to lowercase. default to True to match workflow output.
+    base_url : str
+        The CDSE OData bursts endpoint.
 
     Raises
     -------
     FileExistsError:
         The scene does not exist on the CDSE.
+    requests.RequestException:
+        The CDSE could not be queried after retries (e.g. throttling, timeout).
 
     Returns
     -------
@@ -162,13 +171,12 @@ def get_burst_info_for_scene_from_cdse(
         }
     """
 
-    base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
     # one products per burst+pol, set this value high to be safe.
     query = f"$filter=ParentProductName eq '{scene}.SAFE'&$top=500"
     url = f"{base_url}?{query}"
 
-    response = requests.get(url)
-    response.raise_for_status()  # Raise error for bad responses
+    # bounded request with retries for throttling. Raises for bad responses
+    response = cdse_get(url)
 
     results = response.json().get("value", [])
     burst_info = {}
@@ -487,8 +495,7 @@ def _make_chunk_cdse_request(
     for poly_wkt in polygons_filters:
         query = base_query + poly_wkt + "&$orderby=ContentDate/Start desc&$top=1000"
         url = f"{base_url}?{query}"
-        r = requests.get(url)
-        r.raise_for_status()
+        r = cdse_get(url)
         all_results.extend(r.json().get("value", []))
 
     return all_results
@@ -548,7 +555,7 @@ def query_cdse_for_bursts_in_period(
 
     logging.info(f"Querying CDSE for bursts between : {start_dt} and {end_dt}")
 
-    base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Bursts"
+    base_url = CDSE_BURSTS_URL
 
     chunk = timedelta(minutes=chunk_query_minutes)
     overlap = timedelta(seconds=query_overlap_seconds)
