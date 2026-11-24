@@ -1,8 +1,10 @@
 import click
+import json
 import logging
 from pathlib import Path
 import shapely
 import rasterio
+import re
 
 from sar_pipeline.preparation.downloads.scenes import (
     download_scene_from_preference_list_with_timeout,
@@ -39,6 +41,11 @@ from sar_pipeline.utils.post_processing import (
 from sar_pipeline.pipelines.pyrosar_gamma.metadata.stac import GammaNRBtoSTAC
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes, S3Util
 from sar_pipeline.utils.checksum import PackageChecksum
+
+from sar_pipeline.pipelines.pyrosar_gamma.metadata.filetypes import (
+    DEFAULT_EXTRA_PRODUCTS,
+    AVAILABLE_EXTRA_PRODUCTS,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -135,6 +142,15 @@ PROJECT_ROOT = CURRENT_DIR.parents[3]
     help="The scaling convention for the geocoded output. Default is 'both', which rescales the values using linear and decibel scaling.",
 )
 @click.option(
+    "--extra-products",
+    required=False,
+    type=str,
+    default=",".join(DEFAULT_EXTRA_PRODUCTS),
+    help=f"Extra products to generate. The passes argument should be the list of extra products separated by commas. E.g. `--extra-products 'inc_geo,dem_seg_geo'`. "
+    f"If not specified, all extra products will be generated. The default is all extra products: {','.join(DEFAULT_EXTRA_PRODUCTS)}."
+    f"Available extra products are: {','.join(AVAILABLE_EXTRA_PRODUCTS)}. The code will raise an error if an invalid extra product is specified.",
+)
+@click.option(
     "etad",
     "--etad",
     required=False,
@@ -175,6 +191,7 @@ def run_pyrosar_gamma_workflow(
     gamma_env,
     geocode_spacing,
     geocode_scaling,
+    extra_products,
     etad,
     make_folders,
     dotenv_location,
@@ -211,6 +228,13 @@ def run_pyrosar_gamma_workflow(
     logger.info(f"Downloading data for scene : {scene}")
     logger.info(f"Data source for scene download : {scene_data_source}")
     logger.info(f"Data source for orbit download : {orbit_data_source}")
+
+    # Parse extra products
+    extra_products = extra_products.split(",")
+    assert all(
+        x in AVAILABLE_EXTRA_PRODUCTS for x in extra_products
+    ), f"Invalid extra products specified. Valid options are {AVAILABLE_EXTRA_PRODUCTS}"
+    logger.info(f"Extra products to generate: {extra_products}")
 
     # sub-folders for downloads
     orbit_folder = download_folder / "orbits" / scene
@@ -365,6 +389,7 @@ def run_pyrosar_gamma_workflow(
         geocode_spacing=geocode_spacing,
         geocode_scaling=geocode_scaling,
         etad=etad,
+        extra_products=extra_products,
     )
 
     # Check file projection and compare to target projection
@@ -510,6 +535,24 @@ def run_pyrosar_gamma_workflow(
     help="The folder within the project’s S3 folder structure to upload the processed scene tracking file. "
     "final path will : {processed_scene_tracking_file_s3_folder}/{acquisition_mode}/processed_scenes ",
 )
+@click.option(
+    "--geocode-scaling",
+    required=False,
+    type=click.Choice(
+        ["linear", "db", "both"],
+    ),
+    default="both",
+    help="The scaling convention for the geocoded output. Default is 'both', which rescales the values using linear and decibel scaling.",
+)
+@click.option(
+    "--extra-products",
+    required=False,
+    type=str,
+    default=",".join(DEFAULT_EXTRA_PRODUCTS),
+    help=f"Extra products to generate. The passes argument should be the list of extra products separated by commas. E.g. `--extra-products 'inc_geo,dem_seg_geo'`. "
+    f"If not specified, all extra products will be generated. The default is all extra products: {','.join(DEFAULT_EXTRA_PRODUCTS)}."
+    f"Available extra products are: {','.join(AVAILABLE_EXTRA_PRODUCTS)}. The code will raise an error if an invalid extra product is specified.",
+)
 @log_timing
 def make_metadata_and_upload_product(
     results_folder,
@@ -525,6 +568,8 @@ def make_metadata_and_upload_product(
     product_version,
     orbit_source_folder,
     processed_scene_tracking_file_s3_folder,
+    geocode_scaling,
+    extra_products,
 ):
     """
     Generate STAC metadata for pyroSAR-GAMMA products, reorganise and standardise product filenames,
@@ -599,6 +644,8 @@ def make_metadata_and_upload_product(
         s3_bucket=s3_bucket,
         orbit_source=orbit_source,
         s3_project_folder=s3_project_folder,
+        geocode_scaling=geocode_scaling,
+        extra_products=extra_products,
     )
 
     stac_object.make_stac_item()
