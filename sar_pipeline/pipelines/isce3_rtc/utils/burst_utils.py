@@ -1,6 +1,8 @@
 import asf_search
 from datetime import datetime, timedelta
+import json
 import logging
+from pathlib import Path
 import shapely
 from shapely.geometry import Polygon, MultiPolygon
 from typing import Optional, Literal
@@ -211,6 +213,82 @@ def get_burst_info_for_scene_from_cdse(
             f"Input scene : {scene}"
         )
 
+    return burst_info
+
+
+BURST_INFO_JSON_VERSION = 1
+_BURST_INFO_TIME_KEYS = ("azimuth_time", "start_time", "end_time")
+
+
+def write_burst_info_json(
+    burst_info: dict[str, dict], path: str | Path, source: str = "CDSE"
+) -> Path:
+    """Write burst info (as returned by `get_burst_info_for_scene_from_cdse`)
+    to a json file so later stages can reuse it without querying the CDSE again.
+
+    Parameters
+    ----------
+    burst_info : dict[str, dict]
+        Mapping of burst ids to azimuth_time, start_time, end_time, geometry and pols.
+    path : str | Path
+        Path of the json file to write.
+    source : str, optional
+        Where the burst info was retrieved from, by default "CDSE".
+
+    Returns
+    -------
+    Path
+        Path to the written json file.
+    """
+    bursts = {}
+    for burst_id, info in burst_info.items():
+        bursts[burst_id] = {
+            **{k: info[k].isoformat() for k in _BURST_INFO_TIME_KEYS},
+            "geometry": shapely.geometry.mapping(info["geometry"]),
+            "pols": list(info["pols"]),
+        }
+    path = Path(path)
+    with path.open("w") as f:
+        json.dump(
+            {"version": BURST_INFO_JSON_VERSION, "source": source, "bursts": bursts},
+            f,
+            indent=2,
+        )
+    return path
+
+
+def read_burst_info_json(path: str | Path) -> dict[str, dict]:
+    """Read burst info written by `write_burst_info_json`.
+
+    Parameters
+    ----------
+    path : str | Path
+        Path to the json file.
+
+    Returns
+    -------
+    dict[str, dict]
+        Mapping of burst ids to azimuth_time, start_time, end_time (datetime),
+        geometry (shapely) and pols, matching `get_burst_info_for_scene_from_cdse`.
+
+    Raises
+    ------
+    ValueError
+        If the json version is not supported.
+    """
+    with Path(path).open("r") as f:
+        data = json.load(f)
+    if data.get("version") != BURST_INFO_JSON_VERSION:
+        raise ValueError(
+            f"Unsupported burst info json version {data.get('version')} in {path}"
+        )
+    burst_info = {}
+    for burst_id, info in data["bursts"].items():
+        burst_info[burst_id] = {
+            **{k: datetime.fromisoformat(info[k]) for k in _BURST_INFO_TIME_KEYS},
+            "geometry": shapely.geometry.shape(info["geometry"]),
+            "pols": list(info["pols"]),
+        }
     return burst_info
 
 

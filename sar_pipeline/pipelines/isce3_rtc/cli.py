@@ -24,6 +24,8 @@ from sar_pipeline.pipelines.isce3_rtc.utils.burst_utils import (
     ensure_static_layers_in_s3,
     check_burst_product_h5_exists_in_s3,
     get_burst_info_for_scene_from_cdse,
+    write_burst_info_json,
+    read_burst_info_json,
 )
 
 from sar_pipeline.pipelines.isce3_rtc.utils.config_manager import RTCConfigManager
@@ -61,6 +63,10 @@ from sar_pipeline.analysis.compare_cog import compare_cog_stats
 
 # TODO add "EW" mode to list when capability added
 VALID_SENSOR_MODES = ["IW"]
+
+# burst info saved to the out folder by get_data_for_scene_and_make_run_config
+# and reused by make_metadata_and_upload_bursts
+BURST_INFO_FILENAME = "{scene}_burst_info.json"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -395,6 +401,12 @@ def get_data_for_scene_and_make_run_config(
     logger.info(f"Querying CDSE for scene burst ids and metadata")
     all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
     logger.info(f"{len(all_scene_burst_info)} burst ids found for scene from CDSE API")
+
+    # save the burst info so the metadata stage can reuse it without querying the CDSE again
+    burst_info_path = write_burst_info_json(
+        all_scene_burst_info, out_folder / BURST_INFO_FILENAME.format(scene=scene)
+    )
+    logger.info(f"Burst info for scene saved to : {burst_info_path}")
 
     # write the geometries to a geojson. Useful for debugging if needed
     if save_burst_geometries:
@@ -732,6 +744,33 @@ def get_data_for_scene_and_make_run_config(
     RTC_RUN_CONFIG.save(run_config_save_path)
 
 
+def _load_scene_burst_info(scene: str, results_folder: Path) -> dict[str, dict]:
+    """Load the burst info for a scene. Uses the json saved to the results folder by
+    get_data_for_scene_and_make_run_config if it exists, otherwise queries the CDSE.
+
+    Parameters
+    ----------
+    scene : str
+        scene id. E.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
+    results_folder : Path
+        Folder containing the burst outputs and the saved burst info json.
+
+    Returns
+    -------
+    dict[str, dict]
+        Burst info as returned by get_burst_info_for_scene_from_cdse.
+    """
+    burst_info_path = Path(results_folder) / BURST_INFO_FILENAME.format(scene=scene)
+    if burst_info_path.exists():
+        logger.info(f"Reading scene burst ids and metadata from : {burst_info_path}")
+        return read_burst_info_json(burst_info_path)
+    logger.info(
+        f"Burst info file not found at {burst_info_path}. "
+        "Querying CDSE for scene burst ids and metadata"
+    )
+    return get_burst_info_for_scene_from_cdse(scene)
+
+
 @click.command()
 @click.option(
     "--results-folder",
@@ -862,10 +901,9 @@ def make_metadata_and_upload_bursts(
     unless disabled, uploads this summary to a monitoring location within the project’s S3 folder structure.
     """
 
-    # query CDSE to get sensing start and sensing end times for bursts to be referenced in the
+    # get sensing start and sensing end times for bursts to be referenced in the
     # STAC metadata as the datetimes in the .h5 metadata reference azimuth / zero doppler times
-    logger.info(f"Querying CDSE for scene burst ids and metadata")
-    all_scene_burst_info = get_burst_info_for_scene_from_cdse(scene)
+    all_scene_burst_info = _load_scene_burst_info(scene, results_folder)
 
     # iterate through the burst directory and create STAC metadata
     logger.info(
