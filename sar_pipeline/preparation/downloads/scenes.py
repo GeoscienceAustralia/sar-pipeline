@@ -11,6 +11,8 @@ import re
 import shutil
 import tempfile
 import multiprocessing
+import inspect
+import signal
 import sys
 from cdsetool.query import query_features, FeatureQuery
 from cdsetool.credentials import Credentials
@@ -842,68 +844,211 @@ def download_scene_from_preference_list(
     return SCENE_PATH, scene_polygon, scene_url
 
 
+# Seconds to wait after SIGTERM before SIGKILL when stopping a download process
+_KILL_GRACE_SECONDS = 5
+
+# Signature used to find the scene and download folder in the arguments passed
+# to download_scene_from_preference_list_with_timeout
+_PREFERENCE_LIST_SIGNATURE = inspect.signature(download_scene_from_preference_list)
+
+
+def _download_scene_in_child_process(conn, args: tuple, kwargs: dict) -> None:
+    """Target for the child process that downloads a scene from a single source.
+    The result, or the raised exception, is sent back to the parent through `conn`.
+    """
+    # Lead a new process group so the parent can kill this process and all of
+    # its descendants on timeout. This includes the `shell=True` subprocesses
+    # used for pygssearch (AUS_COP_HUB), which would otherwise be orphaned and
+    # keep downloading after this process is killed.
+    os.setpgrp()
+    try:
+        payload = ("ok", download_scene_from_preference_list(*args, **kwargs))
+    except BaseException as e:
+        payload = ("error", e)
+    try:
+        conn.send(payload)
+    except Exception:
+        # the result or exception could not be pickled, send a description instead
+        conn.send(
+            (
+                "error",
+                SceneDownloadError(
+                    f"Could not return the result of the download process : {payload[1]!r}"
+                ),
+            )
+        )
+    finally:
+        conn.close()
+
+
+def _kill_process_group(process) -> None:
+    """Stop a download process and every process in its process group."""
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        try:
+            os.killpg(process.pid, sig)
+        except (ProcessLookupError, PermissionError):
+            # group already gone (or not yet created), fall back to the process itself
+            if process.is_alive():
+                process.kill()
+        if sig == signal.SIGTERM:
+            process.join(_KILL_GRACE_SECONDS)
+    process.join()
+
+
+def _run_single_source_download_with_timeout(
+    timeout_seconds: float, args: tuple, kwargs: dict
+):
+    """Run `download_scene_from_preference_list` in a child process and return
+    its result. Raises SceneDownloadTimeoutError if it does not finish in time.
+    """
+    # Use fork explicitly so behaviour does not depend on the default start
+    # method of the Python version (forkserver from Python 3.14). Forking also
+    # means patched functions in tests propagate to the child process.
+    ctx = multiprocessing.get_context("fork")
+    parent_conn, child_conn = ctx.Pipe(duplex=False)
+    process = ctx.Process(
+        target=_download_scene_in_child_process,
+        args=(child_conn, args, kwargs),
+        daemon=True,
+    )
+    process.start()
+    child_conn.close()
+    try:
+        if not parent_conn.poll(timeout_seconds):
+            raise SceneDownloadTimeoutError(
+                f"Scene download timed out after {timeout_seconds / 60:g} minutes."
+            )
+        try:
+            status, payload = parent_conn.recv()
+        except EOFError:
+            process.join(_KILL_GRACE_SECONDS)
+            raise SceneDownloadError(
+                f"Download process exited without a result (exit code {process.exitcode})"
+            )
+        if status == "error":
+            if isinstance(payload, Exception):
+                raise payload
+            raise SceneDownloadError(f"Download process failed : {payload!r}")
+        # let the child exit cleanly before cleaning up any leftover descendants
+        process.join(_KILL_GRACE_SECONDS)
+        return payload
+    finally:
+        _kill_process_group(process)
+        parent_conn.close()
+
+
+def _partial_scene_paths(scene: str, download_folder: Path) -> set[Path]:
+    """Files and folders that a scene download attempt may leave behind if it
+    is stopped part way through. A completed .SAFE is not included as it only
+    appears once extraction has finished (see `_unzip_scene`) and can be reused.
+    """
+    download_folder = Path(download_folder)
+    paths = {
+        download_folder / f"{scene}.zip",  # AUS_COP_HUB and ASF
+        download_folder / f"{scene}.SAFE.zip",  # CDSE
+    }
+    # temporary extraction folders created by _unzip_scene
+    paths.update(download_folder.glob(".extracting_*"))
+    return {p for p in paths if p.exists()}
+
+
+def _remove_new_partial_scene_files(
+    scene: str, download_folder: Path, existing_paths: set[Path]
+) -> None:
+    """Remove partial files created by a failed or stopped download attempt.
+    AUS_COP_HUB and ASF both download to `{scene}.zip`, so a partial zip left by
+    one source would otherwise be picked up by the next as an existing download.
+    Paths that existed before the attempt (e.g. pre-staged inputs) are kept.
+    """
+    for path in _partial_scene_paths(scene, download_folder) - existing_paths:
+        logger.info(f"Removing partial download : {path}")
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            path.unlink(missing_ok=True)
+
+
 def download_scene_from_preference_list_with_timeout(
     scene_data_source_preferences: list,
-    timeout_mins: int = 60,
+    timeout_mins: float = 60,
     early_exit_code: int | None = 102,
     *args,
     **kwargs,
 ):
     """
-    Run `download_scene_from_preference_list` with a timeout. Each
-    source is allowed timeout minutes.
+    Run `download_scene_from_preference_list` for each data source in order
+    of preference until the scene is downloaded. Each source is run in its own
+    process and allowed `timeout_mins` minutes. If a source fails or times out,
+    its process (and any subprocesses) is stopped, partial files it created are
+    removed and the next source is tried.
 
     Parameters
     ----------
     scene_data_source_preferences:
         preference list of data sources to try
-    timeout_mins : int
-        Maximum number of minutes before timing out.
+    timeout_mins : float
+        Maximum number of minutes allowed for each data source.
     early_exit_code:
-        If a specific exit code should be raised on timeout
+        If a specific exit code should be raised when all sources fail and at
+        least one of them timed out.
     *args, **kwargs
         Passed directly to `download_scene_from_preference_list`.
+
+    Returns
+    -------
+    tuple[Path, shapely.geometry.shape, str]
+        The Path to the downloaded scene, the scene geometry and scene url
 
     Raises
     ------
     SceneDownloadTimeoutError
-        If the download takes longer than the timeout.
+        If all sources fail, at least one timed out and early_exit_code is None.
+    SceneDownloadError
+        If all sources fail without timing out.
     """
     timeout_seconds = timeout_mins * 60
-    current_sources = list(scene_data_source_preferences)  # avoid mutating caller list
+    sources = list(scene_data_source_preferences)  # avoid mutating caller list
+    if not sources:
+        raise ValueError("At least one scene data source must be provided")
 
-    with multiprocessing.Pool(processes=1) as pool:
-        async_result = pool.apply_async(
-            download_scene_from_preference_list,
-            args,
-            dict(kwargs, scene_data_source_preferences=current_sources),
+    bound_args = _PREFERENCE_LIST_SIGNATURE.bind(
+        *args, **dict(kwargs, scene_data_source_preferences=sources)
+    ).arguments
+    scene = bound_args["scene"]
+    download_folder = Path(bound_args["download_folder"])
+
+    timed_out_sources = []
+    last_error = None
+    for i, source in enumerate(sources):
+        logger.info(
+            f"Attempting to download scene from preference {i+1} of {len(sources)} : "
+            f"{source} (timeout {timeout_mins:g} minutes)"
         )
+        existing_paths = _partial_scene_paths(scene, download_folder)
         try:
-            return async_result.get(timeout=timeout_seconds)
+            return _run_single_source_download_with_timeout(
+                timeout_seconds,
+                args,
+                dict(kwargs, scene_data_source_preferences=[source]),
+            )
+        except SceneDownloadTimeoutError as e:
+            logger.error(f"Scene download from {source} timed out : {e}")
+            timed_out_sources.append(source)
+            last_error = e
+        except Exception as e:
+            logger.error(f"Scene download from {source} failed : {e!r}")
+            last_error = e
+        _remove_new_partial_scene_files(scene, download_folder, existing_paths)
 
-        except multiprocessing.context.TimeoutError:
-            msg = f"Scene download timed out after {timeout_mins} minutes."
-            error = SceneDownloadTimeoutError(msg)
-            logger.exception(error)
-
-            # Always terminate the stuck worker
-            pool.terminate()
-            pool.join()
-
-            if len(current_sources) > 1:
-                # Try again with the first option removed
-                logger.info(
-                    f"Removing preference '{current_sources[0]}' from list and retrying download"
-                )
-                return download_scene_from_preference_list_with_timeout(
-                    scene_data_source_preferences=current_sources[1:],
-                    timeout_mins=timeout_mins,
-                    early_exit_code=early_exit_code,
-                    *args,
-                    **kwargs,
-                )
-            else:
-                # All options exhausted
-                if early_exit_code is not None:
-                    sys.exit(early_exit_code)
-                raise error
+    if timed_out_sources:
+        error = SceneDownloadTimeoutError(
+            f"Scene could not be downloaded from any data source provided : {sources}. "
+            f"Sources that timed out after {timeout_mins:g} minutes : {timed_out_sources}"
+        )
+        logger.error(error)
+        if early_exit_code is not None:
+            sys.exit(early_exit_code)
+        raise error from last_error
+    raise SceneDownloadError(
+        f"Scene could not be downloaded from any data source provided : {sources}"
+    ) from last_error
