@@ -1,5 +1,14 @@
 import pystac
 
+# A burst product is considered to exist in S3 only if this file is present.
+# It is uploaded last (see UPLOAD_LAST_SUFFIXES), so its presence implies the
+# rest of the product folder was uploaded. It is also the file whose upload
+# triggers downstream STAC indexing.
+PRODUCT_COMMIT_MARKER_SUFFIX = "_stac-item.json"
+
+# Files uploaded after all other product files, in this order.
+UPLOAD_LAST_SUFFIXES = ("_metadata.h5", PRODUCT_COMMIT_MARKER_SUFFIX)
+
 RENAME_ASSET_FILETYPES = {
     "_mask.tif": "_mask.tif",
     "_number_of_looks.tif": "_number-of-looks.tif",

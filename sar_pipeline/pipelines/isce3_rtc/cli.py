@@ -35,6 +35,10 @@ from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     make_rtc_s1_static_product_browse_url,
 )
 from sar_pipeline.pipelines.isce3_rtc.metadata.xml import XMLMapper
+from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import (
+    PRODUCT_COMMIT_MARKER_SUFFIX,
+    UPLOAD_LAST_SUFFIXES,
+)
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes, S3Util
 from sar_pipeline.utils.general import log_timing
 from sar_pipeline.utils.spatial import (
@@ -1048,14 +1052,14 @@ def make_metadata_and_upload_bursts(
                 f"Checking if product already exist before uploading for burst : {burst_stac_manager.burst_id}"
             )
             logger.info(
-                f"Searching for .h5 file in : {burst_stac_manager.burst_s3_product_folder}"
+                f"Searching for {PRODUCT_COMMIT_MARKER_SUFFIX} file in : {burst_stac_manager.burst_s3_product_folder}"
             )
-            product_h5_file = find_s3_filepaths_from_suffixes(
+            product_marker_file = find_s3_filepaths_from_suffixes(
                 bucket_name=s3_bucket,
                 s3_folder=burst_stac_manager.burst_s3_product_folder,
-                suffixes=[".h5"],
+                suffixes=[PRODUCT_COMMIT_MARKER_SUFFIX],
             )
-            if len(product_h5_file[".h5"]) > 0:
+            if len(product_marker_file[PRODUCT_COMMIT_MARKER_SUFFIX]) > 0:
                 logger.warning("The burst product already exists.")
                 if not make_existing_products:
                     logging.info(
@@ -1071,8 +1075,13 @@ def make_metadata_and_upload_bursts(
                     )
 
             logger.info(f"uploading files for {burst_stac_manager.burst_id} to S3.")
+            # upload the .h5 and then the stac-item.json (commit marker) last so
+            # a partial upload is never mistaken for a complete product
             S3UPLOADER.push_files_in_folder_to_s3(
-                burst_folder, s3_bucket, burst_stac_manager.burst_s3_product_folder
+                burst_folder,
+                s3_bucket,
+                burst_stac_manager.burst_s3_product_folder,
+                last_suffixes=UPLOAD_LAST_SUFFIXES,
             )
             logger.info(
                 f"Browse link for burst products : {burst_stac_manager.burst_product_browse_url}"
