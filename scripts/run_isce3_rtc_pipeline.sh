@@ -22,9 +22,10 @@ skip_upload_processed_scene_tracking_file=false
 skip_rtc=false
 processed_scene_tracking_file_s3_folder="projects/s1_nrb/monitoring"
 ## -- RTC PARALLELISM (empty = use the python cli defaults) --
-# num_workers : "auto" (size from container cgroup cpu/memory limits) or a positive integer
+# num_workers : "auto" (size from container cgroup cpu/memory limits), 0 (let RTC choose) or a positive integer
 num_workers=""
 rtc_memory_per_burst_gib=""
+rtc_memory_reserve_gib=""
 ## -- WORKFLOW INPUTS TO LINK RTC_S1_STATIC in RTC_S1 metadata--
 # if link_static_layers, RTC_S1_STATIC products must exist for all RTC_S1 bursts being processed
 link_static_layers=false
@@ -93,6 +94,7 @@ while [[ "$#" -gt 0 ]]; do
         --skip-rtc) skip_rtc=true; shift ;;
         --num-workers) num_workers="$2"; shift 2 ;;
         --rtc-memory-per-burst-gib) rtc_memory_per_burst_gib="$2"; shift 2 ;;
+        --rtc-memory-reserve-gib) rtc_memory_reserve_gib="$2"; shift 2 ;;
         --burst-id-list)
             shift
             if [[ $# -eq 1 && -f "$1" ]]; then
@@ -164,6 +166,7 @@ echo processed-scene-tracking-file-s3-folder : "$processed_scene_tracking_file_s
 echo skip-rtc : "$skip_rtc"
 echo num-workers : "${num_workers:-default (auto)}"
 echo rtc-memory-per-burst-gib : "${rtc_memory_per_burst_gib:-default}"
+echo rtc-memory-reserve-gib : "${rtc_memory_reserve_gib:-default}"
 
 # warn the user about linking static layers
 if [[ "$link_static_layers" = true && "$product" = "RTC_S1" ]]; then
@@ -255,6 +258,9 @@ if [[ -n "$num_workers" ]]; then
 fi
 if [[ -n "$rtc_memory_per_burst_gib" ]]; then
     cmd+=(--rtc-memory-per-burst-gib "$rtc_memory_per_burst_gib")
+fi
+if [[ -n "$rtc_memory_reserve_gib" ]]; then
+    cmd+=(--rtc-memory-reserve-gib "$rtc_memory_reserve_gib")
 fi
 
 # Conditionally add --burst_id_list only if burst_id_list is non-empty

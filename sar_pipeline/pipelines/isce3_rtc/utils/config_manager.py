@@ -75,13 +75,17 @@ class RTCConfigManager:
         data[keys[-1]] = value  # Set the final key
 
     def set_num_workers(self, num_workers: int):
-        """Set the number of parallel burst workers used by RTC. Must be a positive
-        integer. Leaving the RTC default of 0 makes RTC use os.cpu_count(), which
-        is the host core count when running in a container."""
+        """Set the number of parallel burst workers used by RTC. Must be a
+        non-negative integer. 0 leaves RTC to choose, which falls back to
+        os.cpu_count(), the host core count when running in a container."""
         if isinstance(num_workers, bool) or not isinstance(num_workers, int):
-            raise ValueError(f"num_workers must be a positive integer : {num_workers}")
-        if num_workers < 1:
-            raise ValueError(f"num_workers must be a positive integer : {num_workers}")
+            raise ValueError(
+                f"num_workers must be a non-negative integer : {num_workers}"
+            )
+        if num_workers < 0:
+            raise ValueError(
+                f"num_workers must be a non-negative integer : {num_workers}"
+            )
         self.set(NUM_WORKERS_KEY, num_workers)
 
     def save(self, save_path):

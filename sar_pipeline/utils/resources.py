@@ -18,6 +18,9 @@ DEFAULT_CGROUP_ROOT = Path("/sys/fs/cgroup")
 # cgroup v1 reports "no limit" as a very large number (e.g. 9223372036854771712)
 CGROUP_V1_UNLIMITED_THRESHOLD = 2**60
 GIB = 1024**3
+# memory kept back for the parent rtc_s1.py process and anything else in the
+# container before the rest is divided between burst workers
+DEFAULT_MEMORY_RESERVE_GIB = 2.0
 
 
 def _read_text(path: Path) -> str | None:
@@ -107,6 +110,7 @@ def _host_memory_bytes() -> int:
 def compute_rtc_num_workers(
     memory_per_worker_gib: float,
     cgroup_root: Path = DEFAULT_CGROUP_ROOT,
+    memory_reserve_gib: float = DEFAULT_MEMORY_RESERVE_GIB,
 ) -> int:
     """Compute the number of parallel RTC burst workers that fit in the
     CPU and memory available to the container.
@@ -123,6 +127,9 @@ def compute_rtc_num_workers(
         Peak memory expected for a single burst worker in GiB.
     cgroup_root : Path, optional
         Root of the cgroup filesystem, by default /sys/fs/cgroup.
+    memory_reserve_gib : float, optional
+        Memory (GiB) kept back for the parent RTC process before dividing the
+        rest between workers, by default DEFAULT_MEMORY_RESERVE_GIB.
 
     Returns
     -------
@@ -131,6 +138,8 @@ def compute_rtc_num_workers(
     """
     if memory_per_worker_gib <= 0:
         raise ValueError("memory_per_worker_gib must be greater than 0")
+    if memory_reserve_gib < 0:
+        raise ValueError("memory_reserve_gib must not be negative")
 
     cgroup_cpu_limit = get_cgroup_cpu_limit(cgroup_root)
     cpu_limit = cgroup_cpu_limit if cgroup_cpu_limit is not None else _host_cpu_count()
@@ -141,7 +150,8 @@ def compute_rtc_num_workers(
     )
 
     cpu_workers = math.floor(cpu_limit)
-    memory_workers = math.floor(memory_limit / (memory_per_worker_gib * GIB))
+    usable_memory = max(0, memory_limit - memory_reserve_gib * GIB)
+    memory_workers = math.floor(usable_memory / (memory_per_worker_gib * GIB))
     num_workers = max(1, min(cpu_workers, memory_workers))
 
     logger.info(
@@ -149,6 +159,7 @@ def compute_rtc_num_workers(
         f"CPU limit : {cpu_limit} ({'cgroup' if cgroup_cpu_limit is not None else 'host'}), "
         f"memory limit : {memory_limit / GIB:.2f} GiB "
         f"({'cgroup' if cgroup_memory_limit is not None else 'host'}), "
+        f"memory reserve : {memory_reserve_gib} GiB, "
         f"memory per worker : {memory_per_worker_gib} GiB"
     )
     return num_workers
@@ -158,20 +169,34 @@ def resolve_rtc_num_workers(
     num_workers: str | int,
     memory_per_worker_gib: float,
     cgroup_root: Path = DEFAULT_CGROUP_ROOT,
+    memory_reserve_gib: float = DEFAULT_MEMORY_RESERVE_GIB,
 ) -> int:
-    """Resolve a ``--num-workers`` value of "auto" or a positive integer
-    to the integer number of workers to use."""
+    """Resolve a ``--num-workers`` value to the integer written to the run config.
+
+    "auto" sizes it from the container limits (see compute_rtc_num_workers).
+    0 is passed through unchanged, which leaves RTC to pick the number itself
+    (OMP_NUM_THREADS, then os.cpu_count()), the behaviour before this option
+    existed. Any other value must be a positive integer.
+    """
     if isinstance(num_workers, str) and num_workers.strip().lower() == "auto":
-        return compute_rtc_num_workers(memory_per_worker_gib, cgroup_root)
+        return compute_rtc_num_workers(
+            memory_per_worker_gib, cgroup_root, memory_reserve_gib
+        )
     try:
         value = int(num_workers)
     except (TypeError, ValueError):
         raise ValueError(
-            f"num_workers must be 'auto' or a positive integer, got : {num_workers}"
+            f"num_workers must be 'auto', 0 or a positive integer, got : {num_workers}"
         )
-    if value < 1:
+    if value < 0:
         raise ValueError(
-            f"num_workers must be 'auto' or a positive integer, got : {num_workers}"
+            f"num_workers must be 'auto', 0 or a positive integer, got : {num_workers}"
         )
-    logger.info(f"RTC num_workers set explicitly : {value}")
+    if value == 0:
+        logger.info(
+            "RTC num_workers set to 0 : RTC will pick the number of workers itself "
+            "(OMP_NUM_THREADS, otherwise os.cpu_count())"
+        )
+    else:
+        logger.info(f"RTC num_workers set explicitly : {value}")
     return value
