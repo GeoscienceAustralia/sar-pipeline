@@ -71,9 +71,7 @@ def test_claim_key_is_outside_product_folder():
 
 def test_acquire_new_claim(s3util):
     with Stubber(s3util.s3) as stub:
-        stub.add_response(
-            "put_object", {"ETag": '"new"'}, _put_params(IfNoneMatch="*")
-        )
+        stub.add_response("put_object", {"ETag": '"new"'}, _put_params(IfNoneMatch="*"))
         etag = s3util.acquire_upload_claim(BUCKET, CLAIM_KEY, OWNER, STALE_AFTER)
         stub.assert_no_pending_responses()
     assert etag == '"new"'
@@ -171,9 +169,7 @@ def test_claim_released_while_checking_is_retried(s3util):
             http_status_code=404,
             expected_params=_head_params(),
         )
-        stub.add_response(
-            "put_object", {"ETag": '"new"'}, _put_params(IfNoneMatch="*")
-        )
+        stub.add_response("put_object", {"ETag": '"new"'}, _put_params(IfNoneMatch="*"))
         etag = s3util.acquire_upload_claim(BUCKET, CLAIM_KEY, OWNER, STALE_AFTER)
         stub.assert_no_pending_responses()
     assert etag == '"new"'
