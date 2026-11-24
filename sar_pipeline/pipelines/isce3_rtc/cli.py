@@ -37,6 +37,10 @@ from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
 from sar_pipeline.pipelines.isce3_rtc.metadata.xml import XMLMapper
 from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes, S3Util
 from sar_pipeline.utils.general import log_timing
+from sar_pipeline.utils.resources import (
+    resolve_rtc_num_workers,
+    DEFAULT_MEMORY_RESERVE_GIB,
+)
 from sar_pipeline.utils.spatial import (
     write_burst_geometries_to_geojson,
 )
@@ -64,6 +68,23 @@ VALID_SENSOR_MODES = ["IW"]
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _validate_num_workers(ctx, param, value):
+    """click callback: accept 'auto', 0 or a positive integer for --num-workers"""
+    if value is None or str(value).strip().lower() == "auto":
+        return "auto"
+    try:
+        n = int(str(value).strip())
+    except ValueError:
+        raise click.BadParameter(
+            f"must be 'auto', 0 or a positive integer, got {value}"
+        )
+    if n < 0:
+        raise click.BadParameter(
+            f"must be 'auto', 0 or a positive integer, got {value}"
+        )
+    return n
 
 
 @click.command()
@@ -237,6 +258,40 @@ logger = logging.getLogger(__name__)
     is_flag=True,
     help="Save the burst geometries to a geojson",
 )
+@click.option(
+    "--num-workers",
+    required=False,
+    default="auto",
+    envvar="RTC_NUM_WORKERS",
+    show_default=True,
+    callback=_validate_num_workers,
+    help="Number of parallel burst processes used by RTC (num_workers in the run config). "
+    "'auto' sizes it from the container's cgroup CPU and memory limits, using "
+    "--rtc-memory-per-burst-gib as the expected peak memory of one burst process. "
+    "0 leaves RTC to choose (OMP_NUM_THREADS, otherwise os.cpu_count(), the previous behaviour). "
+    "Otherwise a positive integer. Can also be set with the RTC_NUM_WORKERS environment variable.",
+)
+@click.option(
+    "--rtc-memory-per-burst-gib",
+    required=False,
+    default=8.0,
+    envvar="RTC_MEMORY_PER_BURST_GIB",
+    show_default=True,
+    type=click.FloatRange(min=0, min_open=True),
+    help="Expected peak memory (GiB) of a single RTC burst process. Used when --num-workers is 'auto'. "
+    "Can also be set with the RTC_MEMORY_PER_BURST_GIB environment variable.",
+)
+@click.option(
+    "--rtc-memory-reserve-gib",
+    required=False,
+    default=DEFAULT_MEMORY_RESERVE_GIB,
+    envvar="RTC_MEMORY_RESERVE_GIB",
+    show_default=True,
+    type=click.FloatRange(min=0),
+    help="Memory (GiB) kept back for the parent RTC process before the rest of the "
+    "memory limit is divided between burst processes. Used when --num-workers is 'auto'. "
+    "Can also be set with the RTC_MEMORY_RESERVE_GIB environment variable.",
+)
 @log_timing
 def get_data_for_scene_and_make_run_config(
     scene,
@@ -263,6 +318,9 @@ def get_data_for_scene_and_make_run_config(
     orbit_data_source,
     make_folders,
     save_burst_geometries,
+    num_workers,
+    rtc_memory_per_burst_gib,
+    rtc_memory_reserve_gib,
 ):
     """
     Retrieve all required inputs for RTC_S1 or RTC_S1_STATIC processing, including scene data, orbit files,
@@ -343,6 +401,18 @@ def get_data_for_scene_and_make_run_config(
 
     if backscatter_convention not in ["gamma0", "sigma0", "beta0"]:
         raise ValueError("backscatter_convention must be one of gamma0, sigma0, beta0")
+
+    # Set the number of parallel RTC burst processes. If left at 0, RTC uses
+    # os.cpu_count(), which returns the host core count inside a container. RTC
+    # also forces every child burst process to memory_mode single_block
+    # (RTC rtc_s1.py split_runconfig), so memory per burst is fixed and the
+    # container memory limit is usually the binding constraint.
+    rtc_num_workers = resolve_rtc_num_workers(
+        num_workers,
+        rtc_memory_per_burst_gib,
+        memory_reserve_gib=rtc_memory_reserve_gib,
+    )
+    RTC_RUN_CONFIG.set_num_workers(rtc_num_workers)
 
     try:
         # Query the CDSE to make sure the scene exists
