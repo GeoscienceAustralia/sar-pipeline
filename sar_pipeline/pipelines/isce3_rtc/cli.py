@@ -237,6 +237,16 @@ logger = logging.getLogger(__name__)
     is_flag=True,
     help="Save the burst geometries to a geojson",
 )
+@click.option(
+    "--scene-download-timeout-mins",
+    required=False,
+    default=60,
+    type=float,
+    help="Maximum number of minutes allowed to download the scene from each "
+    "data source in --scene-data-source. If a source times out, it is stopped "
+    "and the next source is tried. If all sources fail and at least one timed "
+    "out, the process exits with code 102.",
+)
 @log_timing
 def get_data_for_scene_and_make_run_config(
     scene,
@@ -263,6 +273,7 @@ def get_data_for_scene_and_make_run_config(
     orbit_data_source,
     make_folders,
     save_burst_geometries,
+    scene_download_timeout_mins,
 ):
     """
     Retrieve all required inputs for RTC_S1 or RTC_S1_STATIC processing, including scene data, orbit files,
@@ -478,7 +489,7 @@ def get_data_for_scene_and_make_run_config(
     # iterate through the preferences for the scene data source and download the scene
     SCENE_PATH, scene_polygon, input_scene_url = (
         download_scene_from_preference_list_with_timeout(
-            timeout_mins=60,
+            timeout_mins=scene_download_timeout_mins,
             early_exit_code=102,
             scene_data_source_preferences=scene_data_sources,
             scene=scene,

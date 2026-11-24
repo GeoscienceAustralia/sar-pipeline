@@ -135,6 +135,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --skip-upload-to-s3=false
 --scene-data-source=("AUS_COP_HUB" "ASF" "CDSE") # order of preference
 --orbit-data-source=("AUS_COP_HUB" "ASF" "CDSE")  # order of preference
+--scene-download-timeout-mins=60 # per scene data source
 --skip-validate-stac=false
 --skip-upload-processed-scene-tracking-file=false
 --skip-rtc=false
@@ -162,6 +163,7 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 - `skip-upload-to-s3` -> Make the products, but skip uploading them to AWS S3.
 - `scene-data-source` -> Where to download the scene SLC file. Can be single string or a list of preferences separated by a space. Supported values are any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
 - `orbit-data-source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
+- `scene-download-timeout-mins` -> The maximum number of minutes allowed to download the scene from each source in `scene-data-source`. If a source times out, its download process (and any subprocesses) is stopped, partial files it created are removed and the next source is tried. If all sources fail and at least one timed out, the workflow exits with code 102. The default is 60.
 - `skip-validate-stac` -> To skip validation of the created STAC doc within the code. If this is not set and the stac is invalid, products will not be uploaded. By default we want to validate the stac.
 - `skip-upload-processed-scene-tracking-file` -> By default a small .json file (`{scene}.json`) is uploaded to a monitoring subfolder of the provided `s3_project_folder`. These can be easily parsed to check for which scenes have been processed. Setting this skips the upload of that file. By default, the file is uploaded to: RTC_S1 -> `{s3_project_folder}/monitoring/processed_scenes` and RTC_S1_STATIC -> `{s3_project_folder}/monitoring/processed_scenes_static_layers` 
 - `link-static-layers` -> Flag to link RTC_S1_STATIC products to RTC_S1 in stac metadata. The RTC_S1_STATIC products must exist for the given bursts. 

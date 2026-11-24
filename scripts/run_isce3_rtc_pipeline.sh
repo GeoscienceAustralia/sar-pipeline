@@ -17,6 +17,7 @@ make_existing_products=false
 skip_upload_to_s3=false
 scene_data_source=("AUS_COP_HUB" "ASF" "CDSE")
 orbit_data_source=("ASF" "CDSE")
+scene_download_timeout_mins="" # if empty, the cli default (60 minutes per data source) is used
 skip_validate_stac=false
 skip_upload_processed_scene_tracking_file=false
 skip_rtc=false
@@ -59,6 +60,7 @@ while [[ "$#" -gt 0 ]]; do
         --linked-static-layers-collection-number) linked_static_layers_collection_number="$2"; shift 2 ;;
         --linked-static-layers-s3-project-folder) linked_static_layers_s3_project_folder="$2"; shift 2 ;;
         --processed-scene-tracking-file-s3-folder) processed_scene_tracking_file_s3_folder="$2"; shift 2 ;;
+        --scene-download-timeout-mins) scene_download_timeout_mins="$2"; shift 2 ;;
         --scene-data-source) 
             scene_data_source=()  # clear the default
             shift
@@ -153,6 +155,7 @@ echo make-existing-products : "$make_existing_products"
 echo skip-upload-to-s3 : "$skip_upload_to_s3"
 echo scene-data-source : ${scene_data_source[*]}
 echo orbit-data-source : ${orbit_data_source[*]}
+echo scene-download-timeout-mins : "${scene_download_timeout_mins:-default}"
 echo skip-validate-stac : "$skip_validate_stac"
 echo processed-scene-tracking-file-s3-folder : "$processed_scene_tracking_file_s3_folder"
 echo skip-rtc : "$skip_rtc"
@@ -222,6 +225,10 @@ fi
 # Conditionally add --orbit-data-source as a list of preferences
 if [[ ${#orbit_data_source[@]} -gt 0 ]]; then
     cmd+=(--orbit-data-source "${orbit_data_source[*]}")
+fi
+# Conditionally add --scene-download-timeout-mins if set
+if [[ -n "$scene_download_timeout_mins" ]]; then
+    cmd+=(--scene-download-timeout-mins "$scene_download_timeout_mins")
 fi
 
 
