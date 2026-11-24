@@ -137,7 +137,9 @@ def _process_gone_or_zombie(pid: int) -> bool:
 
 
 def test_timeout_kills_subprocesses_of_source(tmp_path):
-    result, _ = _run(tmp_path, ["AUS_COP_HUB", "ASF"], {"AUS_COP_HUB": "orphan", "ASF": "ok"})
+    result, _ = _run(
+        tmp_path, ["AUS_COP_HUB", "ASF"], {"AUS_COP_HUB": "orphan", "ASF": "ok"}
+    )
     assert result[2] == f"https://ASF/{SCENE}"
     pid = int((tmp_path / "grandchild.pid").read_text())
     deadline = time.monotonic() + 5
