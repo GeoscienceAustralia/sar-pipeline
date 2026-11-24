@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://stac-extensions.github.io/sentinel-1/v0.2.0/schema.json#",
+  "title": "Sentinel-1 Extension",
+  "description": "STAC Sentinel-1 Extension for STAC Items and STAC Collection Summaries.",
+  "type": "object",
+  "required": [
+    "stac_extensions"
+  ],
+  "properties": {
+    "stac_extensions": {
+      "type": "array",
+      "contains": {
+        "const": "https://stac-extensions.github.io/sentinel-1/v0.2.0/schema.json"
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "$comment": "This is the schema for STAC Items.",
+      "type": "object",
+      "required": [
+        "type",
+        "properties"
+      ],
+      "properties": {
+        "type": {
+          "const": "Feature"
+        },
+        "properties": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/require_any"
+            },
+            {
+              "$ref": "#/definitions/fields"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "$comment": "This is the schema for STAC Collections, or more specifically only Collection Summaries in this case. By default, only checks the existence of the properties, but not the schema of the summaries.",
+      "type": "object",
+      "required": [
+        "type",
+        "summaries"
+      ],
+      "properties": {
+        "type": {
+          "const": "Collection"
+        },
+        "summaries": {
+          "$ref": "#/definitions/require_any"
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "require_any": {
+      "$comment": "Please list all fields here so that we can force the existence of one of them in other parts of the schemas.",
+      "anyOf": [
+        {
+          "required": [
+            "s1:datatake_id"
+          ]
+        },
+        {
+          "required": [
+            "s1:instrument_configuration_ID"
+          ]
+        },
+        {
+          "required": [
+            "s1:orbit_source"
+          ]
+        },
+        {
+          "required": [
+            "s1:slice_number"
+          ]
+        },
+        {
+          "required": [
+            "s1:total_slices"
+          ]
+        }
+      ]
+    },
+    "fields": {
+      "$comment": " Don't require fields here, do that above in the corresponding schema.",
+      "type": "object",
+      "properties": {
+        "s1:datatake_id": {
+          "type": "string"
+        },
+        "s1:instrument_configuration_ID": {
+          "type": "string"
+        },
+        "s1:orbit_source": {
+          "type": "string"
+        },
+        "s1:processing_datetime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "s1:product_identifier": {
+          "type": "string"
+        },
+        "s1:product_timeliness": {
+          "type": "string"
+        },
+        "s1:resolution": {
+          "type": "string"
+        },
+        "s1:slice_number": {
+          "type": "string"
+        },
+        "s1:total_slices": {
+          "type": "string"
+        },
+        "s1:processing_level": {
+          "type": "string"
+        },
+        "s1:shape": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "integer"
+          }
+        }
+      },
+      "patternProperties": {
+        "^(?!s1:)": {}
+      },
+      "additionalProperties": false
+    }
+  }
+}
