@@ -1,16 +1,19 @@
-import docker
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dotenv import load_dotenv
+import logging
 import os
+import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
-import pandas as pd
-import logging
-import click
-import shutil
 from subprocess import run
-from sar_pipeline.utils.general import log_timing
+
 import backoff
+import click
+import docker
+import numpy as np
+import pandas as pd
+from dotenv import load_dotenv
+
+from sar_pipeline.utils.general import log_timing
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -263,6 +266,13 @@ def run_docker_container(
     "for example: 'dem-type:REMA/product-version:1-0-0_...'"
     "Each arg, value pair should be separated by a colon and each pair should be separated by an forward slash.",
 )
+@click.option(
+    "--chunking-config",
+    type=str,
+    default="1,0,-1",
+    help="Chunking configuration for running the list of scenes in chunks in the format 'num_chunks,first_chunk_number,last_chunk_number'."
+    " The default value '1,0,-1' means no chunking is applied. For example '4,0,3' would run the scenes in 4 chunks, starting from chunk 0 to chunk 3.",
+)
 @log_timing
 def run_jobs(
     scenes_csv,
@@ -277,6 +287,7 @@ def run_jobs(
     general_log_file,
     container_timeout,
     extra_commands,
+    chunking_config,
 ):
 
     if general_log_file != "":
@@ -358,41 +369,67 @@ def run_jobs(
     scenes_df = pd.read_csv(scenes_csv)
     scenes = scenes_df["scene"].tolist()
 
-    try:
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                executor.submit(
-                    run_docker_container,
-                    scene,
-                    s3_bucket,
-                    s3_project_folder,
-                    processed_scene_tracking_file_s3_folder,
-                    make_existing_products,
-                    image_name,
-                    start_time.strftime("%Y-%m-%d_%H-%M-%S"),
-                    clear_intermediate_files,
-                    delete_local_outputs,
-                    int(container_timeout),
-                    extra_commands,
-                )
-                for scene in scenes
-            ]
+    num_chunks, first_chunk, last_chunk = map(int, chunking_config.split(","))
+    if last_chunk == -1:
+        last_chunk = num_chunks - 1
+    chunks = [
+        list(ch)
+        for ch in np.array_split(scenes, num_chunks)[first_chunk : last_chunk + 1]
+    ]
+    logger.info(f"Total scenes to process: {len(scenes)}")
+    logger.info("**NOTE**: CHUNKS USE ZERO INDEXING...")
+    logger.info(
+        "Initial number of chunks: "
+        + str(num_chunks)
+        + ", Processing from chunk "
+        + str(first_chunk)
+        + " to "
+        + str(last_chunk)
+    )
+    logger.info(
+        f"Processing data in total chunks number: {len(chunks)} chunk{ 's' if len(chunks) > 1 else '' }"
+    )
 
-            for future in as_completed(futures):
-                result = future.result()
-                if result:
-                    name, code = result
-                    if code == 0:
-                        success.append(name)
-                        status = "SUCCESS"
-                        logger.info(f"Job for scene {name} completed successfully.")
-                    else:
-                        failed.append(name)
-                        status = "FAILED"
-                        logger.error(
-                            f"Job for scene {name} failed with status code {code}."
-                        )
-                    logger.info(f"Scene: {name}, Status: {status}")
+    try:
+        for i, chunk in enumerate(chunks):
+            logger.info(
+                f"Processing chunk index {i} of {len(chunks)} with {len(chunk)} scenes."
+            )
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = [
+                    executor.submit(
+                        run_docker_container,
+                        scene,
+                        s3_bucket,
+                        s3_project_folder,
+                        processed_scene_tracking_file_s3_folder,
+                        make_existing_products,
+                        image_name,
+                        start_time.strftime("%Y-%m-%d_%H-%M-%S"),
+                        clear_intermediate_files,
+                        delete_local_outputs,
+                        int(container_timeout),
+                        extra_commands,
+                    )
+                    for scene in chunk
+                ]
+
+                for future in as_completed(futures):
+                    result = future.result()
+                    if result:
+                        name, code = result
+                        if code == 0:
+                            success.append(name)
+                            status = "SUCCESS"
+                            logger.info(f"Job for scene {name} completed successfully.")
+                        else:
+                            failed.append(name)
+                            status = "FAILED"
+                            logger.error(
+                                f"Job for scene {name} failed with status code {code}."
+                            )
+                        logger.info(f"Scene: {name}, Status: {status}")
+            logger.info(f"Finished processing chunk index {i} of {len(chunks)}.")
 
         end_time = datetime.now()
         logger.info("Job ended at: " + end_time.strftime("%Y-%m-%d %H-%M-%S"))
