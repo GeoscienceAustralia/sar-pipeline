@@ -6,6 +6,7 @@ import shapely
 import re
 import os
 import json
+import socket
 
 from sar_pipeline import PROJECT_ROOT_PATH
 
@@ -35,7 +36,16 @@ from sar_pipeline.pipelines.isce3_rtc.metadata.odc import (
     make_rtc_s1_static_product_browse_url,
 )
 from sar_pipeline.pipelines.isce3_rtc.metadata.xml import XMLMapper
-from sar_pipeline.utils.aws import find_s3_filepaths_from_suffixes, S3Util
+from sar_pipeline.pipelines.isce3_rtc.metadata.filetypes import (
+    PRODUCT_COMMIT_MARKER_SUFFIX,
+    UPLOAD_LAST_SUFFIXES,
+)
+from sar_pipeline.utils.aws import (
+    find_s3_filepaths_from_suffixes,
+    make_upload_claim_key,
+    S3Util,
+    UPLOAD_CLAIM_STALE_AFTER_SECONDS,
+)
 from sar_pipeline.utils.general import log_timing
 from sar_pipeline.utils.spatial import (
     write_burst_geometries_to_geojson,
@@ -732,6 +742,89 @@ def get_data_for_scene_and_make_run_config(
     RTC_RUN_CONFIG.save(run_config_save_path)
 
 
+def upload_burst_product_with_claim(
+    s3_uploader: S3Util,
+    burst_folder: Path,
+    s3_bucket: str,
+    s3_project_folder: str | Path,
+    s3_product_folder: str,
+    scene: str,
+    make_existing_products: bool,
+    stale_after_seconds: float = UPLOAD_CLAIM_STALE_AFTER_SECONDS,
+) -> bool:
+    """Upload a burst product folder while holding an upload claim, so that
+    concurrent runs for the same product cannot interleave their uploads and
+    leave a mix of files from different runs.
+
+    Parameters
+    ----------
+    s3_uploader : S3Util
+        S3 utility used for the upload
+    burst_folder : Path
+        Local folder containing the burst product files
+    s3_bucket : str
+        Bucket to upload to
+    s3_project_folder : str | Path
+        Project folder in the bucket. The claim is written under
+        {s3_project_folder}/monitoring/upload_claims/
+    s3_product_folder : str
+        Prefix the product files are uploaded to
+    scene : str
+        The scene being processed, recorded in the claim
+    make_existing_products : bool
+        If False, the upload is skipped when the product commit marker already
+        exists once the claim is held.
+    stale_after_seconds : float, optional
+        Age after which another run's claim may be taken over.
+
+    Returns
+    -------
+    bool
+        True if the product was uploaded, False if it was skipped because
+        another run holds the claim or the product already exists.
+    """
+    claim_key = make_upload_claim_key(s3_project_folder, s3_product_folder)
+    owner = {"scene": scene, "hostname": socket.gethostname(), "pid": os.getpid()}
+    claim_etag = s3_uploader.acquire_upload_claim(
+        s3_bucket, claim_key, owner, stale_after_seconds=stale_after_seconds
+    )
+    if claim_etag is None:
+        logger.warning(
+            f"Skipping upload, another run is uploading this product : {s3_product_folder}"
+        )
+        return False
+
+    try:
+        if not make_existing_products:
+            # another run may have finished uploading between the earlier
+            # existence check and acquiring the claim
+            product_marker_file = find_s3_filepaths_from_suffixes(
+                bucket_name=s3_bucket,
+                s3_folder=s3_product_folder,
+                suffixes=[PRODUCT_COMMIT_MARKER_SUFFIX],
+                warn_credentials=False,
+            )
+            if len(product_marker_file[PRODUCT_COMMIT_MARKER_SUFFIX]) > 0:
+                logger.warning(
+                    f"Skipping upload, the product was created by another run : {s3_product_folder}"
+                )
+                return False
+
+        logger.info(f"uploading files in {burst_folder} to S3.")
+        # upload the .h5 and then the stac-item.json (commit marker) last so
+        # a partial upload is never mistaken for a complete product
+        s3_uploader.push_files_in_folder_to_s3(
+            burst_folder,
+            s3_bucket,
+            s3_product_folder,
+            last_suffixes=UPLOAD_LAST_SUFFIXES,
+        )
+        return True
+    finally:
+        # a crash or kill skips this, leaving the claim to go stale
+        s3_uploader.release_upload_claim(s3_bucket, claim_key, claim_etag)
+
+
 @click.command()
 @click.option(
     "--results-folder",
@@ -834,6 +927,16 @@ def get_data_for_scene_and_make_run_config(
     "RTC_S1 -> {processed_scene_tracking_file_s3_folder}/{acquisition_mode}/processed_scenes "
     "RTC_S1_STATIC -> {processed_scene_tracking_file_s3_folder}/{acquisition_mode}/processed_scenes_static_layers",
 )
+@click.option(
+    "--upload-claim-stale-after-mins",
+    required=False,
+    default=UPLOAD_CLAIM_STALE_AFTER_SECONDS / 60,
+    type=float,
+    help="Before uploading a burst product, a claim object is written to "
+    "{s3_project_folder}/monitoring/upload_claims/ so that concurrent runs "
+    "for the same product do not interleave their uploads. A claim older than "
+    "this many minutes is assumed to be from a crashed run and is taken over.",
+)
 @log_timing
 def make_metadata_and_upload_bursts(
     results_folder,
@@ -850,6 +953,7 @@ def make_metadata_and_upload_bursts(
     validate_stac,
     skip_upload_processed_scene_tracking_file,
     processed_scene_tracking_file_s3_folder,
+    upload_claim_stale_after_mins,
 ):
     """
     Generate STAC metadata for OPERA RTC burst products, reorganise and standardise product filenames,
@@ -1048,14 +1152,14 @@ def make_metadata_and_upload_bursts(
                 f"Checking if product already exist before uploading for burst : {burst_stac_manager.burst_id}"
             )
             logger.info(
-                f"Searching for .h5 file in : {burst_stac_manager.burst_s3_product_folder}"
+                f"Searching for {PRODUCT_COMMIT_MARKER_SUFFIX} file in : {burst_stac_manager.burst_s3_product_folder}"
             )
-            product_h5_file = find_s3_filepaths_from_suffixes(
+            product_marker_file = find_s3_filepaths_from_suffixes(
                 bucket_name=s3_bucket,
                 s3_folder=burst_stac_manager.burst_s3_product_folder,
-                suffixes=[".h5"],
+                suffixes=[PRODUCT_COMMIT_MARKER_SUFFIX],
             )
-            if len(product_h5_file[".h5"]) > 0:
+            if len(product_marker_file[PRODUCT_COMMIT_MARKER_SUFFIX]) > 0:
                 logger.warning("The burst product already exists.")
                 if not make_existing_products:
                     logging.info(
@@ -1070,10 +1174,21 @@ def make_metadata_and_upload_bursts(
                         "Existing products will be replaced as --make-existing-products is set."
                     )
 
-            logger.info(f"uploading files for {burst_stac_manager.burst_id} to S3.")
-            S3UPLOADER.push_files_in_folder_to_s3(
-                burst_folder, s3_bucket, burst_stac_manager.burst_s3_product_folder
+            uploaded = upload_burst_product_with_claim(
+                s3_uploader=S3UPLOADER,
+                burst_folder=burst_folder,
+                s3_bucket=s3_bucket,
+                s3_project_folder=s3_project_folder,
+                s3_product_folder=burst_stac_manager.burst_s3_product_folder,
+                scene=scene,
+                make_existing_products=make_existing_products,
+                stale_after_seconds=upload_claim_stale_after_mins * 60,
             )
+            if not uploaded:
+                logger.info(
+                    f"Browse link for burst products : {burst_stac_manager.burst_product_browse_url}"
+                )
+                continue
             logger.info(
                 f"Browse link for burst products : {burst_stac_manager.burst_product_browse_url}"
             )

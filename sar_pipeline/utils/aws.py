@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+import json
 import logging
 import mimetypes
 import os
@@ -21,6 +23,44 @@ REQUIRED_ENV_VARIABLES = [
     "AWS_SECRET_ACCESS_KEY",
     "AWS_SESSION_TOKEN",
 ]
+
+# An upload claim older than this is assumed to belong to a crashed run and
+# may be taken over by another run.
+UPLOAD_CLAIM_STALE_AFTER_SECONDS = 2 * 60 * 60
+
+# Error codes returned by S3 when a conditional write loses
+_CLAIM_CONFLICT_CODES = ("PreconditionFailed", "ConditionalRequestConflict")
+_NOT_FOUND_CODES = ("404", "NoSuchKey", "NotFound")
+
+
+def _client_error_code(e: ClientError) -> str:
+    return str(e.response.get("Error", {}).get("Code", ""))
+
+
+def make_upload_claim_key(s3_project_folder: str | Path, s3_product_folder: str) -> str:
+    """Make the s3 key of the upload claim for a product folder. Claims are
+    kept outside the product folder, under
+    {s3_project_folder}/monitoring/upload_claims/, mirroring the rest of the
+    product prefix.
+
+    Parameters
+    ----------
+    s3_project_folder : str | Path
+        The project folder within the bucket. e.g. baseline
+    s3_product_folder : str
+        The product folder (prefix) within the bucket. e.g.
+        baseline/ga_s1_nrb_iw_vv_vh_1/t070_149815_iw3/2022/01/01/20220101T124745
+
+    Returns
+    -------
+    str
+        e.g. baseline/monitoring/upload_claims/ga_s1_nrb_iw_vv_vh_1/t070_149815_iw3/2022/01/01/20220101T124745.json
+    """
+    project = str(s3_project_folder).strip("/")
+    product = str(s3_product_folder).strip("/")
+    if product.startswith(project + "/"):
+        product = product[len(project) + 1 :]
+    return f"{project}/monitoring/upload_claims/{product}.json"
 
 
 def check_aws_environment_credentials(verbose=False) -> list[str]:
@@ -176,9 +216,15 @@ class S3Util:
         upload_folder: bool = False,
         exclude_extensions: list[str] = [],
         exclude_files: list[str] = [],
+        last_suffixes: tuple[str, ...] = (),
     ):
         """Upload the files in a local folder to an S3 bucket. The subfolder
         structure in the specified folder is maintained in s3.
+
+        Files whose name ends with one of `last_suffixes` are uploaded after
+        all other files, in the order the suffixes are given. This allows a
+        file to act as a commit marker: if it exists in s3, every other file
+        in the folder was uploaded before it.
 
         Parameters
         ----------
@@ -197,10 +243,14 @@ class S3Util:
             List of file extensions to exclude, by default []
         exclude_files : list[str], optional
             List of files to exclude, by default []
+        last_suffixes : tuple[str, ...], optional
+            Filename suffixes to upload after all other files, in the order
+            given. By default () and files are uploaded in os.walk order.
         """
 
         logger.info(f"Attempting to upload to S3 bucket : {s3_bucket}")
 
+        local_paths = []
         for root, dirs, files in os.walk(src_folder):
             for file in files:
                 if exclude_extensions:
@@ -209,27 +259,152 @@ class S3Util:
                         continue
                 if file in exclude_files:
                     continue
-                local_path = Path(root) / Path(file)
-                relative_path = Path(os.path.relpath(local_path, src_folder))
-                if not upload_folder:
-                    s3_key = Path(
-                        os.path.join(s3_prefix, relative_path).replace("\\", "/")
-                    )
-                else:
-                    folder = Path(src_folder).name
-                    s3_key = Path(
-                        os.path.join(s3_prefix, folder, relative_path).replace(
-                            "\\", "/"
-                        )
-                    )
-                file_mime_type, _ = mimetypes.guess_type(local_path)
-                self.s3.upload_file(
-                    str(local_path),
-                    str(s3_bucket),
-                    str(s3_key),
-                    ExtraArgs={"ContentType": file_mime_type or "binary/octet-stream"},
+                local_paths.append(Path(root) / Path(file))
+
+        def _upload_rank(local_path: Path) -> int:
+            # files not matching any suffix keep rank 0 and are uploaded first
+            for i, suffix in enumerate(last_suffixes):
+                if local_path.name.endswith(suffix):
+                    return i + 1
+            return 0
+
+        # sorted is stable, so the os.walk order is kept within each rank
+        for local_path in sorted(local_paths, key=_upload_rank):
+            relative_path = Path(os.path.relpath(local_path, src_folder))
+            if not upload_folder:
+                s3_key = Path(os.path.join(s3_prefix, relative_path).replace("\\", "/"))
+            else:
+                folder = Path(src_folder).name
+                s3_key = Path(
+                    os.path.join(s3_prefix, folder, relative_path).replace("\\", "/")
                 )
-                logger.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
+            file_mime_type, _ = mimetypes.guess_type(local_path)
+            self.s3.upload_file(
+                str(local_path),
+                str(s3_bucket),
+                str(s3_key),
+                ExtraArgs={"ContentType": file_mime_type or "binary/octet-stream"},
+            )
+            logger.info(f"Uploaded {local_path} to s3://{s3_bucket}/{s3_key}")
+
+    def acquire_upload_claim(
+        self,
+        s3_bucket: str,
+        claim_key: str,
+        owner: dict,
+        stale_after_seconds: float = UPLOAD_CLAIM_STALE_AFTER_SECONDS,
+    ) -> str | None:
+        """Claim the right to upload a product using an S3 conditional write,
+        so concurrent runs do not interleave their uploads to the same keys.
+
+        The claim object is created with `If-None-Match: *`, so only one run can
+        create it. If a claim already exists and is older than
+        `stale_after_seconds` (e.g. its owner was killed), it is taken over
+        with `If-Match: <etag>`, so only one run can take it over.
+
+        Parameters
+        ----------
+        s3_bucket : str
+            S3 bucket
+        claim_key : str
+            Key of the claim object. See `make_upload_claim_key`.
+        owner : dict
+            Information about the claiming run, written to the claim body.
+        stale_after_seconds : float, optional
+            Age after which an existing claim may be taken over.
+
+        Returns
+        -------
+        str | None
+            The ETag of the claim object if the claim was acquired, else None.
+
+        Raises
+        ------
+        ClientError
+            For errors other than losing the conditional write.
+        """
+        body = json.dumps(
+            {**owner, "claimed_at": datetime.now(timezone.utc).isoformat()}
+        ).encode("utf-8")
+        put_args = dict(
+            Bucket=s3_bucket,
+            Key=claim_key,
+            Body=body,
+            ContentType="application/json",
+        )
+
+        # two attempts in case the existing claim is deleted while we check it
+        for _ in range(2):
+            try:
+                response = self.s3.put_object(**put_args, IfNoneMatch="*")
+                logger.info(f"Acquired upload claim : s3://{s3_bucket}/{claim_key}")
+                return response["ETag"]
+            except ClientError as e:
+                if _client_error_code(e) not in _CLAIM_CONFLICT_CODES:
+                    raise
+
+            # the claim exists. Check if it is stale
+            try:
+                head = self.s3.head_object(Bucket=s3_bucket, Key=claim_key)
+            except ClientError as e:
+                if _client_error_code(e) in _NOT_FOUND_CODES:
+                    logger.info("Upload claim was released while checking it, retrying")
+                    continue
+                raise
+
+            claim_age = (
+                datetime.now(timezone.utc) - head["LastModified"]
+            ).total_seconds()
+            if claim_age < stale_after_seconds:
+                logger.warning(
+                    f"Upload claim is held by another run ({claim_age:.0f}s old) : "
+                    f"s3://{s3_bucket}/{claim_key}"
+                )
+                return None
+
+            logger.warning(
+                f"Taking over stale upload claim ({claim_age:.0f}s old) : "
+                f"s3://{s3_bucket}/{claim_key}"
+            )
+            try:
+                response = self.s3.put_object(**put_args, IfMatch=head["ETag"])
+                return response["ETag"]
+            except ClientError as e:
+                if _client_error_code(e) in _CLAIM_CONFLICT_CODES + _NOT_FOUND_CODES:
+                    logger.warning("Another run took over the stale claim first")
+                    return None
+                raise
+
+        return None
+
+    def release_upload_claim(self, s3_bucket: str, claim_key: str, etag: str):
+        """Delete an upload claim if it is still the one we wrote (its ETag
+        matches). Errors are logged and not raised, as an unreleased claim
+        only delays other runs until it goes stale.
+
+        Parameters
+        ----------
+        s3_bucket : str
+            S3 bucket
+        claim_key : str
+            Key of the claim object
+        etag : str
+            ETag returned by `acquire_upload_claim`
+        """
+        try:
+            head = self.s3.head_object(Bucket=s3_bucket, Key=claim_key)
+            if head["ETag"] != etag:
+                logger.warning(
+                    f"Upload claim was taken over by another run, not releasing : "
+                    f"s3://{s3_bucket}/{claim_key}"
+                )
+                return
+            self.s3.delete_object(Bucket=s3_bucket, Key=claim_key)
+            logger.info(f"Released upload claim : s3://{s3_bucket}/{claim_key}")
+        except ClientError as e:
+            logger.warning(
+                f"Could not release upload claim s3://{s3_bucket}/{claim_key} : {e}"
+            )
 
     @staticmethod
     def s3_bucket_has_public_read_access(s3_bucket: str) -> bool:
