@@ -66,6 +66,39 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def _query_scene_metadata(scene: str) -> tuple[list, str]:
+    """Query the scene metadata from the CDSE, falling back to the ASF if the
+    CDSE query fails or returns no results.
+
+    Parameters
+    ----------
+    scene : str
+        scene id. E.g. S1A_IW_SLC__1SSH_20220101T124744_20220101T124814_041267_04E7A2_1DAD
+
+    Returns
+    -------
+    tuple[list, str]
+        The scene search results and the source of the metadata ("CDSE" or "ASF").
+    """
+    try:
+        # Query the CDSE to make sure the scene exists. The cdsetool query is
+        # lazy, the request is made when results are accessed. Materialise the
+        # results here so any failure falls back to the ASF.
+        logger.info(f"Searching CDSE for scene metadata : {scene}")
+        scene_results = list(query_scene_from_cdse(scene))
+        if len(scene_results) == 0:
+            raise NonSingleSceneResultError(
+                f"No results found on the CDSE for scene id : {scene}"
+            )
+        return scene_results, "CDSE"
+    except Exception as e:
+        # Fallback to ASF
+        logger.error(f"CDSE Query failed. Error : {e}")
+        logger.info(f"Falling back to ASF search for scene metadata : {scene}")
+        logger.warning(f"ASF may not have the most recent data available from the CDSE")
+        return query_scene_from_asf(scene), "ASF"
+
+
 @click.command()
 @click.option(
     "--scene",
@@ -344,16 +377,7 @@ def get_data_for_scene_and_make_run_config(
     if backscatter_convention not in ["gamma0", "sigma0", "beta0"]:
         raise ValueError("backscatter_convention must be one of gamma0, sigma0, beta0")
 
-    try:
-        # Query the CDSE to make sure the scene exists
-        logger.info(f"Searching CDSE for scene metadata : {scene}")
-        scene_results, metadata_src = query_scene_from_cdse(scene), "CDSE"
-    except Exception as e:
-        # Fallback to ASF
-        logger.error(f"CDSE Query failed. Error : {e}")
-        logger.info(f"Falling back to ASF search for scene metadata : {scene}")
-        logger.warning(f"ASF may not have the most recent data available from the CDSE")
-        scene_results, metadata_src = query_scene_from_asf(scene), "ASF"
+    scene_results, metadata_src = _query_scene_metadata(scene)
 
     if len(scene_results) != 1:
         raise NonSingleSceneResultError(
