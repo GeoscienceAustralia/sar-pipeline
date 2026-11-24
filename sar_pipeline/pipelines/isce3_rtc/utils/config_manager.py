@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 BaseConfigType = Literal["S1_RTC_IW.yaml", "S1_RTC_STATIC_IW.yaml"]
 VALID_BASE_CONFIGS = typing.get_args(BaseConfigType)
 BASE_CONFIGS_FOLDER = Path(__file__).parents[3] / "configs/isce3_rtc"
+NUM_WORKERS_KEY = "runconfig.groups.processing.num_workers"
 
 
 class RTCConfigManager:
@@ -72,6 +73,16 @@ class RTCConfigManager:
             data = data[k]  # Move deeper
 
         data[keys[-1]] = value  # Set the final key
+
+    def set_num_workers(self, num_workers: int):
+        """Set the number of parallel burst workers used by RTC. Must be a positive
+        integer. Leaving the RTC default of 0 makes RTC use os.cpu_count(), which
+        is the host core count when running in a container."""
+        if isinstance(num_workers, bool) or not isinstance(num_workers, int):
+            raise ValueError(f"num_workers must be a positive integer : {num_workers}")
+        if num_workers < 1:
+            raise ValueError(f"num_workers must be a positive integer : {num_workers}")
+        self.set(NUM_WORKERS_KEY, num_workers)
 
     def save(self, save_path):
         """Write the updated data back while preserving formatting."""

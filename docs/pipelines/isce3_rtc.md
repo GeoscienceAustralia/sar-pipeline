@@ -138,6 +138,9 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 --skip-validate-stac=false
 --skip-upload-processed-scene-tracking-file=false
 --skip-rtc=false
+# RTC parallelism
+--num-workers="auto" # or a positive integer
+--rtc-memory-per-burst-gib=8
 # Required inputs for linking RTC_S1_STATIC to RTC_S1
 # Assumes that a RTC_S1_STATIC products exist for all RTC_S1 bursts being processed
 --link-static-layers=false           
@@ -164,6 +167,8 @@ At runtime, the script [run_isce3_rtc_pipeline.sh](../../scripts/run_isce3_rtc_p
 - `orbit-data-source` -> Where to download the orbit files.  Can be single string or a list of preferences separated by a space. Can be any of `AUS_COP_HUB`, `ASF` or `CDSE`. The default is (`AUS_COP_HUB` `ASF` `CDSE`).
 - `skip-validate-stac` -> To skip validation of the created STAC doc within the code. If this is not set and the stac is invalid, products will not be uploaded. By default we want to validate the stac.
 - `skip-upload-processed-scene-tracking-file` -> By default a small .json file (`{scene}.json`) is uploaded to a monitoring subfolder of the provided `s3_project_folder`. These can be easily parsed to check for which scenes have been processed. Setting this skips the upload of that file. By default, the file is uploaded to: RTC_S1 -> `{s3_project_folder}/monitoring/processed_scenes` and RTC_S1_STATIC -> `{s3_project_folder}/monitoring/processed_scenes_static_layers` 
+- `num-workers` -> Number of parallel burst processes used by RTC (`num_workers` in the run config). `auto` (default) sizes it from the container's cgroup CPU and memory limits: `min(cpu_limit, memory_limit / rtc-memory-per-burst-gib)`, at least 1. Otherwise a positive integer. Can also be set with the `RTC_NUM_WORKERS` environment variable. RTC processes each burst fully in memory, so the memory limit is usually the binding constraint.
+- `rtc-memory-per-burst-gib` -> Expected peak memory (GiB) of a single RTC burst process, used when `num-workers` is `auto`. Default 8. Can also be set with the `RTC_MEMORY_PER_BURST_GIB` environment variable.
 - `link-static-layers` -> Flag to link RTC_S1_STATIC products to RTC_S1 in stac metadata. The RTC_S1_STATIC products must exist for the given bursts. 
 - `linked-static-layers-s3-bucket` -> bucket where RTC_S1_STATIC products are stored
 - `linked-static-layers-s3-project-folder` -> folder within bucket where RTC_S1_STATIC products are stored
